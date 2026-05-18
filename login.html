@@ -22,6 +22,7 @@
 <!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
 <script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script src="/js/supabase-config.js"></script>
+<script src="/error-tracker.js" defer></script>
 </head>
 
 <body>
@@ -265,8 +266,17 @@
 
       setTimeout(() => { window.location.href = redirect; }, 700);
     } catch (err) {
-      const msg = err.message || 'Sign in failed';
-      showError(msg.includes('Invalid') ? 'Invalid email or password. Try again.' : msg);
+      let msg = err.message || 'Sign in failed';
+      if (msg.toLowerCase().includes('invalid login credentials') || msg.toLowerCase().includes('invalid')) {
+        msg = 'Invalid email or password. Please try again.';
+      } else if (msg.toLowerCase().includes('email not confirmed')) {
+        msg = 'Please check your email and click the confirmation link before signing in.';
+      } else if (msg.toLowerCase().includes('429') || msg.toLowerCase().includes('rate')) {
+        msg = 'Too many login attempts. Please wait a minute and try again.';
+      } else if (err.status === 401) {
+        msg = 'Authentication failed. Please verify your credentials or contact support on 08166938327.';
+      }
+      showError(msg);
       setLoading(false);
     }
   });

@@ -22,6 +22,7 @@
 <!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
 <script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script src="/js/supabase-config.js"></script>
+<script src="/error-tracker.js" defer></script>
 </head>
 
 <body class="min-h-screen antialiased">
@@ -305,20 +306,26 @@ form.addEventListener('submit', async (e) => {
 
     await client.auth.signInWithPassword({ email, password });
 
+    const fullName = (fd.get('full_name')||'').trim();
+    const nameParts = fullName.split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     const { error: pErr } = await client.from('profiles').upsert({
-      id: userId, email, full_name: fd.get('full_name'), phone: fd.get('phone'), role: 'member',
+      id: userId, email, first_name: firstName, last_name: lastName,
+      phone: fd.get('phone'), role: 'member',
       date_of_birth: fd.get('date_of_birth')||null, gender: fd.get('gender')||null, address: fd.get('address')||null,
       nok_name: fd.get('nok_name'), nok_relationship: fd.get('nok_relationship'), nok_phone: fd.get('nok_phone'),
       nok_address: fd.get('nok_address')||null, health_notes: fd.get('health_notes')||null,
       waiver_signed_at: fd.get('waiver_signed') ? new Date().toISOString() : null, is_active: true,
-    }, { onConflict: 'id' }).select().single().select().single();
+    }, { onConflict: 'id' });
     if (pErr) throw pErr;
 
     // Only link to gym if gym was found in URL
     if (gym && gym.id) {
       const { error: lErr } = await client.from('gym_member_links').upsert({
         gym_id: gym.id, user_id: userId, onboarding_method: 'self_signup'
-      }, { onConflict: 'gym_id,user_id' }).select().single();
+      }, { onConflict: 'gym_id,user_id' });
       if (lErr) throw lErr;
     }
 
@@ -326,7 +333,24 @@ form.addEventListener('submit', async (e) => {
     setTimeout(() => window.location.href = '/login.html?welcome=1', 2000);
   } catch (err) {
     submitted = false; // allow retry on error
-    showError(err.message || 'Something went wrong. Please try again.');
+    let msg = err.message || 'Something went wrong. Please try again.';
+    // Translate common errors into actionable messages
+    if (msg.toLowerCase().includes('signups not allowed') || 
+        msg.toLowerCase().includes('email signups are disabled') ||
+        (err.status === 401 && msg.toLowerCase().includes('signup'))) {
+      msg = 'Sign-ups are currently disabled. Please contact the gym admin on 08166938327 or WhatsApp to be added.';
+    } else if (msg.toLowerCase().includes('already registered')) {
+      msg = 'This email is already registered. Please sign in instead.';
+    } else if (msg.toLowerCase().includes('weak password') || msg.toLowerCase().includes('password')) {
+      msg = 'Password must be at least 6 characters.';
+    } else if (msg.toLowerCase().includes('invalid email')) {
+      msg = 'Please enter a valid email address.';
+    } else if (msg.toLowerCase().includes('429') || msg.toLowerCase().includes('rate')) {
+      msg = 'Too many attempts. Please wait a moment and try again.';
+    } else if (err.status === 401 || msg.toLowerCase().includes('unauthorized')) {
+      msg = 'Authentication service unavailable. Please contact support at 08166938327.';
+    }
+    showError(msg);
     setLoading(false);
   }
 });
