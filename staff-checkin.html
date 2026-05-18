@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080e1c">
+<title>GymFlow — Staff Check-In</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>
+// Theme init — before render to prevent flash
+(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+
+<body class="gf-scanner-page min-h-screen antialiased">
+
+<div id="pageLoader" class="gf-page-loader">
+  <div class="loader-logo">Gym<em>Flow</em></div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<div class="gf-header gf-glass">
+  <h1>🛡️ Staff Check-In</h1>
+  <p>Scan member QR codes to verify and check in</p>
+  <div class="gf-staff-badge" id="staffBadge" style="display:none">
+    <span>👤</span>
+    <span id="staffName">Loading...</span>
+  </div>
+</div>
+
+<div class="gf-scanner-wrap gf-lift">
+  <div id="reader"></div>
+  <button type="button" class="gf-cam-toggle" id="camToggle" style="display:none">🔄 Switch</button>
+</div>
+
+<div class="gf-manual gf-glass">
+  <label for="manualInput">Or enter Member ID / Phone / Email</label>
+  <input aria-label="Manual member lookup" type="search" id="manualInput" placeholder="Search member...">
+  <button type="button" id="manualBtn" data-action="manualCheckIn" data-args="">Find & Check In</button>
+</div>
+
+<div class="gf-stats gf-animate-slide-up" id="statsBar">
+  <div class="gf-stat gf-lift">
+    <div class="num" id="statToday">0</div>
+    <div class="lbl">Today</div>
+  </div>
+  <div class="gf-stat gf-lift">
+    <div class="num" id="statActive">0</div>
+    <div class="lbl">Active Now</div>
+  </div>
+  <div class="gf-stat gf-lift">
+    <div class="num" id="statFlagged">0</div>
+    <div class="lbl">Flagged</div>
+  </div>
+</div>
+
+<div class="gf-recent" id="recentSection">
+  <h3>Session Check-ins</h3>
+  <div id="recentList"></div>
+</div>
+
+<a href="/admin-dashboard.html" class="gf-back-link">← Back to Admin</a>
+
+<!-- Result Overlay -->
+<div class="gf-result-overlay" id="resultOverlay">
+  <div class="gf-result-card gf-glass" id="resultCard">
+    <div class="gf-result-icon" id="resultIcon">✓</div>
+    <h2 id="resultTitle">Welcome!</h2>
+    <p id="resultMessage">Member checked in successfully.</p>
+    <div class="meta" id="resultMeta"></div>
+    <div class="actions" id="resultActions">
+      <button type="button" class="primary" data-action="closeResult" data-args="">Scan Next</button>
+      <button type="button" class="secondary" data-action="goAdmin" data-args="">Dashboard</button>
+    </div>
+    <div class="gf-override" id="overrideSection" style="display:none">
+      <p>Staff Override — Member has issues but you can allow entry</p>
+      <button type="button" class="danger" data-action="overrideCheckIn" data-args="">✓ Allow Entry Anyway</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Use the singleton client created by /js/supabase-config.js.
+let client = null;
+const clientReady = (window.GF_SUPABASE_READY || Promise.reject(new Error('Supabase loader missing')))
+  .then(function(c) { client = c; return c; })
+  .catch(function(err) { console.error('[GF] Supabase init failed:', err); return null; });
+
+let gym = null;
+let staff = null;
+let html5QrCode = null;
+let currentCamera = 'environment';
+let isProcessing = false;
+let pendingOverride = null; // Store data for staff override
+let sessionCheckins = [];
+
+function getGymSlug() {
+  const host = window.location.hostname;
+  if (host.includes('localhost') || host.includes('127.0.0.1') || host.includes('netlify.app')) return 'demo-gym';
+  return host.split('.')[0];
+}
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `gf-toast gf-toast-${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(()=>el.remove(),400); }, 3000);
+}
+
+async function init() {
+    try {
+  // Verify staff is logged in
+  const { data:{ user } } = await client.auth.getUser();
+  if (!user) {
+    toast('Please log in as staff first', 'error');
+    setTimeout(() => window.location.href = '/login.html?redirect=/staff-checkin.html', 2000);
+    return;
+  }
+
+  // Load gym
+  const slug = getGymSlug();
+  const { data:gymData } = await client.from('gyms').select('*').eq('slug', slug).single();
+  if (!gymData) { toast('Gym not found', 'error'); return; }
+  gym = gymData;
+
+  // Verify staff role
+  const { data:staffLink } = await client
+    .from('gym_staff_links')
+    .select('role, profiles(full_name)')
+    .eq('gym_id', gym.id)
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!staffLink) {
+    toast('You are not authorized staff for this gym', 'error');
+    setTimeout(() => window.location.href = '/member-dashboard.html', 2000);
+    return;
+  }
+
+  staff = { ...staffLink, user_id: user.id };
+  document.getElementById('staffBadge').style.display = 'inline-flex';
+  document.getElementById('staffName').textContent = staffLink.profiles?.full_name || 'Staff';
+
+  // Init scanner
+  initScanner();
+  loadSessionStats();
+
+  } catch(err) { console.error('Init error:', err); if(window.toast) toast(err.message||'Failed to load','error'); }
+}
+
+function initScanner() {
+  html5QrCode = new Html5Qrcode('reader');
+  const config = { fps: 10, qrbox: { width: 260, height: 260 }, aspectRatio: 1.0, formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ] };
+  html5QrCode.start({ facingMode: currentCamera }, config, onScanSuccess, onScanFailure)
+    .then(() => { document.getElementById('camToggle').style.display = 'block'; })
+    .catch(err => { toast('Camera denied — use manual search', 'error'); });
+}
+
+function onScanSuccess(decodedText) {
+  if (isProcessing) return;
+  isProcessing = true;
+  html5QrCode.pause(true);
+
+  let qrData;
+  try { qrData = JSON.parse(decodedText); }
+  catch { qrData = { member_id: decodedText.trim(), gym_id: gym.id }; }
+
+  processCheckIn(qrData);
+}
+
+function onScanFailure(error) { /* ignore */ }
+
+document.getElementById('camToggle').addEventListener('click', async () => {
+  currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+  await html5QrCode.stop();
+  initScanner();
+});
+
+async function manualCheckIn() {
+  const input = document.getElementById('manualInput');
+  const btn = document.getElementById('manualBtn');
+  const query = input.value.trim();
+  if (!query) { toast('Enter search term', 'error'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="gf-spinner"></span> Searching...';
+
+  // Search by user_id, email, or phone via profiles
+  const { data: profiles } = await client
+    .from('profiles')
+    .select('id, full_name, email, phone')
+    .or(`email.ilike.%${query}%,phone.ilike.%${query}%`)
+    .limit(5);
+
+  if (!profiles || profiles.length === 0) {
+    // Try exact user_id match
+    const { data: link } = await client
+      .from('gym_member_links')
+      .select('user_id')
+      .eq('gym_id', gym.id)
+      .eq('user_id', query)
+      .maybeSingle();
+
+    if (link) {
+      await processCheckIn({ member_id: link.user_id, gym_id: gym.id });
+    } else {
+      toast('No member found', 'error');
+    }
+    btn.disabled = false; btn.textContent = 'Find & Check In'; return;
+  }
+
+  if (profiles.length === 1) {
+    // Check if this profile is a member of this gym
+    const { data: link } = await client
+      .from('gym_member_links')
+      .select('user_id')
+      .eq('gym_id', gym.id)
+      .eq('user_id', profiles[0].id)
+      .maybeSingle();
+
+    if (link) {
+      await processCheckIn({ member_id: link.user_id, gym_id: gym.id });
+    } else {
+      toast(`${profiles[0].full_name} is not a member of this gym`, 'error');
+    }
+  } else {
+    // Multiple results — show picker (simplified: just toast)
+    toast(`${profiles.length} members found. Please use exact email/phone.`, 'warning');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Find & Check In';
+  input.value = '';
+}
+
+async function processCheckIn(qrData) {
+  const { member_id, gym_id } = qrData;
+  if (!member_id) { showResult('error', 'Invalid QR', 'No member ID found', null, false); return; }
+
+  // Fetch member with profile
+  const { data: member, error: mErr } = await client
+    .from('gym_member_links')
+    .select('*, profiles(full_name, email, phone, is_active)')
+    .eq('gym_id', gym_id || gym.id)
+    .eq('user_id', member_id)
+    .maybeSingle();
+
+  if (mErr || !member) {
+    showResult('error', 'Not Found', 'Member not recognized at this gym', null, false);
+    return;
+  }
+
+  const profile = member.profiles;
+  if (!profile?.is_active) {
+    showResult('error', 'Inactive Member', 'This member account has been deactivated.', null, false);
+    return;
+  }
+
+  // Check subscription
+  const { data: sub } = await client
+    .from('member_subscriptions')
+    .select('*')
+    .eq('gym_id', gym.id)
+    .eq('member_id', member_id)
+    .eq('status', 'active')
+    .order('end_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let subStatus = 'no_subscription';
+  let daysLeft = 0;
+  let subInfo = null;
+
+  if (sub) {
+    const end = new Date(sub.end_date);
+    const today = new Date(); today.setHours(0,0,0,0);
+    daysLeft = Math.ceil((end - today) / (1000*60*60*24));
+    subStatus = daysLeft > 0 ? 'active' : 'expired';
+    subInfo = sub;
+  }
+
+  // Check for duplicate check-in today
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const { data: existing } = await client
+    .from('check_ins')
+    .select('id')
+    .eq('gym_id', gym.id)
+    .eq('member_id', member_id)
+    .gte('checked_in_at', todayStart.toISOString())
+    .limit(1)
+    .maybeSingle();
+
+  const isDuplicate = !!existing;
+
+  // Build meta
+  const metaHtml = `
+    <strong>Member:</strong> ${profile.full_name}<br>
+    <strong>Email:</strong> ${profile.email}<br>
+    <strong>Phone:</strong> ${profile.phone || '—'}<br>
+    <strong>Subscription:</strong> ${subStatus === 'active' ? `✓ Active (${daysLeft} days)` : subStatus === 'expired' ? '<span class="flag">✗ Expired</span>' : '<span class="flag">⚠ No subscription</span>'}<br>
+    ${isDuplicate ? '<span class="flag">⚠ Already checked in today</span><br>' : ''}
+    <strong>Checked in by:</strong> ${staff.profiles?.full_name || 'Staff'}
+  `;
+
+  // Store for potential override
+  pendingOverride = {
+    gym_id: gym.id,
+    member_id,
+    subscription_id: subInfo?.id || null,
+    device_info: navigator.userAgent + ' | Staff: ' + staff.user_id
+  };
+
+  if (subStatus === 'active' && !isDuplicate) {
+    await recordCheckIn(pendingOverride);
+    playSuccessSound();
+    showResult('success', `Welcome, ${profile.full_name.split(' ')[0]}!`, 'Member verified and checked in.', metaHtml, false);
+    addSessionEntry(profile.full_name, 'ok', 'Checked In');
+  } else if (isDuplicate) {
+    showResult('warning', 'Duplicate Check-in', `${profile.full_name} already checked in today.`, metaHtml, true);
+    addSessionEntry(profile.full_name, 'warn', 'Duplicate');
+  } else {
+    showResult('warning', 'Subscription Issue', `${profile.full_name} has no active subscription.`, metaHtml, true);
+    addSessionEntry(profile.full_name, 'deny', 'No Subscription');
+  }
+
+  loadSessionStats();
+}
+
+async function recordCheckIn(data) {
+  const { error } = await client.from('check_ins').insert(data).select().single();
+  if (error) console.error('Check-in insert error:', error);
+  return !error;
+}
+
+async function overrideCheckIn() {
+  if (!pendingOverride) return;
+
+  const { error } = await client.from('check_ins').insert({
+    ...pendingOverride,
+    device_info: pendingOverride.device_info + ' | OVERRIDE by ' + staff.user_id
+  });
+
+  if (error) {
+    toast('Override failed: ' + error.message, 'error');
+    return;
+  }
+
+  toast('Staff override — entry allowed', 'success');
+  closeResult();
+  loadSessionStats();
+}
+
+function showResult(type, title, message, meta, showOverride) {
+  const overlay = document.getElementById('resultOverlay');
+  document.getElementById('resultIcon').className = 'gf-result-icon ' + type;
+  document.getElementById('resultIcon').textContent = type === 'success' ? '✓' : type === 'warning' ? '!' : '✕';
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultMessage').textContent = message;
+  document.getElementById('resultMeta').innerHTML = meta || '';
+  document.getElementById('resultMeta').style.display = meta ? 'block' : 'none';
+  document.getElementById('overrideSection').style.display = showOverride ? 'block' : 'none';
+  overlay.classList.add('active');
+}
+
+function closeResult() {
+  document.getElementById('resultOverlay').classList.remove('active');
+  isProcessing = false;
+  pendingOverride = null;
+  if (html5QrCode) html5QrCode.resume();
+}
+
+function goAdmin() { window.location.href = '/admin-dashboard.html'; }
+
+function addSessionEntry(name, status, label) {
+  sessionCheckins.unshift({ name, status, label, time: new Date() });
+  if (sessionCheckins.length > 20) sessionCheckins.pop();
+  renderSession();
+}
+
+function renderSession() {
+  const container = document.getElementById('recentList');
+  if (!sessionCheckins.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-2);padding:20px;font-size:0.875rem;">No check-ins this session</div>';
+    return;
+  }
+  container.innerHTML = sessionCheckins.map(s => `
+    <div class="gf-recent-item">
+      <div class="info">
+        <div class="name">${s.name}</div>
+        <span class="badge ${s.status}">${s.label}</span>
+      </div>
+      <div class="time">${s.time.toLocaleTimeString('en-NG', {hour:'2-digit', minute:'2-digit'})}</div>
+    </div>
+  `).join('');
+}
+
+function loadSessionStats() {
+  // Count from session memory + today from DB
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Update UI with session data
+  const todayCount = sessionCheckins.filter(s => s.status === 'ok').length;
+  const flaggedCount = sessionCheckins.filter(s => s.status !== 'ok').length;
+
+  document.getElementById('statToday').textContent = todayCount;
+  document.getElementById('statFlagged').textContent = flaggedCount;
+  document.getElementById('statActive').textContent = todayCount; // Simplified
+
+  renderSession();
+}
+
+function playSuccessSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 1100].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.1, ctx.currentTime + i*0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.15 + 0.2);
+      osc.start(ctx.currentTime + i*0.15);
+      osc.stop(ctx.currentTime + i*0.15 + 0.2);
+    });
+  } catch(e) {}
+}
+
+document.getElementById('manualInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') manualCheckIn();
+});
+
+// Wait for the Supabase client to be ready before initializing
+clientReady.then(function(c) {
+  if (!c) { toast('Service unavailable — please refresh', 'error'); return; }
+  init();
+});
+</script>
+
+  
+
+<script src="/gf-utils.js"></script>
+</body>
+</html>

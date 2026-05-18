@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#080e1c">
+<title>Waiver — GymFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})()</script>
+<style>
+.gf-modal-bg{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+.gf-modal-bg.active{display:flex}
+.waiver-body{max-height:280px;overflow-y:auto;background:var(--gf-elevated);border:1px solid var(--gf-border);border-radius:var(--gf-radius-sm);padding:16px;font-size:.875rem;color:var(--gf-text-secondary);line-height:1.7;white-space:pre-wrap}
+.sig-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--gf-border)}
+.sig-row:last-child{border-bottom:none}
+</style>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+</head>
+<body>
+<div id="pageLoader" class="gf-page-loader"><div class="loader-logo">Gym<em>Flow</em></div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div class="gf-sidebar-overlay" id="sidebarOverlay"></div>
+<aside class="gf-sidebar" id="sidebar">
+  <div class="gf-sidebar-header">
+    <a href="/admin-dashboard.html" class="gf-logo gf-logo-sm">
+      <span class="gf-logo-mark"><svg viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="8" width="5" height="8" rx="1.5"/><rect x="1" y="10.5" width="7" height="3" rx="1"/><rect x="17" y="8" width="5" height="8" rx="1.5"/><rect x="16" y="10.5" width="7" height="3" rx="1"/><rect x="10.5" y="5" width="3" height="14" rx="1.5"/></svg></span>
+      <span class="gf-logo-text">Gym<em>Flow</em></span>
+    </a>
+  </div>
+  <nav class="gf-sidebar-nav">
+    <span class="gf-sidebar-section">Main</span>
+    <a href="/admin-dashboard.html" class="gf-nav-item"><svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Members</a>
+    <a href="/waiver.html" class="gf-nav-item active"><svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Waivers</a>
+  </nav>
+  <div class="gf-sidebar-footer">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0"><div id="user-avatar" class="gf-avatar gf-avatar-sm" style="background:var(--gf-brand-soft);color:var(--gf-brand)">A</div><div id="user-name" style="font-size:.8125rem;font-weight:600;color:var(--gf-text)">—</div></div>
+      <button id="logout-btn" class="gf-btn-icon gf-btn-ghost"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
+    </div>
+  </div>
+</aside>
+<div class="gf-main">
+  <header class="gf-topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <button class="gf-hamburger" id="hamburger"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <h1 class="gf-topbar-title">Waivers</h1>
+    </div>
+    <button class="gf-btn gf-btn-primary" id="newWaiverBtn">+ New Waiver</button>
+  </header>
+  <div class="gf-content">
+    <div id="error-box" class="gf-alert gf-alert-danger hidden"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+      <div class="gf-card" style="padding:0;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--gf-border);display:flex;align-items:center;justify-content:space-between">
+          <h2 class="gf-section-title" style="margin:0">Templates</h2>
+          <span id="waiver-count" class="gf-badge gf-badge-info">0</span>
+        </div>
+        <div id="waivers-list" style="padding:8px 0;min-height:100px">
+          <div class="gf-skeleton" style="height:60px;margin:8px 16px;border-radius:10px"></div>
+          <div class="gf-skeleton" style="height:60px;margin:8px 16px;border-radius:10px"></div>
+        </div>
+      </div>
+      <div>
+        <div class="gf-card" style="padding:0;overflow:hidden">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--gf-border)">
+            <h2 class="gf-section-title" style="margin:0" id="sigs-title">Signatures</h2>
+          </div>
+          <div id="sigs-list" style="padding:16px 20px">
+            <div class="gf-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg><p style="color:var(--gf-text-muted);font-size:.875rem">Select a waiver to see signatures</p></div>
+          </div>
+        </div>
+        <div class="gf-card" id="share-card" style="display:none;margin-top:14px;padding:18px">
+          <p style="font-size:.8125rem;font-weight:600;margin-bottom:10px">Member Sign Link</p>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="share-link" class="gf-input" readonly style="font-size:.8rem;flex:1">
+            <button class="gf-btn gf-btn-secondary" id="copy-btn">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Waiver Modal -->
+<div class="gf-modal-bg" id="waiver-modal">
+  <div class="gf-modal" style="width:100%;max-width:580px;max-height:90vh;overflow-y:auto">
+    <div class="gf-modal-header"><h2 id="modal-title">New Waiver</h2><button class="gf-btn-icon gf-btn-ghost" id="close-modal"><svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
+    <div class="gf-modal-body" style="padding:24px;display:flex;flex-direction:column;gap:14px">
+      <input type="hidden" id="waiver-id">
+      <div class="gf-form-group"><label class="gf-label">Title *</label><input type="text" id="waiver-title" class="gf-input" placeholder="e.g. Membership Liability Waiver"></div>
+      <div class="gf-form-group"><label class="gf-label">Version</label><input type="text" id="waiver-version" class="gf-input" placeholder="1.0"></div>
+      <div class="gf-form-group"><label class="gf-label">Content *</label><textarea id="waiver-content" class="gf-input" rows="10" style="resize:vertical" placeholder="Enter the full waiver text members will sign..."></textarea></div>
+      <div style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="waiver-active" checked style="accent-color:var(--gf-brand)"><label for="waiver-active" style="font-size:.875rem">Active (members can sign)</label></div>
+      <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:8px">
+        <button class="gf-btn gf-btn-ghost" id="cancel-modal">Cancel</button>
+        <button class="gf-btn gf-btn-primary" id="save-waiver">Save Waiver</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { client, loadGym, getUser, getStaffRole, toast } from '/js/supabase.js';
+
+let gym, selectedId;
+
+async function init() {
+  const user = await getUser();
+  if (!user) { window.location.href = '/login.html'; return; }
+  gym = await loadGym();
+  if (!gym) { document.getElementById('error-box').textContent = 'Gym not found.'; document.getElementById('error-box').classList.remove('hidden'); return; }
+  const role = await getStaffRole(gym);
+  if (!role) { window.location.href = '/login.html'; return; }
+  document.getElementById('user-name').textContent = user.email;
+  document.getElementById('user-avatar').textContent = (user.email||'A')[0].toUpperCase();
+  await loadWaivers();
+  document.getElementById('pageLoader').classList.add('hidden');
+}
+
+async function loadWaivers() {
+  const { data } = await client.from('waivers').select('*, waiver_signatures(count)').eq('gym_id', gym.id).order('created_at', { ascending: false });
+  const list = document.getElementById('waivers-list');
+  document.getElementById('waiver-count').textContent = data?.length || 0;
+  if (!data?.length) { list.innerHTML = '<div class="gf-empty"><p style="color:var(--gf-text-muted);font-size:.875rem">No waivers yet</p></div>'; return; }
+  list.innerHTML = data.map(w => `
+    <div style="padding:12px 20px;cursor:pointer;border-bottom:1px solid var(--gf-border);transition:background var(--gf-t)" onmouseenter="this.style.background='var(--gf-elevated)'" onmouseleave="this.style.background=''" onclick="selectWaiver('${w.id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-weight:600;font-size:.9375rem">${w.title}</div>
+          <div style="font-size:.75rem;color:var(--gf-text-muted)">${w.version ? 'v'+w.version+' · ' : ''}${(w.waiver_signatures?.[0]?.count||0)} signed</div>
+        </div>
+        <span class="gf-badge ${w.is_active ? 'gf-badge-active' : 'gf-badge-expired'}">${w.is_active ? 'Active' : 'Inactive'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.selectWaiver = async function(id) {
+  selectedId = id;
+  const { data: sigs } = await client.from('waiver_signatures').select('*, profiles(full_name,email)').eq('waiver_id', id).order('signed_at', { ascending: false });
+  const list = document.getElementById('sigs-list');
+  if (!sigs?.length) { list.innerHTML = '<p style="color:var(--gf-text-muted);font-size:.875rem;text-align:center;padding:24px 0">No signatures yet</p>'; }
+  else { list.innerHTML = sigs.map(s => `<div class="sig-row"><div><div style="font-weight:500;font-size:.875rem">${s.profiles?.full_name||'—'}</div><div style="font-size:.75rem;color:var(--gf-text-muted)">${s.profiles?.email||''}</div></div><div style="font-size:.75rem;color:var(--gf-text-muted)">${new Date(s.signed_at).toLocaleDateString('en-NG',{day:'numeric',month:'short'})}</div></div>`).join(''); }
+  document.getElementById('share-card').style.display = 'block';
+  document.getElementById('share-link').value = `${location.origin}/waiver-sign.html?id=${id}`;
+};
+
+document.getElementById('newWaiverBtn').addEventListener('click', () => { document.getElementById('waiver-id').value=''; document.getElementById('waiver-title').value=''; document.getElementById('waiver-content').value=''; document.getElementById('waiver-version').value=''; document.getElementById('waiver-active').checked=true; document.getElementById('modal-title').textContent='New Waiver'; document.getElementById('waiver-modal').classList.add('active'); });
+document.getElementById('close-modal').addEventListener('click', () => document.getElementById('waiver-modal').classList.remove('active'));
+document.getElementById('cancel-modal').addEventListener('click', () => document.getElementById('waiver-modal').classList.remove('active'));
+document.getElementById('copy-btn').addEventListener('click', () => { navigator.clipboard.writeText(document.getElementById('share-link').value); toast('Link copied!'); });
+document.getElementById('logout-btn').addEventListener('click', async () => { await client.auth.signOut(); window.location.href='/login.html'; });
+
+document.getElementById('save-waiver').addEventListener('click', async () => {
+  const title = document.getElementById('waiver-title').value.trim();
+  const content = document.getElementById('waiver-content').value.trim();
+  if (!title || !content) { toast('Title and content required', 'error'); return; }
+  const btn = document.getElementById('save-waiver');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  const id = document.getElementById('waiver-id').value;
+  const payload = { gym_id: gym.id, title, content, version: document.getElementById('waiver-version').value.trim()||null, is_active: document.getElementById('waiver-active').checked };
+  const { error } = id ? await client.from('waivers').update(payload).eq('id', id) : await client.from('waivers').insert(payload);
+  btn.textContent = 'Save Waiver'; btn.disabled = false;
+  if (error) { toast('Save failed: '+error.message, 'error'); return; }
+  toast('Waiver saved'); document.getElementById('waiver-modal').classList.remove('active'); await loadWaivers();
+});
+
+init();
+</script>
+<script src="/gf-utils.js"></script>
+</body>
+</html>

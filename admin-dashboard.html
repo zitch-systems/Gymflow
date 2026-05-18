@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080e1c">
+<title>Admin — GymFlow</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>
+// Theme init — before render to prevent flash
+(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<style>
+  .gf-modal-bg { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; padding: 1rem; background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); }
+  .gf-modal-bg.active { display: flex; }
+  .gf-modal-scroll { max-height: 85vh; overflow-y: auto; }
+  thead th { position: sticky; top: 0; z-index: 5; }
+</style>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+</head>
+<body>
+
+<div id="pageLoader" class="gf-page-loader">
+  <div class="loader-logo">Gym<em>Flow</em></div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<!-- Sidebar Overlay (mobile) -->
+<div class="gf-sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- Sidebar -->
+<aside class="gf-sidebar" id="sidebar">
+  <div class="gf-sidebar-header">
+    <a href="/admin-dashboard.html" class="gf-logo gf-logo-sm">
+      <span class="gf-logo-mark">
+        <svg viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="8" width="5" height="8" rx="1.5"/>
+          <rect x="1" y="10.5" width="7" height="3" rx="1"/>
+          <rect x="17" y="8" width="5" height="8" rx="1.5"/>
+          <rect x="16" y="10.5" width="7" height="3" rx="1"/>
+          <rect x="10.5" y="5" width="3" height="14" rx="1.5"/>
+        </svg>
+      </span>
+      <span class="gf-logo-text">Gym<em>Flow</em></span>
+    </a>
+    <div style="margin-top:10px;font-size:0.75rem;font-weight:600;color:var(--gf-text-muted);" id="gym-name-sidebar">—</div>
+  </div>
+
+  <nav class="gf-sidebar-nav">
+    <span class="gf-sidebar-section">Main</span>
+    <a href="/admin-dashboard.html" class="gf-nav-item active">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Members
+    </a>
+    <a href="/staff-checkin.html" class="gf-nav-item" id="nav-checkin">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+      Check-In
+    </a>
+    <a href="/analytics.html" class="gf-nav-item" id="nav-analytics">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Analytics
+    </a>
+    <a href="/classes-admin.html" class="gf-nav-item">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      Classes
+    </a>
+
+    <span class="gf-sidebar-section">Admin</span>
+    <a href="/pricing-admin.html" class="gf-nav-item" id="nav-pricing">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Pricing
+    </a>
+    <a href="/reminders.html" class="gf-nav-item" id="nav-reminders">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+      Reminders
+    </a>
+    <a href="/operations.html" class="gf-nav-item" id="nav-ops">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Operations
+    </a>
+    <a href="/business-hours.html" class="gf-nav-item">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      Hours
+    </a>
+    <a href="/waiver.html" class="gf-nav-item">
+      <svg class="gf-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      Waiver
+    </a>
+  </nav>
+
+  <div class="gf-sidebar-footer">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <div id="user-avatar" class="gf-avatar gf-avatar-sm" style="background:var(--gf-brand-soft);color:var(--gf-brand);">A</div>
+        <div style="min-width:0;">
+          <div id="user-name" style="font-size:0.8125rem;font-weight:600;color:var(--gf-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+          <div id="role-badge" style="font-size:0.6875rem;color:var(--gf-text-muted);font-weight:500;">—</div>
+        </div>
+      </div>
+      <button id="logout-btn" class="gf-btn-icon gf-btn-ghost" title="Sign out">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<div class="gf-main">
+
+  <!-- Topbar -->
+  <header class="gf-topbar">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <button class="gf-hamburger" id="hamburger" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div>
+        <div id="gym-name" class="gf-page-title" style="font-size:1.0625rem;">Members</div>
+        <div style="font-size:0.75rem;color:var(--gf-text-muted);margin-top:1px;">Gym Administration</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="gf-search" style="width:220px;">
+        <svg class="gf-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input id="search" type="text" placeholder="Search members..." class="gf-focus" style="width:100%;padding:9px 14px 9px 38px;background:var(--gf-elevated);border:1.5px solid var(--gf-border);border-radius:var(--gf-radius-sm);color:var(--gf-text);font-family:var(--gf-font-body);font-size:0.875rem;outline:none;transition:all var(--gf-t);">
+      </div>
+      <button class="gf-theme-btn" onclick="toggleTheme()" title="Toggle theme">
+        <svg class="icon-light" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><circle cx="12" cy="12" r="5"/><path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg class="icon-dark" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="gf-content">
+    <div id="error-box" class="hidden" style="background:var(--gf-danger-soft);border:1px solid rgba(var(--gf-danger-rgb),0.2);color:var(--gf-danger);padding:12px 16px;border-radius:var(--gf-radius-sm);margin-bottom:20px;font-size:0.875rem;"></div>
+
+    <!-- KPI Grid -->
+    <div class="gf-stats-grid" style="margin-bottom:20px;">
+      <div class="gf-kpi-card gf-animate-in">
+        <div class="gf-kpi-header">
+          <div class="gf-kpi-icon" style="background:rgba(64,128,255,0.1);">
+            <svg width="20" height="20" fill="none" stroke="var(--gf-info)" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+        </div>
+        <div class="gf-kpi-value" id="kpi-total" style="color:var(--gf-info);">0</div>
+        <div class="gf-kpi-label">Total Members</div>
+      </div>
+      <div class="gf-kpi-card gf-animate-in gf-animate-in-1">
+        <div class="gf-kpi-header">
+          <div class="gf-kpi-icon" style="background:var(--gf-brand-soft);">
+            <svg width="20" height="20" fill="none" stroke="var(--gf-brand)" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+        </div>
+        <div class="gf-kpi-value" id="kpi-active" style="color:var(--gf-brand);">0</div>
+        <div class="gf-kpi-label">Active</div>
+      </div>
+      <div class="gf-kpi-card gf-animate-in gf-animate-in-2">
+        <div class="gf-kpi-header">
+          <div class="gf-kpi-icon" style="background:var(--gf-warning-soft);">
+            <svg width="20" height="20" fill="none" stroke="var(--gf-warning)" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+        </div>
+        <div class="gf-kpi-value" id="kpi-expiring" style="color:var(--gf-warning);">0</div>
+        <div class="gf-kpi-label">Expiring Soon</div>
+      </div>
+      <div class="gf-kpi-card gf-animate-in gf-animate-in-3">
+        <div class="gf-kpi-header">
+          <div class="gf-kpi-icon" style="background:rgba(168,85,247,0.1);">
+            <svg width="20" height="20" fill="none" stroke="#a855f7" viewBox="0 0 24 24" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          </div>
+        </div>
+        <div class="gf-kpi-value" id="kpi-checkins" style="color:#a855f7;">0</div>
+        <div class="gf-kpi-label">Today's Check-ins</div>
+      </div>
+    </div>
+
+    <!-- Action bar -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:0;">
+        <span class="gf-page-title" style="font-size:1rem;color:var(--gf-text-secondary);">All Members</span>
+      </div>
+      <a href="/staff-checkin.html" class="gf-btn gf-btn-secondary gf-btn-sm" id="btn-checkin" style="display:none;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+        Check-In
+      </a>
+      <a href="/reminders.html" class="gf-btn gf-btn-secondary gf-btn-sm" id="btn-reminders" style="display:none;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        Reminders
+      </a>
+      <button type="button" data-action="openExport" class="gf-btn gf-btn-secondary gf-btn-sm" id="btn-export">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Export
+      </button>
+      <button type="button" id="btn-add-member" data-action="openAdd" class="gf-btn gf-btn-primary gf-btn-sm" style="display:none;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Add Member
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="gf-table-wrap gf-table-cards gf-animate-in gf-animate-in-2">
+      <table class="gf-table" role="table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Status</th>
+            <th>Plan</th>
+            <th>Expires</th>
+            <th>Days</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="6" style="text-align:center;padding:40px 16px;color:var(--gf-text-muted);font-size:0.875rem;">Loading members…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div id="export-modal" class="gf-overlay" style="z-index:300;">
+  <div class="gf-modal" style="max-width:400px;">
+    <div class="gf-modal-header">
+      <span class="gf-modal-title">Export Members</span>
+      <button class="gf-btn-icon gf-btn-ghost" data-action="closeExport">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="gf-modal-body" style="display:flex;flex-direction:column;gap:10px;">
+      <button type="button" data-action="exportCSV" data-args="all" class="gf-card gf-lift" style="text-align:left;background:none;border:1px solid var(--gf-border);cursor:pointer;width:100%;">
+        <div style="font-weight:700;color:var(--gf-text);font-size:0.9rem;">All Members</div>
+        <div style="font-size:0.8125rem;color:var(--gf-text-muted);margin-top:3px;">Export complete member list as CSV</div>
+      </button>
+      <button type="button" data-action="exportCSV" data-args="active" class="gf-card gf-lift" style="text-align:left;background:none;border:1px solid var(--gf-border);cursor:pointer;width:100%;">
+        <div style="font-weight:700;color:var(--gf-brand);font-size:0.9rem;">Active Only</div>
+        <div style="font-size:0.8125rem;color:var(--gf-text-muted);margin-top:3px;">Members with active subscriptions</div>
+      </button>
+      <button type="button" data-action="exportCSV" data-args="expiring" class="gf-card gf-lift" style="text-align:left;background:none;border:1px solid var(--gf-border);cursor:pointer;width:100%;">
+        <div style="font-weight:700;color:var(--gf-warning);font-size:0.9rem;">Expiring Soon</div>
+        <div style="font-size:0.8125rem;color:var(--gf-text-muted);margin-top:3px;">Expires within 7 days</div>
+      </button>
+      <button type="button" data-action="exportCSV" data-args="expired" class="gf-card gf-lift" style="text-align:left;background:none;border:1px solid var(--gf-border);cursor:pointer;width:100%;">
+        <div style="font-weight:700;color:var(--gf-danger);font-size:0.9rem;">Expired</div>
+        <div style="font-size:0.8125rem;color:var(--gf-text-muted);margin-top:3px;">Expired or no subscription</div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Member Modal -->
+<div id="add-modal" class="gf-modal-bg" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(16px) saturate(1.4);">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" data-action="closeAdd" data-args=""></div>
+  <div class="relative bg-[#111827] border border-slate-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="gf-h3">Add Member</h3>
+      <button type="button" data-action="closeAdd" data-args="" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400">✕</button>
+    </div>
+    <form id="add-form" class="space-y-3.5">
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="gf-label">Name *</label><input aria-label="Input field" type="text" name="full_name" required class="gf-input gf-focus"></div>
+        <div><label class="gf-label">Phone *</label><input aria-label="Input field" type="tel" name="phone" required class="gf-input gf-focus"></div>
+      </div>
+      <div><label class="gf-label">Email *</label><input aria-label="Input field" type="email" name="email" required class="gf-input gf-focus"></div>
+      <div><label class="gf-label">Temp Password *</label><input aria-label="Input field" type="password" name="password" required class="gf-input gf-focus" value="GymPass123!"></div>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="gf-label">NOK Name *</label><input aria-label="Input field" type="text" name="nok_name" required class="gf-input gf-focus"></div>
+        <div><label class="gf-label">NOK Phone *</label><input aria-label="Input field" type="tel" name="nok_phone" required class="gf-input gf-focus"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="gf-label">Plan *</label>
+          <select name="sub_type" class="gf-select">
+            <option value="monthly">Monthly</option><option value="quarterly">Quarterly</option>
+            <option value="biannual">6 Months</option><option value="annual">Annual</option>
+          </select>
+        </div>
+        <div><label class="gf-label">Amount (₦) *</label><input aria-label="Input field" type="number" name="amount" required class="gf-input gf-focus"></div>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" data-action="closeAdd" data-args="" class="gf-btn gf-btn-outline flex-1">Cancel</button>
+        <button type="submit" id="add-submit" class="gf-btn flex-1">Add Member</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- View Member Modal -->
+<div id="view-modal" class="gf-modal-bg" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(16px) saturate(1.4);">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" data-action="closeView" data-args=""></div>
+  <div class="relative bg-[#111827] border border-slate-700 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="gf-h3">Member Details</h3>
+      <button type="button" data-action="closeView" data-args="" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400">✕</button>
+    </div>
+    <div id="view-content" class="space-y-5"></div>
+  </div>
+</div>
+
+<!-- Extend Subscription Modal -->
+<div id="extend-modal" class="gf-overlay" >
+  <div class="gf-overlay-bg" data-action="closeExtend" data-args=""></div>
+  <div class="gf-modal w-full max-w-lg max-h-[85vh] overflow-y-auto p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="gf-h3">Extend Subscription</h3>
+      <button type="button" data-action="closeExtend" data-args="" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400">✕</button>
+    </div>
+    <div id="extend-member-info" class="mb-4 p-3 bg-slate-900/50 rounded-xl border border-slate-800 text-sm"></div>
+    <form id="extend-form" class="space-y-3.5">
+      <div>
+        <label class="gf-label">Extension Duration (Months) *</label>
+        <select name="sub_type" id="extend-plan" class="gf-select">
+          <option value="1">1 Month</option>
+          <option value="3">3 Months</option>
+          <option value="6">6 Months</option>
+          <option value="12">12 Months</option>
+        </select>
+      </div>
+      <div class="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl text-sm text-emerald-400">
+        New end date: <span id="extend-preview" class="font-bold">—</span>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" data-action="closeExtend" data-args="" class="gf-btn gf-btn-outline flex-1">Cancel</button>
+        <button type="submit" id="extend-submit" class="gf-btn flex-1">Confirm Extension</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script type="module">
+'use strict';
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+import { client, loadGym, getUser, getStaffRole, toast, daysLeft, fmtDate, fmtNaira } from '/js/supabase.js';
+
+const gym = await loadGym();
+if (!gym) {
+  document.getElementById('error-box').textContent = 'Gym not found. Please check the URL.';
+  document.getElementById('error-box').classList.remove('hidden');
+}
+if (gym) document.getElementById('gym-name').textContent = gym.name;
+
+const user = await getUser();
+if (!user) { window.location.href = '/login.html'; }
+
+// FIX: Fetch and store userRole
+let userRole = null;
+if (gym && user) {
+  userRole = await getStaffRole(gym);
+  if (!userRole) { 
+    alert('Access denied'); 
+    await client.auth.signOut(); 
+    window.location.href='/login.html'; 
+  }
+  document.getElementById('role-badge').textContent = userRole;
+}
+
+let members = [];
+let viewMemberId = null;
+let extendMemberId = null;
+
+async function loadMembers() {
+  if (!gym) return Promise.resolve();
+  const { data: links, error: linksErr } = await client
+    .from('gym_member_links')
+    .select('*, profiles!inner(*)')
+    .eq('gym_id', gym.id)
+    .order('created_at', {ascending:false});
+
+  if (linksErr) {
+    toast('Failed to load members: ' + linksErr.message, 'error');
+    document.getElementById('table-body').innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-red-400 text-sm">Error loading members.</td></tr>';
+    return;
+  }
+
+  members = [];
+  for (const l of (links||[])) {
+    const { data: subs } = await client
+      .from('member_subscriptions')
+      .select('*')
+      .eq('member_id', l.user_id)
+      .eq('gym_id', gym.id)
+      .order('created_at', {ascending:false})
+      .limit(1);
+    const sub = subs && subs.length ? subs[0] : null;
+    members.push({ profile: l.profiles, subscription: sub, link: l });
+  }
+  render();
+  computeKpi();
+}
+
+// FIX: Removed double "async"
+async function computeKpi() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const in7 = new Date(today); in7.setDate(in7.getDate()+7);
+  let active=0, expiring=0;
+  for (const m of members) {
+    if (!m.subscription) continue;
+    const end = new Date(m.subscription.end_date); end.setHours(0,0,0,0);
+    if (m.subscription.status==='active' && end>=today) active++;
+    if (m.subscription.status==='active' && end>=today && end<=in7) expiring++;
+  }
+  document.getElementById('kpi-total').textContent = members.length;
+  document.getElementById('kpi-active').textContent = active;
+  document.getElementById('kpi-expiring').textContent = expiring;
+
+  if (gym) {
+    const todayIso = today.toISOString().split('T')[0];
+    const { count, error } = await client
+      .from('check_ins')
+      .select('*', { count: 'exact', head: true })
+      .eq('gym_id', gym.id)
+      .gte('checked_in_at', todayIso)
+      .lt('checked_in_at', todayIso + 'T23:59:59');
+    document.getElementById('kpi-checkins').textContent = count || 0;
+  }
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = members.filter(m => !q ||
+    (m.profile.full_name||'').toLowerCase().includes(q) ||
+    (m.profile.email||'').toLowerCase().includes(q) ||
+    (m.profile.phone||'').toLowerCase().includes(q)
+  );
+  const tbody = document.getElementById('table-body');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">No members found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((m, idx) => {
+    const sub = m.subscription;
+    const days = daysLeft(sub?.end_date);
+    let badge = '<span class="gf-badge gf-badge-active">Active</span>';
+    if (!sub) badge = '<span class="gf-badge bg-slate-800 text-slate-400 border-slate-700">No Sub</span>';
+    else if (sub.status==='paused') badge = '<span class="gf-badge gf-badge-paused">Paused</span>';
+    else if (sub.status==='expired' || days<=0) badge = '<span class="gf-badge gf-badge-expired">Expired</span>';
+    else if (days<=7) badge = '<span class="gf-badge gf-badge-expiring">Expiring</span>';
+    return `<tr class="hover:bg-slate-800/40 transition">
+      <td class="px-4 py-3" data-label="Member">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">${((m.profile?.full_name)||'?').charAt(0).toUpperCase()}</div>
+          <div>
+            <div class="font-medium text-white text-sm">${m.profile?.full_name||'—'}</div>
+            <div class="text-xs text-slate-500">${m.profile?.email||'—'}</div>
+          </div>
+        </div>
+      </td>
+      <td class="px-4 py-3" data-label="Status">${badge}</td>
+      <td class="px-4 py-3 text-slate-400 text-sm" data-label="Plan">${sub ? 'Active' : '—'}</td>
+      <td class="px-4 py-3 text-slate-400 text-sm" data-label="Expires">${fmtDate(sub?.end_date)}</td>
+      <td class="px-4 py-3 text-sm font-semibold ${days<=7?'text-amber-400':'text-white'}" data-label="Days">${sub ? days : '—'}</td>
+      <td class="px-4 py-3 text-right" data-label="Actions">
+        ${userRole !== 'rep' ? `<button type="button" data-action="openExtend" data-args="'${m.profile?.id}'" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 mr-3">Extend</button>` : ''}
+        <button type="button" data-action="openView" data-args="'${m.profile?.id}'" class="text-xs font-semibold text-blue-400 hover:text-blue-300">${userRole === 'rep' ? 'Verify' : 'View'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('search').addEventListener('input', render);
+
+/* ---------- Add Member ---------- */
+window.openAdd = () => { document.getElementById('add-modal').classList.add('active'); };
+window.closeAdd = () => { document.getElementById('add-modal').classList.remove('active'); };
+
+// FIX: Completely rewritten add member form handler
+document.getElementById('add-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!gym) { toast('Gym not found', 'error'); return; }
+  const fd = new FormData(e.target);
+  const btn = document.getElementById('add-submit');
+  btn.disabled = true; btn.innerHTML = '<span class="gf-spinner"></span> Adding...';
+
+  const subType = fd.get('sub_type');
+  const durationMap = { monthly:1, quarterly:3, biannual:6, annual:12 };
+  const durationMonths = durationMap[subType] || 1;
+  const startDate = new Date();
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + durationMonths);
+
+  try {
+    // FIX: Call create-member Netlify function instead of direct insert
+    const res = await fetch('/.netlify/functions/create-member', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        email: fd.get('email'),
+        password: fd.get('password'),
+        gymId: gym.id,
+        profile: {
+          full_name: fd.get('full_name'),
+          phone: fd.get('phone'),
+          role: 'member',
+          nok_name: fd.get('nok_name'),
+          nok_phone: fd.get('nok_phone'),
+          is_active: true
+        },
+        subscription: {
+          status: 'active',
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          auto_debit_enabled: false
+        }
+      })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to create member');
+
+    toast('Member added!', 'success');
+    closeAdd();
+    loadMembers();
+    e.target.reset();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Add Member';
+});
+
+/* ---------- View Member ---------- */
+window.openView = async (memberId) => {
+  viewMemberId = memberId;
+  const m = members.find(x => x.profile.id === memberId);
+  if (!m) return;
+
+  const [subsRes, checksRes] = await Promise.all([
+    client.from('member_subscriptions').select('*').eq('member_id', memberId).eq('gym_id', gym.id).order('created_at', {ascending:false}),
+    client.from('check_ins').select('*').eq('member_id', memberId).eq('gym_id', gym.id).order('checked_in_at', {ascending:false}).limit(5)
+  ]);
+
+  const subs = subsRes.data || [];
+  const checks = checksRes.data || [];
+
+  const subRows = subs.length ? subs.map(s => `
+    <div class="flex items-center justify-between py-2 border-b border-slate-800 last:border-0 text-sm">
+      <div>
+        <div class="text-white font-medium">Subscription</div>
+        <div class="text-[10px] text-slate-500">${fmtDate(s.start_date)} — ${fmtDate(s.end_date)}</div>
+      </div>
+      <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${s.status==='active'?'bg-emerald-500/10 text-emerald-400':s.status==='expired'?'bg-red-500/10 text-red-400':'bg-amber-500/10 text-amber-400'}">${s.status}</span>
+    </div>
+  `).join('') : '<p class="text-sm text-slate-500 py-2">No subscription history.</p>';
+
+  const checkRows = checks.length ? checks.map(c => `
+    <div class="flex items-center justify-between py-2 border-b border-slate-800 last:border-0 text-sm">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs font-bold">✓</div>
+        <div>
+          <div class="text-white font-medium">Checked In</div>
+          <div class="text-[10px] text-slate-500">${fmtDate(c.checked_in_at)}</div>
+        </div>
+      </div>
+      <div class="text-xs font-semibold text-emerald-400">${c.checked_in_at ? new Date(c.checked_in_at).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit'}) : ''}</div>
+    </div>
+  `).join('') : '<p class="text-sm text-slate-500 py-2">No recent check-ins.</p>';
+
+  document.getElementById('view-content').innerHTML = `
+    <div class="flex items-center gap-4 mb-2">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xl font-bold">${(m.profile.full_name||'?').charAt(0).toUpperCase()}</div>
+      <div>
+        <div class="text-lg font-bold text-white">${m.profile.full_name||'—'}</div>
+        <div class="text-xs text-slate-400">${m.profile.email||'—'} · ${m.profile.phone||'—'}</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-sm">
+      <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800"><div class="text-[10px] text-slate-500 uppercase font-semibold">Next of Kin</div><div class="text-white mt-1">${m.profile.nok_name||'—'}</div></div>
+      <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800"><div class="text-[10px] text-slate-500 uppercase font-semibold">NOK Phone</div><div class="text-white mt-1">${m.profile.nok_phone||'—'}</div></div>
+      <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800"><div class="text-[10px] text-slate-500 uppercase font-semibold">DOB</div><div class="text-white mt-1">${m.profile.date_of_birth ? fmtDate(m.profile.date_of_birth) : '—'}</div></div>
+      <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800"><div class="text-[10px] text-slate-500 uppercase font-semibold">Gender</div><div class="text-white mt-1 capitalize">${m.profile.gender||'—'}</div></div>
+    </div>
+    ${m.profile.address ? `<div class="text-sm p-3 bg-slate-900/50 rounded-xl border border-slate-800"><div class="text-[10px] text-slate-500 uppercase font-semibold">Address</div><div class="text-white mt-1">${m.profile.address}</div></div>` : ''}
+    ${m.profile.health_notes ? `<div class="text-sm p-3 bg-slate-900/50 rounded-xl border border-slate-800"><div class="text-[10px] text-slate-500 uppercase font-semibold">Health Notes</div><div class="text-white mt-1">${m.profile.health_notes}</div></div>` : ''}
+    <div>
+      <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Subscription History</h4>
+      <div class="gf-card p-3">${subRows}</div>
+    </div>
+    <div>
+      <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recent Check-ins</h4>
+      <div class="gf-card p-3">${checkRows}</div>
+    </div>
+  `;
+  document.getElementById('view-modal').classList.add('active');
+};
+window.closeView = () => { document.getElementById('view-modal').classList.remove('active'); viewMemberId = null; };
+
+/* ---------- Extend Subscription ---------- */
+const durationMap = { monthly:1, quarterly:3, biannual:6, annual:12 };
+
+function updateExtendPreview() {
+  const months = parseInt(document.getElementById('extend-plan').value) || 1;
+  const m = members.find(x => x.profile.id === extendMemberId);
+  const baseDate = (m && m.subscription && daysLeft(m.subscription.end_date) > 0)
+    ? new Date(m.subscription.end_date)
+    : new Date();
+  baseDate.setHours(0,0,0,0);
+  const end = new Date(baseDate);
+  end.setMonth(end.getMonth() + months);
+  document.getElementById('extend-preview').textContent = fmtDate(end.toISOString());
+}
+
+window.openExtend = (memberId) => {
+  extendMemberId = memberId;
+  const m = members.find(x => x.profile.id === memberId);
+  if (!m) return;
+  const sub = m.subscription;
+  const days = daysLeft(sub?.end_date);
+  document.getElementById('extend-member-info').innerHTML = `
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold">${(m.profile.full_name||'?').charAt(0).toUpperCase()}</div>
+      <div>
+        <div class="font-semibold text-white">${m.profile.full_name}</div>
+        <div class="text-xs text-slate-400">Current: ${sub ? 'Active' : 'No sub'} · ${days > 0 ? days + ' days left' : 'Expired'}</div>
+      </div>
+    </div>
+  `;
+  document.getElementById('extend-plan').value = '1';
+  updateExtendPreview();
+  document.getElementById('extend-modal').classList.add('active');
+};
+window.closeExtend = () => { document.getElementById('extend-modal').classList.remove('active'); extendMemberId = null; };
+
+document.getElementById('extend-plan').addEventListener('change', updateExtendPreview);
+
+document.getElementById('extend-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!gym || !extendMemberId) return;
+  const btn = document.getElementById('extend-submit');
+  btn.disabled = true; btn.innerHTML = '<span class="gf-spinner"></span> Processing...';
+
+  const fd = new FormData(e.target);
+  const months = parseInt(fd.get('sub_type')) || 1;
+  const m = members.find(x => x.profile.id === extendMemberId);
+  const baseDate = (m && m.subscription && daysLeft(m.subscription.end_date) > 0)
+    ? new Date(m.subscription.end_date)
+    : new Date();
+  baseDate.setHours(0,0,0,0);
+  const end = new Date(baseDate);
+  end.setMonth(end.getMonth() + months);
+
+  try {
+    const { error } = await client.from('member_subscriptions').insert({
+      member_id: extendMemberId,
+      gym_id: gym.id,
+      status: 'active',
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: end.toISOString().split('T')[0],
+      auto_debit_enabled: false,
+    });
+    if (error) throw error;
+    toast('Subscription extended!', 'success');
+    closeExtend();
+    loadMembers();
+    e.target.reset();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Confirm Extension';
+});
+
+/* ---------- Logout ---------- */
+/* ---------- CSV Export ---------- */
+window.openExport = () => { document.getElementById('export-modal').classList.add('active'); };
+window.closeExport = () => { document.getElementById('export-modal').classList.remove('active'); };
+
+window.exportCSV = async (filter) => {
+  if (!gym) { toast('Gym not found', 'error'); return; }
+  closeExport();
+
+  const btn = document.getElementById('btn-export');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<span class="gf-spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:6px"></span> Exporting...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/.netlify/functions/export-csv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gym_id: gym.id, filter }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Export failed');
+    }
+
+    const csv = await res.text();
+    const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'members.csv';
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+
+    toast(`Exported ${csv.split('\n').length - 1} members!`, 'success');
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+
+  btn.innerHTML = originalText;
+  btn.disabled = false;
+};
+
+document.getElementById('logout-btn').addEventListener('click', async () => { await client.auth.signOut(); window.location.href='/login.html'; });
+
+// FIX: Role-based UI with proper userRole
+document.getElementById('btn-add-member').classList.remove('hidden');
+document.getElementById('btn-checkin').classList.remove('hidden');
+document.getElementById('btn-reminders').classList.remove('hidden');
+
+loadMembers();
+</script>
+<script>
+// Sidebar toggle and most other handlers are now in /gf-utils.js
+// Show role-gated buttons (null-safe in case auth redirected away)
+['btn-add-member', 'btn-checkin', 'btn-reminders'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'flex';
+});
+</script>
+<script src="/gf-utils.js"></script>
+</body>
+</html>

@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080e1c">
+<title>GymFlow — Gym Management Software for Nigeria</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>
+// Theme init — before render to prevent flash
+(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+</head>
+
+<body>
+<!-- Toast -->
+<!-- Header -->
+<header class="header">
+  <div class="logo"><div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;fill:#fff;">
+          <rect x="2" y="8" width="4.5" height="8" rx="1.5"/>
+          <rect x="1" y="10.5" width="6.5" height="3" rx="1"/>
+          <rect x="17.5" y="8" width="4.5" height="8" rx="1.5"/>
+          <rect x="16.5" y="10.5" width="6.5" height="3" rx="1"/>
+          <rect x="10.5" y="5" width="3" height="14" rx="1.5"/>
+        </svg>
+      </div>Gym<span>Flow</span></div>
+  <nav class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+    <a href="login.html" class="btn-sm-outline">Sign In</a>
+    <a href="#" data-action="openOnboard" class="btn-sm">Get Started →</a>
+  </nav>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid">
+    <div class="hero-content">
+      <div class="hero-badge animate-fadeInUp">🚀 Now Live in Nigeria</div>
+      <h1 class="animate-fadeInUp delay-1">Run Your Gym on <span class="grad">Auto-Pilot</span></h1>
+      <p class="animate-fadeInUp delay-2">Member management, subscription tracking, QR check-ins, and payment collection — all in one platform built for Nigerian gyms.</p>
+      <div class="hero-buttons animate-fadeInUp delay-3">
+        <button type="button" data-action="openOnboard" class="btn-lg">Get Started Free →</button>
+        <a href="login.html" class="btn-outline-lg">Sign In to Your Gym</a>
+      </div>
+      <div class="download-btns animate-fadeInUp delay-4">
+        <a href="#" class="btn-store" data-action="triggerInstall" title="Install GymFlow PWA">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span><span class="store-label">Download</span><span class="store-name">Install App</span></span>
+        </a>
+      </div>
+      <div class="hero-stats animate-fadeInUp delay-5">
+        <div class="hero-stat"><div class="num">500+</div><div class="label">Gyms Onboarded</div></div>
+        <div class="hero-stat"><div class="num">50K+</div><div class="label">Members Managed</div></div>
+        <div class="hero-stat"><div class="num">₦2M+</div><div class="label">Revenue Processed</div></div>
+      </div>
+    </div>
+    <div class="hero-visual animate-slideInRight">
+      <div class="hero-phone">
+        <div class="phone-screen">
+          <div class="phone-notch"></div>
+          <div class="phone-content">
+            <div class="phone-header">
+              <div>
+                <div class="phone-greeting">Powerhouse Fitness</div>
+                <div class="phone-sub">Admin Dashboard</div>
+              </div>
+              <div class="phone-avatar">P</div>
+            </div>
+            <div class="phone-card">
+              <div class="phone-card-title">Active Members</div>
+              <div class="phone-card-value">247</div>
+            </div>
+            <div class="phone-card">
+              <div class="phone-card-title">Today's Revenue</div>
+              <div class="phone-card-value">₦45,000</div>
+            </div>
+            <div class="phone-qr">
+              <svg viewBox="0 0 100 100" fill="none"><rect fill="#080e1c" width="100" height="100" rx="8"/><rect fill="white" x="10" y="10" width="25" height="25"/><rect fill="white" x="65" y="10" width="25" height="25"/><rect fill="white" x="10" y="65" width="25" height="25"/><rect fill="white" x="40" y="40" width="20" height="20" rx="4"/><rect fill="white" x="40" y="10" width="8" height="8"/><rect fill="white" x="55" y="10" width="8" height="8"/><rect fill="white" x="10" y="40" width="8" height="8"/><rect fill="white" x="25" y="40" width="8" height="8"/><rect fill="white" x="10" y="55" width="8" height="8"/><rect fill="white" x="82" y="40" width="8" height="8"/><rect fill="white" x="65" y="55" width="8" height="8"/><rect fill="white" x="82" y="55" width="8" height="8"/><rect fill="white" x="40" y="82" width="8" height="8"/><rect fill="white" x="55" y="82" width="8" height="8"/><rect fill="white" x="82" y="82" width="8" height="8"/></svg>
+            </div>
+            <div class="phone-checkin-btn">Check In Member</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-float-card revenue">📈 +12% this week</div>
+      <div class="phone-float-card member">👤 New member joined</div>
+    </div>
+  </div>
+</section>
+
+<!-- Trusted By -->
+<section class="trusted-by">
+  <div class="trusted-inner">
+    <p>Trusted by gym owners across Nigeria</p>
+    <div class="trusted-logos">
+      <div class="trusted-logo">💪 Powerhouse</div>
+      <div class="trusted-logo">🏋️ IronFit</div>
+      <div class="trusted-logo">🥊 BoxingHub</div>
+      <div class="trusted-logo">🧘 ZenFitness</div>
+      <div class="trusted-logo">🏃 SprintZone</div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section" id="features">
+  <div class="section-header">
+    <div class="section-badge">✨ Features</div>
+    <h2>Everything You Need to Run a Modern Gym</h2>
+    <p>No spreadsheets. No manual tracking. No missed payments. Just a complete system that works while you sleep.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">👥</div>
+      <h3>Member Management</h3>
+      <p>Onboard members in 60 seconds. Capture Next of Kin, health notes, and waiver signatures digitally. Full profile history at a glance.</p>
+      <ul class="feature-list">
+        <li>Digital waivers & contracts</li>
+        <li>Health & allergy tracking</li>
+        <li>Emergency contact alerts</li>
+        <li>ID photo capture</li>
+      </ul>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💳</div>
+      <h3>Payments & Subscriptions</h3>
+      <p>Monthly, quarterly, or annual plans. Auto-track expiry. Collect via Paystack, bank transfer, or cash — all reconciled automatically.</p>
+      <ul class="feature-list">
+        <li>Paystack integration</li>
+        <li>Auto-renewal reminders</li>
+        <li>Multi-plan support</li>
+        <li>Revenue analytics</li>
+      </ul>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📷</div>
+      <h3>QR Check-In System</h3>
+      <p>Members scan a QR code at the door. System validates active subscription instantly. No front-desk chaos, no expired members slipping through.</p>
+      <ul class="feature-list">
+        <li>Instant validation</li>
+        <li>Entry/exit logging</li>
+        <li>Peak hour analytics</li>
+        <li>Access denial alerts</li>
+      </ul>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Real-Time Dashboard</h3>
+      <p>See active members, expiring subscriptions, today's revenue, and check-in count at a glance. Make decisions with live data.</p>
+      <ul class="feature-list">
+        <li>Live revenue tracking</li>
+        <li>Membership expiry alerts</li>
+        <li>Attendance heatmaps</li>
+        <li>Exportable reports</li>
+      </ul>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔔</div>
+      <h3>Auto Reminders</h3>
+      <p>WhatsApp and SMS alerts before expiry. Reduce churn without lifting a finger. Personalized messages that actually get read.</p>
+      <ul class="feature-list">
+        <li>WhatsApp Business API</li>
+        <li>SMS bulk messaging</li>
+        <li>Custom message templates</li>
+        <li>Scheduled campaigns</li>
+      </ul>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <h3>Mobile PWA App</h3>
+      <p>Members install your gym app to their home screen. Check status, renew subscriptions, and book classes on the go. Zero app store fees.</p>
+      <ul class="feature-list">
+        <li>Home screen install</li>
+        <li>Offline mode support</li>
+        <li>Push notifications</li>
+        <li>Cross-platform (iOS/Android)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="section" id="how-it-works" style="background:rgba(16,185,129,0.02);">
+  <div class="section-header">
+    <div class="section-badge">🚀 Get Started in Minutes</div>
+    <h2>How GymFlow Works</h2>
+    <p>From signup to your first member check-in — three simple steps.</p>
+  </div>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-num">1</div>
+      <div class="how-connector"></div>
+      <h3>Create Your Gym</h3>
+      <p>Sign up, choose your gym name and custom URL (yourgym.gymflow.ng). Set your brand colors and upload your logo.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-num">2</div>
+      <div class="how-connector"></div>
+      <h3>Add Members</h3>
+      <p>Import existing members or onboard new ones with digital forms. Capture photos, waivers, and health info in one flow.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-num">3</div>
+      <h3>Start Operating</h3>
+      <p>Members scan QR codes to check in. Payments flow automatically. Reminders send themselves. You just watch the dashboard.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Dashboard Preview -->
+<section class="section">
+  <div class="section-header">
+    <div class="section-badge">📊 Live Analytics</div>
+    <h2>Your Command Center</h2>
+    <p>Every metric that matters, updated in real-time. No more guessing about your gym's performance.</p>
+  </div>
+  <div class="dashboard-preview">
+    <div class="dashboard-grid">
+      <div class="dash-card">
+        <div class="dash-label">Active Members</div>
+        <div class="dash-value">247</div>
+        <div class="dash-change">↑ 12% this month</div>
+        <div class="dash-chart">
+          <div class="dash-bar" style="height:40%"></div>
+          <div class="dash-bar" style="height:60%"></div>
+          <div class="dash-bar" style="height:45%"></div>
+          <div class="dash-bar" style="height:80%"></div>
+          <div class="dash-bar" style="height:65%"></div>
+          <div class="dash-bar" style="height:90%"></div>
+          <div class="dash-bar" style="height:100%"></div>
+        </div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-label">Today's Revenue</div>
+        <div class="dash-value">₦45K</div>
+        <div class="dash-change">↑ 8% vs yesterday</div>
+        <div class="dash-chart">
+          <div class="dash-bar" style="height:30%"></div>
+          <div class="dash-bar" style="height:50%"></div>
+          <div class="dash-bar" style="height:40%"></div>
+          <div class="dash-bar" style="height:70%"></div>
+          <div class="dash-bar" style="height:55%"></div>
+          <div class="dash-bar" style="height:85%"></div>
+          <div class="dash-bar" style="height:75%"></div>
+        </div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-label">Check-ins Today</div>
+        <div class="dash-value">89</div>
+        <div class="dash-change down">↓ 3% vs yesterday</div>
+        <div class="dash-chart">
+          <div class="dash-bar" style="height:50%"></div>
+          <div class="dash-bar" style="height:70%"></div>
+          <div class="dash-bar" style="height:60%"></div>
+          <div class="dash-bar" style="height:80%"></div>
+          <div class="dash-bar" style="height:90%"></div>
+          <div class="dash-bar" style="height:75%"></div>
+          <div class="dash-bar" style="height:85%"></div>
+        </div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-label">Expiring Soon</div>
+        <div class="dash-value">18</div>
+        <div class="dash-change">⚠️ Action needed</div>
+        <div class="dash-chart">
+          <div class="dash-bar" style="height:20%"></div>
+          <div class="dash-bar" style="height:35%"></div>
+          <div class="dash-bar" style="height:25%"></div>
+          <div class="dash-bar" style="height:45%"></div>
+          <div class="dash-bar" style="height:30%"></div>
+          <div class="dash-bar" style="height:55%"></div>
+          <div class="dash-bar" style="height:40%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section class="section" style="background:rgba(16,185,129,0.02);">
+  <div class="section-header">
+    <div class="section-badge">💬 Testimonials</div>
+    <h2>Loved by Gym Owners</h2>
+    <p>See what Nigerian gym owners say about switching to GymFlow.</p>
+  </div>
+  <div class="testimonials-grid">
+    <div class="testimonial-card">
+      <div class="testimonial-stars">★★★★★</div>
+      <p class="testimonial-text">"GymFlow cut my admin time by 70%. I used to spend 3 hours daily on spreadsheets. Now everything is automatic — payments, reminders, even the QR check-in at the door."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">O</div>
+        <div>
+          <div class="testimonial-name">Oluwaseun Adeyemi</div>
+          <div class="testimonial-role">Owner, Powerhouse Fitness Lagos</div>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial-card">
+      <div class="testimonial-stars">★★★★★</div>
+      <p class="testimonial-text">"The Paystack integration is seamless. Members renew online, I get notified instantly, and the revenue dashboard shows me exactly what's happening. Best investment for my gym."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">C</div>
+        <div>
+          <div class="testimonial-name">Chioma Nwosu</div>
+          <div class="testimonial-role">Manager, ZenFitness Abuja</div>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial-card">
+      <div class="testimonial-stars">★★★★★</div>
+      <p class="testimonial-text">"We went from losing 20% of members monthly to just 5%. The WhatsApp reminders before expiry are game-changing. Members actually renew because they get reminded at the right time."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">I</div>
+        <div>
+          <div class="testimonial-name">Ibrahim Musa</div>
+          <div class="testimonial-role">Owner, IronFit Kano</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="section" id="pricing">
+  <div class="section-header">
+    <div class="section-badge">💰 Pricing</div>
+    <h2>Simple, Transparent Pricing</h2>
+    <p>Start free. Scale as you grow. No hidden fees, no surprises.</p>
+  </div>
+  <div class="pricing-grid">
+    <div class="pricing-card">
+      <h3>Starter</h3>
+      <div class="price">₦0 <span>/month</span></div>
+      <p class="pricing-desc">For new gyms getting started</p>
+      <ul>
+        <li>Up to 50 members</li>
+        <li>Basic dashboard</li>
+        <li>QR check-in</li>
+        <li>Email support</li>
+        <li>Manual payment recording</li>
+      </ul>
+      <button type="button" data-action="openOnboard" class="pricing-btn outline">Get Started</button>
+    </div>
+    <div class="pricing-card popular">
+      <div class="popular-badge">Most Popular</div>
+      <h3>Growth</h3>
+      <div class="price">₦15,000 <span>/month</span></div>
+      <p class="pricing-desc">For growing gyms with ambition</p>
+      <ul>
+        <li>Unlimited members</li>
+        <li>Full admin dashboard</li>
+        <li>Paystack integration</li>
+        <li>WhatsApp & SMS reminders</li>
+        <li>Staff roles (Owner, Manager, Rep)</li>
+        <li>Priority support</li>
+        <li>Revenue analytics</li>
+      </ul>
+      <button type="button" data-action="openOnboard" class="pricing-btn primary">Get Started</button>
+    </div>
+    <div class="pricing-card">
+      <h3>Enterprise</h3>
+      <div class="price">Custom</div>
+      <p class="pricing-desc">Multi-location chains</p>
+      <ul>
+        <li>Everything in Growth</li>
+        <li>Multi-gym management</li>
+        <li>Custom integrations</li>
+        <li>API access</li>
+        <li>Dedicated account manager</li>
+        <li>White-label options</li>
+      </ul>
+      <button type="button" class="pricing-btn outline" onclick="alert('Contact us at hello@gymflow.ng for enterprise pricing')">Contact Sales</button>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq" style="background:rgba(16,185,129,0.02);">
+  <div class="section-header">
+    <div class="section-badge">❓ FAQ</div>
+    <h2>Frequently Asked Questions</h2>
+    <p>Everything you need to know before getting started.</p>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <button class="faq-question">Is GymFlow really free to start?</button>
+      <div class="faq-answer">Yes! The Starter plan is completely free for up to 50 members. You get full access to member management, QR check-in, and basic dashboard features. No credit card required.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">How does the QR check-in work?</button>
+      <div class="faq-answer">Each member gets a unique QR code in their mobile app. They scan it at your gym entrance using any phone or tablet camera. The system instantly validates their active subscription and logs the entry. No special hardware needed.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">Can I accept payments online?</button>
+      <div class="faq-answer">Absolutely. GymFlow integrates directly with Paystack, so members can pay with card, bank transfer, or USSD. Payments are automatically reconciled and reflected in your revenue dashboard in real-time.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">What happens when a subscription expires?</button>
+      <div class="faq-answer">The system automatically sends WhatsApp and SMS reminders 7 days, 3 days, and 1 day before expiry. If a member doesn't renew, their QR code stops working at check-in, but their profile and history are preserved for easy reactivation.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">Is my gym data secure?</button>
+      <div class="faq-answer">Yes. GymFlow uses Supabase (PostgreSQL) with Row-Level Security, meaning each gym can only access its own data. All connections are encrypted with SSL, and we never share or sell your data.</div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-question">Can I switch plans later?</button>
+      <div class="faq-answer">Of course. You can upgrade from Starter to Growth at any time. All your data transfers seamlessly. If you downgrade, you keep your data but some features become read-only until you upgrade again.</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA Banner -->
+<section class="section">
+  <div class="cta-banner">
+    <h2>Ready to Transform Your Gym?</h2>
+    <p>Join 500+ Nigerian gyms already using GymFlow to save time, reduce churn, and grow revenue.</p>
+    <div class="hero-buttons" style="justify-content:center;">
+      <button type="button" data-action="openOnboard" class="btn-lg" style="font-size:18px; padding:20px 48px;">Get Started Free →</button>
+    </div>
+    <p style="margin-top:20px; font-size:14px; color:var(--text3);">No credit card required • Setup in 5 minutes • Cancel anytime</p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="logo"><div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;fill:#fff;">
+          <rect x="2" y="8" width="4.5" height="8" rx="1.5"/>
+          <rect x="1" y="10.5" width="6.5" height="3" rx="1"/>
+          <rect x="17.5" y="8" width="4.5" height="8" rx="1.5"/>
+          <rect x="16.5" y="10.5" width="6.5" height="3" rx="1"/>
+          <rect x="10.5" y="5" width="3" height="14" rx="1.5"/>
+        </svg>
+      </div>Gym<span>Flow</span></div>
+      <p>The complete gym management platform built for Nigerian gyms. Member management, payments, QR check-ins, and analytics — all in one place.</p>
+      <div class="footer-social">
+        <a href="#" title="Twitter">𝕏</a>
+        <a href="#" title="Instagram">📷</a>
+        <a href="#" title="LinkedIn">in</a>
+        <a href="#" title="WhatsApp">💬</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="login.html">Sign In</a>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <a href="#">About Us</a>
+      <a href="#">Blog</a>
+      <a href="#">Careers</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Cookie Policy</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 GymFlow. Built for Nigerian gyms. 🇳🇬</p>
+    <div>
+      <a href="login.html">Sign In</a> · <a href="#" data-action="openOnboard">Get Started</a>
+    </div>
+  </div>
+</footer>
+
+<!-- Onboarding Modal -->
+<div id="onboard-modal" class="modal-bg">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <h2>Start Your Gym on GymFlow</h2>
+      <button type="button" data-action="closeOnboard" class="close-btn">✕</button>
+    </div>
+    <div id="onboard-error" class="error-box"></div>
+    <form id="onboard-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Gym Name *</label>
+          <input type="text" name="gym_name" required placeholder="e.g., Powerhouse Fitness">
+        </div>
+        <div class="form-group">
+          <label>Gym Slug *</label>
+          <input type="text" name="slug" required placeholder="powerhouse" pattern="[a-z0-9\-]+" title="lowercase letters, numbers, hyphens only">
+          <div class="form-note">Your URL: <span id="slug-preview">powerhouse</span>.gymflow.ng</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Business Email *</label>
+          <input type="email" name="email" required placeholder="owner@yourgym.com">
+        </div>
+        <div class="form-group">
+          <label>Phone *</label>
+          <input type="tel" name="phone" required placeholder="08012345678">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Your Full Name *</label>
+          <input type="text" name="owner_name" required placeholder="John Doe">
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" name="password" required minlength="6" placeholder="Min 6 characters">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Address</label>
+        <input type="text" name="address" placeholder="Gym location address">
+      </div>
+      <div class="form-group">
+        <label>Primary Color</label>
+        <input type="color" name="brand_color" value="#10b981" style="height:48px;padding:4px;cursor:pointer;width:100%;">
+      </div>
+      <button type="submit" id="onboard-submit" class="btn-lg" style="width:100%;margin-top:8px;">Create My Gym →</button>
+      <p style="text-align:center;color:var(--text3);font-size:12px;margin-top:16px;">By signing up, you agree to our Terms of Service.</p>
+    </form>
+  </div>
+</div>
+
+<!-- Theme Toggle -->
+<button type="button" class="theme-toggle" id="themeToggle" data-action="toggleTheme" title="Toggle theme">🌙</button>
+
+<script>
+// Theme System
+function initTheme() {
+  var saved = localStorage.getItem('gf-theme');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var theme = saved || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeIcon(theme);
+}
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'dark';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('gf-theme', next);
+  updateThemeIcon(next);
+}
+function updateThemeIcon(theme) {
+  var btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+  if (!localStorage.getItem('gf-theme')) {
+    var theme = e.matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    updateThemeIcon(theme);
+  }
+});
+initTheme();
+
+// Toast
+function toast(msg, type) {
+  type = type || 'success';
+  var el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast toast-' + type;
+  requestAnimationFrame(function() { el.classList.add('show'); });
+  setTimeout(function() { el.classList.remove('show'); }, 3000);
+}
+
+// Modal
+function openOnboard() {
+  var modal = document.getElementById('onboard-modal');
+  if (modal) { modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+}
+function closeOnboard() {
+  var modal = document.getElementById('onboard-modal');
+  if (modal) { modal.classList.remove('active'); document.body.style.overflow = ''; }
+}
+
+// Slug Preview
+var slugInput = document.querySelector('input[name="slug"]');
+if (slugInput) {
+  slugInput.addEventListener('input', function(e) {
+    var preview = document.getElementById('slug-preview');
+    if (preview) preview.textContent = e.target.value || 'your-gym';
+  });
+}
+
+// Form Submit
+document.getElementById('onboard-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var errBox = document.getElementById('onboard-error');
+  if (errBox) errBox.classList.remove('show');
+  var btn = document.getElementById('onboard-submit');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+
+  var fd = new FormData(e.target);
+  var email = fd.get('email');
+  var password = fd.get('password');
+  var slug = (fd.get('slug') || '').toLowerCase().replace(/[^a-z0-9\-]/g, '');
+
+  try {
+    // Wait for the Supabase client to be ready (bootstrapped by /js/supabase-config.js).
+    if (!window.GF_SUPABASE_READY) throw new Error('Supabase loader missing. Please refresh and try again.');
+    var client = await window.GF_SUPABASE_READY;
+    if (!client) throw new Error('Supabase client failed to initialize. Please refresh and try again.');
+
+    var authResult = await client.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { full_name: fd.get('owner_name') } }
+    });
+    if (authResult.error) throw authResult.error;
+    var userId = authResult.data.user.id;
+
+    await client.auth.signInWithPassword({ email: email, password: password });
+
+    var slugCheck = await client.from('gyms').select('id').eq('slug', slug).maybeSingle();
+    if (slugCheck.data) throw new Error('That gym URL is already taken. Try a different slug.');
+
+    var gymResult = await client.from('gyms').insert({
+      slug: slug,
+      name: fd.get('gym_name'),
+      email: email,
+      phone: fd.get('phone'),
+      address: fd.get('address') || null,
+      status: 'active',
+      brand_primary_color: fd.get('brand_color'),
+      landing_page_enabled: true,
+      auto_debit_enabled: false,
+      platform_subscription_start: new Date().toISOString().split('T')[0],
+      platform_subscription_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    }).select().single();
+    if (gymResult.error) throw gymResult.error;
+    var gym = gymResult.data;
+
+    var profResult = await client.from('profiles').upsert({
+      id: userId,
+      email: email,
+      full_name: fd.get('owner_name'),
+      phone: fd.get('phone'),
+      role: 'gym_owner',
+      is_active: true,
+    }, { onConflict: 'id' }).select().single();
+    if (profResult.error) throw profResult.error;
+
+    var staffResult = await client.from('gym_staff_links').insert({
+      gym_id: gym.id,
+      user_id: userId,
+      role: 'gym_owner',
+      is_active: true,
+    }).select().single();
+    if (staffResult.error) throw staffResult.error;
+
+    toast('🎉 Gym created! Redirecting...', 'success');
+    setTimeout(function() {
+      window.location.href = '/admin-dashboard.html?gym=' + encodeURIComponent(slug);
+    }, 2000);
+  } catch (err) {
+    if (errBox) {
+      errBox.textContent = err.message || 'An error occurred';
+      errBox.classList.add('show');
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Create My Gym →'; }
+  }
+});
+
+// Event Delegation
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  if (typeof window[action] === 'function') {
+    window[action]();
+  }
+});
+
+// FAQ Accordion
+document.querySelectorAll('.faq-question').forEach(function(q) {
+  q.addEventListener('click', function() {
+    var item = this.parentElement;
+    var isActive = item.classList.contains('active');
+    document.querySelectorAll('.faq-item').forEach(function(i) { i.classList.remove('active'); });
+    if (!isActive) item.classList.add('active');
+  });
+});
+
+// Scroll Reveal
+(function() {
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.feature-card, .how-card, .testimonial-card, .pricing-card').forEach(function(el) {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(30px)';
+    el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    observer.observe(el);
+  });
+})();
+
+// PWA Install Trigger
+function triggerInstall() {
+  if (window.GF_PWA && window.GF_PWA.showInstall) {
+    window.GF_PWA.showInstall();
+  } else {
+    alert('To install GymFlow:\n1. Open your browser menu (⋮ or ⋯)\n2. Look for "Add to Home Screen" or "Install App"\n3. Follow the prompts');
+  }
+}
+</script>
+
+<script>
+// Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    .then(function(reg) { console.log('SW registered:', reg.scope); })
+    .catch(function(err) { console.warn('SW registration failed:', err); });
+}
+</script>
+
+<script src="/gf-utils.js"></script>
+</body>
+</html>

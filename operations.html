@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080e1c">
+<title>Operations — GymFlow</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>
+// Theme init — before render to prevent flash
+(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+</head>
+
+<body class="min-h-screen antialiased">
+
+<div id="pageLoader" class="gf-page-loader">
+  <div class="loader-logo">Gym<em>Flow</em></div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<div id="app" class="gf-animate-fade">
+  <aside class="sidebar gf-glass" id="sidebar">
+    <div class="logo">GymFlow</div>
+    <nav>
+      <a href="/admin-dashboard.html">Dashboard</a>
+      <a href="/checkin.html">Check-In</a>
+      <a href="/staff-checkin.html">Staff Scanner</a>
+      <a href="/reminders.html">Reminders</a>
+      <a href="/classes-admin.html">Classes</a>
+      <a href="/pricing-admin.html">Pricing</a>
+      <a href="/operations.html" class="active">Operations</a>
+      <a href="/member-dashboard.html">My Profile</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button type="button" class="theme-toggle" id="themeToggle" title="Toggle theme">🌓</button>
+      <button type="button" class="logout" id="logoutBtn">Logout</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar gf-glass">
+      <button type="button" class="menu-btn" id="menuBtn">☰</button>
+      <h1>Operations</h1>
+      <div class="topbar-actions">
+        <span id="userRole" class="role-badge"></span>
+      </div>
+    </header>
+    <nav class="gf-breadcrumb"><a href="index.html" class="gf-breadcrumb-link">Index</a><span class="gf-breadcrumb-sep">/</span><a href="login.html" class="gf-breadcrumb-link">Login</a><span class="gf-breadcrumb-sep">/</span><a href="admin-dashboard.html" class="gf-breadcrumb-link">Admin Dashboard</a><span class="gf-breadcrumb-sep">/</span><a href="analytics.html" class="gf-breadcrumb-link">Analytics</a><span class="gf-breadcrumb-sep">/</span><span class="gf-breadcrumb-current">Operations</span></nav>
+
+    <div class="content">
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <div class="tab active" data-tab="equipment">🛠️ Equipment</div>
+        <div class="tab" data-tab="expenses">💸 Expenses</div>
+        <div class="tab" data-tab="staff">👥 Staff</div>
+        <div class="tab" data-tab="pnl">📊 P&L</div>
+      </div>
+
+      <!-- EQUIPMENT TAB -->
+      <div class="tab-panel active" id="tab-equipment">
+        <div class="stats-row">
+          <div class="stat-box gf-lift"><div class="num" id="eqTotal">0</div><div class="label">Total Items</div></div>
+          <div class="stat-box gf-lift"><div class="num" id="eqActive">0</div><div class="label">Active</div></div>
+          <div class="stat-box gf-lift"><div class="num" id="eqMaint">0</div><div class="label">In Maintenance</div></div>
+          <div class="stat-box gf-lift"><div class="num" id="eqValue">₦0</div><div class="label">Total Value</div></div>
+        </div>
+        <div style="display:flex; gap:12px; margin-bottom:16px;">
+          <input aria-label="Input field" type="text" id="eqSearch" placeholder="Search equipment..." style="flex:1;">
+          <select id="eqCategory" style="width:160px;">
+            <option value="all">All Categories</option>
+            <option>Cardio</option><option>Strength</option><option>Free Weights</option>
+            <option>Functional</option><option>Recovery</option><option>Accessories</option><option>General</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="addEquipBtn">+ Add Equipment</button>
+        </div>
+        <div id="equipmentGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;"></div>
+        <div id="eqEmpty" class="empty-state" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:64px; height:64px; margin-bottom:16px; opacity:0.4;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          <h3>No equipment recorded</h3>
+          <p>Add your first equipment item to track inventory and maintenance.</p>
+        </div>
+      </div>
+
+      <!-- EXPENSES TAB -->
+      <div class="tab-panel" id="tab-expenses">
+        <div class="stats-row">
+          <div class="stat-box gf-lift"><div class="num" id="expToday">₦0</div><div class="label">Today</div></div>
+          <div class="stat-box gf-lift"><div class="num" id="expWeek">₦0</div><div class="label">This Week</div></div>
+          <div class="stat-box gf-lift"><div class="num" id="expMonth">₦0</div><div class="label">This Month</div></div>
+          <div class="stat-box gf-lift"><div class="num" id="expCount">0</div><div class="label">Entries</div></div>
+        </div>
+        <div style="display:flex; gap:12px; margin-bottom:16px;">
+          <input type="date" id="expDateFrom" style="width:140px;" aria-label="Input field">
+          <input type="date" id="expDateTo" style="width:140px;" aria-label="Input field">
+          <select id="expCategory" style="width:160px;">
+            <option value="all">All Categories</option>
+            <option>Rent</option><option>Utilities</option><option>Equipment</option><option>Maintenance</option>
+            <option>Staff_Salary</option><option>Marketing</option><option>Insurance</option><option>Cleaning</option>
+            <option>Supplies</option><option>Technology</option><option>Legal</option><option>Other</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="addExpBtn">+ Add Expense</button>
+        </div>
+        <div id="expensesList"></div>
+        <div id="expEmpty" class="empty-state" style="display:none;">No expenses for selected period.</div>
+      </div>
+
+      <!-- STAFF TAB -->
+      <div class="tab-panel" id="tab-staff">
+        <div style="display:flex; gap:12px; margin-bottom:16px;">
+          <input aria-label="Input field" type="text" id="staffSearch" placeholder="Search staff..." style="flex:1;">
+          <button type="button" class="btn btn-primary" id="addStaffBtn">+ Add Staff</button>
+        </div>
+        <div id="staffGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;"></div>
+        <div id="staffEmpty" class="empty-state" style="display:none;">No staff members found.</div>
+      </div>
+
+      <!-- P&L TAB -->
+      <div class="tab-panel" id="tab-pnl">
+        <div style="display:flex; gap:12px; margin-bottom:20px;">
+          <select id="pnlMonth" style="width:160px;">
+            <option value="current">This Month</option>
+            <option value="last">Last Month</option>
+            <option value="q1">Q1</option><option value="q2">Q2</option><option value="q3">Q3</option><option value="q4">Q4</option>
+          </select>
+          <select id="pnlYear" style="width:100px;">
+            <option value="2026">2026</option><option value="2025">2025</option>
+          </select>
+        </div>
+        <div class="pnl-grid">
+          <div class="pnl-box positive">
+            <div class="title">Total Revenue</div>
+            <div class="value" id="pnlRevenue">₦0</div>
+          </div>
+          <div class="pnl-box negative">
+            <div class="title">Total Expenses</div>
+            <div class="value" id="pnlExpenses">₦0</div>
+          </div>
+          <div class="pnl-box neutral">
+            <div class="title">Net Profit / Loss</div>
+            <div class="value" id="pnlNet">₦0</div>
+          </div>
+          <div class="pnl-box neutral">
+            <div class="title">Profit Margin</div>
+            <div class="value" id="pnlMargin">0%</div>
+          </div>
+        </div>
+        <div style="margin-top:24px;">
+          <h3 style="margin-bottom:12px; font-size:1rem;">Expense Breakdown</h3>
+          <div id="pnlBreakdown" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Equipment Modal -->
+<div class="gf-modal-bg" id="equipModal">
+  <div class="modal">
+    <h2 id="equipModalTitle">Add Equipment</h2>
+    <form id="equipForm">
+      <input type="hidden" id="equipId" aria-label="Input field">
+      <div class="form-row">
+        <div class="form-group"><label>Name *</label><input type="text" id="eqName" required aria-label="Input field"></div>
+        <div class="form-group"><label>Category</label>
+          <select id="eqCat"><option>Cardio</option><option>Strength</option><option>Free Weights</option><option>Functional</option><option>Recovery</option><option>Accessories</option><option>General</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="eqDesc" rows="2"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Serial Number</label><input type="text" id="eqSerial" aria-label="Input field"></div>
+        <div class="form-group"><label>Location</label><input aria-label="Input field" type="text" id="eqLocation" placeholder="e.g. Main Floor"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Purchase Date</label><input type="date" id="eqPurchaseDate" aria-label="Input field"></div>
+        <div class="form-group"><label>Purchase Price (₦)</label><input type="number" id="eqPrice" min="0" step="100" aria-label="Input field"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Vendor</label><input type="text" id="eqVendor" aria-label="Input field"></div>
+        <div class="form-group"><label>Warranty Expiry</label><input type="date" id="eqWarranty" aria-label="Input field"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Status</label>
+          <select id="eqStatus"><option value="active">Active</option><option value="maintenance">Maintenance</option><option value="retired">Retired</option><option value="lost">Lost</option></select>
+        </div>
+        <div class="form-group"><label>Next Maintenance</label><input type="date" id="eqNextMaint" aria-label="Input field"></div>
+      </div>
+      <div class="form-group"><label>Photo URL</label><input aria-label="Input field" type="url" id="eqPhoto" placeholder="https://..."></div>
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:16px;">
+        <button type="button" class="btn" onclick="document.getElementById('equipModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Expense Modal -->
+<div class="gf-modal-bg" id="expModal">
+  <div class="modal">
+    <h2 id="expModalTitle">Add Expense</h2>
+    <form id="expForm">
+      <input type="hidden" id="expId" aria-label="Input field">
+      <div class="form-row">
+        <div class="form-group"><label>Category *</label>
+          <select id="exCategory" required>
+            <option>Rent</option><option>Utilities</option><option>Equipment</option><option>Maintenance</option>
+            <option>Staff_Salary</option><option>Marketing</option><option>Insurance</option><option>Cleaning</option>
+            <option>Supplies</option><option>Technology</option><option>Legal</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Amount (₦) *</label><input type="number" id="exAmount" required min="0" step="100" aria-label="Input field"></div>
+      </div>
+      <div class="form-group"><label>Description *</label><input aria-label="Input field" type="text" id="exDesc" required placeholder="What was this for?"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Date *</label><input type="date" id="exDate" required aria-label="Input field"></div>
+        <div class="form-group"><label>Payment Method</label>
+          <select id="exMethod"><option value="cash">Cash</option><option value="card">Card</option><option value="transfer">Transfer</option><option value="cheque">Cheque</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Vendor</label><input type="text" id="exVendor" aria-label="Input field"></div>
+        <div class="form-group"><label>Receipt URL</label><input aria-label="Input field" type="url" id="exReceipt" placeholder="https://..."></div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+        <input aria-label="Input field" type="checkbox" id="exRecurring"><label for="exRecurring" style="margin:0; font-size:0.85rem;">Recurring expense</label>
+        <select id="exFreq" style="width:120px; display:none;">
+          <option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option><option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <div style="display:flex; gap:12px; justify-content:flex-end;">
+        <button type="button" class="btn" onclick="document.getElementById('expModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Staff Modal -->
+<div class="gf-modal-bg" id="staffModal">
+  <div class="modal">
+    <h2 id="staffModalTitle">Add Staff</h2>
+    <form id="staffForm">
+      <input type="hidden" id="staffId" aria-label="Input field">
+      <div class="form-group"><label>Email *</label><input aria-label="Input field" type="email" id="stEmail" required placeholder="staff@email.com"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Full Name *</label><input type="text" id="stName" required aria-label="Input field"></div>
+        <div class="form-group"><label>Phone</label><input type="tel" id="stPhone" aria-label="Input field"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Role *</label>
+          <select id="stRole" required>
+            <option value="manager">Manager</option>
+            <option value="trainer">Trainer</option>
+            <option value="receptionist">Receptionist</option>
+            <option value="cleaner">Cleaner</option>
+            <option value="rep">Rep</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Monthly Salary (₦)</label><input type="number" id="stSalary" min="0" step="1000" aria-label="Input field"></div>
+      </div>
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:16px;">
+        <button type="button" class="btn" onclick="document.getElementById('staffModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Pay Salary Modal -->
+<div class="gf-modal-bg" id="paySalaryModal">
+  <div class="modal" style="max-width:400px;">
+    <h2>Pay Salary</h2>
+    <form id="paySalaryForm">
+      <input type="hidden" id="payStaffId" aria-label="Input field">
+      <div class="form-group"><label>Staff</label><input type="text" id="payStaffName" readonly aria-label="Input field"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Base Salary (₦)</label><input type="number" id="payBase" readonly aria-label="Input field"></div>
+        <div class="form-group"><label>Bonus (₦)</label><input type="number" id="payBonus" min="0" step="100" value="0" aria-label="Input field"></div>
+      </div>
+      <div class="form-group"><label>Deduction (₦)</label><input type="number" id="payDeduction" min="0" step="100" value="0" aria-label="Input field"></div>
+      <div class="form-group"><label>Period</label>
+        <div style="display:flex; gap:8px;">
+          <input type="date" id="payPeriodStart" style="flex:1;" aria-label="Input field">
+          <input type="date" id="payPeriodEnd" style="flex:1;" aria-label="Input field">
+        </div>
+      </div>
+      <div class="form-group"><label>Payment Method</label>
+        <select id="payMethod"><option value="transfer">Bank Transfer</option><option value="cash">Cash</option><option value="cheque">Cheque</option></select>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="payNotes" rows="2"></textarea></div>
+      <div style="display:flex; gap:12px; justify-content:flex-end;">
+        <button type="button" class="btn" onclick="document.getElementById('paySalaryModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Pay Now</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+'use strict';
+
+import { client, getGymSlug, loadGym, getUser, requireAuth, getStaffRole, toast, fmtNaira } from '/js/supabase.js';
+
+let gym = null;
+let user = null;
+let staffRole = null;
+let equipmentData = [];
+let expensesData = [];
+let staffData = [];
+let salaryData = [];
+let paymentsData = [];
+
+async function init() {
+    try {
+  user = await requireAuth();
+  if (!user) return;
+
+  gym = await loadGym();
+  if (!gym) { toast('Gym not found', 'error'); return; }
+
+  staffRole = await getStaffRole(gym.id);
+  if (!staffRole) {
+    toast('Staff access required', 'error');
+    setTimeout(() => window.location.href = '/member-dashboard.html', 1500);
+    return;
+  }
+
+  document.getElementById('userRole').textContent = staffRole;
+
+  // Set default dates
+  document.getElementById('expDateFrom').value = new Date(new Date().setDate(1)).toISOString().split('T')[0];
+  document.getElementById('expDateTo').value = new Date().toISOString().split('T')[0];
+  document.getElementById('exDate').value = new Date().toISOString().split('T')[0];
+
+  await loadAllData();
+  setupListeners();
+
+  } catch(err) { console.error('Init error:', err); if(window.toast) toast(err.message||'Failed to load','error'); }
+}
+
+async function loadAllData() {
+  await Promise.all([
+    loadEquipment(),
+    loadExpenses(),
+    loadStaff(),
+    loadPayments()
+  ]);
+  renderEquipment();
+  renderExpenses();
+  renderStaff();
+  renderPnL();
+}
+
+async function loadEquipment() {
+  const { data, error } = await client.from('equipment')
+    .select('*, equipment_maintenance(*)')
+    .eq('gym_id', gym.id)
+    .order('created_at', { ascending: false });
+  if (error) { console.warn('Equipment load error:', error); }
+  equipmentData = data || [];
+}
+
+async function loadExpenses() {
+  const { data, error } = await client.from('expenses')
+    .select('*')
+    .eq('gym_id', gym.id)
+    .order('expense_date', { ascending: false })
+    .limit(500);
+  if (error) { console.warn('Expenses load error:', error); }
+  expensesData = data || [];
+}
+
+async function loadStaff() {
+  const { data: links, error: linkErr } = await client.from('gym_staff_links')
+    .select('*, profiles(*)')
+    .eq('gym_id', gym.id)
+    .eq('is_active', true);
+  if (linkErr) { console.warn('Staff load error:', linkErr); }
+
+  staffData = (links || []).map(l => ({ ...l.profiles, link_id: l.id, role: l.role, salary: l.salary, is_active: l.is_active }));
+
+  // Load salary payments
+  const { data: salaries, error: salErr } = await client.from('salary_payments')
+    .select('*')
+    .eq('gym_id', gym.id)
+    .order('payment_date', { ascending: false })
+    .limit(100);
+  if (salErr) { console.warn('Salary load error:', salErr); }
+  salaryData = salaries || [];
+}
+
+async function loadPayments() {
+  const { data, error } = await client.from('payments')
+    .select('*')
+    .eq('gym_id', gym.id)
+    .order('payment_date', { ascending: false })
+    .limit(1000);
+  if (error) { console.warn('Payments load error:', error); }
+  paymentsData = data || [];
+}
+
+// ===== RENDER EQUIPMENT =====
+function renderEquipment() {
+  const grid = document.getElementById('equipmentGrid');
+  const empty = document.getElementById('eqEmpty');
+  const search = document.getElementById('eqSearch').value.toLowerCase();
+  const cat = document.getElementById('eqCategory').value;
+
+  let filtered = equipmentData;
+  if (search) filtered = filtered.filter(e => (e.name || '').toLowerCase().includes(search) || (e.serial_number || '').toLowerCase().includes(search));
+  if (cat !== 'all') filtered = filtered.filter(e => e.category === cat);
+
+  document.getElementById('eqTotal').textContent = equipmentData.length;
+  document.getElementById('eqActive').textContent = equipmentData.filter(e => e.status === 'active').length;
+  document.getElementById('eqMaint').textContent = equipmentData.filter(e => e.status === 'maintenance').length;
+  document.getElementById('eqValue').textContent = fmtNaira(equipmentData.reduce((s, e) => s + (e.purchase_price || 0), 0));
+
+  if (filtered.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(e => `
+    <div class="equip-card gf-lift">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <div style="font-weight:700; font-size:1.05rem;">${escapeHtml(e.name)}</div>
+        <span class="category-pill" style="background:rgba(99,102,241,0.15); color:var(--gf-primary);">${e.category}</span>
+      </div>
+      <div style="font-size:0.8rem; color:var(--gf-text-secondary); margin-bottom:8px;">${escapeHtml(e.description || '')}</div>
+      <div style="display:flex; gap:16px; font-size:0.8rem; color:var(--gf-text-muted); margin-bottom:8px;">
+        <span>📍 ${escapeHtml(e.location || '—')}</span>
+        <span>🔢 ${e.serial_number || '—'}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:0.85rem;"><span class="status-dot status-${e.status}"></span>${e.status}</span>
+        <span style="font-weight:600; color:var(--gf-primary);">${fmtNaira(e.purchase_price || 0)}</span>
+      </div>
+      ${e.next_maintenance_date ? `<div style="font-size:0.75rem; color:${new Date(e.next_maintenance_date) < new Date() ? 'var(--gf-danger)' : 'var(--gf-warning)'};">🔧 Next maint: ${e.next_maintenance_date}</div>` : ''}
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button type="button" class="btn btn-sm gf-tooltip" data-action="editEquip" data-args="'${e.id}'">Edit</button>
+        <button type="button" class="btn btn-sm gf-tooltip" data-action="logMaint" data-args="'${e.id}', '${escapeHtml(e.name)}'">Log Maint</button>
+        ${staffRole !== 'rep' ? `<button type="button" class="btn btn-sm gf-tooltip" style="background:var(--gf-danger); color:#fff;" data-action="deleteEquip" data-args="'${e.id}'">Delete</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== RENDER EXPENSES =====
+function renderExpenses() {
+  const list = document.getElementById('expensesList');
+  const empty = document.getElementById('expEmpty');
+  const from = document.getElementById('expDateFrom').value;
+  const to = document.getElementById('expDateTo').value;
+  const cat = document.getElementById('expCategory').value;
+
+  let filtered = expensesData;
+  if (from) filtered = filtered.filter(e => e.expense_date >= from);
+  if (to) filtered = filtered.filter(e => e.expense_date <= to);
+  if (cat !== 'all') filtered = filtered.filter(e => e.category === cat);
+
+  // Stats
+  const today = new Date().toISOString().split('T')[0];
+  const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+
+  document.getElementById('expToday').textContent = fmtNaira(expensesData.filter(e => e.expense_date === today).reduce((s, e) => s + (e.amount || 0), 0));
+  document.getElementById('expWeek').textContent = fmtNaira(expensesData.filter(e => e.expense_date >= weekAgo).reduce((s, e) => s + (e.amount || 0), 0));
+  document.getElementById('expMonth').textContent = fmtNaira(expensesData.filter(e => e.expense_date >= monthStart).reduce((s, e) => s + (e.amount || 0), 0));
+  document.getElementById('expCount').textContent = filtered.length;
+
+  if (filtered.length === 0) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(e => `
+    <div class="expense-row gf-lift">
+      <div class="info">
+        <div style="font-weight:600;">${escapeHtml(e.description)}</div>
+        <div style="margin-top:4px;"><span class="category-pill">${e.category}</span> ${e.vendor ? '· ' + escapeHtml(e.vendor) : ''} ${e.is_recurring ? '· 🔄' : ''}</div>
+      </div>
+      <div class="date">${e.expense_date}</div>
+      <div class="amount">${fmtNaira(e.amount || 0)}</div>
+      <div style="display:flex; gap:6px;">
+        <button type="button" class="btn btn-sm gf-tooltip" data-action="editExpense" data-args="'${e.id}'">Edit</button>
+        ${staffRole !== 'rep' ? `<button type="button" class="btn btn-sm gf-tooltip" style="background:var(--gf-danger); color:#fff;" data-action="deleteExpense" data-args="'${e.id}'">Delete</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== RENDER STAFF =====
+function renderStaff() {
+  const grid = document.getElementById('staffGrid');
+  const empty = document.getElementById('staffEmpty');
+  const search = document.getElementById('staffSearch').value.toLowerCase();
+
+  let filtered = staffData;
+  if (search) filtered = filtered.filter(s => (s.full_name || '').toLowerCase().includes(search) || (s.email || '').toLowerCase().includes(search));
+
+  if (filtered.length === 0) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(s => {
+    const lastPayment = salaryData.find(pay => pay.staff_id === s.id);
+    return `
+      <div class="staff-card gf-lift">
+        <div class="avatar">${(s.full_name || '?').charAt(0).toUpperCase()}</div>
+        <div class="info">
+          <div class="name">${escapeHtml(s.full_name || 'Unknown')}</div>
+          <div class="role">${s.role || 'staff'} · ${s.email || ''}</div>
+          <div style="font-size:0.75rem; color:var(--gf-text-muted); margin-top:2px;">${s.phone || ''}</div>
+        </div>
+        <div class="salary">
+          <div class="amount">${fmtNaira(s.salary || 0)}</div>
+          <div class="period">/ month</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn btn-sm btn-primary" data-action="paySalary" data-args="'${s.id}', '${escapeHtml(s.full_name || '')}', ${s.salary || 0}">Pay</button>
+          <button type="button" class="btn btn-sm gf-tooltip" data-action="editStaff" data-args="'${s.id}'">Edit</button>
+          ${staffRole !== 'rep' ? `<button type="button" class="btn btn-sm gf-tooltip" style="background:var(--gf-danger); color:#fff;" data-action="removeStaff" data-args="'${s.id}'">Remove</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ===== RENDER P&L =====
+function renderPnL() {
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const revenue = paymentsData
+    .filter(p => p.payment_date >= monthStart && p.payment_date <= monthEnd)
+    .reduce((s, p) => s + (p.amount || 0), 0);
+
+  const expenses = expensesData
+    .filter(e => e.expense_date >= monthStart && e.expense_date <= monthEnd)
+    .reduce((s, e) => s + (e.amount || 0), 0);
+
+  const net = revenue - expenses;
+  const margin = revenue > 0 ? Math.round((net / revenue) * 100) : 0;
+
+  document.getElementById('pnlRevenue').textContent = fmtNaira(revenue);
+  document.getElementById('pnlExpenses').textContent = fmtNaira(expenses);
+  document.getElementById('pnlNet').textContent = fmtNaira(net);
+  document.getElementById('pnlMargin').textContent = margin + '%';
+
+  // Expense breakdown
+  const byCat = {};
+  expensesData.filter(e => e.expense_date >= monthStart && e.expense_date <= monthEnd)
+    .forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + (e.amount || 0); });
+
+  const totalExp = Object.values(byCat).reduce((a, b) => a + b, 0) || 1;
+  document.getElementById('pnlBreakdown').innerHTML = Object.entries(byCat)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, amt]) => `
+      <div style="background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius); padding:12px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="font-weight:600; font-size:0.9rem;">${cat}</span>
+          <span style="font-weight:700;">${fmtNaira(amt)}</span>
+        </div>
+        <div style="height:6px; background:var(--gf-border); border-radius:3px; overflow:hidden;">
+          <div style="height:100%; width:${(amt/totalExp)*100}%; background:var(--gf-primary); border-radius:3px;"></div>
+        </div>
+        <div style="font-size:0.75rem; color:var(--gf-text-muted); margin-top:4px;">${Math.round((amt/totalExp)*100)}% of expenses</div>
+      </div>
+    `).join('');
+}
+
+// ===== MODAL ACTIONS =====
+window.editEquip = function(id) {
+  const e = equipmentData.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('equipModalTitle').textContent = 'Edit Equipment';
+  document.getElementById('equipId').value = e.id;
+  document.getElementById('eqName').value = e.name;
+  document.getElementById('eqCat').value = e.category;
+  document.getElementById('eqDesc').value = e.description || '';
+  document.getElementById('eqSerial').value = e.serial_number || '';
+  document.getElementById('eqLocation').value = e.location || '';
+  document.getElementById('eqPurchaseDate').value = e.purchase_date || '';
+  document.getElementById('eqPrice').value = e.purchase_price || '';
+  document.getElementById('eqVendor').value = e.vendor || '';
+  document.getElementById('eqWarranty').value = e.warranty_expiry || '';
+  document.getElementById('eqStatus').value = e.status;
+  document.getElementById('eqNextMaint').value = e.next_maintenance_date || '';
+  document.getElementById('eqPhoto').value = e.photo_url || '';
+  document.getElementById('equipModal').classList.add('open');
+};
+
+window.logMaint = async function(equipId, equipName) {
+  const desc = prompt(`Log maintenance for "${equipName}":`);
+  if (!desc) return;
+  const cost = parseFloat(prompt('Cost (₦):') || '0');
+
+  const { error } = await client.from('equipment_maintenance')
+    .insert({ gym_id: gym.id, equipment_id: equipId, description: desc, cost: cost, maintenance_type: 'routine', status: 'completed' })
+    .select().single();
+
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Maintenance logged', 'success');
+  await loadEquipment();
+  renderEquipment();
+};
+
+window.deleteEquip = async function(id) {
+  if (!confirm('Delete this equipment item?')) return;
+  const { error } = await client.from('equipment').delete().eq('id', id).eq('gym_id', gym.id);
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Equipment deleted', 'success');
+  await loadEquipment();
+  renderEquipment();
+};
+
+window.editExpense = function(id) {
+  const e = expensesData.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('expModalTitle').textContent = 'Edit Expense';
+  document.getElementById('expId').value = e.id;
+  document.getElementById('exCategory').value = e.category;
+  document.getElementById('exAmount').value = e.amount;
+  document.getElementById('exDesc').value = e.description;
+  document.getElementById('exDate').value = e.expense_date;
+  document.getElementById('exMethod').value = e.payment_method;
+  document.getElementById('exVendor').value = e.vendor || '';
+  document.getElementById('exReceipt').value = e.receipt_url || '';
+  document.getElementById('exRecurring').checked = e.is_recurring;
+  document.getElementById('exFreq').value = e.recurring_frequency || 'monthly';
+  document.getElementById('expModal').classList.add('open');
+};
+
+window.deleteExpense = async function(id) {
+  if (!confirm('Delete this expense?')) return;
+  const { error } = await client.from('expenses').delete().eq('id', id).eq('gym_id', gym.id);
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Expense deleted', 'success');
+  await loadExpenses();
+  renderExpenses();
+  renderPnL();
+};
+
+window.editStaff = function(id) {
+  const s = staffData.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('staffModalTitle').textContent = 'Edit Staff';
+  document.getElementById('staffId').value = s.id;
+  document.getElementById('stEmail').value = s.email || '';
+  document.getElementById('stName').value = s.full_name || '';
+  document.getElementById('stPhone').value = s.phone || '';
+  document.getElementById('stRole').value = s.role || 'rep';
+  document.getElementById('stSalary').value = s.salary || 0;
+  document.getElementById('staffModal').classList.add('open');
+};
+
+window.removeStaff = async function(id) {
+  if (!confirm('Remove this staff member?')) return;
+  const { error } = await client.from('gym_staff_links')
+    .update({ is_active: false })
+    .eq('user_id', id)
+    .eq('gym_id', gym.id).select().single();
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Staff removed', 'success');
+  await loadStaff();
+  renderStaff();
+};
+
+window.paySalary = function(staffId, name, salary) {
+  document.getElementById('payStaffId').value = staffId;
+  document.getElementById('payStaffName').value = name;
+  document.getElementById('payBase').value = salary;
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  document.getElementById('payPeriodStart').value = start.toISOString().split('T')[0];
+  document.getElementById('payPeriodEnd').value = end.toISOString().split('T')[0];
+  document.getElementById('paySalaryModal').classList.add('open');
+};
+
+// ===== FORM SUBMISSIONS =====
+function setupListeners() {
+  // Tabs
+  document.querySelectorAll('.tab-bar .tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab-bar .tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Equipment
+  document.getElementById('addEquipBtn').addEventListener('click', () => {
+    document.getElementById('equipModalTitle').textContent = 'Add Equipment';
+    document.getElementById('equipForm').reset();
+    document.getElementById('equipId').value = '';
+    document.getElementById('equipModal').classList.add('open');
+  });
+  document.getElementById('eqSearch').addEventListener('input', renderEquipment);
+  document.getElementById('eqCategory').addEventListener('change', renderEquipment);
+
+  document.getElementById('equipForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('equipId').value;
+    const payload = {
+      gym_id: gym.id,
+      name: document.getElementById('eqName').value.trim(),
+      category: document.getElementById('eqCat').value,
+      description: document.getElementById('eqDesc').value.trim() || null,
+      serial_number: document.getElementById('eqSerial').value.trim() || null,
+      location: document.getElementById('eqLocation').value.trim() || null,
+      purchase_date: document.getElementById('eqPurchaseDate').value || null,
+      purchase_price: parseFloat(document.getElementById('eqPrice').value) || 0,
+      vendor: document.getElementById('eqVendor').value.trim() || null,
+      warranty_expiry: document.getElementById('eqWarranty').value || null,
+      status: document.getElementById('eqStatus').value,
+      next_maintenance_date: document.getElementById('eqNextMaint').value || null,
+      photo_url: document.getElementById('eqPhoto').value.trim() || null,
+    };
+
+    let error;
+    if (id) {
+      const { error: err } = await client.from('equipment').update(payload).eq('id', id).eq('gym_id', gym.id).select().single();
+      error = err;
+    } else {
+      const { error: err } = await client.from('equipment').insert(payload).select().single();
+      error = err;
+    }
+
+    if (error) { toast(error.message, 'error'); return; }
+    toast(id ? 'Equipment updated' : 'Equipment added', 'success');
+    document.getElementById('equipModal').classList.remove('open');
+    await loadEquipment();
+    renderEquipment();
+  });
+
+  // Expenses
+  document.getElementById('addExpBtn').addEventListener('click', () => {
+    document.getElementById('expModalTitle').textContent = 'Add Expense';
+    document.getElementById('expForm').reset();
+    document.getElementById('expId').value = '';
+    document.getElementById('exDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('expModal').classList.add('open');
+  });
+  document.getElementById('expDateFrom').addEventListener('change', renderExpenses);
+  document.getElementById('expDateTo').addEventListener('change', renderExpenses);
+  document.getElementById('expCategory').addEventListener('change', renderExpenses);
+
+  document.getElementById('exRecurring').addEventListener('change', (e) => {
+    document.getElementById('exFreq').style.display = e.target.checked ? 'block' : 'none';
+  });
+
+  document.getElementById('expForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('expId').value;
+    const payload = {
+      gym_id: gym.id,
+      category: document.getElementById('exCategory').value,
+      amount: parseFloat(document.getElementById('exAmount').value) || 0,
+      description: document.getElementById('exDesc').value.trim(),
+      expense_date: document.getElementById('exDate').value,
+      payment_method: document.getElementById('exMethod').value,
+      vendor: document.getElementById('exVendor').value.trim() || null,
+      receipt_url: document.getElementById('exReceipt').value.trim() || null,
+      is_recurring: document.getElementById('exRecurring').checked,
+      recurring_frequency: document.getElementById('exRecurring').checked ? document.getElementById('exFreq').value : null,
+      created_by: user.id,
+    };
+
+    let error;
+    if (id) {
+      const { error: err } = await client.from('expenses').update(payload).eq('id', id).eq('gym_id', gym.id).select().single();
+      error = err;
+    } else {
+      const { error: err } = await client.from('expenses').insert(payload).select().single();
+      error = err;
+    }
+
+    if (error) { toast(error.message, 'error'); return; }
+    toast(id ? 'Expense updated' : 'Expense added', 'success');
+    document.getElementById('expModal').classList.remove('open');
+    await loadExpenses();
+    renderExpenses();
+    renderPnL();
+  });
+
+  // Staff
+  document.getElementById('addStaffBtn').addEventListener('click', () => {
+    document.getElementById('staffModalTitle').textContent = 'Add Staff';
+    document.getElementById('staffForm').reset();
+    document.getElementById('staffId').value = '';
+    document.getElementById('staffModal').classList.add('open');
+  });
+  document.getElementById('staffSearch').addEventListener('input', renderStaff);
+
+  document.getElementById('staffForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('staffId').value;
+    const email = document.getElementById('stEmail').value.trim();
+    const name = document.getElementById('stName').value.trim();
+    const role = document.getElementById('stRole').value;
+    const salary = parseFloat(document.getElementById('stSalary').value) || 0;
+
+    if (id) {
+      // Update existing staff link
+      const { error } = await client.from('gym_staff_links')
+        .update({ role, salary })
+        .eq('user_id', id)
+        .eq('gym_id', gym.id)
+        .select().single();
+      if (error) { toast(error.message, 'error'); return; }
+      toast('Staff updated', 'success');
+    } else {
+      // Create new user + link
+      const { data: existing } = await client.from('profiles').select('id').eq('email', email).single();
+      let userId = existing?.id;
+
+      if (!userId) {
+        const { data: authUser, error: authErr } = await client.auth.admin.createUser({
+          email,
+          password: Math.random().toString(36).slice(-8),
+          email_confirm: true,
+        });
+        if (authErr) { toast(authErr.message, 'error'); return; }
+        userId = authUser.user.id;
+
+        await client.from('profiles').insert({
+          id: userId, email, full_name: name, phone: document.getElementById('stPhone').value.trim(),
+          role: 'gym_staff', is_active: true,
+        }).select().single();
+      }
+
+      const { error: linkErr } = await client.from('gym_staff_links')
+        .insert({ gym_id: gym.id, user_id: userId, role, salary, is_active: true })
+        .select().single();
+      if (linkErr) { toast(linkErr.message, 'error'); return; }
+      toast('Staff added', 'success');
+    }
+
+    document.getElementById('staffModal').classList.remove('open');
+    await loadStaff();
+    renderStaff();
+  });
+
+  // Pay Salary
+  document.getElementById('paySalaryForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const staffId = document.getElementById('payStaffId').value;
+    const base = parseFloat(document.getElementById('payBase').value) || 0;
+    const bonus = parseFloat(document.getElementById('payBonus').value) || 0;
+    const deduction = parseFloat(document.getElementById('payDeduction').value) || 0;
+    const total = base + bonus - deduction;
+
+    const { error } = await client.from('salary_payments')
+      .insert({
+        gym_id: gym.id,
+        staff_id: staffId,
+        amount: total,
+        payment_period_start: document.getElementById('payPeriodStart').value,
+        payment_period_end: document.getElementById('payPeriodEnd').value,
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_method: document.getElementById('payMethod').value,
+        bonus,
+        deduction,
+        notes: document.getElementById('payNotes').value.trim() || null,
+        status: 'paid',
+        created_by: user.id,
+      })
+      .select().single();
+
+    if (error) { toast(error.message, 'error'); return; }
+    toast(`Salary paid: ${fmtNaira(total)}`, 'success');
+    document.getElementById('paySalaryModal').classList.remove('open');
+    await loadStaff();
+    renderStaff();
+  });
+
+  // Theme, logout, menu
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('gf-theme', next);
+  });
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await client.auth.signOut();
+    window.location.href = '/login.html';
+  });
+  document.getElementById('menuBtn').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('open');
+  });
+
+  // Close modals on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+init();
+</script>
+
+  
+
+<script src="/gf-utils.js"></script>
+</body>
+</html>

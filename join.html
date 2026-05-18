@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080e1c">
+<title>Join — GymFlow</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>
+// Theme init — before render to prevent flash
+(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+</head>
+
+<body class="min-h-screen antialiased">
+
+<div id="pageLoader" class="gf-page-loader">
+  <div class="loader-logo">Gym<em>Flow</em></div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<!-- Sticky Header -->
+<div class="gf-header">
+  <div class="flex items-center gap-3">
+    <div id="gym-avatar" class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center font-bold text-white text-sm">G</div>
+    <div>
+      <div id="gym-name" class="text-sm font-bold leading-tight">Join Gym</div>
+      <div class="text-[10px] text-slate-500 font-medium">Member Registration</div>
+    </div>
+  </div>
+  <a href="/login.html" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition">Sign In</a>
+</div>
+
+<!-- Progress Steps -->
+<div class="px-5 pt-4 pb-2">
+  <div class="flex items-center gap-2">
+    <div id="step-1" class="h-1.5 flex-1 rounded-full bg-emerald-500 transition-all gf-animate-pulse-glow"></div>
+    <div id="step-2" class="h-1.5 flex-1 rounded-full bg-slate-700 transition-all"></div>
+    <div id="step-3" class="h-1.5 flex-1 rounded-full bg-slate-700 transition-all"></div>
+  </div>
+  <div class="flex justify-between mt-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+    <span class="text-emerald-400">Personal</span>
+    <span id="lbl-2">Emergency</span>
+    <span id="lbl-3">Confirm</span>
+  </div>
+</div>
+
+<!-- Form -->
+<form id="form" class="px-5 pt-3 pb-28 max-w-lg mx-auto">
+  <div id="error-box" class="hidden gf-error mb-4"></div>
+
+  <!-- Step 1: Personal -->
+  <div id="page-1" class="space-y-4">
+    <div class="gf-card-elevated p-5 gf-lift">
+      <h2 class="gf-h3 mb-4">Personal Details</h2>
+      <div class="space-y-3.5">
+        <div>
+          <label class="gf-label">Full Name <span class="req">*</span></label>
+          <input aria-label="Input field" type="text" name="full_name" required class="gf-input gf-focus" placeholder="Your full name" autocomplete="name">
+        </div>
+        <div>
+          <label class="gf-label">Email <span class="req">*</span></label>
+          <input aria-label="Input field" type="email" name="email" required class="gf-input gf-focus" placeholder="you@email.com" autocomplete="email">
+        </div>
+        <div>
+          <label class="gf-label">Phone <span class="req">*</span></label>
+          <input aria-label="Input field" type="tel" name="phone" required class="gf-input gf-focus" placeholder="08012345678" autocomplete="tel">
+        </div>
+        <div>
+          <label class="gf-label">Password <span class="req">*</span></label>
+          <!-- Bug 65 fix: autocomplete="new-password" for password managers -->
+          <input aria-label="Input field" type="password" name="password" required minlength="6" class="gf-input gf-focus" placeholder="Min 6 characters" autocomplete="new-password">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="gf-label">Date of Birth</label>
+            <input aria-label="Input field" type="date" name="date_of_birth" class="gf-input gf-focus">
+          </div>
+          <div>
+            <label class="gf-label">Gender</label>
+            <select name="gender" class="gf-select">
+              <option value="">Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="gf-label">Address</label>
+          <textarea name="address" rows="2" class="gf-input gf-focus" placeholder="Your home address"></textarea>
+        </div>
+      </div>
+    </div>
+    <button type="button" data-action="goTo" data-args="2" class="gf-btn gf-animate-pulse-glow">Continue</button>
+  </div>
+
+  <!-- Step 2: Emergency + Health -->
+  <div id="page-2" class="hidden space-y-4">
+    <div class="gf-card-elevated p-5 gf-lift">
+      <h2 class="gf-h3 mb-4">Emergency Contact</h2>
+      <div class="space-y-3.5">
+        <div>
+          <label class="gf-label">Full Name <span class="req">*</span></label>
+          <input aria-label="Input field" type="text" name="nok_name" required class="gf-input gf-focus" placeholder="Next of kin name">
+        </div>
+        <div>
+          <label class="gf-label">Relationship <span class="req">*</span></label>
+          <select name="nok_relationship" required class="gf-select">
+            <option value="">Select</option><option value="parent">Parent</option><option value="spouse">Spouse</option><option value="sibling">Sibling</option><option value="child">Child</option><option value="friend">Friend</option><option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="gf-label">Phone <span class="req">*</span></label>
+          <input aria-label="Input field" type="tel" name="nok_phone" required class="gf-input gf-focus" placeholder="08087654321">
+        </div>
+        <div>
+          <label class="gf-label">Address</label>
+          <input aria-label="Input field" type="text" name="nok_address" class="gf-input gf-focus" placeholder="Optional">
+        </div>
+      </div>
+    </div>
+    <div class="gf-card-elevated p-5 gf-lift">
+      <h2 class="gf-h3 mb-4">Health Info</h2>
+      <div>
+        <label class="gf-label">Medical Conditions / Allergies</label>
+        <textarea name="health_notes" rows="3" class="gf-input gf-focus" placeholder="Any conditions we should know about..."></textarea>
+        <p class="text-xs text-slate-500 mt-1.5">Helps trainers keep you safe.</p>
+      </div>
+    </div>
+    <div class="flex gap-3">
+      <button type="button" data-action="goTo" data-args="1" class="gf-btn gf-btn-outline flex-1">Back</button>
+      <button type="button" data-action="goTo" data-args="3" class="gf-btn flex-1">Continue</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Review + Submit -->
+  <div id="page-3" class="hidden space-y-4">
+    <div class="gf-card-elevated p-5 gf-lift">
+      <h2 class="gf-h3 mb-4">Review & Confirm</h2>
+      <div id="review-box" class="space-y-3 text-sm">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+    <div class="gf-waiver">
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input aria-label="Input field" type="checkbox" name="waiver_signed" required class="gf-check">
+        <div>
+          <p class="font-semibold text-white text-sm">I agree to the Terms & Conditions</p>
+          <p class="text-xs text-slate-400 mt-1 leading-relaxed">I have read the safety guidelines, waive liability for training injuries, and agree to follow all gym rules.</p>
+        </div>
+      </label>
+    </div>
+    <div class="flex gap-3">
+      <button type="button" data-action="goTo" data-args="2" class="gf-btn gf-btn-outline flex-1">Back</button>
+      <button type="submit" id="submit-btn" class="gf-btn flex-1">
+        <span id="btn-text">Create Membership</span>
+      </button>
+    </div>
+  </div>
+</form>
+<script type="module">
+'use strict';
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Supabase client — await the bootstrap promise from /js/supabase-config.js
+const client = await (window.GF_SUPABASE_READY || Promise.reject(new Error('Supabase loader missing')))
+  .catch(function(err) { console.error('[GF] Supabase init failed:', err); toast('Service unavailable — please refresh', 'error'); return null; });
+
+async function loadGym() {
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get('gym') || localStorage.getItem('gf-gym-slug');
+  if (!slug || !client) return null;
+  const { data } = await client.from('gyms').select('*').eq('slug', slug).maybeSingle();
+  if (data) localStorage.setItem('gf-gym-slug', data.slug);
+  return data;
+}
+function toast(msg, type) {
+  type = type || 'success';
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'gf-toast gf-toast-' + type;
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// Load gym if slug provided in URL, otherwise show generic join page
+const gym = await loadGym();
+if (gym) {
+  document.getElementById('gym-name').textContent = gym.name;
+  document.getElementById('gym-avatar').textContent = gym.name.charAt(0).toUpperCase();
+} else {
+  // No gym slug - this is a standalone registration page
+  document.getElementById('gym-name').textContent = 'Join GymFlow';
+  document.getElementById('gym-avatar').textContent = 'G';
+}
+
+let step = 1;
+
+// Bug 36 fix: validate current step's required fields before advancing
+function validateStep(n) {
+  const page = document.getElementById('page-' + n);
+  const inputs = page.querySelectorAll('input[required], select[required], textarea[required]');
+  for (const input of inputs) {
+    if (!input.checkValidity()) {
+      input.reportValidity();
+      return false;
+    }
+  }
+  return true;
+}
+
+function goTo(n) {
+  // Validate current step before moving forward
+  if (n > step && !validateStep(step)) return;
+
+  document.getElementById('page-' + step).classList.add('hidden');
+  document.getElementById('page-' + n).classList.remove('hidden');
+  for (let i = 1; i <= 3; i++) {
+    const bar = document.getElementById('step-' + i);
+    const lbl = document.getElementById('lbl-' + i);
+    if (i <= n) { bar.classList.remove('bg-slate-700'); bar.classList.add('bg-emerald-500'); if(lbl) lbl.classList.add('text-emerald-400'); }
+    else { bar.classList.remove('bg-emerald-500'); bar.classList.add('bg-slate-700'); if(lbl) lbl.classList.remove('text-emerald-400'); }
+  }
+  step = n;
+  if (n === 3) buildReview();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+window.goTo = goTo;
+
+function buildReview() {
+  const fd = new FormData(document.getElementById('form'));
+  const fields = [
+    ['Full Name', fd.get('full_name')],
+    ['Email', fd.get('email')],
+    ['Phone', fd.get('phone')],
+    ['Next of Kin', fd.get('nok_name') + ' (' + fd.get('nok_relationship') + ')'],
+    ['NOK Phone', fd.get('nok_phone')],
+  ];
+  document.getElementById('review-box').innerHTML = fields.map(function(pair) {
+    var k = pair[0], v = pair[1];
+    return '<div class="flex justify-between py-2 border-b border-slate-800 last:border-0">' +
+      '<span class="text-slate-500">' + (k || '') + '</span>' +
+      '<span class="text-white font-medium">' + (v || '—') + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+const form = document.getElementById('form');
+const errorBox = document.getElementById('error-box');
+const submitBtn = document.getElementById('submit-btn');
+const btnText = document.getElementById('btn-text');
+
+function showError(msg) {
+  errorBox.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ' + msg;
+  errorBox.classList.remove('hidden');
+  errorBox.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function setLoading(v) {
+  submitBtn.disabled = v;
+  btnText.innerHTML = v ? '<span class="gf-spinner"></span> Creating...' : 'Create Membership';
+}
+
+// Bug 55 fix: track submission state to prevent double-submit during redirect delay
+let submitted = false;
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (submitted) return; // prevent double-submit
+  // If no gym in URL, we'll create a standalone account (gym assignment can happen later)
+
+  errorBox.classList.add('hidden');
+  setLoading(true);
+  submitted = true;
+
+  const fd = new FormData(form);
+  const email = fd.get('email');
+  const password = fd.get('password');
+
+  try {
+    const { data: authData, error: authErr } = await client.auth.signUp({ email, password, options:{data:{full_name:fd.get('full_name')}} });
+    let userId;
+    if (authErr && authErr.message.includes('already registered')) {
+      const { data: si, error: se } = await client.auth.signInWithPassword({ email, password });
+      if (se) throw new Error('Email already registered. Please sign in.');
+      userId = si.user.id;
+    } else if (authErr) { throw authErr; }
+    else { userId = authData.user.id; }
+
+    await client.auth.signInWithPassword({ email, password });
+
+    const { error: pErr } = await client.from('profiles').upsert({
+      id: userId, email, full_name: fd.get('full_name'), phone: fd.get('phone'), role: 'member',
+      date_of_birth: fd.get('date_of_birth')||null, gender: fd.get('gender')||null, address: fd.get('address')||null,
+      nok_name: fd.get('nok_name'), nok_relationship: fd.get('nok_relationship'), nok_phone: fd.get('nok_phone'),
+      nok_address: fd.get('nok_address')||null, health_notes: fd.get('health_notes')||null,
+      waiver_signed_at: fd.get('waiver_signed') ? new Date().toISOString() : null, is_active: true,
+    }, { onConflict: 'id' }).select().single().select().single();
+    if (pErr) throw pErr;
+
+    // Only link to gym if gym was found in URL
+    if (gym && gym.id) {
+      const { error: lErr } = await client.from('gym_member_links').upsert({
+        gym_id: gym.id, user_id: userId, onboarding_method: 'self_signup'
+      }, { onConflict: 'gym_id,user_id' }).select().single();
+      if (lErr) throw lErr;
+    }
+
+    toast('🎉 Welcome! Your membership is ready.', 'success');
+    setTimeout(() => window.location.href = '/login.html?welcome=1', 2000);
+  } catch (err) {
+    submitted = false; // allow retry on error
+    showError(err.message || 'Something went wrong. Please try again.');
+    setLoading(false);
+  }
+});
+</script>
+
+  
+
+<script src="/gf-utils.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080e1c">
+<title>Instructor Portal — GymFlow</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>
+// Theme init — before render to prevent flash
+(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+</head>
+
+<body class="min-h-screen antialiased">
+
+<div id="pageLoader" class="gf-page-loader">
+  <div class="loader-logo">Gym<em>Flow</em></div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<div id="app" class="gf-animate-fade">
+  <aside class="sidebar gf-glass" id="sidebar">
+    <div class="logo">GymFlow</div>
+    <nav>
+      <a href="/instructor.html" class="active">My Classes</a>
+      <a href="/member-dashboard.html">My Profile</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button type="button" class="theme-toggle" id="themeToggle" title="Toggle theme">🌓</button>
+      <button type="button" class="logout" id="logoutBtn">Logout</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar gf-glass">
+      <button type="button" class="menu-btn" id="menuBtn">☰</button>
+      <h1>Instructor Portal</h1>
+    </header>
+    <nav class="gf-breadcrumb"><a href="index.html" class="gf-breadcrumb-link">Index</a><span class="gf-breadcrumb-sep">/</span><a href="login.html" class="gf-breadcrumb-link">Login</a><span class="gf-breadcrumb-sep">/</span><a href="admin-dashboard.html" class="gf-breadcrumb-link">Admin Dashboard</a><span class="gf-breadcrumb-sep">/</span><a href="analytics.html" class="gf-breadcrumb-link">Analytics</a><span class="gf-breadcrumb-sep">/</span><a href="operations.html" class="gf-breadcrumb-link">Operations</a><span class="gf-breadcrumb-sep">/</span><a href="classes-admin.html" class="gf-breadcrumb-link">Classes Admin</a><span class="gf-breadcrumb-sep">/</span><a href="pricing-admin.html" class="gf-breadcrumb-link">Pricing Admin</a><span class="gf-breadcrumb-sep">/</span><a href="reminders.html" class="gf-breadcrumb-link">Reminders</a><span class="gf-breadcrumb-sep">/</span><a href="business-hours.html" class="gf-breadcrumb-link">Business Hours</a><span class="gf-breadcrumb-sep">/</span><a href="waiver.html" class="gf-breadcrumb-link">Waiver</a><span class="gf-breadcrumb-sep">/</span><span class="gf-breadcrumb-current">Instructor</span></nav>
+
+    <div class="content">
+      <div class="instructor-header">
+        <div class="avatar" id="instAvatar">?</div>
+        <div class="info">
+          <h2 id="instName">Loading...</h2>
+          <p id="instRole">Instructor</p>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box gf-lift">
+          <div class="num" id="statClasses">0</div>
+          <div class="label">Classes/Week</div>
+        </div>
+        <div class="stat-box gf-lift">
+          <div class="num" id="statStudents">0</div>
+          <div class="label">Total Students</div>
+        </div>
+        <div class="stat-box gf-lift">
+          <div class="num" id="statAttendance">0%</div>
+          <div class="label">Avg Attendance</div>
+        </div>
+        <div class="stat-box gf-lift">
+          <div class="num" id="statRating">—</div>
+          <div class="label">Rating</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+        <div>
+          <h3 style="margin-bottom:16px; font-size:1.1rem;">📅 Weekly Schedule</h3>
+          <div id="scheduleContainer"></div>
+        </div>
+        <div>
+          <div class="earnings-card gf-animate-pulse-glow">
+            <div style="font-size:0.85rem; color:var(--gf-text-muted); margin-bottom:8px;">This Month's Earnings</div>
+            <div class="amount" id="instEarnings">₦0</div>
+            <div style="font-size:0.8rem; color:var(--gf-text-secondary); margin-top:8px;">Based on class attendance</div>
+          </div>
+
+          <div style="margin-top:20px;">
+            <h3 style="margin-bottom:12px; font-size:1rem;">📊 Today's Classes</h3>
+            <div id="todayClasses"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+'use strict';
+
+import { client, getGymSlug, loadGym, getUser, requireAuth, toast, fmtNaira } from '/js/supabase.js';
+
+let gym = null;
+let user = null;
+let instructorName = '';
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+async function init() {
+    try {
+  user = await requireAuth();
+  if (!user) return;
+
+  gym = await loadGym();
+  if (!gym) { toast('Gym not found', 'error'); return; }
+
+  // Verify instructor role
+  const { data: staffLink } = await client.from('gym_staff_links')
+    .select('role')
+    .eq('gym_id', gym.id)
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .single();
+
+  if (!staffLink || staffLink.role !== 'trainer') {
+    toast('Instructor access required', 'error');
+    setTimeout(() => window.location.href = '/member-dashboard.html', 1500);
+    return;
+  }
+
+  // Load profile
+  const { data: profile } = await client.from('profiles')
+    .select('full_name, email, phone')
+    .eq('id', user.id)
+    .single();
+
+  instructorName = profile?.full_name || 'Instructor';
+  document.getElementById('instName').textContent = instructorName;
+  document.getElementById('instAvatar').textContent = instructorName.charAt(0).toUpperCase();
+
+  await loadInstructorData();
+  setupListeners();
+
+  } catch(err) { console.error('Init error:', err); if(window.toast) toast(err.message||'Failed to load','error'); }
+}
+
+async function loadInstructorData() {
+  // Load classes taught by this instructor
+  const { data: classes, error: classErr } = await client.from('classes')
+    .select('*')
+    .eq('gym_id', gym.id)
+    .eq('instructor', instructorName)
+    .eq('is_active', true)
+    .order('day_of_week', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (classErr) { console.warn('Classes error:', classErr); }
+
+  // Load bookings for these classes
+  const classIds = (classes || []).map(c => c.id);
+  let bookings = [];
+  if (classIds.length > 0) {
+    const { data: bks } = await client.from('class_bookings')
+      .select('*, profiles(full_name)')
+      .eq('gym_id', gym.id)
+      .in('class_id', classIds)
+      .eq('status', 'booked');
+    bookings = bks || [];
+  }
+
+  // Stats
+  document.getElementById('statClasses').textContent = (classes || []).length;
+  document.getElementById('statStudents').textContent = bookings.length;
+
+  const attended = bookings.filter(b => b.status === 'attended').length;
+  const totalBooked = bookings.length;
+  const attendanceRate = totalBooked > 0 ? Math.round((attended / totalBooked) * 100) : 0;
+  document.getElementById('statAttendance').textContent = attendanceRate + '%';
+
+  // Render schedule by day
+  const scheduleContainer = document.getElementById('scheduleContainer');
+  const today = DAYS[new Date().getDay()];
+
+  if (!classes || classes.length === 0) {
+    scheduleContainer.innerHTML = '<div style="text-align:center; padding:32px; color:var(--gf-text-muted);">No classes assigned yet.</div>';
+    return;
+  }
+
+  const byDay = {};
+  classes.forEach(c => {
+    if (!byDay[c.day_of_week]) byDay[c.day_of_week] = [];
+    byDay[c.day_of_week].push(c);
+  });
+
+  scheduleContainer.innerHTML = DAYS.filter(d => byDay[d]).map(day => `
+    <div class="schedule-day">
+      <div class="day-title">${day} ${day === today ? '· TODAY' : ''}</div>
+      ${byDay[day].map(c => {
+        const dayBookings = bookings.filter(b => b.class_id === c.id);
+        const attendedCount = dayBookings.filter(b => b.status === 'attended').length;
+        return `
+          <div class="class-card gf-lift">
+            <div class="time">${formatTime(c.start_time)} – ${formatTime(c.end_time)}</div>
+            <div class="meta">${escapeHtml(c.name)} · ${c.max_capacity} max · ${dayBookings.length} booked</div>
+            <div class="attendance">
+              ${dayBookings.slice(0, 5).map(b => `
+                <div class="attendee-chip">
+                  <div class="status status-${b.status}"></div>
+                  ${escapeHtml(b.profiles?.full_name || 'Unknown')}
+                </div>
+              `).join('')}
+              ${dayBookings.length > 5 ? `<div class="attendee-chip">+${dayBookings.length - 5} more</div>` : ''}
+            </div>
+            <div style="margin-top:10px; display:flex; gap:8px;">
+              <button type="button" class="btn btn-sm gf-tooltip" data-action="markAllAttended" data-args="'${c.id}'">Mark All Attended</button>
+              <button type="button" class="btn btn-sm btn-secondary" data-action="viewClassRoster" data-args="'${c.id}', '${escapeHtml(c.name)}'">View Roster</button>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `).join('');
+
+  // Today's classes
+  const todayClasses = document.getElementById('todayClasses');
+  const todayClassList = byDay[today] || [];
+  if (todayClassList.length === 0) {
+    todayClasses.innerHTML = '<div style="color:var(--gf-text-muted); font-size:0.9rem;">No classes today.</div>';
+  } else {
+    todayClasses.innerHTML = todayClassList.map(c => `
+      <div style="padding:10px; background:var(--gf-elevated); border-radius:var(--gf-radius-sm); margin-bottom:8px;">
+        <div style="font-weight:600;">${formatTime(c.start_time)} · ${escapeHtml(c.name)}</div>
+        <div style="font-size:0.8rem; color:var(--gf-text-muted);">${bookings.filter(b => b.class_id === c.id).length} students</div>
+      </div>
+    `).join('');
+  }
+
+  // Earnings (placeholder — would calculate based on per-class rate)
+  document.getElementById('instEarnings').textContent = fmtNaira(0);
+}
+
+window.markAllAttended = async function(classId) {
+  if (!confirm('Mark all booked students as attended?')) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const { data, error } = await client.from('class_bookings')
+    .update({ status: 'attended' })
+    .eq('class_id', classId)
+    .eq('booking_date', today)
+    .eq('status', 'booked')
+    .select();
+
+  if (error) { toast(error.message, 'error'); return; }
+  toast(`${data?.length || 0} students marked attended`, 'success');
+  await loadInstructorData();
+};
+
+window.viewClassRoster = async function(classId, className) {
+  const today = new Date().toISOString().split('T')[0];
+  const { data: roster } = await client.from('class_bookings')
+    .select('*, profiles(full_name, phone)')
+    .eq('gym_id', gym.id)
+    .eq('class_id', classId)
+    .eq('booking_date', today)
+    .order('created_at', { ascending: true });
+
+  let html = `<h3>${escapeHtml(className)} — ${today}</h3>`;
+  if (!roster || roster.length === 0) {
+    html += '<p style="color:var(--gf-text-muted);">No bookings for today.</p>';
+  } else {
+    html += roster.map((r, i) => `
+      <div style="display:flex; align-items:center; gap:10px; padding:8px; border-bottom:1px solid var(--gf-border);">
+        <span style="min-width:24px; color:var(--gf-text-muted);">${i + 1}.</span>
+        <div style="flex:1;">
+          <div style="font-weight:600;">${escapeHtml(r.profiles?.full_name || 'Unknown')}</div>
+          <div style="font-size:0.75rem; color:var(--gf-text-muted);">${r.profiles?.phone || ''}</div>
+        </div>
+        <span style="font-size:0.75rem; padding:2px 8px; border-radius:10px; background:${r.status === 'attended' ? 'rgba(34,197,94,0.15)' : r.status === 'cancelled' ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.15)'}; color:${r.status === 'attended' ? '#22c55e' : r.status === 'cancelled' ? '#ef4444' : 'var(--gf-primary)'};">${r.status}</span>
+      </div>
+    `).join('');
+  }
+
+  // Simple modal
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:300; display:flex; align-items:center; justify-content:center; padding:20px;';
+  modal.innerHTML = `
+    <div style="background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius); width:100%; max-width:500px; max-height:80vh; overflow-y:auto; padding:24px;">
+      ${html}
+      <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+        <button type="button" class="btn" onclick="this.closest('.modal').remove()">Close</button>
+      </div>
+    </div>
+  `;
+  modal.className = 'modal';
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+};
+
+function formatTime(t) {
+  if (!t) return '--:--';
+  const [h, m] = t.split(':');
+  const hr = parseInt(h);
+  const ampm = hr >= 12 ? 'PM' : 'AM';
+  const displayHr = hr % 12 || 12;
+  return `${displayHr}:${m} ${ampm}`;
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function setupListeners() {
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('gf-theme', next);
+  });
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await client.auth.signOut();
+    window.location.href = '/login.html';
+  });
+  document.getElementById('menuBtn').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('open');
+  });
+}
+
+init();
+</script>
+
+  
+
+<script src="/gf-utils.js"></script>
+</body>
+</html>

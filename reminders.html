@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080e1c">
+<title>GymFlow — Send Reminders</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>
+// Theme init — before render to prevent flash
+(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+</head>
+
+<body class="gf-page min-h-screen antialiased">
+
+<div id="pageLoader" class="gf-page-loader">
+  <div class="loader-logo">Gym<em>Flow</em></div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<div class="gf-header">
+  <h1>📨 Send Reminders</h1>
+  <p>Bulk WhatsApp/SMS to members — renewals, promotions, alerts</p>
+</div>
+
+<!-- Stats -->
+<div class="gf-stats-grid" id="statsGrid">
+  <div class="gf-stat-card gf-lift">
+    <div class="num blue" id="statTotal">—</div>
+    <div class="lbl">Total Members</div>
+  </div>
+  <div class="gf-stat-card gf-lift">
+    <div class="num orange" id="statExpiring">—</div>
+    <div class="lbl">Expiring Soon</div>
+  </div>
+  <div class="gf-stat-card gf-lift">
+    <div class="num red" id="statExpired">—</div>
+    <div class="lbl">Expired</div>
+  </div>
+  <div class="gf-stat-card gf-lift">
+    <div class="num green" id="statActive">—</div>
+    <div class="lbl">Active Now</div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="gf-tabs">
+  <div class="gf-tab active" data-action="switchTab" data-args="'expiring'">⏰ Expiring Soon</div>
+  <div class="gf-tab" data-action="switchTab" data-args="'all'">👥 All Members</div>
+  <div class="gf-tab" data-action="switchTab" data-args="'inactive'">😴 Inactive</div>
+  <div class="gf-tab" data-action="switchTab" data-args="'custom'">✏️ Custom Message</div>
+</div>
+
+<!-- Expiring Soon Panel -->
+<div class="gf-card gf-lift" id="panel-expiring">
+  <h3><span class="icon">⏰</span> Renewals Due</h3>
+  <div class="gf-field">
+    <label>Expires within (days)</label>
+    <select id="expiringDays">
+      <option value="3">3 days</option>
+      <option value="7" selected>7 days</option>
+      <option value="14">14 days</option>
+      <option value="30">30 days</option>
+    </select>
+  </div>
+  <div class="gf-templates">
+    <div class="gf-template gf-focus" data-action="setMessage" data-args="'expiring', this">
+      Hi {{name}}, your GymFlow subscription expires in {{days}} days. Renew now to keep your access! — {{gym}}
+    </div>
+    <div class="gf-template gf-focus" data-action="setMessage" data-args="'expiring', this">
+      {{name}}, don't lose your progress! Your membership ends in {{days}} days. Tap here to renew: [link]
+    </div>
+    <div class="gf-template gf-focus" data-action="setMessage" data-args="'expiring', this">
+      Reminder: {{gym}} membership for {{name}} expires {{days}} days. Visit us to renew or call us.
+    </div>
+  </div>
+  <div class="gf-field">
+    <label>Message</label>
+    <textarea id="msgExpiring" placeholder="Write your reminder message..."></textarea>
+    <div class="hint">Use <code>{{name}}</code> <code>{{days}}</code> <code>{{gym}}</code> for personalization</div>
+  </div>
+  <div class="gf-preview" id="previewExpiring">
+    <strong>Preview:</strong> <span id="previewTextExpiring">Select a template or type a message...</span>
+  </div>
+  <button type="button" class="gf-btn gf-btn-primary" id="btnExpiring" data-action="sendReminders" data-args="'send_bulk_expiring'">
+    <span id="btnTextExpiring">Send to Expiring Members</span>
+  </button>
+</div>
+
+<!-- All Members Panel -->
+<div class="gf-card gf-lift" id="panel-all" style="display:none">
+  <h3><span class="icon">👥</span> Broadcast to All</h3>
+  <div class="gf-templates">
+    <div class="gf-template gf-focus" data-action="setMessage" data-args="'all', this">
+      Hi {{name}}, {{gym}} has new classes starting Monday! Check the app to book your slot.
+    </div>
+    <div class="gf-template gf-focus" data-action="setMessage" data-args="'all', this">
+      {{name}}, we're running a promo: 20% off annual memberships this week only! Don't miss out.
+    </div>
+    <div class="gf-template gf-focus" data-action="setMessage" data-args="'all', this">
+      Gym update: {{gym}} will be closed for maintenance on Sunday. See you Monday!
+    </div>
+  </div>
+  <div class="gf-field">
+    <label>Message</label>
+    <textarea id="msgAll" placeholder="Broadcast message to all members..."></textarea>
+  </div>
+  <div class="gf-preview" id="previewAll">
+    <strong>Preview:</strong> <span id="previewTextAll">Select a template or type a message...</span>
+  </div>
+  <button type="button" class="gf-btn gf-btn-primary" id="btnAll" data-action="sendReminders" data-args="'send_bulk_all'">
+    <span id="btnTextAll">Send to All Members</span>
+  </button>
+</div>
+
+<!-- Inactive Panel -->
+<div class="gf-card gf-lift" id="panel-inactive" style="display:none">
+  <h3><span class="icon">😴</span> Win Back Inactive</h3>
+  <div class="gf-templates">
+    <div class="gf-template gf-focus" data-action="setMessage" data-args="'inactive', this">
+      We miss you, {{name}}! Your {{gym}} membership expired. Renew today and get your first week free.
+    </div>
+    <div class="gf-template gf-focus" data-action="setMessage" data-args="'inactive', this">
+      {{name}}, come back to {{gym}}! Special comeback offer: 50% off your first month. Limited time.
+    </div>
+  </div>
+  <div class="gf-field">
+    <label>Message</label>
+    <textarea id="msgInactive" placeholder="Win-back message for inactive members..."></textarea>
+  </div>
+  <div class="gf-preview" id="previewInactive">
+    <strong>Preview:</strong> <span id="previewTextInactive">Select a template or type a message...</span>
+  </div>
+  <button type="button" class="gf-btn gf-btn-primary" id="btnInactive" data-action="sendReminders" data-args="'send_bulk_inactive'">
+    <span id="btnTextInactive">Send to Inactive Members</span>
+  </button>
+</div>
+
+<!-- Custom Panel -->
+<div class="gf-card gf-lift" id="panel-custom" style="display:none">
+  <h3><span class="icon">✏️</span> Custom Blast</h3>
+  <div class="gf-field">
+    <label>Select Member</label>
+    <select id="customMember">
+      <option value="">Loading members...</option>
+    </select>
+  </div>
+  <div class="gf-field">
+    <label>Channel</label>
+    <div class="gf-channel-select">
+      <div class="gf-channel-option active" data-action="selectChannel" data-args="this, 'sms'">
+        <span class="emoji">📱</span>
+        <span class="lbl">SMS</span>
+        <span class="sub">Text message</span>
+      </div>
+      <div class="gf-channel-option gf-focus" data-action="selectChannel" data-args="this, 'whatsapp'">
+        <span class="emoji">💬</span>
+        <span class="lbl">WhatsApp</span>
+        <span class="sub">Rich message</span>
+      </div>
+    </div>
+  </div>
+  <div class="gf-field">
+    <label>Custom Message</label>
+    <textarea id="msgCustom" placeholder="Type your personal message..."></textarea>
+  </div>
+  <button type="button" class="gf-btn gf-btn-primary" id="btnCustom" data-action="sendSingle" data-args="">
+    <span id="btnTextCustom">Send Message</span>
+  </button>
+</div>
+
+<!-- Results -->
+<div class="gf-results" id="resultsArea" style="display:none">
+  <h3 style="font-size:1rem; margin-bottom:12px;">Delivery Results</h3>
+  <div id="resultsList"></div>
+</div>
+
+<a href="/admin-dashboard.html" class="gf-back-link">← Back to Admin Dashboard</a>
+
+<script>
+// Use the singleton client created by /js/supabase-config.js.
+// Wait until it's ready before anything else.
+let client = null;
+const clientReady = (window.GF_SUPABASE_READY || Promise.reject(new Error('Supabase loader missing')))
+  .then(function(c) { client = c; return c; })
+  .catch(function(err) { console.error('[GF] Supabase init failed:', err); return null; });
+
+const NETLIFY_FUNC = '/.netlify/functions/send-reminder';
+
+let gym = null;
+let currentTab = 'expiring';
+let selectedChannel = 'sms';
+
+function getGymSlug() {
+  const host = window.location.hostname;
+  if (host.includes('localhost') || host.includes('127.0.0.1') || host.includes('netlify.app')) return 'demo-gym';
+  return host.split('.')[0];
+}
+
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `gf-toast gf-toast-${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(()=>el.remove(),400); }, 3000);
+}
+
+async function init() {
+    try {
+  // Auth check — only staff can send bulk reminders
+  const { data:{ user } } = await client.auth.getUser();
+  if (!user) {
+    toast('Please log in first', 'error');
+    setTimeout(() => window.location.href = '/login.html', 1500);
+    return;
+  }
+
+  const slug = getGymSlug();
+  const { data:gymData } = await client.from('gyms').select('*').eq('slug', slug).single();
+  if (!gymData) { toast('Gym not found', 'error'); return; }
+  gym = gymData;
+
+  // Verify user is staff at this gym
+  const { data: staffLink } = await client.from('gym_staff_links')
+    .select('role').eq('gym_id', gym.id).eq('user_id', user.id).eq('is_active', true).single();
+  if (!staffLink) {
+    toast('Access denied: staff only', 'error');
+    setTimeout(() => window.location.href = '/login.html', 1500);
+    return;
+  }
+
+  loadStats();
+  loadMembersForCustom();
+  setupPreviewListeners();
+  } catch(err) {
+    console.error('Init error:', err);
+    toast(err.message || 'Failed to load', 'error');
+  }
+}
+
+async function loadStats() {
+  const today = new Date().toISOString().split('T')[0];
+  const future7 = new Date(); future7.setDate(future7.getDate() + 7);
+  const future7Str = future7.toISOString().split('T')[0];
+
+  // Total members
+  const { count: total } = await client.from('gym_member_links').select('*', { count: 'exact', head: true }).eq('gym_id', gym.id);
+
+  // Expiring in 7 days
+  const { count: expiring } = await client
+    .from('member_subscriptions')
+    .select('*', { count: 'exact', head: true })
+    .eq('gym_id', gym.id)
+    .eq('status', 'active')
+    .gte('end_date', today)
+    .lte('end_date', future7Str);
+
+  // Expired
+  const { count: expired } = await client
+    .from('member_subscriptions')
+    .select('*', { count: 'exact', head: true })
+    .eq('gym_id', gym.id)
+    .eq('status', 'expired')
+    .lt('end_date', today);
+
+  // Active now (checked in today)
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const { count: active } = await client
+    .from('check_ins')
+    .select('*', { count: 'exact', head: true })
+    .eq('gym_id', gym.id)
+    .gte('checked_in_at', todayStart.toISOString());
+
+  document.getElementById('statTotal').textContent = total || 0;
+  document.getElementById('statExpiring').textContent = expiring || 0;
+  document.getElementById('statExpired').textContent = expired || 0;
+  document.getElementById('statActive').textContent = active || 0;
+}
+
+async function loadMembersForCustom() {
+  const { data: members } = await client
+    .from('gym_member_links')
+    .select('user_id, profiles(full_name, phone)')
+    .eq('gym_id', gym.id)
+    .order('created_at', { ascending: false });
+
+  const select = document.getElementById('customMember');
+  select.innerHTML = '<option value="">Select a member...</option>' +
+    (members || []).map(m => `<option value="${m.user_id}">${m.profiles?.full_name || 'Unknown'} — ${m.profiles?.phone || 'No phone'}</option>`).join('');
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.gf-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.gf-card[id^="panel-"]').forEach(p => p.style.display = 'none');
+  document.getElementById('panel-' + tab).style.display = 'block';
+}
+
+function setMessage(tab, el) {
+  const text = el.textContent.trim();
+  document.getElementById('msg' + tab.charAt(0).toUpperCase() + tab.slice(1)).value = text;
+  updatePreview(tab);
+}
+
+function setupPreviewListeners() {
+  ['expiring', 'all', 'inactive', 'custom'].forEach(tab => {
+    const el = document.getElementById('msg' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (el) el.addEventListener('input', () => updatePreview(tab));
+  });
+}
+
+function updatePreview(tab) {
+  const msg = document.getElementById('msg' + tab.charAt(0).toUpperCase() + tab.slice(1)).value;
+  let preview = msg;
+  preview = preview.replace(/{{name}}/g, 'John');
+  preview = preview.replace(/{{gym}}/g, gym?.name || 'Your Gym');
+  preview = preview.replace(/{{days}}/g, '5');
+  document.getElementById('previewText' + tab.charAt(0).toUpperCase() + tab.slice(1)).textContent = preview || 'Type a message to see preview...';
+}
+
+function selectChannel(el, channel) {
+  selectedChannel = channel;
+  document.querySelectorAll('.gf-channel-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+}
+
+async function sendReminders(action) {
+  const msgEl = document.getElementById('msg' + currentTab.charAt(0).toUpperCase() + currentTab.slice(1));
+  const btn = document.getElementById('btn' + currentTab.charAt(0).toUpperCase() + currentTab.slice(1));
+  const btnText = document.getElementById('btnText' + currentTab.charAt(0).toUpperCase() + currentTab.slice(1));
+
+  const message = msgEl.value.trim();
+  if (!message) { toast('Please enter a message', 'error'); return; }
+
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="gf-spinner"></span> Sending...';
+
+  const payload = {
+    action,
+    gym_id: gym.id,
+    message,
+    channel: selectedChannel,
+  };
+
+  if (action === 'send_bulk_expiring') {
+    payload.filters = { days: parseInt(document.getElementById('expiringDays').value) };
+  }
+
+  try {
+    const res = await fetch(NETLIFY_FUNC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to send');
+
+    toast(`Sent ${data.sent} of ${data.total} messages!`, data.sent > 0 ? 'success' : 'info');
+    showResults(data.results);
+    loadStats(); // Refresh stats
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btnText.textContent = action === 'send_bulk_expiring' ? 'Send to Expiring Members' : action === 'send_bulk_all' ? 'Send to All Members' : 'Send to Inactive Members';
+}
+
+async function sendSingle() {
+  const memberId = document.getElementById('customMember').value;
+  const message = document.getElementById('msgCustom').value.trim();
+  const btn = document.getElementById('btnCustom');
+  const btnText = document.getElementById('btnTextCustom');
+
+  if (!memberId) { toast('Select a member', 'error'); return; }
+  if (!message) { toast('Enter a message', 'error'); return; }
+
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="gf-spinner"></span> Sending...';
+
+  try {
+    const res = await fetch(NETLIFY_FUNC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'send_single',
+        gym_id: gym.id,
+        member_id: memberId,
+        message,
+        channel: selectedChannel,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to send');
+
+    toast(data.sent > 0 ? 'Message sent!' : 'Failed to send', data.sent > 0 ? 'success' : 'error');
+    showResults(data.results);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btnText.textContent = 'Send Message';
+}
+
+function showResults(results) {
+  const area = document.getElementById('resultsArea');
+  const list = document.getElementById('resultsList');
+
+  if (!results || !results.length) { area.style.display = 'none'; return; }
+
+  area.style.display = 'block';
+  list.innerHTML = results.slice(0, 10).map(r => `
+    <div class="gf-result-item">
+      <div class="info">
+        <div class="name">${r.phone || r.member_id}</div>
+        <div class="phone">${r.status === 'sent' ? '✓ Delivered' : r.status === 'skipped' ? '⚠ ' + r.reason : '✗ Failed'}</div>
+      </div>
+      <span class="status ${r.status}">${r.status}</span>
+    </div>
+  `).join('');
+
+  if (results.length > 10) {
+    list.innerHTML += `<div style="text-align:center; padding:12px; color:var(--text-2); font-size:0.8rem;">...and ${results.length - 10} more</div>`;
+  }
+}
+
+// Wait for the Supabase client to be ready before initializing
+clientReady.then(function(c) {
+  if (!c) { toast('Service unavailable — please refresh', 'error'); return; }
+  init();
+});
+</script>
+
+  
+
+<script src="/gf-utils.js"></script>
+</body>
+</html>

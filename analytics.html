@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#080e1c">
+<title>Analytics — GymFlow</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/gymflow.css">
+<link rel="stylesheet" href="/tailwind_built.css">
+<link rel="stylesheet" href="/gymflow-extra.css">
+<script>
+// Theme init — before render to prevent flash
+(function(){var t=localStorage.getItem('gf-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
+</script>
+<!-- Supabase: CDN library + self-bootstrapping client (loads in order) -->
+<script src="https://unpkg.com/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body class="min-h-screen antialiased">
+
+<div id="pageLoader" class="gf-page-loader">
+  <div class="loader-logo">Gym<em>Flow</em></div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<div id="app" class="gf-animate-fade">
+  <aside class="sidebar gf-glass" id="sidebar">
+    <div class="logo">GymFlow</div>
+    <nav>
+      <a href="/admin-dashboard.html">Dashboard</a>
+      <a href="/checkin.html">Check-In</a>
+      <a href="/staff-checkin.html">Staff Scanner</a>
+      <a href="/reminders.html">Reminders</a>
+      <a href="/classes-admin.html">Classes</a>
+      <a href="/pricing-admin.html">Pricing</a>
+      <a href="/operations.html">Operations</a>
+      <a href="/business-hours.html">Business Hours</a>
+      <a href="/analytics.html" class="active">Analytics</a>
+      <a href="/member-dashboard.html">My Profile</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button type="button" class="theme-toggle" id="themeToggle" title="Toggle theme">🌓</button>
+      <button type="button" class="logout" id="logoutBtn">Logout</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar gf-glass">
+      <button type="button" class="menu-btn" id="menuBtn">☰</button>
+      <h1>Analytics</h1>
+      <div class="topbar-actions">
+        <span id="userRole" class="role-badge"></span>
+      </div>
+    </header>
+    <nav class="gf-breadcrumb"><a href="index.html" class="gf-breadcrumb-link">Index</a><span class="gf-breadcrumb-sep">/</span><a href="login.html" class="gf-breadcrumb-link">Login</a><span class="gf-breadcrumb-sep">/</span><a href="admin-dashboard.html" class="gf-breadcrumb-link">Admin Dashboard</a><span class="gf-breadcrumb-sep">/</span><span class="gf-breadcrumb-current">Analytics</span></nav>
+
+    <div class="content">
+      <div class="date-filter">
+        <label style="font-weight:500;">Period:</label>
+        <select id="periodSelect">
+          <option value="7">Last 7 Days</option>
+          <option value="30" selected>Last 30 Days</option>
+          <option value="90">Last 90 Days</option>
+          <option value="365">Last Year</option>
+        </select>
+        <button type="button" class="btn btn-primary" id="refreshBtn">🔄 Refresh</button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi-card gf-lift">
+          <div class="value" id="kpiRevenue">₦0</div>
+          <div class="label">Revenue</div>
+          <div class="change up" id="kpiRevenueChange">+0%</div>
+        </div>
+        <div class="kpi-card gf-lift">
+          <div class="value" id="kpiMembers">0</div>
+          <div class="label">New Members</div>
+          <div class="change up" id="kpiMembersChange">+0</div>
+        </div>
+        <div class="kpi-card gf-lift">
+          <div class="value" id="kpiCheckins">0</div>
+          <div class="label">Check-ins</div>
+          <div class="change up" id="kpiCheckinsChange">+0%</div>
+        </div>
+        <div class="kpi-card gf-lift">
+          <div class="value" id="kpiClasses">0</div>
+          <div class="label">Class Bookings</div>
+          <div class="change up" id="kpiClassesChange">+0%</div>
+        </div>
+        <div class="kpi-card gf-lift">
+          <div class="value" id="kpiRetention">0%</div>
+          <div class="label">Retention Rate</div>
+          <div class="change" id="kpiRetentionChange">—</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="chart-grid">
+        <div class="chart-card gf-lift">
+          <h3>📈 Revenue Trend</h3>
+          <div class="chart-container"><canvas id="revenueChart"></canvas></div>
+        </div>
+        <div class="chart-card gf-lift">
+          <h3>👥 Member Growth</h3>
+          <div class="chart-container"><canvas id="memberChart"></canvas></div>
+        </div>
+        <div class="chart-card gf-lift">
+          <h3>📊 Check-ins by Hour</h3>
+          <div class="chart-container"><canvas id="checkinChart"></canvas></div>
+        </div>
+        <div class="chart-card gf-lift">
+          <h3>🏋️ Class Popularity</h3>
+          <div class="chart-container"><canvas id="classChart"></canvas></div>
+        </div>
+        <div class="chart-card gf-lift">
+          <h3>💰 Revenue by Category</h3>
+          <div class="chart-container"><canvas id="categoryChart"></canvas></div>
+        </div>
+        <div class="chart-card gf-lift">
+          <h3>📅 Membership Status</h3>
+          <div class="chart-container"><canvas id="statusChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+'use strict';
+
+import { client, getGymSlug, loadGym, getUser, requireAuth, getStaffRole, toast, fmtNaira } from '/js/supabase.js';
+
+let gym = null;
+let user = null;
+let staffRole = null;
+let charts = {};
+
+async function init() {
+    try {
+  user = await requireAuth();
+  if (!user) return;
+
+  gym = await loadGym();
+  if (!gym) { toast('Gym not found', 'error'); return; }
+
+  staffRole = await getStaffRole(gym.id);
+  if (!staffRole) {
+    toast('Staff access required', 'error');
+    setTimeout(() => window.location.href = '/member-dashboard.html', 1500);
+    return;
+  }
+
+  document.getElementById('userRole').textContent = staffRole;
+
+  await loadAnalytics();
+  setupListeners();
+
+  } catch(err) { console.error('Init error:', err); if(window.toast) toast(err.message||'Failed to load','error'); }
+}
+
+async function loadAnalytics() {
+  const days = parseInt(document.getElementById('periodSelect').value);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = new Date().toISOString().split('T')[0];
+
+  // Load all data in parallel
+  const [
+    { data: payments },
+    { data: members },
+    { data: checkins },
+    { data: bookings },
+    { data: subs },
+    { data: expenses }
+  ] = await Promise.all([
+    client.from('payments').select('amount,payment_date,payment_method').eq('gym_id', gym.id).gte('payment_date', startStr),
+    client.from('gym_member_links').select('created_at').eq('gym_id', gym.id).gte('created_at', startStr),
+    client.from('check_ins').select('checked_in_at').eq('gym_id', gym.id).gte('checked_in_at', startStr + 'T00:00:00'),
+    client.from('class_bookings').select('*, classes(name)').eq('gym_id', gym.id).gte('created_at', startStr + 'T00:00:00'),
+    client.from('member_subscriptions').select('status,end_date').eq('gym_id', gym.id),
+    client.from('expenses').select('amount,category,expense_date').eq('gym_id', gym.id).gte('expense_date', startStr)
+  ]);
+
+  // KPIs
+  const revenue = (payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+  const newMembers = (members || []).length;
+  const checkinCount = (checkins || []).length;
+  const bookingCount = (bookings || []).length;
+
+  const activeSubs = (subs || []).filter(s => s.status === 'active').length;
+  const totalSubs = (subs || []).length;
+  const retention = totalSubs > 0 ? Math.round((activeSubs / totalSubs) * 100) : 0;
+
+  document.getElementById('kpiRevenue').textContent = fmtNaira(revenue);
+  document.getElementById('kpiMembers').textContent = newMembers;
+  document.getElementById('kpiCheckins').textContent = checkinCount;
+  document.getElementById('kpiClasses').textContent = bookingCount;
+  document.getElementById('kpiRetention').textContent = retention + '%';
+
+  // Charts
+  renderRevenueChart(payments || [], days);
+  renderMemberChart(members || [], days);
+  renderCheckinChart(checkins || []);
+  renderClassChart(bookings || []);
+  renderCategoryChart(payments || [], expenses || []);
+  renderStatusChart(subs || []);
+}
+
+function renderRevenueChart(payments, days) {
+  const daily = {};
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    daily[d.toISOString().split('T')[0]] = 0;
+  }
+  payments.forEach(p => { if (daily[p.payment_date] !== undefined) daily[p.payment_date] += (p.amount || 0); });
+
+  const labels = Object.keys(daily).sort();
+  const data = labels.map(d => daily[d]);
+
+  if (charts.revenue) charts.revenue.destroy();
+  charts.revenue = new Chart(document.getElementById('revenueChart'), {
+    type: 'line',
+    data: {
+      labels: labels.map(d => d.slice(5)), // MM-DD
+      datasets: [{
+        label: 'Revenue (₦)',
+        data,
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: '#6366f1'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: '#94a3b8', callback: v => '₦' + (v/1000).toFixed(0) + 'k' } },
+        x: { grid: { display: false }, ticks: { color: '#94a3b8', maxTicksLimit: 8 } }
+      }
+    }
+  });
+}
+
+function renderMemberChart(members, days) {
+  const daily = {};
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    daily[d.toISOString().split('T')[0]] = 0;
+  }
+  members.forEach(m => {
+    const d = m.created_at ? m.created_at.split('T')[0] : null;
+    if (d && daily[d] !== undefined) daily[d]++;
+  });
+
+  const labels = Object.keys(daily).sort();
+  const data = labels.map(d => daily[d]);
+
+  if (charts.member) charts.member.destroy();
+  charts.member = new Chart(document.getElementById('memberChart'), {
+    type: 'bar',
+    data: {
+      labels: labels.map(d => d.slice(5)),
+      datasets: [{
+        label: 'New Members',
+        data,
+        backgroundColor: '#22c55e',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: '#94a3b8', maxTicksLimit: 8 } }
+      }
+    }
+  });
+}
+
+function renderCheckinChart(checkins) {
+  const hourly = Array(24).fill(0);
+  checkins.forEach(c => {
+    const h = new Date(c.checked_in_at).getHours();
+    hourly[h]++;
+  });
+
+  if (charts.checkin) charts.checkin.destroy();
+  charts.checkin = new Chart(document.getElementById('checkinChart'), {
+    type: 'bar',
+    data: {
+      labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+      datasets: [{
+        label: 'Check-ins',
+        data: hourly,
+        backgroundColor: '#f59e0b',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: '#94a3b8', maxTicksLimit: 12 } }
+      }
+    }
+  });
+}
+
+function renderClassChart(bookings) {
+  const byClass = {};
+  bookings.forEach(b => {
+    const name = b.classes?.name || 'Unknown';
+    byClass[name] = (byClass[name] || 0) + 1;
+  });
+
+  const sorted = Object.entries(byClass).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+  if (charts.class) charts.class.destroy();
+  charts.class = new Chart(document.getElementById('classChart'), {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(([name]) => name),
+      datasets: [{
+        data: sorted.map(([, count]) => count),
+        backgroundColor: ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#94a3b8', boxWidth: 12 } }
+      }
+    }
+  });
+}
+
+function renderCategoryChart(payments, expenses) {
+  const byMethod = {};
+  payments.forEach(p => {
+    const method = p.payment_method || 'Other';
+    byMethod[method] = (byMethod[method] || 0) + (p.amount || 0);
+  });
+
+  const byExpCat = {};
+  expenses.forEach(e => {
+    const cat = e.category || 'Other';
+    byExpCat[cat] = (byExpCat[cat] || 0) + (e.amount || 0);
+  });
+
+  const labels = [...Object.keys(byMethod), ...Object.keys(byExpCat).map(c => 'Exp: ' + c)];
+  const data = [...Object.values(byMethod), ...Object.values(byExpCat)];
+
+  if (charts.category) charts.category.destroy();
+  charts.category = new Chart(document.getElementById('categoryChart'), {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#94a3b8', boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => ctx.label + ': ₦' + ctx.parsed.toLocaleString('en-NG') } }
+      }
+    }
+  });
+}
+
+function renderStatusChart(subs) {
+  const counts = { active: 0, expired: 0, paused: 0, cancelled: 0 };
+  subs.forEach(s => { counts[s.status] = (counts[s.status] || 0) + 1; });
+
+  if (charts.status) charts.status.destroy();
+  charts.status = new Chart(document.getElementById('statusChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Active', 'Expired', 'Paused', 'Cancelled'],
+      datasets: [{
+        label: 'Members',
+        data: [counts.active, counts.expired, counts.paused, counts.cancelled],
+        backgroundColor: ['#22c55e', '#ef4444', '#f59e0b', '#6b7280'],
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,0.1)' }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+      }
+    }
+  });
+}
+
+function setupListeners() {
+  document.getElementById('periodSelect').addEventListener('change', loadAnalytics);
+  document.getElementById('refreshBtn').addEventListener('click', loadAnalytics);
+
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('gf-theme', next);
+  });
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await client.auth.signOut();
+    window.location.href = '/login.html';
+  });
+  document.getElementById('menuBtn').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('open');
+  });
+}
+
+init();
+</script>
+
+  
+
+<script src="/gf-utils.js"></script>
+</body>
+</html>
