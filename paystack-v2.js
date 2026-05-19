@@ -62,7 +62,7 @@ exports.handler = async function(event) {
       }
 
       // FIX: Complete the subscription insert with error handling
-      const subResult = await supabaseQuery('member_subscriptions', 'POST', {
+      const subResult = await supabaseQuery('memberships', 'POST', {
         member_id,
         gym_id,
         status: 'active',

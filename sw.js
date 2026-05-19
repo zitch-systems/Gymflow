@@ -11,12 +11,10 @@ const CORE_ASSETS = [
   '/offline.html',
   '/manifest.json',
   '/gymflow.css',
-  '/tailwind_built.css',
   '/gymflow-extra.css',
   '/gf-utils.js',
+  '/error-tracker.js',
   '/pwa-install.js',
-  '/supabase-config.js',
-  '/supabase.js',
   '/js/supabase-config.js',
   '/js/supabase.js'
 ];
@@ -41,6 +39,14 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Never cache Supabase API/auth calls
+  if (event.request.url.includes('supabase.co') || 
+      event.request.url.includes('unpkg.com') ||
+      event.request.url.includes('cdn.tailwindcss.com') ||
+      event.request.url.includes('googleapis.com')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   const req = event.request;
   if (req.method !== 'GET') return;
 

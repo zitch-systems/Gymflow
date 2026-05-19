@@ -12,8 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="/gymflow.css">
-<link rel="stylesheet" href="/tailwind_built.css">
 <link rel="stylesheet" href="/gymflow-extra.css">
 <script>
 // Theme init — before render to prevent flash
@@ -363,10 +363,17 @@ if (!user) { window.location.href = '/login.html'; }
 let userRole = null;
 if (gym && user) {
   userRole = await getStaffRole(gym);
-  if (!userRole) { 
-    alert('Access denied'); 
-    await client.auth.signOut(); 
-    window.location.href='/login.html'; 
+  if (!userRole) {
+    // Check profile role as fallback for owners
+    const { data: prof } = await client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    if (prof && ['owner','manager','gym_owner','platform_admin','front_desk','accountant','staff'].includes(prof.role)) {
+      userRole = prof.role;
+      document.getElementById('role-badge').textContent = userRole;
+    } else {
+      toast('Access denied — you need staff or owner permissions for this gym.', 'error');
+      setTimeout(async () => { await client.auth.signOut(); window.location.href='/login.html'; }, 2000);
+      return;
+    }
   }
   document.getElementById('role-badge').textContent = userRole;
 }
@@ -392,7 +399,7 @@ async function loadMembers() {
   members = [];
   for (const l of (links||[])) {
     const { data: subs } = await client
-      .from('member_subscriptions')
+      .from('memberships')
       .select('*')
       .eq('member_id', l.user_id)
       .eq('gym_id', gym.id)
@@ -540,7 +547,7 @@ window.openView = async (memberId) => {
   if (!m) return;
 
   const [subsRes, checksRes] = await Promise.all([
-    client.from('member_subscriptions').select('*').eq('member_id', memberId).eq('gym_id', gym.id).order('created_at', {ascending:false}),
+    client.from('memberships').select('*').eq('member_id', memberId).eq('gym_id', gym.id).order('created_at', {ascending:false}),
     client.from('check_ins').select('*').eq('member_id', memberId).eq('gym_id', gym.id).order('checked_in_at', {ascending:false}).limit(5)
   ]);
 
@@ -654,7 +661,7 @@ document.getElementById('extend-form').addEventListener('submit', async (e) => {
   end.setMonth(end.getMonth() + months);
 
   try {
-    const { error } = await client.from('member_subscriptions').insert({
+    const { error } = await client.from('memberships').insert({
       member_id: extendMemberId,
       gym_id: gym.id,
       status: 'active',

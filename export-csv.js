@@ -71,7 +71,7 @@ exports.handler = async function(event) {
     // Fetch subscriptions for all members
     const memberIds = members.map(m => m.user_id).join(',');
     const subs = await supabaseQuery(
-      'member_subscriptions',
+      'memberships',
       'GET',
       null,
       `select=*&member_id=in.(${memberIds})&gym_id=eq.${gym_id}&order=created_at.desc`

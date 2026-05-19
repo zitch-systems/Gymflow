@@ -60,7 +60,7 @@ exports.handler = async function(event) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
     }
 
-    const expiring = await supabaseQuery('member_subscriptions', 'GET', null, queryFilter);
+    const expiring = await supabaseQuery('memberships', 'GET', null, queryFilter);
 
     if (!expiring || !expiring.length) {
       return { statusCode: 200, headers, body: JSON.stringify({ message: 'No expiring subscriptions', sent: 0 }) };

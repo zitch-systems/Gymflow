@@ -12,8 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="/gymflow.css">
-<link rel="stylesheet" href="/tailwind_built.css">
 <link rel="stylesheet" href="/gymflow-extra.css">
 <script>
 // Theme init — before render to prevent flash
@@ -418,9 +418,9 @@ async function load() {
   try {
     const results = await Promise.all([
       client.from('profiles').select('*').eq('id', user.id).single(),
-      client.from('member_subscriptions').select('*').eq('member_id', user.id).eq('gym_id', gym.id).eq('status','active').order('created_at',{ascending:false}).limit(1),
+      client.from('memberships').select('*').eq('member_id', user.id).eq('gym_id', gym.id).eq('status','active').order('created_at',{ascending:false}).limit(1),
       client.from('check_ins').select('*').eq('member_id', user.id).eq('gym_id', gym.id).order('checked_in_at',{ascending:false}).limit(5).then(r => r).catch(e => { console.warn('check_ins query failed:', e.message); return { data: [] }; }),
-      client.from('member_subscriptions').select('*').eq('member_id', user.id).eq('gym_id', gym.id).order('created_at',{ascending:false}),
+      client.from('memberships').select('*').eq('member_id', user.id).eq('gym_id', gym.id).order('created_at',{ascending:false}),
       client.from('payments').select('*').eq('member_id', user.id).eq('gym_id', gym.id).order('payment_date',{ascending:false}),
     ]);
 
@@ -594,7 +594,7 @@ document.getElementById('renew-form').addEventListener('submit', async (e) => {
     btn.disabled = true; btn.innerHTML = '<span class="gf-spinner"></span> Processing...';
     try {
       const dbPaymentMethod = method === 'transfer' ? 'bank_transfer' : 'cash';
-      const { error } = await client.from('member_subscriptions').insert({
+      const { error } = await client.from('memberships').insert({
         member_id: user.id,
         gym_id: gym.id,
         status: 'active',

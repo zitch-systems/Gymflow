@@ -12,8 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="/gymflow.css">
-<link rel="stylesheet" href="/tailwind_built.css">
 <link rel="stylesheet" href="/gymflow-extra.css">
 <script>
 // Theme init — before render to prevent flash
@@ -188,7 +188,7 @@ async function loadAnalytics() {
     client.from('gym_member_links').select('created_at').eq('gym_id', gym.id).gte('created_at', startStr),
     client.from('check_ins').select('checked_in_at').eq('gym_id', gym.id).gte('checked_in_at', startStr + 'T00:00:00'),
     client.from('class_bookings').select('*, classes(name)').eq('gym_id', gym.id).gte('created_at', startStr + 'T00:00:00'),
-    client.from('member_subscriptions').select('status,end_date').eq('gym_id', gym.id),
+    client.from('memberships').select('status,end_date').eq('gym_id', gym.id),
     client.from('expenses').select('amount,category,expense_date').eq('gym_id', gym.id).gte('expense_date', startStr)
   ]);
 

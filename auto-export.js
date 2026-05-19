@@ -57,7 +57,7 @@ exports.handler = async function(event) {
 
     // 4. Create subscription
     if (subscription) {
-      await supabaseQuery('member_subscriptions', 'POST', { member_id: userId, gym_id: gymId, ...subscription });
+      await supabaseQuery('memberships', 'POST', { member_id: userId, gym_id: gymId, ...subscription });
     }
 
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, userId }) };

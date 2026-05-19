@@ -12,8 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="/gymflow.css">
-<link rel="stylesheet" href="/tailwind_built.css">
 <link rel="stylesheet" href="/gymflow-extra.css">
 <script>
 // Theme init — before render to prevent flash
@@ -209,7 +209,7 @@ async function loadPlans() {
 }
 
 async function loadSubscriptions() {
-  const { data, error } = await client.from('member_subscriptions')
+  const { data, error } = await client.from('memberships')
     .select('*, profiles(full_name, email), pricing_plans(name, amount)')
     .eq('gym_id', gym.id)
     .eq('status', 'active')

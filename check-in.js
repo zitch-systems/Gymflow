@@ -43,7 +43,7 @@ exports.handler = async function(event) {
 
     // Check active subscription
     const today = new Date().toISOString().split('T')[0];
-    const subs = await supabaseQuery('member_subscriptions', 'GET', null, `select=*&member_id=eq.${member_id}&gym_id=eq.${gym_id}&status=eq.active&end_date=gte.${today}&order=end_date.desc&limit=1`);
+    const subs = await supabaseQuery('memberships', 'GET', null, `select=*&member_id=eq.${member_id}&gym_id=eq.${gym_id}&status=eq.active&end_date=gte.${today}&order=end_date.desc&limit=1`);
     const sub = subs && subs.length ? subs[0] : null;
 
     // FIX: Allow check-in even without subscription (staff override scenario)
