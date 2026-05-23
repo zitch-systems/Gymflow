@@ -17,6 +17,8 @@ const NAV: NavItem[] = [
   { href: '/admin/operations', label: 'Operations', section: 'admin' },
   { href: '/admin/business-hours', label: 'Hours', section: 'admin' },
   { href: '/admin/waiver', label: 'Waiver', section: 'admin' },
+  { href: '/admin/audit', label: 'Audit', section: 'admin' },
+  { href: '/admin/wallet', label: 'Wallet', section: 'admin' },
   { href: '/admin/settings', label: 'Settings', section: 'admin' },
 ];
 

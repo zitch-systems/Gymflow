@@ -4,6 +4,7 @@ import { getProfile, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, fmtNaira } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
+import { SuperadminGymRowActions } from './gym-row-actions';
 
 export default async function SuperadminPage() {
   await requireAuth();
@@ -14,9 +15,9 @@ export default async function SuperadminPage() {
   const [{ data: gyms }, { count: gymCount }, { count: profileCount }, { data: payments30 }] = await Promise.all([
     supabase
       .from('gyms')
-      .select('id, name, slug, subscription_status, subscription_plan, created_at, trial_ends_at')
+      .select('id, name, slug, subscription_status, subscription_plan, created_at, trial_ends_at, email')
       .order('created_at', { ascending: false })
-      .limit(50),
+      .limit(100),
     supabase.from('gyms').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase
@@ -35,11 +36,19 @@ export default async function SuperadminPage() {
           <h1 className="gf-page-title">Platform admin</h1>
           <p className="gf-page-subtitle">All gyms across GymFlow</p>
         </div>
-        <form action={signOut}>
-          <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm">
-            Sign out
-          </button>
-        </form>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link href="/superadmin/audit" className="gf-btn gf-btn-ghost gf-btn-sm">
+            Audit log
+          </Link>
+          <Link href="/superadmin/gyms/new" className="gf-btn gf-btn-primary gf-btn-sm">
+            + Onboard gym
+          </Link>
+          <form action={signOut}>
+            <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm">
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
       <section className="gf-kpi-grid">
@@ -62,15 +71,17 @@ export default async function SuperadminPage() {
                 <th>Status</th>
                 <th>Trial ends</th>
                 <th>Created</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {(gyms ?? []).map((g) => (
                 <tr key={g.id}>
                   <td>
-                    <Link href={`https://${g.slug}.gymflow.ng`} className="gf-link" target="_blank" rel="noreferrer">
+                    <a href={`https://${g.slug}.gymflow.ng/admin/dashboard`} className="gf-link" target="_blank" rel="noreferrer">
                       {g.name}
-                    </Link>
+                    </a>
+                    <div className="gf-table-meta">{g.email ?? '—'}</div>
                   </td>
                   <td className="gf-table-meta">{g.slug}</td>
                   <td>{g.subscription_plan ?? '—'}</td>
@@ -81,6 +92,14 @@ export default async function SuperadminPage() {
                   </td>
                   <td>{g.trial_ends_at ? fmtDate(g.trial_ends_at) : '—'}</td>
                   <td>{fmtDate(g.created_at)}</td>
+                  <td>
+                    <SuperadminGymRowActions
+                      gymId={g.id}
+                      slug={g.slug}
+                      ownerEmail={g.email ?? ''}
+                      status={g.subscription_status ?? 'unknown'}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
