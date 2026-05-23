@@ -63,7 +63,7 @@ export async function inviteInstructor(slug: string, formData: FormData): Promis
 
   await admin.from('gym_staff_links').upsert(
     { gym_id: gym.id, user_id: userId, role: 'instructor', is_active: true },
-    { onConflict: 'gym_id,user_id' },
+    { onConflict: 'gym_id,user_id,role' },
   );
 
   if (sessionRate && sessionRate > 0) {

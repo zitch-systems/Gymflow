@@ -100,7 +100,7 @@ export async function platformOnboardGym(formData: FormData): Promise<OnboardRes
 
   await admin.from('gym_staff_links').upsert(
     { gym_id: gymRow.id, user_id: userId, role: 'gym_owner', is_active: true },
-    { onConflict: 'gym_id,user_id' },
+    { onConflict: 'gym_id,user_id,role' },
   );
 
   await admin.from('membership_plans').insert(
