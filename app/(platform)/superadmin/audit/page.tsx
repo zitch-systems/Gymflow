@@ -1,13 +1,12 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getProfile, requireAuth } from '@/lib/auth/dal';
+import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDateTime } from '@/lib/format';
 
 export default async function SuperadminAuditPage() {
   await requireAuth();
-  const profile = await getProfile();
-  if (profile?.role !== 'platform_admin') redirect('/');
+  if (!(await isPlatformAdmin())) redirect('/');
 
   const supabase = await createClient();
   const { data: rows } = await supabase

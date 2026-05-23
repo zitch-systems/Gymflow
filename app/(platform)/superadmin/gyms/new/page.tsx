@@ -1,12 +1,11 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { getProfile, requireAuth } from '@/lib/auth/dal';
+import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { OnboardForm } from './onboard-form';
 
 export default async function SuperadminOnboardGymPage() {
   await requireAuth();
-  const profile = await getProfile();
-  if (profile?.role !== 'platform_admin') redirect('/');
+  if (!(await isPlatformAdmin())) redirect('/');
 
   return (
     <div className="gf-page">

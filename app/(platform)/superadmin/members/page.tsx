@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getProfile, requireAuth } from '@/lib/auth/dal';
+import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDate } from '@/lib/format';
 
@@ -8,8 +8,7 @@ type PageProps = { searchParams: Promise<{ q?: string }> };
 
 export default async function SuperadminMemberSearchPage({ searchParams }: PageProps) {
   await requireAuth();
-  const profile = await getProfile();
-  if (profile?.role !== 'platform_admin') redirect('/');
+  if (!(await isPlatformAdmin())) redirect('/');
 
   const { q } = await searchParams;
   const query = (q ?? '').trim();

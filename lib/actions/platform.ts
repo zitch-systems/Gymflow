@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getProfile } from '@/lib/auth/dal';
+import { getProfile, isPlatformAdmin } from '@/lib/auth/dal';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
 
@@ -16,7 +16,7 @@ const DEFAULT_PLANS = [
 
 async function requirePlatformAdmin() {
   const profile = await getProfile();
-  if (!profile || profile.role !== 'platform_admin') {
+  if (!(await isPlatformAdmin())) {
     throw new Error('Platform admin only');
   }
   return profile;
