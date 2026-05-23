@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { verifyTransaction } from '@/lib/paystack';
+import { sendReceipt } from '@/lib/email';
+import { waReceipt } from '@/lib/whatsapp';
 
 type Body = {
   reference?: string;
@@ -87,6 +89,55 @@ export async function POST(request: Request) {
     paystack_authorization_code: txn.authorization?.authorization_code ?? null,
     payment_date: new Date().toISOString(),
   });
+
+  // Also save the card so instructor sub can auto-renew later.
+  const auth = txn.authorization;
+  if (auth?.reusable && auth.authorization_code) {
+    await supabase.from('saved_cards').upsert(
+      {
+        gym_id,
+        member_id: user.id,
+        authorization_code: auth.authorization_code,
+        paystack_authorization_code: auth.authorization_code,
+        card_type: auth.card_type ?? null,
+        last4: auth.last4 ?? null,
+        exp_month: auth.exp_month ?? null,
+        exp_year: auth.exp_year ?? null,
+        bank: auth.bank ?? null,
+        brand: auth.brand ?? null,
+        reusable: auth.reusable ?? true,
+        email: txn.customer.email,
+        is_default: true,
+        is_active: true,
+      },
+      { onConflict: 'member_id,authorization_code' },
+    );
+  }
+
+  // Receipt notifications (fire-and-forget).
+  try {
+    const [{ data: profile }, { data: instructor }] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('full_name, first_name, phone, email')
+        .eq('id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', instructor_id)
+        .maybeSingle(),
+    ]);
+    const name = profile?.full_name ?? profile?.first_name ?? 'Member';
+    const planName = `Coaching: ${instructor?.full_name ?? 'Instructor'}`;
+    const paid = amount ?? txn.amount / 100;
+    await Promise.allSettled([
+      sendReceipt(user.email!, { name, amount: paid, plan: planName, endDate: end_date }),
+      profile?.phone ? waReceipt(profile.phone, { name, amount: paid, endDate: end_date }) : Promise.resolve(),
+    ]);
+  } catch (e) {
+    console.warn('[GF verify-instructor] receipt notification failed:', (e as Error).message);
+  }
 
   return NextResponse.json({ success: true, subscription, months });
 }

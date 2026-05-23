@@ -993,6 +993,7 @@ export type Database = {
       instructor_subscriptions: {
         Row: {
           amount_paid: number | null
+          auto_renew: boolean
           created_at: string | null
           end_date: string | null
           gym_id: string
@@ -1007,6 +1008,7 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          auto_renew?: boolean
           created_at?: string | null
           end_date?: string | null
           gym_id: string
@@ -1021,6 +1023,7 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          auto_renew?: boolean
           created_at?: string | null
           end_date?: string | null
           gym_id?: string
@@ -1204,6 +1207,8 @@ export type Database = {
           gym_id: string | null
           id: string
           member_id: string | null
+          pause_reason: string | null
+          paused_at: string | null
           payment_method: string | null
           plan_id: string | null
           start_date: string
@@ -1218,6 +1223,8 @@ export type Database = {
           gym_id?: string | null
           id?: string
           member_id?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           payment_method?: string | null
           plan_id?: string | null
           start_date: string
@@ -1232,6 +1239,8 @@ export type Database = {
           gym_id?: string | null
           id?: string
           member_id?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           payment_method?: string | null
           plan_id?: string | null
           start_date?: string
@@ -2009,6 +2018,7 @@ export type Database = {
       }
     }
     Functions: {
+      can_see_profile: { Args: { target_user_id: string }; Returns: boolean }
       expire_subscriptions: { Args: never; Returns: number }
       get_current_gym_id: { Args: never; Returns: string }
       get_my_profile_id: { Args: never; Returns: string }

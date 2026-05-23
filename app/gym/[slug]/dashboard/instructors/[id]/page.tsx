@@ -37,7 +37,7 @@ export default async function InstructorDetailPage({ params }: PageProps) {
       .maybeSingle(),
     supabase
       .from('instructor_subscriptions')
-      .select('id, status, start_date, end_date, amount_paid')
+      .select('id, status, start_date, end_date, amount_paid, auto_renew')
       .eq('gym_id', gym.id)
       .eq('instructor_id', id)
       .eq('member_id', user.id)
@@ -94,7 +94,7 @@ export default async function InstructorDetailPage({ params }: PageProps) {
           <div style={{ padding: 12, background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderRadius: 8, fontSize: '0.875rem', fontWeight: 600, textAlign: 'center', marginBottom: 12 }}>
             ✓ Subscribed · ends {activeSub.end_date ? fmtDate(activeSub.end_date) : '—'}
           </div>
-          <ManageSubscription slug={slug} subscriptionId={activeSub.id} />
+          <ManageSubscription slug={slug} subscriptionId={activeSub.id} autoRenew={!!activeSub.auto_renew} />
         </section>
       ) : price !== null ? (
         <section className="gf-card" style={{ padding: 18 }}>

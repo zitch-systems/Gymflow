@@ -29,7 +29,11 @@ export async function requestPause(slug: string, reason: string): Promise<Result
 
   const { error } = await supabase
     .from('memberships')
-    .update({ status: 'pause_requested', updated_at: new Date().toISOString() })
+    .update({
+      status: 'pause_requested',
+      pause_reason: reason || null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', sub.id);
   if (error) return { ok: false, error: error.message };
 
@@ -43,7 +47,7 @@ export async function requestPause(slug: string, reason: string): Promise<Result
     new_values: { reason },
   });
 
-  revalidatePath('/dashboard');
+  revalidatePath(`/gym/${slug}/dashboard`);
   return { ok: true };
 }
 
@@ -80,7 +84,7 @@ export async function cancelAtPeriodEnd(slug: string): Promise<Result> {
     record_id: sub.id,
   });
 
-  revalidatePath('/dashboard');
+  revalidatePath(`/gym/${slug}/dashboard`);
   return { ok: true };
 }
 
@@ -89,9 +93,10 @@ export async function cancelAtPeriodEnd(slug: string): Promise<Result> {
 export async function approvePause(slug: string, membershipId: string): Promise<Result> {
   const { user, gym } = await requireStaffContext(slug);
   const supabase = await createClient();
+  const now = new Date().toISOString();
   const { error } = await supabase
     .from('memberships')
-    .update({ status: 'paused', updated_at: new Date().toISOString() })
+    .update({ status: 'paused', paused_at: now, updated_at: now })
     .eq('id', membershipId)
     .eq('gym_id', gym.id);
   if (error) return { ok: false, error: error.message };
@@ -102,27 +107,57 @@ export async function approvePause(slug: string, membershipId: string): Promise<
     table_name: 'memberships',
     record_id: membershipId,
   });
-  revalidatePath('/admin/members');
+  revalidatePath(`/gym/${slug}/admin/members`);
+  revalidatePath(`/gym/${slug}/admin/members/${membershipId}`, 'page');
   return { ok: true };
 }
 
 export async function resumeMembership(slug: string, membershipId: string): Promise<Result> {
   const { user, gym } = await requireStaffContext(slug);
   const supabase = await createClient();
+  const { data: m } = await supabase
+    .from('memberships')
+    .select('end_date, paused_at')
+    .eq('id', membershipId)
+    .eq('gym_id', gym.id)
+    .maybeSingle();
+  if (!m) return { ok: false, error: 'Not found' };
+
+  // Extend end_date by the pause duration (in days) so the member gets
+  // back the time they didn't use.
+  let newEnd = m.end_date as string;
+  if (m.paused_at && m.end_date) {
+    const pausedDays = Math.floor((Date.now() - new Date(m.paused_at).getTime()) / 86_400_000);
+    if (pausedDays > 0) {
+      const d = new Date(m.end_date);
+      d.setDate(d.getDate() + pausedDays);
+      newEnd = d.toISOString().split('T')[0];
+    }
+  }
+
   const { error } = await supabase
     .from('memberships')
-    .update({ status: 'active', updated_at: new Date().toISOString() })
+    .update({
+      status: 'active',
+      end_date: newEnd,
+      paused_at: null,
+      pause_reason: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', membershipId)
     .eq('gym_id', gym.id);
   if (error) return { ok: false, error: error.message };
+
   await supabase.from('audit_logs').insert({
     gym_id: gym.id,
     actor_id: user.id,
     action: 'admin.resume',
     table_name: 'memberships',
     record_id: membershipId,
+    new_values: { new_end_date: newEnd },
   });
-  revalidatePath('/admin/members');
+  revalidatePath(`/gym/${slug}/admin/members`);
+  revalidatePath(`/gym/${slug}/admin/members/${membershipId}`, 'page');
   return { ok: true };
 }
 
@@ -154,7 +189,8 @@ export async function extendMembership(slug: string, membershipId: string, days:
     record_id: membershipId,
     new_values: { days, new_end_date: newEnd },
   });
-  revalidatePath('/admin/members');
+  revalidatePath(`/gym/${slug}/admin/members`);
+  revalidatePath(`/gym/${slug}/admin/members/${membershipId}`, 'page');
   return { ok: true };
 }
 
@@ -174,7 +210,8 @@ export async function cancelMembership(slug: string, membershipId: string): Prom
     table_name: 'memberships',
     record_id: membershipId,
   });
-  revalidatePath('/admin/members');
+  revalidatePath(`/gym/${slug}/admin/members`);
+  revalidatePath(`/gym/${slug}/admin/members/${membershipId}`, 'page');
   return { ok: true };
 }
 
