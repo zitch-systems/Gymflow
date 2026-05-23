@@ -41,7 +41,8 @@ export function proxy(request: NextRequest) {
       path === '/classes' ||
       path.startsWith('/classes/');
     if (!isGymPath) return NextResponse.next();
-    return rewriteToGym(url, isLocalhost ? 'demo-gym' : '');
+    const localSlug = process.env.LOCAL_DEFAULT_GYM_SLUG || 'gf-test-gym';
+    return rewriteToGym(url, isLocalhost ? localSlug : '');
   }
 
   // Extract gym slug from subdomain (e.g., powerhouse.gymflow.ng)

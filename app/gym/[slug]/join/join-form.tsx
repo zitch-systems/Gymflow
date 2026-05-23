@@ -60,7 +60,7 @@ export function JoinForm({ gymSlug }: { gymSlug: string }) {
       <section className="gf-card-elevated">
         <h2 className="gf-h3">Emergency contact</h2>
         <div className="form-grid">
-          <Field label="Full name" name="nok_name" required placeholder="Next of kin name" />
+          <Field label="Contact name" name="nok_name" required placeholder="Next of kin name" />
           <div className="gf-form-group">
             <label className="gf-label" htmlFor="nok_relationship">
               Relationship <span className="req">*</span>
@@ -75,8 +75,8 @@ export function JoinForm({ gymSlug }: { gymSlug: string }) {
               <option value="other">Other</option>
             </select>
           </div>
-          <Field label="Phone" name="nok_phone" type="tel" required placeholder="08087654321" />
-          <Field label="Address" name="nok_address" placeholder="Optional" />
+          <Field label="Contact phone" name="nok_phone" type="tel" required placeholder="08087654321" />
+          <Field label="Contact address" name="nok_address" placeholder="Optional" />
         </div>
       </section>
 

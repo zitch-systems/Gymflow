@@ -78,11 +78,31 @@ export async function signUp(_prev: SignUpState, formData: FormData): Promise<Si
     return { error: 'Password must be at least 6 characters.' };
   }
 
+  // Everything flows through raw_user_meta_data; the database
+  // `handle_new_user` trigger (SECURITY DEFINER) populates profiles,
+  // waiver_signatures and gym_member_links in one transaction so we
+  // don't have to worry about RLS / cookie-propagation between the
+  // signUp call and follow-up writes.
   const supabase = await createClient();
-  const { data: signUpData, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { full_name: fullName } },
+    options: {
+      data: {
+        full_name: fullName,
+        phone,
+        date_of_birth: dateOfBirth,
+        gender,
+        address,
+        nok_name: nokName,
+        nok_relationship: nokRelationship,
+        nok_phone: nokPhone,
+        nok_address: nokAddress,
+        health_notes: healthNotes,
+        waiver_signed: waiverSigned,
+        signup_gym_slug: gymSlug || null,
+      },
+    },
   });
 
   if (error) {
@@ -94,49 +114,6 @@ export async function signUp(_prev: SignUpState, formData: FormData): Promise<Si
       return { error: 'This email is already registered. Please sign in instead.' };
     }
     return { error: error.message };
-  }
-
-  const userId = signUpData.user?.id;
-  if (!userId) {
-    return { error: 'Sign-up succeeded but no user id was returned.' };
-  }
-
-  const [firstName, ...rest] = fullName.split(/\s+/);
-  const lastName = rest.join(' ') || null;
-
-  await supabase.from('profiles').upsert(
-    {
-      id: userId,
-      email,
-      first_name: firstName,
-      last_name: lastName,
-      full_name: fullName,
-      phone,
-      role: 'member',
-      date_of_birth: dateOfBirth,
-      gender,
-      address,
-      nok_name: nokName,
-      nok_relationship: nokRelationship,
-      nok_phone: nokPhone,
-      nok_address: nokAddress,
-      health_notes: healthNotes,
-      waiver_signed_at: waiverSigned ? new Date().toISOString() : null,
-      is_active: true,
-    },
-    { onConflict: 'id' },
-  );
-
-  if (gymSlug) {
-    const { data: gym } = await supabase.from('gyms').select('id').eq('slug', gymSlug).maybeSingle();
-    if (gym) {
-      await supabase
-        .from('gym_member_links')
-        .upsert(
-          { gym_id: gym.id, user_id: userId, onboarding_method: 'self_signup' },
-          { onConflict: 'gym_id,user_id' },
-        );
-    }
   }
 
   redirect(`/login?welcome=1${gymSlug ? `&gym=${encodeURIComponent(gymSlug)}` : ''}`);

@@ -54,3 +54,8 @@ Thumbs.db
 # Legacy HTML/JS source — preserved in git history at root paths
 # (kept on disk as reference; not re-tracked in the Next.js port)
 /gymflow/
+
+# Playwright artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
