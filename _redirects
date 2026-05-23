@@ -1,6 +1,0 @@
-# GymFlow — Cloudflare Pages _redirects
-# Pretty URL rewrites removed — they conflict with CF's built-in .html stripping
-/auth/*          /login.html             200
-/.netlify/functions/check-in     /api/check-in     200
-/.netlify/functions/paystack     /api/paystack     200
-/.netlify/functions/paystack-v2  /api/paystack     200
