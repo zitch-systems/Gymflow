@@ -69,9 +69,9 @@ export default async function MemberDashboard({ params }: PageProps) {
           <span aria-hidden>💳</span>
           <span>Renew</span>
         </Link>
-        <Link href="/dashboard/history" className="gf-quick-action">
+        <Link href="/dashboard/cards" className="gf-quick-action">
           <span aria-hidden>💰</span>
-          <span>History</span>
+          <span>Saved cards</span>
         </Link>
       </section>
 
