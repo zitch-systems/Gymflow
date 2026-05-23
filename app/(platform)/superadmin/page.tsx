@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { fmtDate, fmtNaira } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
 import { SuperadminGymRowActions } from './gym-row-actions';
@@ -10,9 +10,9 @@ export default async function SuperadminPage() {
   await requireAuth();
   if (!(await isPlatformAdmin())) redirect('/');
 
-  // Platform admin views aggregate data across all gyms — use service-role
-  // client so RLS on gym-scoped tables doesn't filter rows out.
-  const admin = createAdminClient();
+  // RLS policies grant platform_admins cross-gym read access; no need for
+  // the service-role client (which requires SUPABASE_SERVICE_ROLE_KEY).
+  const admin = await createClient();
   const now = Date.now();
   const since30 = new Date(now - 30 * 86_400_000).toISOString();
   const since35 = new Date(now - 35 * 86_400_000).toISOString();

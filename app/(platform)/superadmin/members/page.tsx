@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
 
 type PageProps = { searchParams: Promise<{ q?: string }> };
@@ -13,7 +13,7 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
   const { q } = await searchParams;
   const query = (q ?? '').trim();
 
-  const admin = createAdminClient();
+  const admin = await createClient();
   let results: Array<{
     id: string;
     full_name: string | null;
