@@ -66,6 +66,10 @@ export default async function MemberDashboard({ params }: PageProps) {
           <span aria-hidden>📅</span>
           <span>Classes</span>
         </Link>
+        <Link href="/dashboard/instructors" className="gf-quick-action">
+          <span aria-hidden>🧑‍🏫</span>
+          <span>Instructors</span>
+        </Link>
         <Link href="/dashboard/renew" className="gf-quick-action">
           <span aria-hidden>💳</span>
           <span>Renew</span>
