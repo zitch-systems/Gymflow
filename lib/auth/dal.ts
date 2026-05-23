@@ -70,7 +70,7 @@ export const ADMIN_ROLES: Role[] = ['gym_owner', 'owner', 'manager', 'front_desk
 
 export function roleHome(role: Role | string | null | undefined): string {
   if (role === 'platform_admin') return '/superadmin';
-  if (role === 'instructor') return '/instructor';
+  if (role === 'instructor') return '/coach';
   if (role && ADMIN_ROLES.includes(role as Role)) return '/admin/dashboard';
   return '/dashboard';
 }
