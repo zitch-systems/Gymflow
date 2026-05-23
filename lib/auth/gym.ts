@@ -87,3 +87,22 @@ export async function requireStaff(slug: string) {
   const gym = await getGymBySlug(slug);
   return { role, gym: gym! };
 }
+
+export async function requireInstructor(slug: string) {
+  const gym = await requireGym(slug);
+  const user = await getSessionUser();
+  if (!user) redirect(`/gym/${slug}/login`);
+  const supabase = await createClient();
+
+  const { data: link } = await supabase
+    .from('gym_staff_links')
+    .select('user_id, role, is_active')
+    .eq('user_id', user.id)
+    .eq('gym_id', gym.id)
+    .eq('role', 'instructor')
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!link) redirect(`/gym/${slug}/login`);
+  return { user, gym, link };
+}

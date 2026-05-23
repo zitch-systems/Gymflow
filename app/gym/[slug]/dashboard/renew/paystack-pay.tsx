@@ -11,6 +11,7 @@ type Props = {
   amount: number;
   durationMonths: number;
   email: string;
+  subaccount?: string | null;
 };
 
 // Loaded by next/script — populates window.PaystackPop.
@@ -21,6 +22,8 @@ type PaystackPopOptions = {
   currency: string;
   ref: string;
   metadata: Record<string, unknown>;
+  subaccount?: string;
+  bearer?: 'account' | 'subaccount';
   onSuccess: (txn: { reference: string }) => void;
   onClose: () => void;
 };
@@ -38,7 +41,7 @@ function computeEndDate(months: number): string {
   return d.toISOString().split('T')[0];
 }
 
-export function PaystackPayButton({ gymId, planId, amount, durationMonths, email }: Props) {
+export function PaystackPayButton({ gymId, planId, amount, durationMonths, email, subaccount }: Props) {
   const [ready, setReady] = useState(false);
   const [pending, start] = useTransition();
   const toast = useToast();
@@ -78,6 +81,7 @@ export function PaystackPayButton({ gymId, planId, amount, durationMonths, email
         currency: 'NGN',
         ref,
         metadata: { gym_id: gymId, plan_id: planId, duration_months: durationMonths },
+        ...(subaccount ? { subaccount, bearer: 'subaccount' as const } : {}),
         onSuccess: (txn) => {
           fetch('/api/paystack/verify', {
             method: 'POST',

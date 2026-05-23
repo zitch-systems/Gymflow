@@ -21,6 +21,8 @@ declare global {
         currency: string;
         ref: string;
         metadata: Record<string, unknown>;
+        subaccount?: string;
+        bearer?: 'account' | 'subaccount';
         onSuccess: (txn: { reference: string }) => void;
         onClose: () => void;
       }) => void;

@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { ToastProvider } from '@/lib/toast';
 import { ServiceWorkerRegister } from '@/lib/sw-register';
 import { ThemeSystemSync, themeInitScript } from '@/lib/theme';
+import { PwaInstallPrompt } from '@/lib/pwa-install';
 
 export const metadata: Metadata = {
   title: {
@@ -47,6 +48,7 @@ export default function RootLayout({
         <ToastProvider>{children}</ToastProvider>
         <ThemeSystemSync />
         <ServiceWorkerRegister />
+        <PwaInstallPrompt />
       </body>
     </html>
   );

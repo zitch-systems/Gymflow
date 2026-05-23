@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getProfile, requireAuth } from '@/lib/auth/dal';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDate, fmtNaira } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
 import { SuperadminGymRowActions } from './gym-row-actions';
@@ -11,23 +11,54 @@ export default async function SuperadminPage() {
   const profile = await getProfile();
   if (profile?.role !== 'platform_admin') redirect('/');
 
-  const supabase = await createClient();
-  const [{ data: gyms }, { count: gymCount }, { count: profileCount }, { data: payments30 }] = await Promise.all([
-    supabase
+  // Platform admin views aggregate data across all gyms — use service-role
+  // client so RLS on gym-scoped tables doesn't filter rows out.
+  const admin = createAdminClient();
+  const now = Date.now();
+  const since30 = new Date(now - 30 * 86_400_000).toISOString();
+  const since35 = new Date(now - 35 * 86_400_000).toISOString();
+
+  const [
+    { data: gyms },
+    { count: gymCount },
+    { count: activeGymCount },
+    { count: profileCount },
+    { data: platformPayments30 },
+    { data: recentChurn },
+    { data: paidGymIds },
+  ] = await Promise.all([
+    admin
       .from('gyms')
       .select('id, name, slug, subscription_status, subscription_plan, created_at, trial_ends_at, email')
       .order('created_at', { ascending: false })
       .limit(100),
-    supabase.from('gyms').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase
-      .from('payments')
-      .select('amount')
+    admin.from('gyms').select('*', { count: 'exact', head: true }),
+    admin.from('gyms').select('*', { count: 'exact', head: true }).eq('subscription_status', 'active'),
+    admin.from('profiles').select('*', { count: 'exact', head: true }),
+    admin
+      .from('platform_payments')
+      .select('amount, created_at')
       .eq('payment_status', 'successful')
-      .gte('payment_date', new Date(Date.now() - 30 * 86_400_000).toISOString()),
+      .gte('created_at', since30),
+    admin
+      .from('gyms')
+      .select('id', { count: 'exact' })
+      .in('subscription_status', ['suspended', 'terminated', 'cancelled'])
+      .gte('updated_at', since30),
+    admin
+      .from('platform_payments')
+      .select('gym_id')
+      .eq('payment_status', 'successful')
+      .gte('created_at', since35),
   ]);
 
-  const revenue30 = (payments30 ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const mrr30 = (platformPayments30 ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const churned = recentChurn?.length ?? 0;
+  const totalGyms = gymCount ?? 0;
+  const churnPct = totalGyms > 0 ? Math.round((churned / totalGyms) * 1000) / 10 : 0;
+
+  const paidIds = new Set((paidGymIds ?? []).map((r) => r.gym_id));
+  const overdue = (gyms ?? []).filter((g) => g.subscription_status === 'active' && !paidIds.has(g.id)).length;
 
   return (
     <div className="gf-page">
@@ -37,6 +68,9 @@ export default async function SuperadminPage() {
           <p className="gf-page-subtitle">All gyms across GymFlow</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <Link href="/superadmin/members" className="gf-btn gf-btn-ghost gf-btn-sm">
+            Find member
+          </Link>
           <Link href="/superadmin/audit" className="gf-btn gf-btn-ghost gf-btn-sm">
             Audit log
           </Link>
@@ -52,9 +86,12 @@ export default async function SuperadminPage() {
       </header>
 
       <section className="gf-kpi-grid">
-        <Kpi label="Total gyms" value={String(gymCount ?? 0)} accent="emerald" />
+        <Kpi label="Total gyms" value={String(totalGyms)} accent="emerald" />
+        <Kpi label="Active gyms" value={String(activeGymCount ?? 0)} accent="blue" />
+        <Kpi label="MRR (30d platform fees)" value={fmtNaira(mrr30)} accent="purple" />
+        <Kpi label="Churn 30d" value={`${churnPct}%`} accent="amber" />
+        <Kpi label="Overdue (no payment 35d)" value={String(overdue)} accent="amber" />
         <Kpi label="Total profiles" value={String(profileCount ?? 0)} accent="blue" />
-        <Kpi label="Platform revenue 30d" value={fmtNaira(revenue30)} accent="purple" />
       </section>
 
       <section className="gf-card">

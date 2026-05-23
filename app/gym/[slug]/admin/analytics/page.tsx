@@ -1,6 +1,7 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
+import { PrintAnalyticsButton } from './print-button';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -128,6 +129,7 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
           <h1 className="gf-page-title">Analytics</h1>
           <p className="gf-page-subtitle">{gym.name} · last 30 days</p>
         </div>
+        <PrintAnalyticsButton />
       </header>
 
       <section className="gf-kpi-grid">

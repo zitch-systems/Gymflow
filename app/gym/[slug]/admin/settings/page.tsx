@@ -19,6 +19,30 @@ export default async function AdminSettingsPage({ params }: PageProps) {
 
       <section className="gf-card">
         <header className="gf-card-header">
+          <h2 className="gf-card-title">Public landing page</h2>
+          <a href="/admin/settings/landing" className="gf-btn gf-btn-primary gf-btn-sm">
+            Edit landing
+          </a>
+        </header>
+        <div style={{ padding: 18, color: 'var(--gf-text-secondary)' }}>
+          What people see at <strong style={{ color: 'var(--gf-text)' }}>{gym.slug}.gymflow.ng</strong> before they sign in.
+        </div>
+      </section>
+
+      <section className="gf-card">
+        <header className="gf-card-header">
+          <h2 className="gf-card-title">Payouts</h2>
+          <a href="/admin/settings/payouts" className="gf-btn gf-btn-primary gf-btn-sm">
+            Manage payouts
+          </a>
+        </header>
+        <div style={{ padding: 18, color: 'var(--gf-text-secondary)' }}>
+          Connect your bank so member payments split into your account automatically (minus platform commission).
+        </div>
+      </section>
+
+      <section className="gf-card">
+        <header className="gf-card-header">
           <h2 className="gf-card-title">Gym entrance QR code</h2>
         </header>
         <div style={{ padding: 24, display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24, alignItems: 'start' }}>

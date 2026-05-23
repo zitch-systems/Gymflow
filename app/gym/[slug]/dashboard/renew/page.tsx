@@ -54,6 +54,7 @@ export default async function RenewPage({ params }: PageProps) {
                 amount={p.price}
                 durationMonths={p.duration_months}
                 email={user.email ?? ''}
+                subaccount={gym.paystack_subaccount_code}
               />
             </article>
           ))}
