@@ -33,7 +33,7 @@ export default function MarketingHome() {
             <Link href="/login" className="marketing-nav-link">
               Sign in
             </Link>
-            <Link href="/join" className="gf-btn gf-btn-primary">
+            <Link href="/signup" className="gf-btn gf-btn-primary">
               Get started
             </Link>
             <ThemeToggleButton />
@@ -52,7 +52,7 @@ export default function MarketingHome() {
             mobile-first platform that works on Naija data.
           </p>
           <div className="marketing-hero-actions">
-            <Link href="/join" className="gf-btn gf-btn-primary gf-btn-lg">
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">
               Start free trial
             </Link>
             <Link href="#features" className="gf-btn gf-btn-outline gf-btn-lg">
@@ -109,7 +109,7 @@ export default function MarketingHome() {
               <li>WhatsApp & email reminders</li>
               <li>Daily backups</li>
             </ul>
-            <Link href="/join" className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg">
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg">
               Start 14-day free trial
             </Link>
           </div>
