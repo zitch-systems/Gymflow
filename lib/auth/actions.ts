@@ -3,6 +3,8 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { roleHome } from './dal';
+import { sendWelcome } from '@/lib/email';
+import { waWelcome } from '@/lib/whatsapp';
 
 export type SignInState =
   | { error: string }
@@ -114,6 +116,21 @@ export async function signUp(_prev: SignUpState, formData: FormData): Promise<Si
       return { error: 'This email is already registered. Please sign in instead.' };
     }
     return { error: error.message };
+  }
+
+  // Fire-and-forget welcome notifications. Errors logged, not surfaced —
+  // the user shouldn't be blocked from signing in just because Resend hiccupped.
+  try {
+    const dashboardUrl = gymSlug
+      ? `https://${gymSlug}.gymflow.ng/dashboard`
+      : `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/dashboard`;
+    const gymName = gymSlug ? gymSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'GymFlow';
+    await Promise.allSettled([
+      sendWelcome(email, fullName, gymName, dashboardUrl),
+      phone ? waWelcome(phone, fullName, gymName, dashboardUrl) : Promise.resolve(),
+    ]);
+  } catch (e) {
+    console.warn('[GF signUp] welcome notifications failed:', (e as Error).message);
   }
 
   redirect(`/login?welcome=1${gymSlug ? `&gym=${encodeURIComponent(gymSlug)}` : ''}`);

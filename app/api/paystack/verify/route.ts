@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { verifyTransaction } from '@/lib/paystack';
+import { sendReceipt } from '@/lib/email';
+import { waReceipt } from '@/lib/whatsapp';
 
 type VerifyBody = {
   reference?: string;
@@ -104,6 +106,26 @@ export async function POST(request: Request) {
       is_active: true,
     });
     savedCard = !cardError;
+  }
+
+  // Fire-and-forget receipt notifications
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, first_name, phone, email')
+      .eq('id', user.id)
+      .maybeSingle();
+    const { data: plan } = plan_id
+      ? await supabase.from('membership_plans').select('name').eq('id', plan_id).maybeSingle()
+      : { data: null };
+    const name = profile?.full_name ?? profile?.first_name ?? 'Member';
+    const planName = plan?.name ?? 'Membership';
+    await Promise.allSettled([
+      sendReceipt(user.email!, { name, amount: amount ?? txn.amount / 100, plan: planName, endDate: end_date }),
+      profile?.phone ? waReceipt(profile.phone, { name, amount: amount ?? txn.amount / 100, endDate: end_date }) : Promise.resolve(),
+    ]);
+  } catch (e) {
+    console.warn('[GF verify] receipt notification failed:', (e as Error).message);
   }
 
   return NextResponse.json({
