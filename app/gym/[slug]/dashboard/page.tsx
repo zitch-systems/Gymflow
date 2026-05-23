@@ -4,6 +4,7 @@ import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
+import { SubscriptionActions } from './subscription-actions';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -74,6 +75,21 @@ export default async function MemberDashboard({ params }: PageProps) {
           <span>Saved cards</span>
         </Link>
       </section>
+
+      {subscription && (
+        <div className="gf-card">
+          <header className="gf-card-header">
+            <h2 className="gf-card-title">Manage subscription</h2>
+          </header>
+          <div style={{ padding: 18 }}>
+            <SubscriptionActions
+              slug={slug}
+              status={subscription.status ?? 'active'}
+              autoRenew={!!subscription.auto_debit_enabled}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="gf-card">
         <header className="gf-card-header">

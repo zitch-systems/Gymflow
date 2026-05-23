@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft } from '@/lib/format';
@@ -76,7 +77,12 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
           <h1 className="gf-page-title">Members</h1>
           <p className="gf-page-subtitle">{rows.length} member{rows.length === 1 ? '' : 's'}</p>
         </div>
-        <MembersSearch defaultValue={query} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <MembersSearch defaultValue={query} />
+          <Link href="/admin/members/new" className="gf-btn gf-btn-primary gf-btn-sm">
+            + Add member
+          </Link>
+        </div>
       </header>
 
       <div className="gf-card">
@@ -109,7 +115,9 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
                   return (
                     <tr key={r.userId}>
                       <td>
-                        <div style={{ fontWeight: 600 }}>{r.name}</div>
+                        <Link href={`/admin/members/${r.userId}`} className="gf-link" style={{ fontWeight: 600 }}>
+                          {r.name}
+                        </Link>
                         <div className="gf-table-meta">{r.email}</div>
                       </td>
                       <td>{r.phone}</td>
