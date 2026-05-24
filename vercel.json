@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/expiry-reminders",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/auto-debit",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/auto-debit-instructors",
+      "schedule": "10 5 * * *"
+    }
+  ]
+}

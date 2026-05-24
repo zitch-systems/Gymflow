@@ -1,6 +1,11 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDateTime } from '@/lib/format';
+import { daysFromNowDate, todayDate } from '@/lib/dates';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { MailCheck, Inbox } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -21,25 +26,18 @@ export default async function AdminRemindersPage({ params }: PageProps) {
       .select('member_id, end_date, profiles:member_id(full_name, email, phone)')
       .eq('gym_id', gym.id)
       .eq('status', 'active')
-      .gte('end_date', new Date().toISOString().split('T')[0])
-      .lte('end_date', new Date(Date.now() + 7 * 86_400_000).toISOString().split('T')[0])
+      .gte('end_date', todayDate())
+      .lte('end_date', daysFromNowDate(7))
       .order('end_date', { ascending: true })
       .limit(50),
   ]);
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Reminders</h1>
-          <p className="gf-page-subtitle">Members expiring within 7 days and recent reminder activity.</p>
-        </div>
-      </header>
+      <PageHeader title="Reminders" subtitle="Members expiring within 7 days and recent reminder activity." />
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Expiring this week</h2>
-        </header>
+      <Card>
+        <CardHeader title="Expiring this week" />
         {members && members.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -68,17 +66,12 @@ export default async function AdminRemindersPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📨</div>
-            <div className="gf-empty-title">No members expiring this week</div>
-          </div>
+          <EmptyState icon={MailCheck} title="No members expiring this week" />
         )}
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Recent reminders sent</h2>
-        </header>
+      <Card>
+        <CardHeader title="Recent reminders sent" />
         {logs && logs.length > 0 ? (
           <ul className="gf-list">
             {logs.map((l) => (
@@ -97,15 +90,13 @@ export default async function AdminRemindersPage({ params }: PageProps) {
             ))}
           </ul>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📋</div>
-            <div className="gf-empty-title">No reminders sent yet</div>
-            <div className="gf-empty-text">
-              Automated reminders engine ships next; reminders sent via the API or external jobs will appear here.
-            </div>
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No reminders sent yet"
+            message="Automated reminders engine ships next; reminders sent via the API or external jobs will appear here."
+          />
         )}
-      </section>
+      </Card>
     </div>
   );
 }

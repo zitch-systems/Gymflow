@@ -2,6 +2,10 @@ import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { PlanCreateForm, PlanDeleteButton } from './pricing-forms';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { Tag } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -18,24 +22,15 @@ export default async function AdminPricingPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Pricing plans</h1>
-          <p className="gf-page-subtitle">{plans?.length ?? 0} plan(s)</p>
-        </div>
-      </header>
+      <PageHeader title="Pricing plans" subtitle={`${plans?.length ?? 0} plan(s)`} />
 
-      <div className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Create a plan</h2>
-        </header>
+      <Card>
+        <CardHeader title="Create a plan" />
         <PlanCreateForm slug={slug} />
-      </div>
+      </Card>
 
-      <div className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Current plans</h2>
-        </header>
+      <Card>
+        <CardHeader title="Current plans" />
         {plans && plans.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -73,13 +68,9 @@ export default async function AdminPricingPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">💰</div>
-            <div className="gf-empty-title">No plans yet</div>
-            <div className="gf-empty-text">Create your first plan above so members can subscribe.</div>
-          </div>
+          <EmptyState icon={Tag} title="No plans yet" message="Create your first plan above so members can subscribe." />
         )}
-      </div>
+      </Card>
     </div>
   );
 }

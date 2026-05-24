@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/lib/toast';
@@ -11,6 +11,7 @@ type Props = {
   amount: number;
   durationMonths: number;
   email: string;
+  subaccount?: string | null;
 };
 
 // Loaded by next/script — populates window.PaystackPop.
@@ -21,6 +22,8 @@ type PaystackPopOptions = {
   currency: string;
   ref: string;
   metadata: Record<string, unknown>;
+  subaccount?: string;
+  bearer?: 'account' | 'subaccount';
   onSuccess: (txn: { reference: string }) => void;
   onClose: () => void;
 };
@@ -38,16 +41,12 @@ function computeEndDate(months: number): string {
   return d.toISOString().split('T')[0];
 }
 
-export function PaystackPayButton({ gymId, planId, amount, durationMonths, email }: Props) {
-  const [ready, setReady] = useState(false);
+export function PaystackPayButton({ gymId, planId, amount, durationMonths, email, subaccount }: Props) {
+  const [ready, setReady] = useState(() => typeof window !== 'undefined' && !!window.PaystackPop);
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
   const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.PaystackPop) setReady(true);
-  }, []);
 
   if (!publicKey) {
     return (
@@ -78,6 +77,7 @@ export function PaystackPayButton({ gymId, planId, amount, durationMonths, email
         currency: 'NGN',
         ref,
         metadata: { gym_id: gymId, plan_id: planId, duration_months: durationMonths },
+        ...(subaccount ? { subaccount, bearer: 'subaccount' as const } : {}),
         onSuccess: (txn) => {
           fetch('/api/paystack/verify', {
             method: 'POST',

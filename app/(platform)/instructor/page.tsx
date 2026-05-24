@@ -4,6 +4,11 @@ import { getProfile, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { CalendarX, LogOut } from 'lucide-react';
 
 const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -23,22 +28,20 @@ export default async function InstructorPage() {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Instructor portal</h1>
-          <p className="gf-page-subtitle">{profile.full_name ?? profile.email ?? 'Instructor'}</p>
-        </div>
-        <form action={signOut}>
-          <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm">
-            Sign out
-          </button>
-        </form>
-      </header>
+      <PageHeader
+        title="Instructor portal"
+        subtitle={profile.full_name ?? profile.email ?? 'Instructor'}
+        actions={
+          <form action={signOut}>
+            <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />}>
+              Sign out
+            </Button>
+          </form>
+        }
+      />
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Your schedule</h2>
-        </header>
+      <Card>
+        <CardHeader title="Your schedule" />
         {schedules && schedules.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -71,13 +74,13 @@ export default async function InstructorPage() {
             </table>
           </div>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📅</div>
-            <div className="gf-empty-title">No classes assigned yet</div>
-            <div className="gf-empty-text">A gym admin will assign classes to you and they will appear here.</div>
-          </div>
+          <EmptyState
+            icon={CalendarX}
+            title="No classes assigned yet"
+            message="A gym admin will assign classes to you and they will appear here."
+          />
         )}
-      </section>
+      </Card>
 
       <p className="gf-form-hint" style={{ textAlign: 'center', marginTop: 24 }}>
         Member of multiple gyms? <Link href="/login">Sign in</Link> with a different account to switch.

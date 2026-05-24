@@ -67,19 +67,23 @@ export async function initializeTransaction(args: {
   amount: number; // Naira whole units; we convert to kobo
   callbackUrl?: string;
   metadata?: Record<string, unknown>;
+  subaccount?: string; // Paystack subaccount code — routes funds to gym
+  bearer?: 'account' | 'subaccount'; // who pays Paystack's fees
 }): Promise<PaystackInitializeResult['data']> {
+  const body: Record<string, unknown> = {
+    email: args.email,
+    amount: Math.round(args.amount * 100),
+    currency: 'NGN',
+    callback_url: args.callbackUrl,
+    metadata: args.metadata ?? {},
+  };
+  if (args.subaccount) {
+    body.subaccount = args.subaccount;
+    if (args.bearer) body.bearer = args.bearer;
+  }
   const data = await paystackFetch<PaystackInitializeResult>(
     '/transaction/initialize',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        email: args.email,
-        amount: Math.round(args.amount * 100),
-        currency: 'NGN',
-        callback_url: args.callbackUrl,
-        metadata: args.metadata ?? {},
-      }),
-    },
+    { method: 'POST', body: JSON.stringify(body) },
   );
   return data.data;
 }
@@ -87,6 +91,72 @@ export async function initializeTransaction(args: {
 export async function verifyTransaction(reference: string): Promise<PaystackVerifyResult['data']> {
   const data = await paystackFetch<PaystackVerifyResult>(
     `/transaction/verify/${encodeURIComponent(reference)}`,
+  );
+  return data.data;
+}
+
+export type PaystackBank = { name: string; code: string; slug: string; longcode: string };
+
+export async function listBanks(): Promise<PaystackBank[]> {
+  const data = await paystackFetch<{ status: boolean; data: PaystackBank[] }>(
+    '/bank?country=nigeria&currency=NGN',
+  );
+  return data.data;
+}
+
+export async function resolveAccount(accountNumber: string, bankCode: string): Promise<{ account_number: string; account_name: string }> {
+  const data = await paystackFetch<{ status: boolean; data: { account_number: string; account_name: string } }>(
+    `/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`,
+  );
+  return data.data;
+}
+
+export type PaystackSubaccount = { subaccount_code: string; business_name: string };
+
+export async function createSubaccount(args: {
+  businessName: string;
+  bankCode: string;
+  accountNumber: string;
+  percentageCharge: number; // platform commission % — Paystack keeps this share
+  primaryContactEmail?: string;
+  primaryContactName?: string;
+  primaryContactPhone?: string;
+}): Promise<PaystackSubaccount> {
+  const data = await paystackFetch<{ status: boolean; data: PaystackSubaccount }>(
+    '/subaccount',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        business_name: args.businessName,
+        settlement_bank: args.bankCode,
+        account_number: args.accountNumber,
+        percentage_charge: args.percentageCharge,
+        primary_contact_email: args.primaryContactEmail,
+        primary_contact_name: args.primaryContactName,
+        primary_contact_phone: args.primaryContactPhone,
+      }),
+    },
+  );
+  return data.data;
+}
+
+export async function updateSubaccount(code: string, args: {
+  businessName?: string;
+  bankCode?: string;
+  accountNumber?: string;
+  percentageCharge?: number;
+}): Promise<PaystackSubaccount> {
+  const data = await paystackFetch<{ status: boolean; data: PaystackSubaccount }>(
+    `/subaccount/${encodeURIComponent(code)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        business_name: args.businessName,
+        settlement_bank: args.bankCode,
+        account_number: args.accountNumber,
+        percentage_charge: args.percentageCharge,
+      }),
+    },
   );
   return data.data;
 }

@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/lib/theme';
+import {
+  ScanLine, CreditCard, CalendarDays, Users, BarChart3, Smartphone,
+  type LucideIcon,
+} from 'lucide-react';
 
 export const metadata = {
   title: {
@@ -33,7 +37,7 @@ export default function MarketingHome() {
             <Link href="/login" className="marketing-nav-link">
               Sign in
             </Link>
-            <Link href="/join" className="gf-btn gf-btn-primary">
+            <Link href="/signup" className="gf-btn gf-btn-primary">
               Get started
             </Link>
             <ThemeToggleButton />
@@ -52,7 +56,7 @@ export default function MarketingHome() {
             mobile-first platform that works on Naija data.
           </p>
           <div className="marketing-hero-actions">
-            <Link href="/join" className="gf-btn gf-btn-primary gf-btn-lg">
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">
               Start free trial
             </Link>
             <Link href="#features" className="gf-btn gf-btn-outline gf-btn-lg">
@@ -83,12 +87,12 @@ export default function MarketingHome() {
             From the front desk to the back office, GymFlow covers the day-to-day.
           </p>
           <div className="marketing-grid">
-            <FeatureCard icon="🪪" title="QR check-in" body="Members scan a code; staff see attendance live. Works offline." />
-            <FeatureCard icon="💳" title="Paystack subscriptions" body="Auto-renew, dunning, and saved cards — in Naira, no FX." />
-            <FeatureCard icon="📅" title="Class scheduling" body="Recurring classes, booking caps, waitlists, RSVP reminders." />
-            <FeatureCard icon="👥" title="Staff & roles" body="Owner, manager, front desk, accountant, instructor — each sees what they need." />
-            <FeatureCard icon="📊" title="Live analytics" body="Revenue, churn, attendance — daily, monthly, exportable." />
-            <FeatureCard icon="📲" title="PWA, installs anywhere" body="Add to home screen on Android & iOS. Push notifications optional." />
+            <FeatureCard icon={ScanLine} title="QR check-in" body="Members scan a code; staff see attendance live. Works offline." />
+            <FeatureCard icon={CreditCard} title="Paystack subscriptions" body="Auto-renew, dunning, and saved cards — in Naira, no FX." />
+            <FeatureCard icon={CalendarDays} title="Class scheduling" body="Recurring classes, booking caps, waitlists, RSVP reminders." />
+            <FeatureCard icon={Users} title="Staff & roles" body="Owner, manager, front desk, accountant, instructor — each sees what they need." />
+            <FeatureCard icon={BarChart3} title="Live analytics" body="Revenue, churn, attendance — daily, monthly, exportable." />
+            <FeatureCard icon={Smartphone} title="PWA, installs anywhere" body="Add to home screen on Android & iOS. Push notifications optional." />
           </div>
         </div>
       </section>
@@ -109,7 +113,7 @@ export default function MarketingHome() {
               <li>WhatsApp & email reminders</li>
               <li>Daily backups</li>
             </ul>
-            <Link href="/join" className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg">
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg">
               Start 14-day free trial
             </Link>
           </div>
@@ -135,11 +139,11 @@ export default function MarketingHome() {
   );
 }
 
-function FeatureCard({ icon, title, body }: { icon: string; title: string; body: string }) {
+function FeatureCard({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
   return (
     <article className="marketing-feature">
       <div className="marketing-feature-icon" aria-hidden>
-        {icon}
+        <Icon size={22} strokeWidth={1.75} />
       </div>
       <h3 className="marketing-feature-title">{title}</h3>
       <p className="marketing-feature-body">{body}</p>

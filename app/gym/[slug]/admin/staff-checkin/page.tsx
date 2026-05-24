@@ -2,6 +2,11 @@ import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDateTime } from '@/lib/format';
 import { StaffCheckInForm } from './staff-checkin-form';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { ClipboardList } from 'lucide-react';
+import { startOfTodayIso } from '@/lib/dates';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -14,14 +19,13 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
   const { gym } = await requireStaff(slug);
 
   const supabase = await createClient();
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = startOfTodayIso();
 
   const { data: recent } = await supabase
     .from('check_ins')
     .select('id, member_id, checked_in_at, check_in_method')
     .eq('gym_id', gym.id)
-    .gte('checked_in_at', startOfDay.toISOString())
+    .gte('checked_in_at', startOfDay)
     .order('checked_in_at', { ascending: false })
     .limit(50);
 
@@ -35,24 +39,15 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Staff check-in</h1>
-          <p className="gf-page-subtitle">{gym.name} · today: {recent?.length ?? 0}</p>
-        </div>
-      </header>
+      <PageHeader title="Staff check-in" subtitle={`${gym.name} · today: ${recent?.length ?? 0}`} />
 
-      <div className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Check in a member</h2>
-        </header>
+      <Card>
+        <CardHeader title="Check in a member" />
         <StaffCheckInForm slug={slug} defaultMember={sp.member ?? ''} />
-      </div>
+      </Card>
 
-      <div className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Today&apos;s visits</h2>
-        </header>
+      <Card>
+        <CardHeader title="Today's visits" />
         {recent && recent.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -81,12 +76,9 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
             </table>
           </div>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📋</div>
-            <div className="gf-empty-title">No visits today</div>
-          </div>
+          <EmptyState icon={ClipboardList} title="No visits today" />
         )}
-      </div>
+      </Card>
     </div>
   );
 }

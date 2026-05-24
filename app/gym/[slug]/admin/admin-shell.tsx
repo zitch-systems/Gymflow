@@ -3,20 +3,31 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Users, ScanLine, BarChart3, CalendarDays, GraduationCap,
+  Tag, Bell, Wrench, Clock, FileText, ShieldCheck, Wallet, Settings,
+  LogOut, Menu,
+} from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
+import { LogoMark } from '@/components/ui/logo';
 
-type NavItem = { href: string; label: string; section: 'main' | 'admin' };
+type NavItem = { href: string; label: string; section: 'main' | 'admin'; icon: LucideIcon };
 
 const NAV: NavItem[] = [
-  { href: '/admin/dashboard', label: 'Members', section: 'main' },
-  { href: '/admin/staff-checkin', label: 'Check-In', section: 'main' },
-  { href: '/admin/analytics', label: 'Analytics', section: 'main' },
-  { href: '/admin/classes', label: 'Classes', section: 'main' },
-  { href: '/admin/pricing', label: 'Pricing', section: 'admin' },
-  { href: '/admin/reminders', label: 'Reminders', section: 'admin' },
-  { href: '/admin/operations', label: 'Operations', section: 'admin' },
-  { href: '/admin/business-hours', label: 'Hours', section: 'admin' },
-  { href: '/admin/waiver', label: 'Waiver', section: 'admin' },
+  { href: '/admin/dashboard',     label: 'Members',    section: 'main',  icon: Users },
+  { href: '/admin/staff-checkin', label: 'Check-In',   section: 'main',  icon: ScanLine },
+  { href: '/admin/analytics',     label: 'Analytics',  section: 'main',  icon: BarChart3 },
+  { href: '/admin/classes',       label: 'Classes',    section: 'main',  icon: CalendarDays },
+  { href: '/admin/instructors',   label: 'Instructors',section: 'main',  icon: GraduationCap },
+  { href: '/admin/pricing',       label: 'Pricing',    section: 'admin', icon: Tag },
+  { href: '/admin/reminders',     label: 'Reminders',  section: 'admin', icon: Bell },
+  { href: '/admin/operations',    label: 'Operations', section: 'admin', icon: Wrench },
+  { href: '/admin/business-hours',label: 'Hours',      section: 'admin', icon: Clock },
+  { href: '/admin/waiver',        label: 'Waiver',     section: 'admin', icon: FileText },
+  { href: '/admin/audit',         label: 'Audit',      section: 'admin', icon: ShieldCheck },
+  { href: '/admin/wallet',        label: 'Wallet',     section: 'admin', icon: Wallet },
+  { href: '/admin/settings',      label: 'Settings',   section: 'admin', icon: Settings },
 ];
 
 export function AdminShell({
@@ -46,15 +57,7 @@ export function AdminShell({
       <aside className={`gf-sidebar${open ? ' open' : ''}`}>
         <div className="gf-sidebar-header">
           <Link href="/admin/dashboard" className="gf-logo gf-logo-sm">
-            <span className="gf-logo-mark">
-              <svg viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2" y="8" width="5" height="8" rx="1.5" />
-                <rect x="1" y="10.5" width="7" height="3" rx="1" />
-                <rect x="17" y="8" width="5" height="8" rx="1.5" />
-                <rect x="16" y="10.5" width="7" height="3" rx="1" />
-                <rect x="10.5" y="5" width="3" height="14" rx="1.5" />
-              </svg>
-            </span>
+            <LogoMark />
             <span className="gf-logo-text">
               Gym<em>Flow</em>
             </span>
@@ -64,28 +67,36 @@ export function AdminShell({
 
         <nav className="gf-sidebar-nav">
           <span className="gf-sidebar-section">Main</span>
-          {mainItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`gf-nav-item${isActive(item.href) ? ' active' : ''}`}
-              onClick={() => setOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {mainItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`gf-nav-item${isActive(item.href) ? ' active' : ''}`}
+                onClick={() => setOpen(false)}
+              >
+                <Icon size={17} strokeWidth={1.75} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
 
           <span className="gf-sidebar-section">Admin</span>
-          {adminItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`gf-nav-item${isActive(item.href) ? ' active' : ''}`}
-              onClick={() => setOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {adminItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`gf-nav-item${isActive(item.href) ? ' active' : ''}`}
+                onClick={() => setOpen(false)}
+              >
+                <Icon size={17} strokeWidth={1.75} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="gf-sidebar-footer">
@@ -103,9 +114,7 @@ export function AdminShell({
             </div>
             <form action={signOut}>
               <button type="submit" className="gf-btn-icon gf-btn-ghost" title="Sign out" aria-label="Sign out">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.75">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <LogOut size={16} strokeWidth={1.75} />
               </button>
             </form>
           </div>
@@ -121,11 +130,7 @@ export function AdminShell({
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle menu"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
+            <Menu size={20} strokeWidth={1.75} />
           </button>
           <span className="gf-topbar-title">{gymName}</span>
         </header>

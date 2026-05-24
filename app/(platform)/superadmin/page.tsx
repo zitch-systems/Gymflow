@@ -1,57 +1,105 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { getProfile, requireAuth } from '@/lib/auth/dal';
+import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, fmtNaira } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
+import { daysAgoIso } from '@/lib/dates';
+import { SuperadminGymRowActions } from './gym-row-actions';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { Stat, StatGrid } from '@/components/ui/stat';
+import { Button, ButtonLink } from '@/components/ui/button';
+import { StatusPill } from '@/components/ui/badge';
+import { Search, ShieldCheck, Plus, LogOut, Building2, CheckCircle2, TrendingDown, AlertTriangle, Users, Banknote } from 'lucide-react';
 
 export default async function SuperadminPage() {
   await requireAuth();
-  const profile = await getProfile();
-  if (profile?.role !== 'platform_admin') redirect('/');
+  if (!(await isPlatformAdmin())) redirect('/');
 
-  const supabase = await createClient();
-  const [{ data: gyms }, { count: gymCount }, { count: profileCount }, { data: payments30 }] = await Promise.all([
-    supabase
+  // RLS policies grant platform_admins cross-gym read access; no need for
+  // the service-role client (which requires SUPABASE_SERVICE_ROLE_KEY).
+  const admin = await createClient();
+  const since30 = daysAgoIso(30);
+  const since35 = daysAgoIso(35);
+
+  const [
+    { data: gyms },
+    { count: gymCount },
+    { count: activeGymCount },
+    { count: profileCount },
+    { data: platformPayments30 },
+    { data: recentChurn },
+    { data: paidGymIds },
+  ] = await Promise.all([
+    admin
       .from('gyms')
-      .select('id, name, slug, subscription_status, subscription_plan, created_at, trial_ends_at')
+      .select('id, name, slug, subscription_status, subscription_plan, created_at, trial_ends_at, email')
       .order('created_at', { ascending: false })
-      .limit(50),
-    supabase.from('gyms').select('*', { count: 'exact', head: true }),
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase
-      .from('payments')
-      .select('amount')
+      .limit(100),
+    admin.from('gyms').select('*', { count: 'exact', head: true }),
+    admin.from('gyms').select('*', { count: 'exact', head: true }).eq('subscription_status', 'active'),
+    admin.from('profiles').select('*', { count: 'exact', head: true }),
+    admin
+      .from('platform_payments')
+      .select('amount, created_at')
       .eq('payment_status', 'successful')
-      .gte('payment_date', new Date(Date.now() - 30 * 86_400_000).toISOString()),
+      .gte('created_at', since30),
+    admin
+      .from('gyms')
+      .select('id', { count: 'exact' })
+      .in('subscription_status', ['suspended', 'terminated', 'cancelled'])
+      .gte('updated_at', since30),
+    admin
+      .from('platform_payments')
+      .select('gym_id')
+      .eq('payment_status', 'successful')
+      .gte('created_at', since35),
   ]);
 
-  const revenue30 = (payments30 ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const mrr30 = (platformPayments30 ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const churned = recentChurn?.length ?? 0;
+  const totalGyms = gymCount ?? 0;
+  const churnPct = totalGyms > 0 ? Math.round((churned / totalGyms) * 1000) / 10 : 0;
+
+  const paidIds = new Set((paidGymIds ?? []).map((r) => r.gym_id));
+  const overdue = (gyms ?? []).filter((g) => g.subscription_status === 'active' && !paidIds.has(g.id)).length;
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Platform admin</h1>
-          <p className="gf-page-subtitle">All gyms across GymFlow</p>
-        </div>
-        <form action={signOut}>
-          <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm">
-            Sign out
-          </button>
-        </form>
-      </header>
+      <PageHeader
+        title="Platform admin"
+        subtitle="All gyms across GymFlow"
+        actions={
+          <>
+            <ButtonLink href="/superadmin/members" variant="ghost" size="sm" leadingIcon={<Search size={16} strokeWidth={1.75} />}>
+              Find member
+            </ButtonLink>
+            <ButtonLink href="/superadmin/audit" variant="ghost" size="sm" leadingIcon={<ShieldCheck size={16} strokeWidth={1.75} />}>
+              Audit log
+            </ButtonLink>
+            <ButtonLink href="/superadmin/gyms/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
+              Onboard gym
+            </ButtonLink>
+            <form action={signOut}>
+              <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />}>
+                Sign out
+              </Button>
+            </form>
+          </>
+        }
+      />
 
-      <section className="gf-kpi-grid">
-        <Kpi label="Total gyms" value={String(gymCount ?? 0)} accent="emerald" />
-        <Kpi label="Total profiles" value={String(profileCount ?? 0)} accent="blue" />
-        <Kpi label="Platform revenue 30d" value={fmtNaira(revenue30)} accent="purple" />
-      </section>
+      <StatGrid>
+        <Stat label="Total gyms" value={totalGyms} icon={Building2} accent="emerald" />
+        <Stat label="Active gyms" value={activeGymCount ?? 0} icon={CheckCircle2} accent="blue" />
+        <Stat label="MRR (30d platform fees)" value={fmtNaira(mrr30)} icon={Banknote} accent="purple" />
+        <Stat label="Churn 30d" value={`${churnPct}%`} icon={TrendingDown} accent="amber" />
+        <Stat label="Overdue (no payment 35d)" value={overdue} icon={AlertTriangle} accent="rose" />
+        <Stat label="Total profiles" value={profileCount ?? 0} icon={Users} accent="slate" />
+      </StatGrid>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Gyms</h2>
-        </header>
+      <Card>
+        <CardHeader title="Gyms" />
         <div className="gf-table-wrap">
           <table className="gf-table">
             <thead>
@@ -62,40 +110,42 @@ export default async function SuperadminPage() {
                 <th>Status</th>
                 <th>Trial ends</th>
                 <th>Created</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {(gyms ?? []).map((g) => (
                 <tr key={g.id}>
                   <td>
-                    <Link href={`https://${g.slug}.gymflow.ng`} className="gf-link" target="_blank" rel="noreferrer">
+                    <a href={`https://${g.slug}.gymflow.ng/admin/dashboard`} className="gf-link" target="_blank" rel="noreferrer">
                       {g.name}
-                    </Link>
+                    </a>
+                    <div className="gf-table-meta">{g.email ?? '—'}</div>
                   </td>
                   <td className="gf-table-meta">{g.slug}</td>
                   <td>{g.subscription_plan ?? '—'}</td>
                   <td>
-                    <span className={`status-pill ${g.subscription_status === 'active' ? 'on' : 'off'}`}>
+                    <StatusPill tone={g.subscription_status === 'active' ? 'on' : 'off'}>
                       {g.subscription_status ?? '—'}
-                    </span>
+                    </StatusPill>
                   </td>
                   <td>{g.trial_ends_at ? fmtDate(g.trial_ends_at) : '—'}</td>
                   <td>{fmtDate(g.created_at)}</td>
+                  <td>
+                    <SuperadminGymRowActions
+                      gymId={g.id}
+                      slug={g.slug}
+                      ownerEmail={g.email ?? ''}
+                      status={g.subscription_status ?? 'unknown'}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
 
-function Kpi({ label, value, accent }: { label: string; value: string; accent: 'emerald' | 'blue' | 'amber' | 'purple' }) {
-  return (
-    <div className={`gf-kpi gf-kpi-${accent}`}>
-      <div className="gf-kpi-value">{value}</div>
-      <div className="gf-kpi-label">{label}</div>
-    </div>
-  );
-}

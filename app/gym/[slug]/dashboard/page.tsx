@@ -1,9 +1,15 @@
-import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
+import { SubscriptionActions } from './subscription-actions';
+import { QuickAction } from '@/components/ui/quick-action';
+import { Card, CardHeader } from '@/components/ui/card';
+import { StatusPill } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, LogOut } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -30,23 +36,21 @@ export default async function MemberDashboard({ params }: PageProps) {
 
   return (
     <div className="member-portal">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">{gym.name}</h1>
-          <p className="gf-page-subtitle">Member Portal</p>
-        </div>
-        <form action={signOut}>
-          <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm">
-            Sign out
-          </button>
-        </form>
-      </header>
+      <PageHeader
+        title={gym.name}
+        subtitle="Member Portal"
+        actions={
+          <form action={signOut}>
+            <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />}>
+              Sign out
+            </Button>
+          </form>
+        }
+      />
 
       <div className={`status-card ${isActive ? 'is-active' : 'is-inactive'}`}>
         <div className="status-card-header">
-          <span className={`status-pill ${isActive ? 'on' : 'off'}`}>
-            {isActive ? 'Active' : 'Inactive'}
-          </span>
+          <StatusPill tone={isActive ? 'on' : 'off'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
           <span className="status-card-meta">{slug}.gymflow.ng</span>
         </div>
         <div className="status-card-value">{remaining}</div>
@@ -57,28 +61,28 @@ export default async function MemberDashboard({ params }: PageProps) {
       </div>
 
       <section className="member-quick-actions">
-        <Link href="/checkin" className="gf-quick-action">
-          <span aria-hidden>📷</span>
-          <span>Check In</span>
-        </Link>
-        <Link href="/classes" className="gf-quick-action">
-          <span aria-hidden>📅</span>
-          <span>Classes</span>
-        </Link>
-        <Link href="/dashboard/renew" className="gf-quick-action">
-          <span aria-hidden>💳</span>
-          <span>Renew</span>
-        </Link>
-        <Link href="/dashboard/history" className="gf-quick-action">
-          <span aria-hidden>💰</span>
-          <span>History</span>
-        </Link>
+        <QuickAction href="/checkin" icon={ScanLine} label="Check In" />
+        <QuickAction href="/classes" icon={CalendarDays} label="Classes" />
+        <QuickAction href="/dashboard/instructors" icon={GraduationCap} label="Instructors" />
+        <QuickAction href="/dashboard/renew" icon={CreditCard} label="Renew" />
+        <QuickAction href="/dashboard/cards" icon={Wallet} label="Saved cards" />
       </section>
 
-      <div className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Your profile</h2>
-        </header>
+      {subscription && (
+        <Card>
+          <CardHeader title="Manage subscription" />
+          <div style={{ padding: 18 }}>
+            <SubscriptionActions
+              slug={slug}
+              status={subscription.status ?? 'active'}
+              autoRenew={!!subscription.auto_debit_enabled}
+            />
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader title="Your profile" />
         <dl className="gf-detail-list">
           <div>
             <dt>Name</dt>
@@ -93,7 +97,7 @@ export default async function MemberDashboard({ params }: PageProps) {
             <dd>{profile?.phone ?? '—'}</dd>
           </div>
         </dl>
-      </div>
+      </Card>
     </div>
   );
 }

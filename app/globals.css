@@ -89,8 +89,8 @@
   --gf-mobile-nav-h: 68px;
 
   /* Fonts */
-  --gf-font-display: 'Outfit', system-ui, sans-serif;
-  --gf-font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --gf-font-display: var(--gf-font-display-next, 'Outfit'), system-ui, sans-serif;
+  --gf-font-body: var(--gf-font-body-next, 'DM Sans'), system-ui, -apple-system, sans-serif;
   --gf-font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
@@ -4740,3 +4740,158 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 
 /* ── Misc adjustments ────────────────────────────────────────────────── */
 .gym-avatar.gym-avatar-sm { width: 36px; height: 36px; border-radius: 10px; font-size: 0.875rem; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   UI primitives supplement (components/ui/*)
+   Slot classes for the new Button/Card/Stat/EmptyState/QuickAction wrappers.
+   Re-uses existing tokens, only adds missing slots.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* Card slots */
+.gf-card-padded { padding: 18px; }
+.gf-card-body { padding: 18px; }
+.gf-card-subtitle { font-size: 0.8125rem; color: var(--gf-text-muted); margin: 4px 0 0; }
+.gf-card-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Page header slots */
+.gf-page-header-text { min-width: 0; }
+.gf-page-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Stat slots */
+.gf-kpi { position: relative; }
+.gf-kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--gf-radius-xs);
+  background: var(--gf-elevated);
+  color: var(--gf-text-secondary);
+  margin-bottom: 10px;
+}
+.gf-kpi-emerald .gf-kpi-icon { background: var(--gf-brand-soft);   color: var(--gf-brand); }
+.gf-kpi-blue    .gf-kpi-icon { background: var(--gf-info-soft);    color: #5b8def; }
+.gf-kpi-amber   .gf-kpi-icon { background: var(--gf-warning-soft); color: var(--gf-warning); }
+.gf-kpi-purple  .gf-kpi-icon { background: rgba(182, 123, 243, 0.1); color: #b67bf3; }
+.gf-kpi-rose    .gf-kpi-icon { background: var(--gf-danger-soft);  color: var(--gf-danger); }
+.gf-kpi-slate   .gf-kpi-icon { background: var(--gf-elevated);     color: var(--gf-text-secondary); }
+.gf-kpi-rose    .gf-kpi-value { color: var(--gf-danger); }
+.gf-kpi-slate   .gf-kpi-value { color: var(--gf-text); }
+.gf-kpi-hint    { font-size: 0.75rem; color: var(--gf-text-muted); margin-top: 6px; }
+
+/* Quick action slots */
+.gf-quick-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--gf-radius-xs);
+  background: var(--gf-brand-soft);
+  color: var(--gf-brand);
+  transition: transform 0.15s;
+}
+.gf-quick-action:hover .gf-quick-action-icon { transform: scale(1.05); }
+.gf-quick-action-label { display: block; }
+
+/* Empty state additions */
+.gf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+}
+.gf-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--gf-elevated);
+  color: var(--gf-text-muted);
+  margin-bottom: 4px;
+}
+.gf-empty-action { margin-top: 12px; }
+
+/* Status pill — additional tones used in primitives */
+.status-pill.warn    { background: var(--gf-warning-soft); color: var(--gf-warning); }
+.status-pill.info    { background: var(--gf-info-soft);    color: var(--gf-info); }
+.status-pill.neutral { background: var(--gf-elevated);     color: var(--gf-text-secondary); }
+
+/* Badge brand-tone alias used by the Badge primitive */
+.gf-badge-on  { background: var(--gf-brand-soft);  color: var(--gf-brand);  border-color: var(--gf-brand-glow); }
+.gf-badge-off { background: var(--gf-danger-soft); color: var(--gf-danger); border-color: rgba(var(--gf-danger-rgb), 0.2); }
+.gf-badge-warn { background: var(--gf-warning-soft); color: var(--gf-warning); border-color: rgba(var(--gf-warning-rgb), 0.2); }
+
+/* Spinner sizes used by Button loading state */
+.gf-spinner-sm { width: 14px; height: 14px; border-width: 2px; }
+
+/* Button content icon spacing — auto when icon precedes text */
+.gf-btn > svg { flex-shrink: 0; }
+
+/* Sidebar nav icon row (used by NavItem with lucide icons) */
+.gf-nav-item { display: flex; align-items: center; gap: 10px; }
+.gf-nav-item > svg { flex-shrink: 0; color: var(--gf-text-muted); transition: color 0.15s; }
+.gf-nav-item.active > svg,
+.gf-nav-item:hover > svg { color: var(--gf-brand); }
+
+/* Tap target floor — every touch surface ≥ 44×44 on phones */
+@media (max-width: 640px) {
+  .gf-btn-sm { min-height: 40px; }
+  .gf-btn    { min-height: 44px; }
+  .gf-quick-action { min-height: 88px; }
+  .gf-table { font-size: 0.8125rem; }
+  .gf-table thead th, .gf-table tbody td { padding: 10px 12px; }
+  .member-quick-actions { grid-template-columns: repeat(2, 1fr); }
+  /* Page header stacks vertically on small phones */
+  .gf-page-header { flex-wrap: wrap; }
+  .gf-page-header-actions { width: 100%; }
+  /* Quick actions tighter on phone */
+  .gf-quick-actions { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+  /* Stat icon shrinks slightly */
+  .gf-kpi { padding: 14px; }
+  .gf-kpi-value { font-size: 1.5rem; }
+  /* Card headers wrap cleanly */
+  .gf-card-header { flex-wrap: wrap; gap: 8px; }
+  .gf-card-actions { width: 100%; justify-content: flex-end; }
+}
+
+@media (max-width: 380px) {
+  .gf-kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .gf-kpi { padding: 12px; }
+  .gf-kpi-icon { width: 28px; height: 28px; margin-bottom: 6px; }
+  .gf-kpi-value { font-size: 1.375rem; }
+  .gf-quick-action-icon { width: 36px; height: 36px; }
+  .marketing-feature-icon { width: 40px; height: 40px; }
+}
+
+/* Marketing feature icon slot — for lucide icons in feature cards */
+.marketing-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--gf-brand-soft);
+  color: var(--gf-brand);
+  margin-bottom: 14px;
+}
+
+/* ── Print styles for /admin/analytics PDF export ────────────────────── */
+@media print {
+  .gf-sidebar, .gf-sidebar-overlay, .gf-topbar, .marketing-nav, .marketing-footer,
+  .theme-toggle-btn, .gf-toast-container, [role="dialog"] { display: none !important; }
+  body, .gf-page, .gf-card { background: #fff !important; color: #000 !important; }
+  .gf-page-title { color: #000 !important; }
+  .gf-page { max-width: 100% !important; padding: 0 !important; }
+  .gf-table th { background: #f4f7fb !important; color: #000 !important; }
+  .gf-card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; page-break-inside: avoid; }
+  .gf-kpi { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+  .gf-kpi-value, .gf-table tbody td, .gf-detail-list dd { color: #000 !important; }
+  button { display: none !important; }
+}

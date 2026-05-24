@@ -1,6 +1,10 @@
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { BookClassButton } from './book-button';
+import { Card, CardHeader } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { CalendarX } from 'lucide-react';
 
 const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -56,33 +60,20 @@ export default async function MemberClassesPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Classes</h1>
-          <p className="gf-page-subtitle">Tap a class to book your spot.</p>
-        </div>
-      </header>
+      <PageHeader title="Classes" subtitle="Tap a class to book your spot." />
 
       {Object.keys(byDay).length === 0 ? (
-        <div className="gf-card">
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📅</div>
-            <div className="gf-empty-title">No classes scheduled yet</div>
-            <div className="gf-empty-text">Check back soon — staff publish the timetable here.</div>
-          </div>
-        </div>
+        <Card>
+          <EmptyState icon={CalendarX} title="No classes scheduled yet" message="Check back soon — staff publish the timetable here." />
+        </Card>
       ) : (
         DAY_LABELS.map((label, dow) => {
           const slots = byDay[dow];
           if (!slots || slots.length === 0) return null;
           const date = dateForNextDOW(dow);
           return (
-            <section key={dow} className="gf-card">
-              <header className="gf-card-header">
-                <h2 className="gf-card-title">
-                  {label} <span className="gf-table-meta">({date})</span>
-                </h2>
-              </header>
+            <Card key={dow}>
+              <CardHeader title={<>{label} <span className="gf-table-meta">({date})</span></>} />
               <ul className="gf-list">
                 {slots.map((s) => {
                   const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
@@ -100,7 +91,7 @@ export default async function MemberClassesPage({ params }: PageProps) {
                   );
                 })}
               </ul>
-            </section>
+            </Card>
           );
         })
       )}

@@ -720,75 +720,169 @@ export type Database = {
       }
       gyms: {
         Row: {
+          account_name: string | null
+          account_number: string | null
           address: string | null
+          bank_code: string | null
+          bank_name: string | null
           city: string | null
           country: string | null
           created_at: string | null
           currency: string | null
           description: string | null
           email: string | null
+          hero_image_url: string | null
           id: string
+          instructor_revenue_share_pct: number
+          landing_content: string | null
+          landing_enabled: boolean
           logo_url: string | null
           max_members: number | null
           name: string
+          paystack_subaccount_code: string | null
           phone: string | null
+          platform_commission_pct: number
           slug: string
           state: string | null
           status: string | null
           subscription_plan: string | null
           subscription_status: string | null
+          tagline: string | null
           timezone: string | null
           trial_ends_at: string | null
           updated_at: string | null
           website: string | null
         }
         Insert: {
+          account_name?: string | null
+          account_number?: string | null
           address?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
           city?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
           description?: string | null
           email?: string | null
+          hero_image_url?: string | null
           id?: string
+          instructor_revenue_share_pct?: number
+          landing_content?: string | null
+          landing_enabled?: boolean
           logo_url?: string | null
           max_members?: number | null
           name: string
+          paystack_subaccount_code?: string | null
           phone?: string | null
+          platform_commission_pct?: number
           slug: string
           state?: string | null
           status?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          tagline?: string | null
           timezone?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
           website?: string | null
         }
         Update: {
+          account_name?: string | null
+          account_number?: string | null
           address?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
           city?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
           description?: string | null
           email?: string | null
+          hero_image_url?: string | null
           id?: string
+          instructor_revenue_share_pct?: number
+          landing_content?: string | null
+          landing_enabled?: boolean
           logo_url?: string | null
           max_members?: number | null
           name?: string
+          paystack_subaccount_code?: string | null
           phone?: string | null
+          platform_commission_pct?: number
           slug?: string
           state?: string | null
           status?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
+          tagline?: string | null
           timezone?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
           website?: string | null
         }
         Relationships: []
+      }
+      instructor_payouts: {
+        Row: {
+          amount: number
+          created_at: string
+          gym_id: string
+          id: string
+          instructor_id: string
+          notes: string | null
+          processed_at: string | null
+          processed_by: string | null
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          gym_id: string
+          id?: string
+          instructor_id: string
+          notes?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          gym_id?: string
+          id?: string
+          instructor_id?: string
+          notes?: string | null
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instructor_payouts_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_payouts_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_payouts_processed_by_fkey"
+            columns: ["processed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       instructor_pricing: {
         Row: {
@@ -835,14 +929,77 @@ export type Database = {
         }
         Relationships: []
       }
+      instructor_sessions: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          gym_id: string
+          id: string
+          instructor_id: string
+          marked_at: string | null
+          member_id: string
+          notes: string | null
+          scheduled_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number
+          gym_id: string
+          id?: string
+          instructor_id: string
+          marked_at?: string | null
+          member_id: string
+          notes?: string | null
+          scheduled_at: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          gym_id?: string
+          id?: string
+          instructor_id?: string
+          marked_at?: string | null
+          member_id?: string
+          notes?: string | null
+          scheduled_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instructor_sessions_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_sessions_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_sessions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instructor_subscriptions: {
         Row: {
           amount_paid: number | null
+          auto_renew: boolean
           created_at: string | null
           end_date: string | null
           gym_id: string
           id: string
           instructor_id: string
+          member_id: string | null
           payment_reference: string | null
           plan_id: string | null
           start_date: string | null
@@ -851,11 +1008,13 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          auto_renew?: boolean
           created_at?: string | null
           end_date?: string | null
           gym_id: string
           id?: string
           instructor_id: string
+          member_id?: string | null
           payment_reference?: string | null
           plan_id?: string | null
           start_date?: string | null
@@ -864,11 +1023,13 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          auto_renew?: boolean
           created_at?: string | null
           end_date?: string | null
           gym_id?: string
           id?: string
           instructor_id?: string
+          member_id?: string | null
           payment_reference?: string | null
           plan_id?: string | null
           start_date?: string | null
@@ -886,6 +1047,13 @@ export type Database = {
           {
             foreignKeyName: "instructor_subscriptions_instructor_id_fkey"
             columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instructor_subscriptions_member_id_fkey"
+            columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1039,6 +1207,8 @@ export type Database = {
           gym_id: string | null
           id: string
           member_id: string | null
+          pause_reason: string | null
+          paused_at: string | null
           payment_method: string | null
           plan_id: string | null
           start_date: string
@@ -1053,6 +1223,8 @@ export type Database = {
           gym_id?: string | null
           id?: string
           member_id?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           payment_method?: string | null
           plan_id?: string | null
           start_date: string
@@ -1067,6 +1239,8 @@ export type Database = {
           gym_id?: string | null
           id?: string
           member_id?: string | null
+          pause_reason?: string | null
+          paused_at?: string | null
           payment_method?: string | null
           plan_id?: string | null
           start_date?: string
@@ -1313,6 +1487,8 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          bio: string | null
+          certifications: string | null
           created_at: string | null
           date_of_birth: string | null
           email: string | null
@@ -1334,6 +1510,7 @@ export type Database = {
           phone: string | null
           photo_url: string | null
           role: string | null
+          specialisation: string | null
           updated_at: string | null
           user_id: string | null
           waiver_signature: string | null
@@ -1342,6 +1519,8 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          bio?: string | null
+          certifications?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           email?: string | null
@@ -1363,6 +1542,7 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           role?: string | null
+          specialisation?: string | null
           updated_at?: string | null
           user_id?: string | null
           waiver_signature?: string | null
@@ -1371,6 +1551,8 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
+          bio?: string | null
+          certifications?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           email?: string | null
@@ -1392,6 +1574,7 @@ export type Database = {
           phone?: string | null
           photo_url?: string | null
           role?: string | null
+          specialisation?: string | null
           updated_at?: string | null
           user_id?: string | null
           waiver_signature?: string | null
@@ -1835,6 +2018,7 @@ export type Database = {
       }
     }
     Functions: {
+      can_see_profile: { Args: { target_user_id: string }; Returns: boolean }
       expire_subscriptions: { Args: never; Returns: number }
       get_current_gym_id: { Args: never; Returns: string }
       get_my_profile_id: { Args: never; Returns: string }

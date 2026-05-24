@@ -98,3 +98,39 @@ export async function selfCheckIn(slug: string): Promise<CheckInResult> {
   if (!user) return { ok: false, error: 'Not signed in' };
   return checkInBySlug(slug, user.id, { method: 'self' });
 }
+
+export async function selfCheckInByQrPayload(slug: string, scannedPayload: string): Promise<CheckInResult> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, error: 'Not signed in' };
+
+  // Accept three QR payload formats:
+  //   1. raw UUID:                       <gym_id>
+  //   2. URL with ?g= query param:       https://slug.gymflow.ng/checkin?g=<gym_id>
+  //   3. URL ending in /checkin:         https://slug.gymflow.ng/checkin
+  let scannedGymId: string | null = null;
+  const trimmed = scannedPayload.trim();
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRe.test(trimmed)) {
+    scannedGymId = trimmed.toLowerCase();
+  } else {
+    try {
+      const u = new URL(trimmed);
+      const g = u.searchParams.get('g');
+      if (g && uuidRe.test(g)) scannedGymId = g.toLowerCase();
+    } catch {
+      // not a URL — fall through
+    }
+  }
+
+  const gym = await getGymBySlug(slug);
+  if (!gym) return { ok: false, error: 'Gym not found' };
+
+  if (!scannedGymId) {
+    return { ok: false, error: 'Invalid QR code. Make sure you scanned the gym entrance code.' };
+  }
+  if (scannedGymId !== gym.id.toLowerCase()) {
+    return { ok: false, error: 'That QR belongs to a different gym.' };
+  }
+
+  return checkInBySlug(slug, user.id, { method: 'qr' });
+}
