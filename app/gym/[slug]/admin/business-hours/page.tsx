@@ -1,6 +1,8 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { BusinessHoursForm } from './hours-form';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
 
 const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -25,16 +27,11 @@ export default async function AdminBusinessHoursPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Business hours</h1>
-          <p className="gf-page-subtitle">Visible to members on their dashboard and the join page.</p>
-        </div>
-      </header>
+      <PageHeader title="Business hours" subtitle="Visible to members on their dashboard and the join page." />
 
-      <div className="gf-card">
+      <Card padded>
         <BusinessHoursForm slug={slug} rows={rows} />
-      </div>
+      </Card>
     </div>
   );
 }

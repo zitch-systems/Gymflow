@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
 import { InviteInstructorForm } from './invite-form';
 import { InstructorRowActions } from './row-actions';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { GraduationCap } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -20,24 +24,15 @@ export default async function AdminInstructorsPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Instructors</h1>
-          <p className="gf-page-subtitle">{links?.length ?? 0} instructor(s) at {gym.name}</p>
-        </div>
-      </header>
+      <PageHeader title="Instructors" subtitle={`${links?.length ?? 0} instructor(s) at ${gym.name}`} />
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Invite an instructor</h2>
-        </header>
+      <Card>
+        <CardHeader title="Invite an instructor" />
         <InviteInstructorForm slug={slug} />
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Current instructors</h2>
-        </header>
+      <Card>
+        <CardHeader title="Current instructors" />
         {links && links.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -74,12 +69,9 @@ export default async function AdminInstructorsPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">🧑‍🏫</div>
-            <div className="gf-empty-title">No instructors invited yet</div>
-          </div>
+          <EmptyState icon={GraduationCap} title="No instructors invited yet" />
         )}
-      </section>
+      </Card>
     </div>
   );
 }

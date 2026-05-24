@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { ScanLine } from 'lucide-react';
 import { selfCheckIn, selfCheckInByQrPayload } from '@/lib/actions/checkin';
 import { useToast } from '@/lib/toast';
 
@@ -88,7 +89,11 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
         disabled={pending}
         onClick={startScanner}
       >
-        {pending ? 'Checking in…' : '📷 Scan gym QR'}
+        {pending ? 'Checking in…' : (
+          <>
+            <ScanLine size={18} strokeWidth={1.75} /> Scan gym QR
+          </>
+        )}
       </button>
       <button
         type="button"

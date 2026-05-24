@@ -1,9 +1,14 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, fmtDateTime, fmtNaira, daysLeft } from '@/lib/format';
 import { MemberAdminActions } from './member-admin-actions';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { ButtonLink } from '@/components/ui/button';
+import { StatusPill } from '@/components/ui/badge';
+import { ArrowLeft, ClipboardList, Banknote, MapPin } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string; id: string }> };
 
@@ -55,36 +60,34 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">{profile?.full_name ?? profile?.email ?? 'Member'}</h1>
-          <p className="gf-page-subtitle">
+      <PageHeader
+        title={profile?.full_name ?? profile?.email ?? 'Member'}
+        subtitle={
+          <>
             Joined {fmtDate(link.joined_at)} · {link.onboarding_method ?? 'unknown'} ·{' '}
-            <span className={`status-pill ${active && left > 0 ? 'on' : 'off'}`}>
+            <StatusPill tone={active && left > 0 ? 'on' : 'off'}>
               {active && left > 0 ? `${left} days left` : active?.status ?? 'no plan'}
-            </span>
-          </p>
-        </div>
-        <Link href="/admin/members" className="gf-btn gf-btn-ghost gf-btn-sm">
-          Back to members
-        </Link>
-      </header>
+            </StatusPill>
+          </>
+        }
+        actions={
+          <ButtonLink href="/admin/members" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back to members
+          </ButtonLink>
+        }
+      />
 
       {active && (
-        <section className="gf-card">
-          <header className="gf-card-header">
-            <h2 className="gf-card-title">Current membership</h2>
-          </header>
+        <Card>
+          <CardHeader title="Current membership" />
           <div style={{ padding: 18 }}>
             <MemberAdminActions slug={slug} membershipId={active.id} status={active.status ?? 'active'} />
           </div>
-        </section>
+        </Card>
       )}
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Profile</h2>
-        </header>
+      <Card>
+        <CardHeader title="Profile" />
         <dl className="gf-detail-list">
           <div>
             <dt>Email</dt>
@@ -122,12 +125,10 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
             <dd>{profile?.waiver_signed_at ? fmtDate(profile.waiver_signed_at) : 'No'}</dd>
           </div>
         </dl>
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Subscription history</h2>
-        </header>
+      <Card>
+        <CardHeader title="Subscription history" />
         {memberships && memberships.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -148,14 +149,12 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <div className="gf-empty"><div className="gf-empty-icon">📋</div><div className="gf-empty-title">No subscriptions</div></div>
+          <EmptyState icon={ClipboardList} title="No subscriptions" />
         )}
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Payments</h2>
-        </header>
+      <Card>
+        <CardHeader title="Payments" />
         {payments && payments.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -177,14 +176,12 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <div className="gf-empty"><div className="gf-empty-icon">💸</div><div className="gf-empty-title">No payments yet</div></div>
+          <EmptyState icon={Banknote} title="No payments yet" />
         )}
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Recent check-ins</h2>
-        </header>
+      <Card>
+        <CardHeader title="Recent check-ins" />
         {checkIns && checkIns.length > 0 ? (
           <ul className="gf-list">
             {checkIns.map((c) => (
@@ -195,9 +192,9 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
             ))}
           </ul>
         ) : (
-          <div className="gf-empty"><div className="gf-empty-icon">📍</div><div className="gf-empty-title">No check-ins</div></div>
+          <EmptyState icon={MapPin} title="No check-ins" />
         )}
-      </section>
+      </Card>
     </div>
   );
 }

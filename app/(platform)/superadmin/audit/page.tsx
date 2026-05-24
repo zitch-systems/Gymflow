@@ -1,8 +1,12 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDateTime } from '@/lib/format';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
+import { ButtonLink } from '@/components/ui/button';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
 
 export default async function SuperadminAuditPage() {
   await requireAuth();
@@ -17,17 +21,17 @@ export default async function SuperadminAuditPage() {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Platform audit log</h1>
-          <p className="gf-page-subtitle">Last {rows?.length ?? 0} events across every gym.</p>
-        </div>
-        <Link href="/superadmin" className="gf-btn gf-btn-ghost gf-btn-sm">
-          Back
-        </Link>
-      </header>
+      <PageHeader
+        title="Platform audit log"
+        subtitle={`Last ${rows?.length ?? 0} events across every gym.`}
+        actions={
+          <ButtonLink href="/superadmin" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back
+          </ButtonLink>
+        }
+      />
 
-      <div className="gf-card">
+      <Card>
         {rows && rows.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -61,12 +65,9 @@ export default async function SuperadminAuditPage() {
             </table>
           </div>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📜</div>
-            <div className="gf-empty-title">No audit events yet</div>
-          </div>
+          <EmptyState icon={ShieldCheck} title="No audit events yet" />
         )}
-      </div>
+      </Card>
     </div>
   );
 }

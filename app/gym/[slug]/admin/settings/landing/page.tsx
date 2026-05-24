@@ -1,7 +1,10 @@
-import Link from 'next/link';
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { LandingForm } from './landing-form';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
+import { ButtonLink } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -18,24 +21,26 @@ export default async function AdminLandingSettingsPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Landing page</h1>
-          <p className="gf-page-subtitle">
+      <PageHeader
+        title="Landing page"
+        subtitle={
+          <>
             Public page at{' '}
             <a className="gf-link" href={`https://${gym.slug}.gymflow.ng`} target="_blank" rel="noreferrer">
               {gym.slug}.gymflow.ng
             </a>
-          </p>
-        </div>
-        <Link href="/admin/settings" className="gf-btn gf-btn-ghost gf-btn-sm">
-          Back to settings
-        </Link>
-      </header>
+          </>
+        }
+        actions={
+          <ButtonLink href="/admin/settings" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back to settings
+          </ButtonLink>
+        }
+      />
 
-      <div className="gf-card">
+      <Card>
         <LandingForm slug={slug} gymId={gym.id} initial={full ?? {}} />
-      </div>
+      </Card>
     </div>
   );
 }

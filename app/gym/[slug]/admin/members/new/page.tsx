@@ -1,7 +1,10 @@
-import Link from 'next/link';
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { ManualOnboardForm } from './manual-onboard-form';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
+import { ButtonLink } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -19,19 +22,19 @@ export default async function AdminNewMemberPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Onboard a member</h1>
-          <p className="gf-page-subtitle">Used when staff are signing someone up at the front desk.</p>
-        </div>
-        <Link href="/admin/members" className="gf-btn gf-btn-ghost gf-btn-sm">
-          Back to members
-        </Link>
-      </header>
+      <PageHeader
+        title="Onboard a member"
+        subtitle="Used when staff are signing someone up at the front desk."
+        actions={
+          <ButtonLink href="/admin/members" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back to members
+          </ButtonLink>
+        }
+      />
 
-      <div className="gf-card">
+      <Card>
         <ManualOnboardForm slug={slug} plans={plans ?? []} />
-      </div>
+      </Card>
     </div>
   );
 }

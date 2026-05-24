@@ -33,7 +33,7 @@ declare global {
 export function GymSignupForm() {
   const router = useRouter();
   const toast = useToast();
-  const [scriptReady, setScriptReady] = useState(false);
+  const [scriptReady, setScriptReady] = useState(() => typeof window !== 'undefined' && !!window.PaystackPop);
   const [pending, start] = useTransition();
   const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
 
@@ -42,24 +42,21 @@ export function GymSignupForm() {
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
   const [slug, setSlug] = useState('');
-  const [slugState, setSlugState] = useState<SlugState>({ status: 'idle' });
+  // Lookup is keyed by slug so render derives state without setState-in-effect.
+  const [slugLookup, setSlugLookup] = useState<{ slug: string; ok: boolean; reason?: string } | null>(null);
+
+  const trimmedSlug = slug.trim();
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.PaystackPop) setScriptReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!slug) {
-      setSlugState({ status: 'idle' });
-      return;
-    }
-    setSlugState({ status: 'checking' });
+    if (!trimmedSlug) return;
     const ctl = new AbortController();
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/platform/check-slug?slug=${encodeURIComponent(slug)}`, { signal: ctl.signal });
+        const r = await fetch(`/api/platform/check-slug?slug=${encodeURIComponent(trimmedSlug)}`, { signal: ctl.signal });
         const j = await r.json();
-        setSlugState(j.available ? { status: 'ok' } : { status: 'bad', reason: j.reason ?? 'unavailable' });
+        if (!ctl.signal.aborted) {
+          setSlugLookup({ slug: trimmedSlug, ok: !!j.available, reason: j.reason ?? undefined });
+        }
       } catch {
         // ignored — user is still typing
       }
@@ -68,7 +65,13 @@ export function GymSignupForm() {
       ctl.abort();
       clearTimeout(t);
     };
-  }, [slug]);
+  }, [trimmedSlug]);
+
+  const slugState: SlugState = !trimmedSlug
+    ? { status: 'idle' }
+    : slugLookup?.slug === trimmedSlug
+      ? (slugLookup.ok ? { status: 'ok' } : { status: 'bad', reason: slugLookup.reason ?? 'unavailable' })
+      : { status: 'checking' };
 
   const slugHelp =
     slugState.status === 'idle'

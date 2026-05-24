@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { OnboardForm } from './onboard-form';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
+import { ButtonLink } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 export default async function SuperadminOnboardGymPage() {
   await requireAuth();
@@ -9,19 +12,19 @@ export default async function SuperadminOnboardGymPage() {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Onboard a gym manually</h1>
-          <p className="gf-page-subtitle">No payment is recorded — use this for trial gyms or migrations.</p>
-        </div>
-        <Link href="/superadmin" className="gf-btn gf-btn-ghost gf-btn-sm">
-          Back
-        </Link>
-      </header>
+      <PageHeader
+        title="Onboard a gym manually"
+        subtitle="No payment is recorded — use this for trial gyms or migrations."
+        actions={
+          <ButtonLink href="/superadmin" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back
+          </ButtonLink>
+        }
+      />
 
-      <div className="gf-card">
+      <Card>
         <OnboardForm />
-      </div>
+      </Card>
     </div>
   );
 }

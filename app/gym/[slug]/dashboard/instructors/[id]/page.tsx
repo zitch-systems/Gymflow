@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 import { SubscribeButton } from './subscribe-button';
 import { ManageSubscription } from './manage-subscription';
+import { Award, Check } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string; id: string }> };
 
@@ -85,14 +86,16 @@ export default async function InstructorDetailPage({ params }: PageProps) {
         </div>
         {p.bio && <p style={{ margin: '0 0 12px', color: 'var(--gf-text-secondary)', lineHeight: 1.6 }}>{p.bio}</p>}
         {p.certifications && (
-          <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--gf-text-muted)' }}>📜 {p.certifications}</p>
+          <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--gf-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Award size={14} strokeWidth={1.75} /> {p.certifications}
+          </p>
         )}
       </section>
 
       {activeSub ? (
         <section className="gf-card" style={{ padding: 18 }}>
-          <div style={{ padding: 12, background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderRadius: 8, fontSize: '0.875rem', fontWeight: 600, textAlign: 'center', marginBottom: 12 }}>
-            ✓ Subscribed · ends {activeSub.end_date ? fmtDate(activeSub.end_date) : '—'}
+          <div style={{ padding: 12, background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderRadius: 8, fontSize: '0.875rem', fontWeight: 600, textAlign: 'center', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <Check size={16} strokeWidth={2.25} /> Subscribed · ends {activeSub.end_date ? fmtDate(activeSub.end_date) : '—'}
           </div>
           <ManageSubscription slug={slug} subscriptionId={activeSub.id} autoRenew={!!activeSub.auto_renew} />
         </section>

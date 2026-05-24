@@ -1,8 +1,12 @@
-import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { PaystackPayButton } from './paystack-pay';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { ButtonLink } from '@/components/ui/button';
+import { ArrowLeft, ClipboardList } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -20,24 +24,20 @@ export default async function RenewPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Renew membership</h1>
-          <p className="gf-page-subtitle">Pick a plan to extend your membership at {gym.name}.</p>
-        </div>
-        <Link href="/dashboard" className="gf-btn gf-btn-ghost gf-btn-sm">
-          Back to dashboard
-        </Link>
-      </header>
+      <PageHeader
+        title="Renew membership"
+        subtitle={`Pick a plan to extend your membership at ${gym.name}.`}
+        actions={
+          <ButtonLink href="/dashboard" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back to dashboard
+          </ButtonLink>
+        }
+      />
 
       {!plans || plans.length === 0 ? (
-        <div className="gf-card">
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📋</div>
-            <div className="gf-empty-title">No plans available</div>
-            <div className="gf-empty-text">The gym hasn&apos;t published any active plans yet.</div>
-          </div>
-        </div>
+        <Card>
+          <EmptyState icon={ClipboardList} title="No plans available" message="The gym hasn't published any active plans yet." />
+        </Card>
       ) : (
         <div className="plan-grid">
           {plans.map((p) => (

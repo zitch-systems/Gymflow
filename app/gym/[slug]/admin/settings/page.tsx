@@ -1,5 +1,9 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { GymQrCode } from './gym-qr-code';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { ButtonLink } from '@/components/ui/button';
+import { Edit3, Banknote } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -10,41 +14,38 @@ export default async function AdminSettingsPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Settings</h1>
-          <p className="gf-page-subtitle">{gym.name}</p>
-        </div>
-      </header>
+      <PageHeader title="Settings" subtitle={gym.name} />
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Public landing page</h2>
-          <a href="/admin/settings/landing" className="gf-btn gf-btn-primary gf-btn-sm">
-            Edit landing
-          </a>
-        </header>
+      <Card>
+        <CardHeader
+          title="Public landing page"
+          action={
+            <ButtonLink href="/admin/settings/landing" variant="primary" size="sm" leadingIcon={<Edit3 size={16} strokeWidth={1.75} />}>
+              Edit landing
+            </ButtonLink>
+          }
+        />
         <div style={{ padding: 18, color: 'var(--gf-text-secondary)' }}>
           What people see at <strong style={{ color: 'var(--gf-text)' }}>{gym.slug}.gymflow.ng</strong> before they sign in.
         </div>
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Payouts</h2>
-          <a href="/admin/settings/payouts" className="gf-btn gf-btn-primary gf-btn-sm">
-            Manage payouts
-          </a>
-        </header>
+      <Card>
+        <CardHeader
+          title="Payouts"
+          action={
+            <ButtonLink href="/admin/settings/payouts" variant="primary" size="sm" leadingIcon={<Banknote size={16} strokeWidth={1.75} />}>
+              Manage payouts
+            </ButtonLink>
+          }
+        />
         <div style={{ padding: 18, color: 'var(--gf-text-secondary)' }}>
           Connect your bank so member payments split into your account automatically (minus platform commission).
         </div>
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Gym entrance QR code</h2>
-        </header>
+      <Card>
+        <CardHeader title="Gym entrance QR code" />
         <div style={{ padding: 24, display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24, alignItems: 'start' }}>
           <GymQrCode value={checkinUrl} downloadName={`${gym.slug}-checkin-qr`} />
           <div>
@@ -60,12 +61,10 @@ export default async function AdminSettingsPage({ params }: PageProps) {
             </p>
           </div>
         </div>
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Signup QR code</h2>
-        </header>
+      <Card>
+        <CardHeader title="Signup QR code" />
         <div style={{ padding: 24, display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24, alignItems: 'start' }}>
           <GymQrCode value={`https://${gym.slug}.gymflow.ng/join`} downloadName={`${gym.slug}-signup-qr`} />
           <p style={{ margin: 0, fontSize: 14, color: 'var(--gf-text-secondary)' }}>
@@ -73,7 +72,7 @@ export default async function AdminSettingsPage({ params }: PageProps) {
             sign-up form.
           </p>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

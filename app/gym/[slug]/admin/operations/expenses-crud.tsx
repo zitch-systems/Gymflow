@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Receipt } from 'lucide-react';
 import { upsertExpense, deleteExpense } from '@/lib/actions/expenses';
 import { useToast } from '@/lib/toast';
 import { createClient } from '@/lib/supabase/client';
 import { fmtDate, fmtNaira } from '@/lib/format';
+import { EmptyState } from '@/components/ui/empty-state';
 
 type Item = {
   id: string;
@@ -64,10 +66,7 @@ export function ExpensesCrud({ slug, gymId, items }: { slug: string; gymId: stri
       </div>
 
       {items.length === 0 ? (
-        <div className="gf-empty">
-          <div className="gf-empty-icon">💸</div>
-          <div className="gf-empty-title">No expenses recorded yet</div>
-        </div>
+        <EmptyState icon={Receipt} title="No expenses recorded yet" />
       ) : (
         <div className="gf-table-wrap">
           <table className="gf-table">

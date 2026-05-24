@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Check } from 'lucide-react';
 import { markClassAttendance } from '@/lib/actions/coach';
 import { useToast } from '@/lib/toast';
 
@@ -39,7 +40,11 @@ export function ClassAttendanceRow({
           })
         }
       >
-        {attended ? '✓ Present' : 'Mark present'}
+        {attended ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Check size={14} strokeWidth={2.25} /> Present
+          </span>
+        ) : 'Mark present'}
       </button>
     </li>
   );

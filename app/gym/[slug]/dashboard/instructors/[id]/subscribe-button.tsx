@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { useToast } from '@/lib/toast';
@@ -21,16 +21,12 @@ function computeEndDate(months: number): string {
 }
 
 export function SubscribeButton({ gymId, instructorId, instructorName, email, priceMonthly, subaccount }: Props) {
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(() => typeof window !== 'undefined' && !!window.PaystackPop);
   const [months, setMonths] = useState(1);
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
   const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.PaystackPop) setReady(true);
-  }, []);
 
   if (!publicKey) {
     return <button type="button" className="gf-btn gf-btn-outline gf-btn-full" disabled>Payment not configured</button>;

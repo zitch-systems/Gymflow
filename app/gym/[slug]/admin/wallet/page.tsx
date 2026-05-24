@@ -1,7 +1,12 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDateTime, fmtDate } from '@/lib/format';
+import { daysAgoDate, todayDate } from '@/lib/dates';
 import { WalletFilters } from './wallet-filters';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
+import { Stat, StatGrid } from '@/components/ui/stat';
+import { BanknoteArrowUp, Hourglass, BanknoteX } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -15,8 +20,8 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
   const sp = await searchParams;
   const { gym } = await requireStaff(slug);
 
-  const defaultFrom = new Date(Date.now() - 30 * DAY_MS).toISOString().split('T')[0];
-  const defaultTo = new Date().toISOString().split('T')[0];
+  const defaultFrom = daysAgoDate(30);
+  const defaultTo = todayDate();
   const from = sp.from || defaultFrom;
   const to = sp.to || defaultTo;
   const method = sp.method ?? '';
@@ -47,31 +52,18 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Wallet &amp; payments</h1>
-          <p className="gf-page-subtitle">
-            {fmtDate(from)} → {fmtDate(to)} · {rows?.length ?? 0} transaction(s)
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        title="Wallet & payments"
+        subtitle={`${fmtDate(from)} → ${fmtDate(to)} · ${rows?.length ?? 0} transaction(s)`}
+      />
 
-      <section className="gf-kpi-grid">
-        <div className="gf-kpi gf-kpi-emerald">
-          <div className="gf-kpi-value">{fmtNaira(totals.success)}</div>
-          <div className="gf-kpi-label">Settled</div>
-        </div>
-        <div className="gf-kpi gf-kpi-amber">
-          <div className="gf-kpi-value">{fmtNaira(totals.pending)}</div>
-          <div className="gf-kpi-label">Pending</div>
-        </div>
-        <div className="gf-kpi gf-kpi-purple">
-          <div className="gf-kpi-value">{fmtNaira(totals.failed)}</div>
-          <div className="gf-kpi-label">Failed</div>
-        </div>
-      </section>
+      <StatGrid>
+        <Stat label="Settled" value={fmtNaira(totals.success)} icon={BanknoteArrowUp} accent="emerald" />
+        <Stat label="Pending" value={fmtNaira(totals.pending)} icon={Hourglass} accent="amber" />
+        <Stat label="Failed" value={fmtNaira(totals.failed)} icon={BanknoteX} accent="rose" />
+      </StatGrid>
 
-      <div className="gf-card">
+      <Card>
         <WalletFilters defaultFrom={from} defaultTo={to} defaultMethod={method} defaultStatus={status} />
         <div className="gf-table-wrap">
           <table className="gf-table">
@@ -114,7 +106,7 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

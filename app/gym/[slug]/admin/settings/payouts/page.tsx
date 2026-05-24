@@ -1,7 +1,11 @@
-import Link from 'next/link';
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { PayoutsForm } from './payouts-form';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { ButtonLink } from '@/components/ui/button';
+import { StatusPill } from '@/components/ui/badge';
+import { ArrowLeft } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -18,23 +22,27 @@ export default async function PayoutsSettingsPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Payouts</h1>
-          <p className="gf-page-subtitle">Connect your bank account so member payments land in your wallet.</p>
-        </div>
-        <Link href="/admin/settings" className="gf-btn gf-btn-ghost gf-btn-sm">Back</Link>
-      </header>
+      <PageHeader
+        title="Payouts"
+        subtitle="Connect your bank account so member payments land in your wallet."
+        actions={
+          <ButtonLink href="/admin/settings" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back
+          </ButtonLink>
+        }
+      />
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Bank account</h2>
-          {full?.paystack_subaccount_code ? (
-            <span className="status-pill on">Connected</span>
-          ) : (
-            <span className="status-pill off">Not connected</span>
-          )}
-        </header>
+      <Card>
+        <CardHeader
+          title="Bank account"
+          action={
+            full?.paystack_subaccount_code ? (
+              <StatusPill tone="on">Connected</StatusPill>
+            ) : (
+              <StatusPill tone="off">Not connected</StatusPill>
+            )
+          }
+        />
         <div style={{ padding: 18 }}>
           <p style={{ margin: '0 0 16px', color: 'var(--gf-text-secondary)', fontSize: '0.875rem' }}>
             We send {(full?.platform_commission_pct ?? 5).toString()}% to GymFlow as platform commission and the rest directly to your account on every member payment.
@@ -56,7 +64,7 @@ export default async function PayoutsSettingsPage({ params }: PageProps) {
             }}
           />
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

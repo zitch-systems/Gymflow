@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Dumbbell } from 'lucide-react';
 import { upsertEquipment, deleteEquipment } from '@/lib/actions/equipment';
 import { useToast } from '@/lib/toast';
 import { createClient } from '@/lib/supabase/client';
 import { fmtDate } from '@/lib/format';
+import { EmptyState } from '@/components/ui/empty-state';
 
 type Item = {
   id: string;
@@ -68,10 +70,7 @@ export function EquipmentCrud({ slug, gymId, items }: { slug: string; gymId: str
       </div>
 
       {items.length === 0 ? (
-        <div className="gf-empty">
-          <div className="gf-empty-icon">🏋️</div>
-          <div className="gf-empty-title">No equipment tracked yet</div>
-        </div>
+        <EmptyState icon={Dumbbell} title="No equipment tracked yet" />
       ) : (
         <div className="gf-table-wrap">
           <table className="gf-table">

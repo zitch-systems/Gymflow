@@ -1,10 +1,16 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, fmtNaira } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
+import { daysAgoIso } from '@/lib/dates';
 import { SuperadminGymRowActions } from './gym-row-actions';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { Stat, StatGrid } from '@/components/ui/stat';
+import { Button, ButtonLink } from '@/components/ui/button';
+import { StatusPill } from '@/components/ui/badge';
+import { Search, ShieldCheck, Plus, LogOut, Building2, CheckCircle2, TrendingDown, AlertTriangle, Users, Banknote } from 'lucide-react';
 
 export default async function SuperadminPage() {
   await requireAuth();
@@ -13,9 +19,8 @@ export default async function SuperadminPage() {
   // RLS policies grant platform_admins cross-gym read access; no need for
   // the service-role client (which requires SUPABASE_SERVICE_ROLE_KEY).
   const admin = await createClient();
-  const now = Date.now();
-  const since30 = new Date(now - 30 * 86_400_000).toISOString();
-  const since35 = new Date(now - 35 * 86_400_000).toISOString();
+  const since30 = daysAgoIso(30);
+  const since35 = daysAgoIso(35);
 
   const [
     { data: gyms },
@@ -61,42 +66,40 @@ export default async function SuperadminPage() {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Platform admin</h1>
-          <p className="gf-page-subtitle">All gyms across GymFlow</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/superadmin/members" className="gf-btn gf-btn-ghost gf-btn-sm">
-            Find member
-          </Link>
-          <Link href="/superadmin/audit" className="gf-btn gf-btn-ghost gf-btn-sm">
-            Audit log
-          </Link>
-          <Link href="/superadmin/gyms/new" className="gf-btn gf-btn-primary gf-btn-sm">
-            + Onboard gym
-          </Link>
-          <form action={signOut}>
-            <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </header>
+      <PageHeader
+        title="Platform admin"
+        subtitle="All gyms across GymFlow"
+        actions={
+          <>
+            <ButtonLink href="/superadmin/members" variant="ghost" size="sm" leadingIcon={<Search size={16} strokeWidth={1.75} />}>
+              Find member
+            </ButtonLink>
+            <ButtonLink href="/superadmin/audit" variant="ghost" size="sm" leadingIcon={<ShieldCheck size={16} strokeWidth={1.75} />}>
+              Audit log
+            </ButtonLink>
+            <ButtonLink href="/superadmin/gyms/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
+              Onboard gym
+            </ButtonLink>
+            <form action={signOut}>
+              <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />}>
+                Sign out
+              </Button>
+            </form>
+          </>
+        }
+      />
 
-      <section className="gf-kpi-grid">
-        <Kpi label="Total gyms" value={String(totalGyms)} accent="emerald" />
-        <Kpi label="Active gyms" value={String(activeGymCount ?? 0)} accent="blue" />
-        <Kpi label="MRR (30d platform fees)" value={fmtNaira(mrr30)} accent="purple" />
-        <Kpi label="Churn 30d" value={`${churnPct}%`} accent="amber" />
-        <Kpi label="Overdue (no payment 35d)" value={String(overdue)} accent="amber" />
-        <Kpi label="Total profiles" value={String(profileCount ?? 0)} accent="blue" />
-      </section>
+      <StatGrid>
+        <Stat label="Total gyms" value={totalGyms} icon={Building2} accent="emerald" />
+        <Stat label="Active gyms" value={activeGymCount ?? 0} icon={CheckCircle2} accent="blue" />
+        <Stat label="MRR (30d platform fees)" value={fmtNaira(mrr30)} icon={Banknote} accent="purple" />
+        <Stat label="Churn 30d" value={`${churnPct}%`} icon={TrendingDown} accent="amber" />
+        <Stat label="Overdue (no payment 35d)" value={overdue} icon={AlertTriangle} accent="rose" />
+        <Stat label="Total profiles" value={profileCount ?? 0} icon={Users} accent="slate" />
+      </StatGrid>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Gyms</h2>
-        </header>
+      <Card>
+        <CardHeader title="Gyms" />
         <div className="gf-table-wrap">
           <table className="gf-table">
             <thead>
@@ -122,9 +125,9 @@ export default async function SuperadminPage() {
                   <td className="gf-table-meta">{g.slug}</td>
                   <td>{g.subscription_plan ?? '—'}</td>
                   <td>
-                    <span className={`status-pill ${g.subscription_status === 'active' ? 'on' : 'off'}`}>
+                    <StatusPill tone={g.subscription_status === 'active' ? 'on' : 'off'}>
                       {g.subscription_status ?? '—'}
-                    </span>
+                    </StatusPill>
                   </td>
                   <td>{g.trial_ends_at ? fmtDate(g.trial_ends_at) : '—'}</td>
                   <td>{fmtDate(g.created_at)}</td>
@@ -141,16 +144,8 @@ export default async function SuperadminPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
 
-function Kpi({ label, value, accent }: { label: string; value: string; accent: 'emerald' | 'blue' | 'amber' | 'purple' }) {
-  return (
-    <div className={`gf-kpi gf-kpi-${accent}`}>
-      <div className="gf-kpi-value">{value}</div>
-      <div className="gf-kpi-label">{label}</div>
-    </div>
-  );
-}

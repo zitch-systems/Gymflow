@@ -1,6 +1,10 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { ClassCreateForm, ClassDeleteButton } from './class-forms';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { CalendarX } from 'lucide-react';
 
 const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -20,24 +24,15 @@ export default async function AdminClassesPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Class schedule</h1>
-          <p className="gf-page-subtitle">{schedules?.length ?? 0} scheduled slot(s)</p>
-        </div>
-      </header>
+      <PageHeader title="Class schedule" subtitle={`${schedules?.length ?? 0} scheduled slot(s)`} />
 
-      <div className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Add a class</h2>
-        </header>
+      <Card>
+        <CardHeader title="Add a class" />
         <ClassCreateForm slug={slug} />
-      </div>
+      </Card>
 
-      <div className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Current schedule</h2>
-        </header>
+      <Card>
+        <CardHeader title="Current schedule" />
         {schedules && schedules.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -76,13 +71,9 @@ export default async function AdminClassesPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📅</div>
-            <div className="gf-empty-title">No classes scheduled</div>
-            <div className="gf-empty-text">Add a class above to publish it on the members&apos; timetable.</div>
-          </div>
+          <EmptyState icon={CalendarX} title="No classes scheduled" message="Add a class above to publish it on the members' timetable." />
         )}
-      </div>
+      </Card>
     </div>
   );
 }

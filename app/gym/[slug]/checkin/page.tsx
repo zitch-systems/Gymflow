@@ -2,6 +2,10 @@ import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDateTime } from '@/lib/format';
 import { SelfCheckInButton } from './self-checkin-button';
+import { Card, CardHeader } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { ClipboardList } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -23,12 +27,7 @@ export default async function CheckInPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Check in</h1>
-          <p className="gf-page-subtitle">{gym.name}</p>
-        </div>
-      </header>
+      <PageHeader title="Check in" subtitle={gym.name} />
 
       <div className="gf-card checkin-card">
         <p className="checkin-help">
@@ -45,10 +44,8 @@ export default async function CheckInPage({ params }: PageProps) {
         <SelfCheckInButton slug={slug} />
       </div>
 
-      <div className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Recent visits</h2>
-        </header>
+      <Card>
+        <CardHeader title="Recent visits" />
         {recent && recent.length > 0 ? (
           <ul className="gf-list">
             {recent.map((c, i) => (
@@ -59,13 +56,9 @@ export default async function CheckInPage({ params }: PageProps) {
             ))}
           </ul>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📋</div>
-            <div className="gf-empty-title">No visits yet</div>
-            <div className="gf-empty-text">Your check-in history will appear here.</div>
-          </div>
+          <EmptyState icon={ClipboardList} title="No visits yet" message="Your check-in history will appear here." />
         )}
-      </div>
+      </Card>
     </div>
   );
 }

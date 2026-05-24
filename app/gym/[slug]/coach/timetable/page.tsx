@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { requireInstructor } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
+import { EmptyState } from '@/components/ui/empty-state';
+import { CalendarX } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -66,11 +68,7 @@ export default async function CoachTimetablePage({ params }: PageProps) {
           })}
         </div>
       ) : (
-        <div className="gf-empty">
-          <div className="gf-empty-icon">📅</div>
-          <div className="gf-empty-title">No classes assigned</div>
-          <div className="gf-empty-text">A gym admin will assign classes to you.</div>
-        </div>
+        <EmptyState icon={CalendarX} title="No classes assigned" message="A gym admin will assign classes to you." />
       )}
     </div>
   );

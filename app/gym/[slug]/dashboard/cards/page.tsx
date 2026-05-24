@@ -2,6 +2,11 @@ import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { CardActions } from './card-actions';
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { ButtonLink } from '@/components/ui/button';
+import { ArrowLeft, CreditCard } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -21,15 +26,15 @@ export default async function SavedCardsPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Saved cards</h1>
-          <p className="gf-page-subtitle">Cards we use for auto-renewal at {gym.name}.</p>
-        </div>
-        <Link href="/dashboard" className="gf-btn gf-btn-ghost gf-btn-sm">
-          Back to dashboard
-        </Link>
-      </header>
+      <PageHeader
+        title="Saved cards"
+        subtitle={`Cards we use for auto-renewal at ${gym.name}.`}
+        actions={
+          <ButtonLink href="/dashboard" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back to dashboard
+          </ButtonLink>
+        }
+      />
 
       {cards && cards.length > 0 ? (
         <ul className="gf-list" style={{ background: 'var(--gf-surface)', border: '1px solid var(--gf-border)', borderRadius: 'var(--gf-radius)' }}>
@@ -53,15 +58,13 @@ export default async function SavedCardsPage({ params }: PageProps) {
           ))}
         </ul>
       ) : (
-        <div className="gf-card">
-          <div className="gf-empty">
-            <div className="gf-empty-icon">💳</div>
-            <div className="gf-empty-title">No saved cards yet</div>
-            <div className="gf-empty-text">
-              Cards are saved automatically the first time you pay — head to <Link href="/dashboard/renew">renew</Link> to add one.
-            </div>
-          </div>
-        </div>
+        <Card>
+          <EmptyState
+            icon={CreditCard}
+            title="No saved cards yet"
+            message={<>Cards are saved automatically the first time you pay — head to <Link href="/dashboard/renew" className="gf-link">renew</Link> to add one.</>}
+          />
+        </Card>
       )}
     </div>
   );

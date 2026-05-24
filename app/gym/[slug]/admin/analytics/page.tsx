@@ -2,6 +2,10 @@ import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 import { PrintAnalyticsButton } from './print-button';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { Stat, StatGrid } from '@/components/ui/stat';
+import { Users, BadgeCheck, CalendarCheck, BookOpenCheck } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -124,25 +128,21 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Analytics</h1>
-          <p className="gf-page-subtitle">{gym.name} · last 30 days</p>
-        </div>
-        <PrintAnalyticsButton />
-      </header>
+      <PageHeader
+        title="Analytics"
+        subtitle={`${gym.name} · last 30 days`}
+        actions={<PrintAnalyticsButton />}
+      />
 
-      <section className="gf-kpi-grid">
-        <Kpi label="Total members" value={String(totalMembers ?? 0)} accent="emerald" />
-        <Kpi label="Active subscriptions" value={String(activeMemberships ?? 0)} accent="blue" />
-        <Kpi label="Check-ins (30d)" value={String(checkInsLast30 ?? 0)} accent="amber" />
-        <Kpi label="Bookings (30d)" value={String(bookingsLast30 ?? 0)} accent="purple" />
-      </section>
+      <StatGrid>
+        <Stat label="Total members" value={totalMembers ?? 0} icon={Users} accent="emerald" />
+        <Stat label="Active subscriptions" value={activeMemberships ?? 0} icon={BadgeCheck} accent="blue" />
+        <Stat label="Check-ins (30d)" value={checkInsLast30 ?? 0} icon={CalendarCheck} accent="amber" />
+        <Stat label="Bookings (30d)" value={bookingsLast30 ?? 0} icon={BookOpenCheck} accent="purple" />
+      </StatGrid>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Revenue</h2>
-        </header>
+      <Card>
+        <CardHeader title="Revenue" />
         <dl className="gf-detail-list">
           <div>
             <dt>This month</dt>
@@ -153,12 +153,10 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
             <dd>{fmtNaira(revenue30)}</dd>
           </div>
         </dl>
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Profit &amp; loss · last 6 months</h2>
-        </header>
+      <Card>
+        <CardHeader title="Profit & loss · last 6 months" />
         <div className="gf-table-wrap">
           <table className="gf-table">
             <thead>
@@ -183,12 +181,10 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Check-ins · last 7 days</h2>
-        </header>
+      <Card>
+        <CardHeader title="Check-ins · last 7 days" />
         <div className="gf-bars">
           {Object.entries(dailyBuckets).map(([day, count]) => (
             <div key={day} className="gf-bar-row">
@@ -200,16 +196,7 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
             </div>
           ))}
         </div>
-      </section>
-    </div>
-  );
-}
-
-function Kpi({ label, value, accent }: { label: string; value: string; accent: 'emerald' | 'blue' | 'amber' | 'purple' }) {
-  return (
-    <div className={`gf-kpi gf-kpi-${accent}`}>
-      <div className="gf-kpi-value">{value}</div>
-      <div className="gf-kpi-label">{label}</div>
+      </Card>
     </div>
   );
 }

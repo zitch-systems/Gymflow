@@ -3,6 +3,12 @@ import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft } from '@/lib/format';
 import { MembersSearch } from './members-search';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
+import { ButtonLink } from '@/components/ui/button';
+import { StatusPill } from '@/components/ui/badge';
+import { Plus, UserPlus } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -72,20 +78,20 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Members</h1>
-          <p className="gf-page-subtitle">{rows.length} member{rows.length === 1 ? '' : 's'}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <MembersSearch defaultValue={query} />
-          <Link href="/admin/members/new" className="gf-btn gf-btn-primary gf-btn-sm">
-            + Add member
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="Members"
+        subtitle={`${rows.length} member${rows.length === 1 ? '' : 's'}`}
+        actions={
+          <>
+            <MembersSearch defaultValue={query} />
+            <ButtonLink href="/admin/members/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
+              Add member
+            </ButtonLink>
+          </>
+        }
+      />
 
-      <div className="gf-card">
+      <Card>
         <div className="gf-table-wrap">
           <table className="gf-table">
             <thead>
@@ -100,12 +106,12 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="gf-empty">
-                    <div className="gf-empty-icon">👥</div>
-                    <div className="gf-empty-title">No members yet</div>
-                    <div className="gf-empty-text">
-                      Members appear here after they sign up on the join page or are added by staff.
-                    </div>
+                  <td colSpan={5}>
+                    <EmptyState
+                      icon={UserPlus}
+                      title="No members yet"
+                      message="Members appear here after they sign up on the join page or are added by staff."
+                    />
                   </td>
                 </tr>
               ) : (
@@ -124,9 +130,9 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
                       <td>{fmtDate(r.joined)}</td>
                       <td>{fmtDate(r.expiry)}</td>
                       <td>
-                        <span className={`status-pill ${active ? 'on' : 'off'}`}>
+                        <StatusPill tone={active ? 'on' : 'off'}>
                           {active ? `${left}d left` : (r.status ?? 'inactive')}
-                        </span>
+                        </StatusPill>
                       </td>
                     </tr>
                   );
@@ -135,7 +141,7 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

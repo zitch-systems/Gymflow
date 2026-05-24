@@ -1,6 +1,10 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDateTime } from '@/lib/format';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
+import { ShieldCheck } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -17,14 +21,9 @@ export default async function AdminAuditPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Audit log</h1>
-          <p className="gf-page-subtitle">Last {rows?.length ?? 0} events at {gym.name}.</p>
-        </div>
-      </header>
+      <PageHeader title="Audit log" subtitle={`Last ${rows?.length ?? 0} events at ${gym.name}.`} />
 
-      <div className="gf-card">
+      <Card>
         {rows && rows.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -57,12 +56,9 @@ export default async function AdminAuditPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📜</div>
-            <div className="gf-empty-title">No audit events yet</div>
-          </div>
+          <EmptyState icon={ShieldCheck} title="No audit events yet" />
         )}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -2,6 +2,10 @@ import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
 import { WaiverForm } from './waiver-form';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { FileText } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -22,29 +26,20 @@ export default async function AdminWaiverPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Waiver</h1>
-          <p className="gf-page-subtitle">Edit the active waiver members agree to on signup.</p>
-        </div>
-      </header>
+      <PageHeader title="Waiver" subtitle="Edit the active waiver members agree to on signup." />
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Active waiver{active ? ` · v${active.version ?? '1.0'}` : ''}</h2>
-        </header>
+      <Card>
+        <CardHeader title={`Active waiver${active ? ` · v${active.version ?? '1.0'}` : ''}`} />
         <WaiverForm
           slug={slug}
           defaultTitle={active?.title ?? 'Membership waiver'}
           defaultContent={active?.content ?? ''}
           defaultVersion={active?.version ?? '1.0'}
         />
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header">
-          <h2 className="gf-card-title">Recent signatures ({sigs?.length ?? 0})</h2>
-        </header>
+      <Card>
+        <CardHeader title={`Recent signatures (${sigs?.length ?? 0})`} />
         {sigs && sigs.length > 0 ? (
           <ul className="gf-list">
             {sigs.map((s) => {
@@ -61,12 +56,9 @@ export default async function AdminWaiverPage({ params }: PageProps) {
             })}
           </ul>
         ) : (
-          <div className="gf-empty">
-            <div className="gf-empty-icon">📄</div>
-            <div className="gf-empty-title">No signatures yet</div>
-          </div>
+          <EmptyState icon={FileText} title="No signatures yet" />
         )}
-      </section>
+      </Card>
     </div>
   );
 }

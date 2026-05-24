@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
+import { EmptyState } from '@/components/ui/empty-state';
+import { GraduationCap, Award } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -61,11 +63,11 @@ export default async function MemberInstructorsPage({ params }: PageProps) {
       </header>
 
       {(!staffLinks || staffLinks.length === 0) ? (
-        <div className="gf-empty">
-          <div className="gf-empty-icon">🧑‍🏫</div>
-          <div className="gf-empty-title">No instructors at this gym yet</div>
-          <div className="gf-empty-text">Check back soon — your gym is still onboarding coaches.</div>
-        </div>
+        <EmptyState
+          icon={GraduationCap}
+          title="No instructors at this gym yet"
+          message="Check back soon — your gym is still onboarding coaches."
+        />
       ) : (
         <div className="plan-grid">
           {staffLinks.map((s) => {
@@ -91,7 +93,11 @@ export default async function MemberInstructorsPage({ params }: PageProps) {
                   </div>
                 </div>
                 {p.bio && <p style={{ fontSize: '0.875rem', color: 'var(--gf-text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>{p.bio}</p>}
-                {p.certifications && <p style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', margin: '0 0 12px' }}>📜 {p.certifications}</p>}
+                {p.certifications && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Award size={13} strokeWidth={1.75} /> {p.certifications}
+                  </p>
+                )}
 
                 {price ? (
                   <p className="plan-card-price" style={{ marginBottom: 12 }}>{fmtNaira(price)}<span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--gf-text-muted)' }}> / month</span></p>

@@ -1,8 +1,12 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
+import { Button, ButtonLink } from '@/components/ui/button';
+import { ArrowLeft, Search, SearchX } from 'lucide-react';
 
 type PageProps = { searchParams: Promise<{ q?: string }> };
 
@@ -62,32 +66,36 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
 
   return (
     <div className="gf-page">
-      <header className="gf-page-header">
-        <div>
-          <h1 className="gf-page-title">Find a member</h1>
-          <p className="gf-page-subtitle">Search across every gym — email, phone, or name.</p>
-        </div>
-        <Link href="/superadmin" className="gf-btn gf-btn-ghost gf-btn-sm">Back</Link>
-      </header>
+      <PageHeader
+        title="Find a member"
+        subtitle="Search across every gym — email, phone, or name."
+        actions={
+          <ButtonLink href="/superadmin" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
+            Back
+          </ButtonLink>
+        }
+      />
 
-      <form className="gf-card" style={{ padding: 18 }}>
-        <div className="gf-form-group" style={{ marginBottom: 0 }}>
-          <input
-            name="q"
-            defaultValue={query}
-            className="gf-input"
-            placeholder="email@example.com · 0801… · Ada Okeke"
-            autoFocus
-          />
-        </div>
-        <button type="submit" className="gf-btn gf-btn-primary" style={{ marginTop: 12 }}>Search</button>
-      </form>
+      <Card padded>
+        <form>
+          <div className="gf-form-group" style={{ marginBottom: 0 }}>
+            <input
+              name="q"
+              defaultValue={query}
+              className="gf-input"
+              placeholder="email@example.com · 0801… · Ada Okeke"
+              autoFocus
+            />
+          </div>
+          <Button type="submit" variant="primary" leadingIcon={<Search size={16} strokeWidth={1.75} />} className="gf-btn-mt-12" style={{ marginTop: 12 }}>
+            Search
+          </Button>
+        </form>
+      </Card>
 
       {query && (
-        <section className="gf-card">
-          <header className="gf-card-header">
-            <h2 className="gf-card-title">{results.length} result{results.length === 1 ? '' : 's'} for &ldquo;{query}&rdquo;</h2>
-          </header>
+        <Card>
+          <CardHeader title={`${results.length} result${results.length === 1 ? '' : 's'} for "${query}"`} />
           {results.length > 0 ? (
             <div className="gf-table-wrap">
               <table className="gf-table">
@@ -129,12 +137,9 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
               </table>
             </div>
           ) : (
-            <div className="gf-empty">
-              <div className="gf-empty-icon">🔍</div>
-              <div className="gf-empty-title">No matches</div>
-            </div>
+            <EmptyState icon={SearchX} title="No matches" />
           )}
-        </section>
+        </Card>
       )}
     </div>
   );
