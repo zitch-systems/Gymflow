@@ -5078,3 +5078,42 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 }
 .mk-cta-title { font-family: var(--gf-font-display); font-size: clamp(1.5rem, 3.5vw, 2.25rem); font-weight: 700; letter-spacing: -0.03em; margin-bottom: 10px; }
 .mk-cta-sub { color: var(--gf-text-secondary); margin-bottom: 24px; font-size: 1.0625rem; }
+
+/* ── Status screens (404 / error) ── */
+.gf-status-screen {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px 20px; text-align: center;
+}
+.gf-status-screen-inner {
+  max-width: 460px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.gf-status-screen-inner .gf-logo { margin-bottom: 20px; }
+.gf-status-code {
+  font-family: var(--gf-font-display); font-weight: 700;
+  font-size: clamp(4rem, 14vw, 7rem); line-height: 1; letter-spacing: -0.05em;
+}
+.gf-status-code-danger {
+  color: var(--gf-danger);
+  width: 96px; height: 96px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--gf-danger-soft); font-size: 3.5rem;
+  border: 1px solid rgba(var(--gf-danger-rgb), 0.25);
+}
+.gf-status-title {
+  font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 700;
+  margin: 16px 0 8px; letter-spacing: -0.02em;
+}
+.gf-status-body { color: var(--gf-text-secondary); line-height: 1.65; margin-bottom: 8px; }
+.gf-status-digest { font-size: 0.8125rem; color: var(--gf-text-muted); font-family: var(--gf-font-mono); margin-bottom: 8px; }
+.gf-status-actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+
+/* ── Route-level loading ── */
+.gf-route-loading {
+  min-height: 60vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+}
+.gf-route-loading-label {
+  font-family: var(--gf-font-display); font-size: 0.875rem; font-weight: 600;
+  color: var(--gf-text-muted); letter-spacing: 0.02em;
+}
