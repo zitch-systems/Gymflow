@@ -9,7 +9,9 @@ import { Card, CardHeader } from '@/components/ui/card';
 import { StatusPill } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
-import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, LogOut } from 'lucide-react';
+import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
+import { daysAgoIso } from '@/lib/dates';
+import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, LogOut, Flame, MapPin, Clock } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -33,6 +35,24 @@ export default async function MemberDashboard({ params }: PageProps) {
 
   const remaining = subscription ? daysLeft(subscription.end_date) : 0;
   const isActive = remaining > 0;
+
+  const [{ data: checkIns }, { data: schedules }] = await Promise.all([
+    supabase
+      .from('check_ins')
+      .select('checked_in_at')
+      .eq('member_id', user.id)
+      .eq('gym_id', gym.id)
+      .gte('checked_in_at', daysAgoIso(45))
+      .order('checked_in_at', { ascending: false }),
+    supabase
+      .from('class_schedules')
+      .select('day_of_week, start_time, end_time, room, classes(name, instructor)')
+      .eq('gym_id', gym.id)
+      .eq('is_active', true),
+  ]);
+
+  const activity = computeActivity((checkIns ?? []).map((c) => c.checked_in_at));
+  const nextClass = findNextClass((schedules ?? []) as unknown as ScheduleRow[]);
 
   return (
     <div className="member-portal">
@@ -67,6 +87,73 @@ export default async function MemberDashboard({ params }: PageProps) {
         <QuickAction href="/dashboard/renew" icon={CreditCard} label="Renew" />
         <QuickAction href="/dashboard/cards" icon={Wallet} label="Saved cards" />
       </section>
+
+      <div className="member-cards-row">
+        <Card>
+          <CardHeader title="Your activity" />
+          <div className="member-activity">
+            <div className="member-activity-stats">
+              <div className="member-activity-stat">
+                <span className="member-activity-num">
+                  <Flame size={18} strokeWidth={2} className="member-activity-flame" />
+                  {activity.currentStreak}
+                </span>
+                <span className="member-activity-cap">day streak</span>
+              </div>
+              <div className="member-activity-stat">
+                <span className="member-activity-num">{activity.visitsThisMonth}</span>
+                <span className="member-activity-cap">this month</span>
+              </div>
+              <div className="member-activity-stat">
+                <span className="member-activity-num">{activity.totalVisits}</span>
+                <span className="member-activity-cap">recent visits</span>
+              </div>
+            </div>
+            <div className="member-activity-strip" aria-hidden>
+              {activity.strip.map((d) => (
+                <span
+                  key={d.date}
+                  className={`member-activity-dot${d.active ? ' active' : ''}`}
+                  title={d.date}
+                />
+              ))}
+            </div>
+            <p className="member-activity-hint">
+              {activity.lastVisit
+                ? `Last visit ${fmtDate(activity.lastVisit)}`
+                : 'No check-ins yet — scan the gym QR to log your first visit.'}
+            </p>
+          </div>
+        </Card>
+
+        {nextClass && (
+          <Card>
+            <CardHeader title="Next class" />
+            <div className="member-nextclass">
+              <div className="member-nextclass-name">{nextClass.name}</div>
+              <div className="member-nextclass-when">
+                <span className={`gf-badge ${nextClass.isToday ? 'gf-badge-accent' : 'gf-badge-brand'}`}>
+                  {nextClass.dayLabel}
+                </span>
+                <span className="member-nextclass-meta">
+                  <Clock size={14} strokeWidth={1.75} /> {nextClass.start}–{nextClass.end}
+                </span>
+                {nextClass.room && (
+                  <span className="member-nextclass-meta">
+                    <MapPin size={14} strokeWidth={1.75} /> {nextClass.room}
+                  </span>
+                )}
+              </div>
+              {nextClass.instructor && (
+                <div className="member-nextclass-coach">with {nextClass.instructor}</div>
+              )}
+              <a href="/classes" className="gf-btn gf-btn-secondary gf-btn-sm" style={{ marginTop: 12 }}>
+                View timetable
+              </a>
+            </div>
+          </Card>
+        )}
+      </div>
 
       {subscription && (
         <Card>

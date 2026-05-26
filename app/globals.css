@@ -5117,3 +5117,33 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
   font-family: var(--gf-font-display); font-size: 0.875rem; font-weight: 600;
   color: var(--gf-text-muted); letter-spacing: 0.02em;
 }
+
+/* ── Member dashboard: activity + next class ── */
+.member-cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .member-cards-row { grid-template-columns: 1fr; } }
+
+.member-activity { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+.member-activity-stats { display: flex; gap: 18px; }
+.member-activity-stat { display: flex; flex-direction: column; gap: 2px; }
+.member-activity-num {
+  font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 700;
+  color: var(--gf-text); line-height: 1; display: inline-flex; align-items: center; gap: 5px;
+}
+.member-activity-flame { color: var(--gf-accent); }
+.member-activity-cap { font-size: 0.75rem; color: var(--gf-text-muted); font-weight: 500; }
+.member-activity-strip { display: flex; gap: 5px; }
+.member-activity-dot {
+  flex: 1; height: 26px; border-radius: 6px;
+  background: var(--gf-elevated); border: 1px solid var(--gf-border);
+}
+.member-activity-dot.active {
+  background: linear-gradient(160deg, var(--gf-brand-light), var(--gf-brand));
+  border-color: transparent; box-shadow: 0 2px 8px var(--gf-brand-glow);
+}
+.member-activity-hint { font-size: 0.8125rem; color: var(--gf-text-muted); }
+
+.member-nextclass { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
+.member-nextclass-name { font-family: var(--gf-font-display); font-size: 1.125rem; font-weight: 700; color: var(--gf-text); }
+.member-nextclass-when { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.member-nextclass-meta { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8125rem; color: var(--gf-text-secondary); }
+.member-nextclass-coach { font-size: 0.875rem; color: var(--gf-text-muted); }
