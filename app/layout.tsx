@@ -1,22 +1,21 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Outfit, DM_Sans } from 'next/font/google';
+import { Space_Grotesk, Inter } from 'next/font/google';
 import { ToastProvider } from '@/lib/toast';
 import { ServiceWorkerRegister } from '@/lib/sw-register';
 import { ThemeSystemSync, themeInitScript } from '@/lib/theme';
 import { PwaInstallPrompt } from '@/lib/pwa-install';
 
-const outfit = Outfit({
+const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
   variable: '--gf-font-display-next',
 });
 
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
   display: 'swap',
   variable: '--gf-font-body-next',
 });
@@ -37,7 +36,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#080e1c',
+  themeColor: '#0a0a12',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -50,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${outfit.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

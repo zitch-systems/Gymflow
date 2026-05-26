@@ -35,10 +35,10 @@ function shell(title: string, bodyHtml: string, ctaLabel?: string, ctaUrl?: stri
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title></head><body style="margin:0;padding:0;background:#f4f7fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f7fb;"><tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.06);">
-<tr><td align="center" style="background:linear-gradient(135deg,#080e1c,#0e1628);padding:32px 24px;">
+<tr><td align="center" style="background:linear-gradient(135deg,#0a0a12,#1b1b2b);padding:32px 24px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#00c896,#33d4ab);color:#fff;font-weight:800;font-size:18px;text-align:center;line-height:36px;">G</td>
-<td style="vertical-align:middle;color:#fff;font-size:22px;font-weight:800;padding-left:10px;">Gym<span style="color:#00c896;">Flow</span></td>
+<td style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c5cff,#a48bff);color:#fff;font-weight:800;font-size:18px;text-align:center;line-height:36px;">G</td>
+<td style="vertical-align:middle;color:#fff;font-size:22px;font-weight:800;padding-left:10px;">Gym<span style="color:#7c5cff;">Flow</span></td>
 </tr></table></td></tr>
 <tr><td style="padding:36px 32px 8px;">
 <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;font-weight:800;color:#0f172a;letter-spacing:-0.01em;">${escape(title)}</h1>
@@ -46,12 +46,12 @@ ${bodyHtml}
 </td></tr>
 ${
   ctaLabel && ctaUrl
-    ? `<tr><td align="center" style="padding:8px 32px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-radius:12px;background:#00c896;"><a href="${escape(ctaUrl)}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#fff;text-decoration:none;border-radius:12px;background:#00c896;">${escape(ctaLabel)}</a></td></tr></table></td></tr>`
+    ? `<tr><td align="center" style="padding:8px 32px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-radius:12px;background:#7c5cff;"><a href="${escape(ctaUrl)}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:700;color:#fff;text-decoration:none;border-radius:12px;background:#7c5cff;">${escape(ctaLabel)}</a></td></tr></table></td></tr>`
     : ''
 }
 <tr><td align="center" style="padding:24px 32px;background:#f4f7fb;border-top:1px solid #e2e8f0;">
 <p style="margin:0 0 4px;font-size:12px;color:#64748b;font-weight:600;">GymFlow · 41 Ogudu Road, Lagos</p>
-<p style="margin:0;font-size:12px;color:#94a3b8;">Questions? Reply to this email or call <a href="tel:+2348166938327" style="color:#00c896;text-decoration:none;">08166938327</a>.</p>
+<p style="margin:0;font-size:12px;color:#94a3b8;">Questions? Reply to this email or call <a href="tel:+2348166938327" style="color:#7c5cff;text-decoration:none;">08166938327</a>.</p>
 </td></tr>
 </table></td></tr></table></body></html>`;
 }
