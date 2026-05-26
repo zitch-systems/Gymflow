@@ -17,10 +17,18 @@ export function proxy(request: NextRequest) {
 
   const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
 
+  // Vercel preview/production domains have no tenant subdomain, so treat them
+  // like the platform apex: platform routes render directly, bare gym-scoped
+  // paths fall back to the default demo gym, and explicit /gym/{slug}/* paths
+  // pass through untouched. Without this the whole *.vercel.app host name would
+  // be misread as a tenant slug.
+  const isVercelHost = hostname.endsWith('.vercel.app');
+
   // Platform domain (no subdomain) — render platform routes without rewriting.
   // Same for localhost: only gym-scoped paths get rewritten to demo-gym.
   if (
     isLocalhost ||
+    isVercelHost ||
     hostname === 'gymflow.ng' ||
     hostname === 'www.gymflow.ng'
   ) {
@@ -42,7 +50,7 @@ export function proxy(request: NextRequest) {
       path.startsWith('/classes/');
     if (!isGymPath) return NextResponse.next();
     const localSlug = process.env.LOCAL_DEFAULT_GYM_SLUG || 'gf-test-gym';
-    return rewriteToGym(url, isLocalhost ? localSlug : '');
+    return rewriteToGym(url, isLocalhost || isVercelHost ? localSlug : '');
   }
 
   // Extract gym slug from subdomain (e.g., powerhouse.gymflow.ng)
