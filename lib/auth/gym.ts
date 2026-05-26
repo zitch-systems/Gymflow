@@ -56,9 +56,10 @@ export async function getStaffRole(slug: string): Promise<Role | null> {
     .eq('id', user.id)
     .maybeSingle();
 
-  if (profile?.role && ['owner', 'manager', 'gym_owner', 'platform_admin'].includes(profile.role)) {
-    return profile.role as Role;
-  }
+  // platform_admin is the only GLOBAL role — it grants cross-gym support access.
+  // Every other role MUST be proven by a per-gym link, otherwise an owner of
+  // gym A (profiles.role='owner') could reach gym B's admin portal.
+  if (profile?.role === 'platform_admin') return 'platform_admin';
 
   const { data: staffRow } = await supabase
     .from('staff')
@@ -78,7 +79,16 @@ export async function getStaffRole(slug: string): Promise<Role | null> {
     .maybeSingle();
 
   if (link?.role) return link.role as Role;
-  return (profile?.role as Role) ?? null;
+  return null;
+}
+
+// Roles that may change money-sensitive settings (payout bank, etc.).
+const MANAGER_ROLES: Role[] = ['gym_owner', 'owner', 'manager', 'platform_admin'];
+
+export async function requireManager(slug: string) {
+  const { role, gym } = await requireStaff(slug);
+  if (!MANAGER_ROLES.includes(role as Role)) redirect(`/gym/${slug}/admin`);
+  return { role, gym };
 }
 
 export async function requireStaff(slug: string) {

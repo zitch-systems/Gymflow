@@ -35,12 +35,6 @@ declare global {
   }
 }
 
-function computeEndDate(months: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().split('T')[0];
-}
-
 export function PaystackPayButton({ gymId, planId, amount, durationMonths, email, subaccount }: Props) {
   const [ready, setReady] = useState(() => typeof window !== 'undefined' && !!window.PaystackPop);
   const [pending, start] = useTransition();
@@ -84,10 +78,7 @@ export function PaystackPayButton({ gymId, planId, amount, durationMonths, email
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               reference: txn.reference,
-              gym_id: gymId,
               plan_id: planId,
-              amount,
-              end_date: computeEndDate(durationMonths),
             }),
           })
             .then((r) => r.json())

@@ -34,6 +34,9 @@ export async function GET(request: Request) {
   const today = isoDate(new Date());
   const summary = { charged: 0, failed: 0, exhausted: 0 };
 
+  // Retry window: charge on the expiry day and the two following days (3 attempts)
+  // rather than a single exact-date match, so a missed cron run still recovers.
+  const windowStart = isoDate(new Date(Date.now() - 2 * DAY_MS));
   const { data: due } = await supabase
     .from('memberships')
     .select(
@@ -41,7 +44,11 @@ export async function GET(request: Request) {
     )
     .eq('status', 'active')
     .eq('auto_debit_enabled', true)
-    .eq('end_date', today);
+    .gte('end_date', windowStart)
+    .lte('end_date', today);
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
 
   for (const m of due ?? []) {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
@@ -66,6 +73,20 @@ export async function GET(request: Request) {
       summary.failed++;
       continue;
     }
+
+    // Idempotency: if we already took a successful auto-debit for this member at
+    // this gym today, don't charge again (guards against a double cron run).
+    const { data: alreadyCharged } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('member_id', m.member_id ?? '')
+      .eq('gym_id', m.gym_id ?? '')
+      .eq('payment_method', 'card_auto')
+      .eq('payment_status', 'successful')
+      .gte('payment_date', startOfToday.toISOString())
+      .limit(1)
+      .maybeSingle();
+    if (alreadyCharged) continue;
 
     const name = profile.full_name ?? profile.first_name ?? 'Member';
     const renewUrl = `https://${gym.slug}.gymflow.ng/dashboard/renew`;
@@ -106,16 +127,14 @@ export async function GET(request: Request) {
         throw new Error(result.message ?? 'Charge declined');
       }
     } catch (err) {
-      // Mark a 3-day grace and bump attempt counter on the membership
+      // Notify but DO NOT touch end_date — overwriting it would both hand out a
+      // free extension and pull the row out of tomorrow's retry window. The
+      // membership keeps its real expiry; it stays in the [expiry .. expiry+2]
+      // window for up to two more daily retries, then the expiry-reminders cron
+      // marks it expired once the grace window passes.
       summary.failed++;
       await sendAutoDebitFailure(profile.email, { name, reason: (err as Error).message, attempts: 1, renewUrl });
       if (profile.phone) await waAutoDebitFailure(profile.phone, { name, attempts: 1, renewUrl });
-      const grace = new Date(Date.now() + 3 * DAY_MS);
-      await supabase
-        .from('memberships')
-        .update({ end_date: isoDate(grace), updated_at: new Date().toISOString() })
-        .eq('id', m.id);
-      summary.exhausted++;
     }
   }
 

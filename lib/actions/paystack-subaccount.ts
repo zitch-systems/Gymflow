@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireStaff } from '@/lib/auth/gym';
+import { requireManager } from '@/lib/auth/gym';
 import { getSessionUser } from '@/lib/auth/dal';
 import { resolveAccount, createSubaccount, updateSubaccount, listBanks } from '@/lib/paystack';
 
@@ -31,7 +31,8 @@ export async function verifyAccountName(formData: FormData): Promise<{ ok: boole
 }
 
 export async function connectPaystackSubaccount(slug: string, formData: FormData): Promise<Result> {
-  const { gym } = await requireStaff(slug);
+  // Changing the settlement bank account is owner/manager-only.
+  const { gym } = await requireManager(slug);
   const actor = await getSessionUser();
 
   const accountNumber = String(formData.get('account_number') ?? '').trim();

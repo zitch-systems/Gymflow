@@ -16,6 +16,15 @@ export async function scheduleSession(slug: string, formData: FormData): Promise
   if (!memberId || !scheduledAt) return { ok: false, error: 'Member and time required' };
 
   const supabase = await createClient();
+  // Prevent IDOR: the member must actually belong to this gym.
+  const { data: memberLink } = await supabase
+    .from('gym_member_links')
+    .select('user_id')
+    .eq('gym_id', gym.id)
+    .eq('user_id', memberId)
+    .maybeSingle();
+  if (!memberLink) return { ok: false, error: 'That member is not part of this gym' };
+
   const { error } = await supabase.from('instructor_sessions').insert({
     gym_id: gym.id,
     instructor_id: user.id,

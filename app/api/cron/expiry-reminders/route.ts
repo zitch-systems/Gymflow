@@ -70,12 +70,15 @@ export async function GET(request: Request) {
     }
   }
 
-  const expiredTarget = isoDate(new Date(now.getTime() - DAY_MS));
+  // Mark expired only once the 3-day auto-debit retry/grace window has passed
+  // (end_date <= today-3). Using a range, not an exact date, so a skipped cron
+  // run still catches every overdue membership.
+  const expiredCutoff = isoDate(new Date(now.getTime() - 3 * DAY_MS));
   const { data: expiredRows } = await supabase
     .from('memberships')
     .select('id, member_id, gym_id, end_date, status, gyms(slug), profiles:member_id(email, full_name, first_name)')
     .eq('status', 'active')
-    .eq('end_date', expiredTarget);
+    .lte('end_date', expiredCutoff);
   for (const r of expiredRows ?? []) {
     const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
     const gym = Array.isArray(r.gyms) ? r.gyms[0] : r.gyms;

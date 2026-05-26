@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { Logo } from '@/components/ui/logo';
 
 export default function Error({
@@ -28,7 +29,7 @@ export default function Error({
           <button type="button" className="gf-btn gf-btn-primary" onClick={() => reset()}>
             Try again
           </button>
-          <a href="/" className="gf-btn gf-btn-secondary">Back home</a>
+          <Link href="/" className="gf-btn gf-btn-secondary">Back home</Link>
         </div>
       </div>
     </main>

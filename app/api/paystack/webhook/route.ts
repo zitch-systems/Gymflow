@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackSecretKey } from '@/lib/paystack';
 
 export async function POST(request: Request) {
@@ -25,7 +25,9 @@ export async function POST(request: Request) {
   // Acknowledge the webhook fast and record it for offline reconciliation.
   // Verify endpoint is still the source of truth for end-of-flow updates.
   if (event.event === 'charge.success') {
-    const supabase = await createServerClient();
+    // Service-role: this is a server-to-server call with no user session, so the
+    // anon-scoped client would be blocked by RLS and the update would no-op.
+    const supabase = createAdminClient();
     const data = event.data ?? {};
     const reference = String((data as { reference?: string }).reference ?? '');
     if (reference) {
