@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { useToast } from '@/lib/toast';
+import { PLATFORM_PRICING, formatNaira, type BillingPeriod } from '@/lib/platform-pricing';
 
 type SlugState =
   | { status: 'idle' }
@@ -42,6 +43,7 @@ export function GymSignupForm() {
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
   const [slug, setSlug] = useState('');
+  const [billing, setBilling] = useState<BillingPeriod>('monthly');
   // Lookup is keyed by slug so render derives state without setState-in-effect.
   const [slugLookup, setSlugLookup] = useState<{ slug: string; ok: boolean; reason?: string } | null>(null);
 
@@ -101,7 +103,7 @@ export function GymSignupForm() {
       const initRes = await fetch('/api/platform/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gymName, ownerEmail, ownerName, ownerPhone, slug }),
+        body: JSON.stringify({ gymName, ownerEmail, ownerName, ownerPhone, slug, billing }),
       });
       const init = await initRes.json();
       if (!initRes.ok) {
@@ -117,7 +119,7 @@ export function GymSignupForm() {
       window.PaystackPop.newTransaction({
         key: publicKey,
         email: ownerEmail,
-        amount: 20_000 * 100,
+        amount: PLATFORM_PRICING[billing].amount * 100,
         currency: 'NGN',
         ref: init.reference,
         metadata: {
@@ -126,6 +128,7 @@ export function GymSignupForm() {
           gym_name: gymName,
           owner_name: ownerName,
           owner_phone: ownerPhone,
+          billing,
         },
         onSuccess: async (txn) => {
           const onboardRes = await fetch('/api/platform/onboard-gym', {
@@ -189,12 +192,50 @@ export function GymSignupForm() {
           <label className="gf-form-label" htmlFor="owner_phone">WhatsApp number (Nigeria)</label>
           <input id="owner_phone" type="tel" className="gf-input" placeholder="08012345678" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} />
         </div>
+
+        <div className="gf-form-group">
+          <label className="gf-form-label">Billing</label>
+          <div className="mk-billing-toggle">
+            {(['monthly', 'annual'] as const).map((b) => {
+              const p = PLATFORM_PRICING[b];
+              const monthlyEquivalent = b === 'annual' ? Math.round(p.amount / 12) : null;
+              return (
+                <button
+                  type="button"
+                  key={b}
+                  className={`mk-billing-option${billing === b ? ' active' : ''}`}
+                  aria-pressed={billing === b}
+                  onClick={() => setBilling(b)}
+                >
+                  <span className="mk-billing-name">{p.label}</span>
+                  <span className="mk-billing-price">
+                    {formatNaira(p.amount)}
+                    <span className="mk-billing-per">/{b === 'annual' ? 'yr' : 'mo'}</span>
+                  </span>
+                  {b === 'annual' && (
+                    <span className="gf-badge gf-badge-accent mk-billing-save">
+                      Save {formatNaira(PLATFORM_PRICING.monthly.amount * 12 - p.amount)}
+                    </span>
+                  )}
+                  {monthlyEquivalent && (
+                    <span className="mk-billing-eq">≈ {formatNaira(monthlyEquivalent)}/mo</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <button
           type="submit"
           disabled={pending || slugState.status !== 'ok' || !scriptReady}
           className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg"
         >
-          {pending ? 'Connecting to Paystack…' : !scriptReady ? 'Loading payment…' : 'Pay ₦20,000 & launch'}
+          {pending
+            ? 'Connecting to Paystack…'
+            : !scriptReady
+              ? 'Loading payment…'
+              : `Pay ${formatNaira(PLATFORM_PRICING[billing].amount)} & launch`}
         </button>
       </form>
     </>

@@ -5168,3 +5168,29 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 
 /* ── Class booking states ── */
 .class-book-state { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ── Platform signup: billing period toggle ── */
+.marketing-price-annual { text-align: center; color: var(--gf-text-secondary); font-size: 0.9375rem; margin: -8px 0 4px; }
+.marketing-price-annual strong { color: var(--gf-text); }
+
+.mk-billing-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mk-billing-option {
+  position: relative; display: flex; flex-direction: column; gap: 2px;
+  padding: 14px 16px; cursor: pointer; text-align: left;
+  background: var(--gf-elevated); color: var(--gf-text);
+  border: 1.5px solid var(--gf-border); border-radius: var(--gf-radius-sm);
+  transition: border-color var(--gf-t), background var(--gf-t), box-shadow var(--gf-t);
+  font-family: var(--gf-font-body);
+}
+.mk-billing-option:hover { border-color: var(--gf-border-light); }
+.mk-billing-option.active {
+  border-color: var(--gf-brand);
+  background: var(--gf-brand-soft);
+  box-shadow: 0 0 0 3px var(--gf-brand-soft);
+}
+.mk-billing-name { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.8125rem; color: var(--gf-text-secondary); }
+.mk-billing-option.active .mk-billing-name { color: var(--gf-brand); }
+.mk-billing-price { font-family: var(--gf-font-display); font-weight: 700; font-size: 1.25rem; color: var(--gf-text); }
+.mk-billing-per { font-size: 0.8125rem; font-weight: 500; color: var(--gf-text-muted); }
+.mk-billing-eq { font-size: 0.75rem; color: var(--gf-text-muted); }
+.mk-billing-save { align-self: flex-start; margin-top: 4px; }

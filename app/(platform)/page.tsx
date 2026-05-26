@@ -113,12 +113,15 @@ export default function MarketingHome() {
       <section id="pricing" className="marketing-section marketing-pricing">
         <div className="container">
           <h2 className="marketing-section-title">Simple Naira pricing</h2>
-          <p className="marketing-section-sub">One flat rate. No per-member fees.</p>
+          <p className="marketing-section-sub">One flat rate. No per-member fees. Pay monthly or save with annual.</p>
           <div className="marketing-price-card">
             <div className="marketing-price">
-              <span className="marketing-price-amount">₦20,000</span>
+              <span className="marketing-price-amount">₦22,999</span>
               <span className="marketing-price-period">/month</span>
             </div>
+            <p className="marketing-price-annual">
+              or <strong>₦229,999/year</strong> — two months free
+            </p>
             <ul className="marketing-price-list">
               <li>Unlimited members & staff</li>
               <li>Paystack payments built-in</li>
@@ -140,7 +143,7 @@ export default function MarketingHome() {
           <div className="mk-faq">
             <Faq q="Do my members need to download an app?" a="No. GymFlow is a PWA — members open your gym's link in any browser and can optionally add it to their home screen. It works on Android and iOS, even on slow connections." />
             <Faq q="How do payments work?" a="Members pay in Naira via Paystack (card or bank transfer). Cards are tokenised so renewals happen automatically. Funds settle into your gym's own Paystack subaccount — we never hold your money." />
-            <Faq q="Is there a per-member fee?" a="No. One flat ₦20,000/month covers unlimited members and staff. The only other cost is Paystack's standard transaction fee, paid by you or passed to members." />
+            <Faq q="Is there a per-member fee?" a="No. One flat ₦22,999/month (or ₦229,999/year — two months free) covers unlimited members and staff. The only other cost is Paystack's standard transaction fee, paid by you or passed to members." />
             <Faq q="Can I run more than one location?" a="Yes. Owners and managers can belong to multiple gyms with a single login, and each location gets its own branded subdomain and isolated data." />
             <Faq q="What about my members' data?" a="Every gym's data is isolated at the database level with row-level security. No gym can ever see another gym's members, payments, or check-ins." />
             <Faq q="How long does setup take?" a="Minutes. Signing up auto-provisions your subdomain, admin account, pricing plans, Paystack subaccount, and QR codes. You just add your logo and go." />
