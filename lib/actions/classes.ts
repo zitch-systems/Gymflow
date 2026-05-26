@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff, requireMember } from '@/lib/auth/gym';
 import { getSessionUser } from '@/lib/auth/dal';
 
@@ -68,7 +69,9 @@ export async function deleteClass(slug: string, classId: string) {
   revalidatePath('/classes');
 }
 
-export type BookResult = { ok: true; bookingId: string } | { ok: false; error: string };
+export type BookResult =
+  | { ok: true; bookingId: string; waitlisted: boolean }
+  | { ok: false; error: string };
 
 export async function bookClass(slug: string, scheduleId: string, bookingDate: string): Promise<BookResult> {
   const { user, gym } = await requireMember(slug);
@@ -76,12 +79,15 @@ export async function bookClass(slug: string, scheduleId: string, bookingDate: s
 
   const { data: schedule } = await supabase
     .from('class_schedules')
-    .select('id, class_id, gym_id')
+    .select('id, class_id, gym_id, classes(max_capacity)')
     .eq('id', scheduleId)
     .eq('gym_id', gym.id)
     .maybeSingle();
 
   if (!schedule) return { ok: false, error: 'Class not found' };
+
+  const cls = Array.isArray(schedule.classes) ? schedule.classes[0] : schedule.classes;
+  const capacity = cls?.max_capacity ?? null;
 
   const { data: existing } = await supabase
     .from('class_bookings')
@@ -92,7 +98,30 @@ export async function bookClass(slug: string, scheduleId: string, bookingDate: s
     .maybeSingle();
 
   if (existing && existing.status !== 'cancelled') {
-    return { ok: false, error: 'Already booked' };
+    return { ok: false, error: 'You already have a spot for this class' };
+  }
+
+  // Count confirmed bookings to decide booked vs waitlisted.
+  const { count: bookedCount } = await supabase
+    .from('class_bookings')
+    .select('*', { count: 'exact', head: true })
+    .eq('class_schedule_id', scheduleId)
+    .eq('booking_date', bookingDate)
+    .eq('status', 'booked');
+
+  const isFull = capacity != null && (bookedCount ?? 0) >= capacity;
+  const status = isFull ? 'waitlisted' : 'booked';
+
+  if (existing) {
+    // Re-activate a previously cancelled booking.
+    const { error } = await supabase
+      .from('class_bookings')
+      .update({ status, booked_at: new Date().toISOString(), cancelled_at: null, cancellation_reason: null })
+      .eq('id', existing.id)
+      .eq('member_id', user.id);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath('/classes');
+    return { ok: true, bookingId: existing.id, waitlisted: isFull };
   }
 
   const { data: booking, error } = await supabase
@@ -104,26 +133,58 @@ export async function bookClass(slug: string, scheduleId: string, bookingDate: s
       class_schedule_id: scheduleId,
       booking_date: bookingDate,
       booked_at: new Date().toISOString(),
-      status: 'booked',
+      status,
     })
     .select('id')
     .maybeSingle();
 
   if (error || !booking) return { ok: false, error: error?.message ?? 'Booking failed' };
   revalidatePath('/classes');
-  return { ok: true, bookingId: booking.id };
+  return { ok: true, bookingId: booking.id, waitlisted: isFull };
 }
 
 export async function cancelBooking(slug: string, bookingId: string): Promise<{ ok: boolean; error?: string }> {
   const user = await getSessionUser();
   if (!user) return { ok: false, error: 'Not signed in' };
   const supabase = await createClient();
+
+  // Read the booking first so we can promote the waitlist if a confirmed spot frees up.
+  const { data: target } = await supabase
+    .from('class_bookings')
+    .select('id, status, class_schedule_id, booking_date')
+    .eq('id', bookingId)
+    .eq('member_id', user.id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('class_bookings')
     .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
     .eq('id', bookingId)
     .eq('member_id', user.id);
   if (error) return { ok: false, error: error.message };
+
+  // A confirmed seat opened up — promote the oldest waitlisted member.
+  // Uses the service-role client because RLS scopes member updates to their own rows.
+  if (target?.status === 'booked' && target.class_schedule_id && target.booking_date) {
+    try {
+      const admin = createAdminClient();
+      const { data: next } = await admin
+        .from('class_bookings')
+        .select('id')
+        .eq('class_schedule_id', target.class_schedule_id)
+        .eq('booking_date', target.booking_date)
+        .eq('status', 'waitlisted')
+        .order('booked_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (next) {
+        await admin.from('class_bookings').update({ status: 'booked' }).eq('id', next.id);
+      }
+    } catch {
+      // Promotion is best-effort; the cancellation itself already succeeded.
+    }
+  }
+
   revalidatePath('/classes');
   return { ok: true };
 }

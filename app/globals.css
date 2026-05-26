@@ -5165,3 +5165,6 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 .gf-trend-bar-rev { background: linear-gradient(180deg, var(--gf-brand-light), var(--gf-brand)); box-shadow: 0 0 16px var(--gf-brand-glow); }
 .gf-trend-bar-exp { background: var(--gf-border-light); }
 .gf-trend-label { font-size: 0.6875rem; color: var(--gf-text-muted); font-weight: 600; white-space: nowrap; }
+
+/* ── Class booking states ── */
+.class-book-state { display: inline-flex; align-items: center; gap: 8px; }
