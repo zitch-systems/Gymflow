@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { useToast } from '@/lib/toast';
-import { PLATFORM_PRICING, formatNaira, type BillingPeriod } from '@/lib/platform-pricing';
+import { PLATFORM_PRICING, BILLING_PERIODS, periodSavings, formatNaira, type BillingPeriod } from '@/lib/platform-pricing';
 
 type SlugState =
   | { status: 'idle' }
@@ -196,9 +196,10 @@ export function GymSignupForm() {
         <div className="gf-form-group">
           <label className="gf-form-label">Billing</label>
           <div className="mk-billing-toggle">
-            {(['monthly', 'annual'] as const).map((b) => {
+            {BILLING_PERIODS.map((b) => {
               const p = PLATFORM_PRICING[b];
-              const monthlyEquivalent = b === 'annual' ? Math.round(p.amount / 12) : null;
+              const savings = periodSavings(b);
+              const monthlyEquivalent = p.months > 1 ? Math.round(p.amount / p.months) : null;
               return (
                 <button
                   type="button"
@@ -210,15 +211,13 @@ export function GymSignupForm() {
                   <span className="mk-billing-name">{p.label}</span>
                   <span className="mk-billing-price">
                     {formatNaira(p.amount)}
-                    <span className="mk-billing-per">/{b === 'annual' ? 'yr' : 'mo'}</span>
+                    <span className="mk-billing-per">/{p.per}</span>
                   </span>
-                  {b === 'annual' && (
-                    <span className="gf-badge gf-badge-accent mk-billing-save">
-                      Save {formatNaira(PLATFORM_PRICING.monthly.amount * 12 - p.amount)}
-                    </span>
-                  )}
                   {monthlyEquivalent && (
                     <span className="mk-billing-eq">≈ {formatNaira(monthlyEquivalent)}/mo</span>
+                  )}
+                  {savings > 0 && (
+                    <span className="gf-badge gf-badge-accent mk-billing-save">Save {formatNaira(savings)}</span>
                   )}
                 </button>
               );

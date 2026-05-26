@@ -3,7 +3,7 @@ import { GymSignupForm } from './gym-signup-form';
 
 export const metadata = {
   title: 'Open your GymFlow account',
-  description: 'Self-onboard your gym onto GymFlow. ₦22,999/month or ₦229,999/year, cancel anytime.',
+  description: 'Self-onboard your gym onto GymFlow. From ₦13,999/month, cancel anytime.',
 };
 
 export default function GymSignupPage() {
@@ -12,7 +12,7 @@ export default function GymSignupPage() {
       <header className="login-header">
         <h1 className="login-title">Open your gym on GymFlow</h1>
         <p className="login-subtitle">
-          From ₦22,999/month to provision your subdomain, admin portal, member PWA, and payments. Cancel anytime.
+          From ₦13,999/month to provision your subdomain, admin portal, member PWA, and payments. Cancel anytime.
         </p>
       </header>
 

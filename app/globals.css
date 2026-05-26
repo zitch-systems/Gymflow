@@ -5173,7 +5173,7 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 .marketing-price-annual { text-align: center; color: var(--gf-text-secondary); font-size: 0.9375rem; margin: -8px 0 4px; }
 .marketing-price-annual strong { color: var(--gf-text); }
 
-.mk-billing-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mk-billing-toggle { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .mk-billing-option {
   position: relative; display: flex; flex-direction: column; gap: 2px;
   padding: 14px 16px; cursor: pointer; text-align: left;
