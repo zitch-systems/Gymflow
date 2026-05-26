@@ -57,7 +57,7 @@ export function toggleTheme() {
     localStorage.setItem('gf-theme', next);
   } catch {}
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', next === 'light' ? '#f4f7fb' : '#080e1c');
+  if (meta) meta.setAttribute('content', next === 'light' ? '#f6f6fb' : '#0a0a12');
 }
 
 export function ThemeSystemSync() {
@@ -67,7 +67,7 @@ export function ThemeSystemSync() {
       if (localStorage.getItem('gf-theme')) return;
       document.documentElement.setAttribute('data-theme', e.matches ? 'light' : 'dark');
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute('content', e.matches ? '#f4f7fb' : '#080e1c');
+      if (meta) meta.setAttribute('content', e.matches ? '#f6f6fb' : '#0a0a12');
     };
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
