@@ -83,9 +83,9 @@ export default async function MemberDashboard({ params }: PageProps) {
       <section className="member-quick-actions">
         <QuickAction href="/checkin" icon={ScanLine} label="Check In" />
         <QuickAction href="/classes" icon={CalendarDays} label="Classes" />
-        <QuickAction href="/dashboard/instructors" icon={GraduationCap} label="Instructors" />
+        <QuickAction href="/dashboard/instructors" icon={GraduationCap} label="Coaches" />
         <QuickAction href="/dashboard/renew" icon={CreditCard} label="Renew" />
-        <QuickAction href="/dashboard/cards" icon={Wallet} label="Saved cards" />
+        <QuickAction href="/dashboard/cards" icon={Wallet} label="Cards" />
       </section>
 
       <div className="member-cards-row">

@@ -92,8 +92,8 @@ export default async function CoachDashboard({ params }: PageProps) {
 
       <section className="member-quick-actions">
         <QuickAction href="/coach/clients" icon={Users} label="Clients" />
-        <QuickAction href="/coach/attendance" icon={ClipboardCheck} label="Attendance" />
-        <QuickAction href="/coach/timetable" icon={CalendarDays} label="Timetable" />
+        <QuickAction href="/coach/attendance" icon={ClipboardCheck} label="Attend" />
+        <QuickAction href="/coach/timetable" icon={CalendarDays} label="Schedule" />
         <QuickAction href="/coach/earnings" icon={Wallet} label="Earnings" />
         <QuickAction href="/coach/profile" icon={UserCircle2} label="Profile" />
       </section>

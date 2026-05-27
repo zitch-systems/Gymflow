@@ -5221,3 +5221,23 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 /* Slightly larger, comfortable tap targets for the portal nav. */
 .gf-mobile-nav .gf-nav-tab { min-width: 56px; padding-top: 8px; }
 .gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
+
+/* ── Member/Coach dashboard quick actions: compact 5-up row ── */
+.member-quick-actions { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.member-quick-actions .gf-quick-action {
+  min-height: 0;
+  padding: 12px 4px;
+  gap: 6px;
+  border-radius: var(--gf-radius-xs);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.member-quick-actions .gf-quick-action-icon { width: 34px; height: 34px; }
+.member-quick-actions .gf-quick-action-icon svg { width: 18px; height: 18px; }
+.member-quick-actions .gf-quick-action-label { overflow-wrap: break-word; hyphens: auto; }
+@media (max-width: 380px) {
+  .member-quick-actions { gap: 4px; }
+  .member-quick-actions .gf-quick-action { padding: 10px 2px; font-size: 0.5625rem; }
+  .member-quick-actions .gf-quick-action-icon { width: 30px; height: 30px; }
+}
