@@ -17,12 +17,8 @@ export function Logo({ size = 'md', children }: { size?: 'sm' | 'md' | 'lg'; chi
 export function LogoMark() {
   return (
     <span className="gf-logo-mark" aria-hidden>
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
-        <rect x="2" y="8" width="5" height="8" rx="1.5" fill="currentColor" />
-        <rect x="1" y="10.5" width="7" height="3" rx="1" fill="currentColor" />
-        <rect x="17" y="8" width="5" height="8" rx="1.5" fill="currentColor" />
-        <rect x="16" y="10.5" width="7" height="3" rx="1" fill="currentColor" />
-        <rect x="10.5" y="5" width="3" height="14" rx="1.5" fill="currentColor" />
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19.5 7.2A8 8 0 1 0 20 12h-6" />
       </svg>
     </span>
   );

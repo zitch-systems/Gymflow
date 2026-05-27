@@ -20,7 +20,11 @@ export default function MarketingHome() {
       <nav className="marketing-nav">
         <div className="container marketing-nav-inner">
           <Link href="/" className="marketing-logo">
-            <span className="marketing-logo-icon">G</span>
+            <span className="marketing-logo-icon" aria-hidden>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19.5 7.2A8 8 0 1 0 20 12h-6" />
+              </svg>
+            </span>
             <span>
               Gym<span className="marketing-logo-em">Flow</span>
             </span>

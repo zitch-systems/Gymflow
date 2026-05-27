@@ -226,7 +226,7 @@ h1, h2, h3, h4, h5, h6,
   background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 60%);
 }
 
-.gf-logo-mark svg { width: 20px; height: 20px; fill: #fff; position: relative; z-index: 1; }
+.gf-logo-mark svg { width: 20px; height: 20px; fill: none; stroke: #fff; position: relative; z-index: 1; }
 .gf-logo-text { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.25rem; color: var(--gf-text); letter-spacing: -0.03em; }
 .gf-logo-text em { font-style: normal; color: var(--gf-brand); }
 .gf-logo-sm .gf-logo-mark { width: 28px; height: 28px; border-radius: 8px; }

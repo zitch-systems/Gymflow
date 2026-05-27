@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/lib/theme';
 import { getGymBySlug } from '@/lib/auth/gym';
+import { LogoMark } from '@/components/ui/logo';
 import { LoginForm } from './login-form';
 
 type PageProps = {
@@ -17,15 +18,7 @@ export default async function LoginPage({ params, searchParams }: PageProps) {
     <div className="login-wrap">
       <div className="login-header">
         <Link href="/" className="gf-logo gf-logo-lg" style={{ display: 'inline-flex', marginBottom: 16 }}>
-          <div className="gf-logo-mark">
-            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <rect x="2" y="8" width="5" height="8" rx="1.5" />
-              <rect x="1" y="10.5" width="7" height="3" rx="1" />
-              <rect x="17" y="8" width="5" height="8" rx="1.5" />
-              <rect x="16" y="10.5" width="7" height="3" rx="1" />
-              <rect x="10.5" y="5" width="3" height="14" rx="1.5" />
-            </svg>
-          </div>
+          <LogoMark />
         </Link>
 
         <div className="gym-avatar">
