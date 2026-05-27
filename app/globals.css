@@ -96,7 +96,7 @@
   --gf-mobile-nav-h: 68px;
 
   /* Fonts */
-  --gf-font-display: var(--gf-font-display-next, 'Space Grotesk'), system-ui, sans-serif;
+  --gf-font-display: var(--gf-font-display-next, 'Plus Jakarta Sans'), system-ui, sans-serif;
   --gf-font-body: var(--gf-font-body-next, 'Inter'), system-ui, -apple-system, sans-serif;
   --gf-font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
