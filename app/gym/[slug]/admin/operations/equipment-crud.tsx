@@ -27,7 +27,7 @@ const EMPTY: Item = {
   id: '',
   name: '',
   category: '',
-  status: 'available',
+  status: 'active',
   purchase_date: null,
   purchase_price: null,
   last_maintenance_date: null,
@@ -101,7 +101,7 @@ export function EquipmentCrud({ slug, gymId, items }: { slug: string; gymId: str
                   </td>
                   <td>{e.category ?? '—'}</td>
                   <td>
-                    <span className={`status-pill ${e.status === 'available' ? 'on' : 'off'}`}>{e.status ?? 'unknown'}</span>
+                    <span className={`status-pill ${e.status === 'active' ? 'on' : e.status === 'maintenance' ? '' : 'off'}`}>{e.status ?? 'unknown'}</span>
                   </td>
                   <td>{e.next_maintenance_date ? fmtDate(e.next_maintenance_date) : '—'}</td>
                   <td style={{ display: 'flex', gap: 4 }}>
@@ -179,11 +179,11 @@ export function EquipmentCrud({ slug, gymId, items }: { slug: string; gymId: str
               </div>
               <div className="gf-form-group">
                 <label className="gf-label" htmlFor="eq-status">Status</label>
-                <select id="eq-status" name="status" className="gf-select" defaultValue={editing.status ?? 'available'}>
-                  <option value="available">Available</option>
-                  <option value="in_use">In use</option>
+                <select id="eq-status" name="status" className="gf-select" defaultValue={editing.status ?? 'active'}>
+                  <option value="active">Active (in service)</option>
                   <option value="maintenance">Under maintenance</option>
                   <option value="retired">Retired</option>
+                  <option value="lost">Lost / stolen</option>
                 </select>
               </div>
               <div className="gf-form-group">

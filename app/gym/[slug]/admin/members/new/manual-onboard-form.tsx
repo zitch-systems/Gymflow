@@ -154,8 +154,7 @@ export function ManualOnboardForm({ slug, plans }: { slug: string; plans: Plan[]
         <select id="payment_method" name="payment_method" className="gf-select" defaultValue="cash">
           <option value="cash">Cash</option>
           <option value="bank_transfer">Bank transfer</option>
-          <option value="pos">POS</option>
-          <option value="other">Other</option>
+          <option value="card">Card / POS</option>
         </select>
       </div>
 

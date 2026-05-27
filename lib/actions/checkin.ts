@@ -50,6 +50,13 @@ export async function checkInBySlug(
     .limit(1);
   const sub = subs?.[0] ?? null;
 
+  // Member-initiated check-in (self / QR) requires a valid active subscription.
+  // Staff manual check-in may log a visit regardless (e.g. day pass, grace).
+  const method = opts.method ?? 'manual';
+  if (!sub && method !== 'manual') {
+    return { ok: false, error: 'Your membership has expired or is inactive. Please renew to check in.' };
+  }
+
   const twoHoursAgo = new Date(Date.now() - TWO_HOURS_MS).toISOString();
   const { data: recent } = await supabase
     .from('check_ins')
@@ -66,9 +73,9 @@ export async function checkInBySlug(
     member_id: memberId,
     gym_id: gym.id,
     checked_in_at: todayIso,
-    check_in_method: opts.method ?? 'manual',
+    check_in_method: method,
     device_info: opts.deviceInfo ?? null,
-    status: 'checked_in',
+    status: 'active',
   });
 
   if (insertError) return { ok: false, error: insertError.message };

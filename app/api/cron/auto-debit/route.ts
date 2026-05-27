@@ -81,7 +81,7 @@ export async function GET(request: Request) {
       .select('id')
       .eq('member_id', m.member_id ?? '')
       .eq('gym_id', m.gym_id ?? '')
-      .eq('payment_method', 'card_auto')
+      .eq('payment_method', 'card')
       .eq('payment_status', 'successful')
       .gte('payment_date', startOfToday.toISOString())
       .limit(1)
@@ -108,18 +108,19 @@ export async function GET(request: Request) {
         next.setMonth(next.getMonth() + Number(plan.duration_months ?? 1));
         const newEnd = isoDate(next);
         await supabase.from('memberships').update({ end_date: newEnd, updated_at: new Date().toISOString() }).eq('id', m.id);
-        await supabase.from('payments').insert({
+        const { error: payErr } = await supabase.from('payments').insert({
           gym_id: m.gym_id,
           member_id: m.member_id,
           plan_id: m.plan_id,
           amount: Number(plan.price),
           currency: 'NGN',
-          payment_method: 'card_auto',
+          payment_method: 'card',
           payment_status: 'successful',
           paystack_reference: result.data.reference,
           paystack_authorization_code: card.authorization_code,
           payment_date: new Date().toISOString(),
         });
+        if (payErr) console.error('[GF auto-debit] payment record insert failed:', payErr.message);
         await sendAutoDebitSuccess(profile.email, { name, amount: Number(plan.price), endDate: newEnd });
         if (profile.phone) await waAutoDebitSuccess(profile.phone, { name, amount: Number(plan.price), endDate: newEnd });
         summary.charged++;
