@@ -25,7 +25,7 @@ export default function MarketingHome() {
       <MarketingNav />
 
       <header className="marketing-hero mk-hero-photo">
-        <div className="mk-hero-photo-bg" style={{ backgroundImage: 'url(/images/gym-hero.jpg)' }} aria-hidden />
+        <div className="mk-hero-photo-bg" style={{ backgroundImage: 'url(/images/gym-floor.jpg)' }} aria-hidden />
         <div className="container mk-hero-photo-inner">
           <span className="marketing-eyebrow">Built in Lagos · Made for Nigerian gyms</span>
           <h1 className="marketing-hero-title">

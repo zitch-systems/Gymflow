@@ -5532,3 +5532,41 @@ body::after {
 @media (max-width: 640px) { .mk-statgrid { grid-template-columns: repeat(2, 1fr); gap: 28px; } }
 .mk-statgrid-num { display: block; font-family: var(--gf-font-display); font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; color: var(--gf-brand); letter-spacing: -0.02em; }
 .mk-statgrid-cap { display: block; font-size: 0.875rem; color: var(--gf-text-secondary); margin-top: 4px; }
+
+/* ── Login split: gym-branded photo aside ── */
+.mk-auth-login { align-items: stretch; min-height: calc(100vh - 0px); }
+.mk-login-aside {
+  position: relative; overflow: hidden; border-radius: var(--gf-radius-xl);
+  min-height: 460px; padding: 0; border: 1px solid var(--gf-border);
+  background: linear-gradient(135deg, var(--gf-elevated), var(--gf-surface));
+}
+.mk-login-aside-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.4; }
+.mk-login-aside::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(160deg, rgba(var(--gf-brand-rgb), 0.28), rgba(var(--gf-bg-rgb), 0.86) 70%);
+}
+.mk-login-aside-inner { position: relative; z-index: 1; height: 100%; padding: 32px; display: flex; flex-direction: column; gap: 28px; }
+.mk-login-aside-body { margin-top: auto; }
+.mk-login-gymavatar { width: 56px; height: 56px; border-radius: 16px; font-size: 1.5rem; margin-bottom: 16px; }
+.mk-login-gymname { font-family: var(--gf-font-display); font-size: clamp(1.6rem, 3vw, 2.25rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.mk-login-tagline { color: var(--gf-text-secondary); margin: 8px 0 22px; font-size: 1.0625rem; }
+.mk-login-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.mk-login-points li { display: flex; align-items: flex-start; gap: 12px; }
+.mk-login-point-icon { flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; background: rgba(var(--gf-brand-rgb), 0.18); color: var(--gf-brand-light); display: flex; align-items: center; justify-content: center; }
+.mk-login-point-label { display: block; font-family: var(--gf-font-display); font-weight: 600; color: var(--gf-text); font-size: 0.9rem; }
+.mk-login-point-sub { display: block; font-size: 0.78rem; color: var(--gf-text-muted); }
+
+.mk-login-panel { align-self: center; }
+.mk-login-mobilehead { display: none; align-items: center; gap: 10px; margin-bottom: 18px; }
+.gym-avatar-sm { width: 36px; height: 36px; border-radius: 10px; font-size: 1rem; }
+.mk-login-mobilename { font-family: var(--gf-font-display); font-weight: 700; font-size: 1.0625rem; color: var(--gf-text); }
+
+@media (max-width: 900px) {
+  .mk-auth-login { display: block; }
+  .mk-login-aside { display: none; }
+  .mk-login-mobilehead { display: flex; }
+  .mk-login-panel { max-width: 460px; margin: 0 auto; }
+}
+
+/* Login mobile header: keep avatar + name together (override centered avatar) */
+.mk-login-mobilehead .gym-avatar { margin: 0; }
