@@ -21,18 +21,34 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng'),
   title: {
-    default: 'GymFlow',
+    default: 'GymFlow — Gym Management for Nigerian Fitness Businesses',
     template: '%s — GymFlow',
   },
-  description: 'Gym Management SaaS for Nigerian fitness businesses',
-  manifest: '/manifest.json',
+  description: 'Member check-in, Paystack subscriptions, class booking, and automated reminders — one mobile-first platform built for Nigerian gyms.',
   applicationName: 'GymFlow',
+  manifest: '/manifest.json',
+  keywords: ['gym management', 'gym software Nigeria', 'Paystack subscriptions', 'fitness CRM', 'member check-in', 'GymFlow'],
+  authors: [{ name: 'GymFlow' }],
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'GymFlow',
   },
+  openGraph: {
+    type: 'website',
+    siteName: 'GymFlow',
+    title: 'GymFlow — Modern Gym Management for Nigerian Fitness Businesses',
+    description: 'Member check-in, Paystack subscriptions, class booking, and automation — in one mobile-first platform that works on Naija data.',
+    locale: 'en_NG',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GymFlow — Modern Gym Management',
+    description: 'Member check-in, Paystack subscriptions, class booking, and automation for Nigerian gyms.',
+  },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
