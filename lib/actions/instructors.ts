@@ -45,21 +45,28 @@ export async function inviteInstructor(slug: string, formData: FormData): Promis
   }
   if (!userId) return { ok: false, error: 'Could not provision instructor' };
 
-  await admin
-    .from('profiles')
-    .upsert(
-      {
-        id: userId,
-        email,
-        first_name: fullName.split(/\s+/)[0],
-        last_name: fullName.split(/\s+/).slice(1).join(' ') || null,
-        phone: phone || null,
-        role: 'instructor',
-        gym_id: gym.id,
-        is_active: true,
-      },
-      { onConflict: 'id' },
-    );
+  // Only seed the profile for a brand-new account. If the email already belongs
+  // to someone (e.g. a member at another gym, or an owner), we must NOT clobber
+  // their role/gym_id — that would corrupt another tenant's user and misdirect
+  // their login. Instructor access for THIS gym comes from the staff link below,
+  // not from profiles.role.
+  if (!createErr) {
+    await admin
+      .from('profiles')
+      .upsert(
+        {
+          id: userId,
+          email,
+          first_name: fullName.split(/\s+/)[0],
+          last_name: fullName.split(/\s+/).slice(1).join(' ') || null,
+          phone: phone || null,
+          role: 'instructor',
+          gym_id: gym.id,
+          is_active: true,
+        },
+        { onConflict: 'id' },
+      );
+  }
 
   await admin.from('gym_staff_links').upsert(
     { gym_id: gym.id, user_id: userId, role: 'instructor', is_active: true },

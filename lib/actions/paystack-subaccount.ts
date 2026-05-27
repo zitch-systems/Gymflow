@@ -8,7 +8,11 @@ import { resolveAccount, createSubaccount, updateSubaccount, listBanks } from '@
 
 type Result = { ok: boolean; error?: string };
 
-export async function fetchBanks(): Promise<{ ok: boolean; banks?: { code: string; name: string }[]; error?: string }> {
+// Both helpers below proxy Paystack endpoints, so they require manager auth —
+// otherwise verifyAccountName would be an open account-number → name lookup
+// oracle (privacy leak + Paystack rate-limit/cost abuse).
+export async function fetchBanks(slug: string): Promise<{ ok: boolean; banks?: { code: string; name: string }[]; error?: string }> {
+  await requireManager(slug);
   try {
     const banks = await listBanks();
     return { ok: true, banks: banks.map((b) => ({ code: b.code, name: b.name })) };
@@ -17,7 +21,8 @@ export async function fetchBanks(): Promise<{ ok: boolean; banks?: { code: strin
   }
 }
 
-export async function verifyAccountName(formData: FormData): Promise<{ ok: boolean; accountName?: string; error?: string }> {
+export async function verifyAccountName(slug: string, formData: FormData): Promise<{ ok: boolean; accountName?: string; error?: string }> {
+  await requireManager(slug);
   const accountNumber = String(formData.get('account_number') ?? '').trim();
   const bankCode = String(formData.get('bank_code') ?? '').trim();
   if (!/^\d{10}$/.test(accountNumber)) return { ok: false, error: 'Account number must be 10 digits' };

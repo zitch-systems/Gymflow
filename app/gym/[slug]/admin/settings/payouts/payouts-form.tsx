@@ -23,11 +23,11 @@ export function PayoutsForm({ slug, initial }: { slug: string; initial: Initial 
   const toast = useToast();
 
   useEffect(() => {
-    fetchBanks().then((r) => {
+    fetchBanks(slug).then((r) => {
       if (r.ok && r.banks) setBanks(r.banks);
       else if (r.error) toast(r.error, 'error');
     });
-  }, [toast]);
+  }, [toast, slug]);
 
   async function handleVerify() {
     if (!/^\d{10}$/.test(accountNumber)) {
@@ -42,7 +42,7 @@ export function PayoutsForm({ slug, initial }: { slug: string; initial: Initial 
     const fd = new FormData();
     fd.set('account_number', accountNumber);
     fd.set('bank_code', bankCode);
-    const r = await verifyAccountName(fd);
+    const r = await verifyAccountName(slug, fd);
     setVerifying(false);
     if (r.ok && r.accountName) {
       setAccountName(r.accountName);
