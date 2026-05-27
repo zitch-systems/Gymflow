@@ -14,12 +14,6 @@ type Props = {
   subaccount: string | null;
 };
 
-function computeEndDate(months: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().split('T')[0];
-}
-
 export function SubscribeButton({ gymId, instructorId, instructorName, email, priceMonthly, subaccount }: Props) {
   const [ready, setReady] = useState(() => typeof window !== 'undefined' && !!window.PaystackPop);
   const [months, setMonths] = useState(1);
@@ -57,9 +51,7 @@ export function SubscribeButton({ gymId, instructorId, instructorName, email, pr
               reference: txn.reference,
               gym_id: gymId,
               instructor_id: instructorId,
-              amount,
               months,
-              end_date: computeEndDate(months),
             }),
           })
             .then((r) => r.json())

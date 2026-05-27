@@ -30,7 +30,12 @@ export async function adminOnboardMember(slug: string, formData: FormData): Prom
   const waiverSigned = formData.get('waiver_signed') !== null;
   const planId = String(formData.get('plan_id') ?? '').trim() || null;
   const paymentAmount = Number(formData.get('payment_amount') ?? 0);
-  const paymentMethod = String(formData.get('payment_method') ?? 'cash').trim();
+  const rawPaymentMethod = String(formData.get('payment_method') ?? 'cash').trim();
+  const VALID_PAYMENT_METHODS = ['card', 'bank_transfer', 'cash', 'crypto'] as const;
+  type ValidPaymentMethod = typeof VALID_PAYMENT_METHODS[number];
+  const paymentMethod: ValidPaymentMethod = (VALID_PAYMENT_METHODS as readonly string[]).includes(rawPaymentMethod)
+    ? (rawPaymentMethod as ValidPaymentMethod)
+    : 'cash';
 
   if (!email || !fullName) return { error: 'Name and email are required.' };
 

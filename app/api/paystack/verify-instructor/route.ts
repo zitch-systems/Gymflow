@@ -8,9 +8,7 @@ type Body = {
   reference?: string;
   gym_id?: string;
   instructor_id?: string;
-  amount?: number;
   months?: number;
-  end_date?: string;
 };
 
 export async function POST(request: Request) {
@@ -21,9 +19,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { reference, gym_id, instructor_id, amount, months, end_date } = body;
-  if (!reference || !gym_id || !instructor_id || !end_date) {
-    return NextResponse.json({ error: 'reference, gym_id, instructor_id, end_date required' }, { status: 400 });
+  const { reference, gym_id, instructor_id, months } = body;
+  if (!reference || !gym_id || !instructor_id || !months || months < 1 || months > 24) {
+    return NextResponse.json({ error: 'reference, gym_id, instructor_id, months required' }, { status: 400 });
   }
 
   const supabase = await createClient();
@@ -31,6 +29,23 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  // Look up the instructor's price server-side — never trust the client.
+  const { data: pricing, error: pricingError } = await supabase
+    .from('instructor_pricing')
+    .select('price')
+    .eq('gym_id', gym_id)
+    .eq('instructor_id', instructor_id)
+    .eq('is_active', true)
+    .eq('billing_period', 'monthly')
+    .maybeSingle();
+
+  if (pricingError || !pricing) {
+    return NextResponse.json({ error: 'Instructor pricing not found' }, { status: 404 });
+  }
+
+  const pricePerMonth = Number(pricing.price);
+  const expectedTotal = pricePerMonth * months;
 
   let txn: Awaited<ReturnType<typeof verifyTransaction>>;
   try {
@@ -45,6 +60,12 @@ export async function POST(request: Request) {
   if (txn.customer?.email !== user.email) {
     return NextResponse.json({ error: 'Email on payment does not match account' }, { status: 403 });
   }
+  if ((txn.currency ?? '').toUpperCase() !== 'NGN') {
+    return NextResponse.json({ error: 'Only NGN payments accepted' }, { status: 400 });
+  }
+  if (txn.amount / 100 < expectedTotal) {
+    return NextResponse.json({ error: 'Payment amount is less than the required price' }, { status: 400 });
+  }
 
   // Idempotency: if we've already recorded this reference, return success.
   const { data: existing } = await supabase
@@ -56,7 +77,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, subscription: existing, already: true });
   }
 
+  // Compute dates server-side.
   const today = new Date().toISOString().split('T')[0];
+  const endDateObj = new Date();
+  endDateObj.setMonth(endDateObj.getMonth() + months);
+  const end_date = endDateObj.toISOString().split('T')[0];
 
   const { data: subscription, error: subError } = await supabase
     .from('instructor_subscriptions')
@@ -67,7 +92,7 @@ export async function POST(request: Request) {
       status: 'active',
       start_date: today,
       end_date,
-      amount_paid: amount ?? txn.amount / 100,
+      amount_paid: expectedTotal,
       payment_reference: reference,
     })
     .select()
@@ -81,8 +106,8 @@ export async function POST(request: Request) {
   await supabase.from('payments').insert({
     gym_id,
     member_id: user.id,
-    amount: amount ?? txn.amount / 100,
-    currency: txn.currency ?? 'NGN',
+    amount: expectedTotal,
+    currency: 'NGN',
     payment_method: 'card',
     payment_status: 'successful',
     paystack_reference: reference,
@@ -130,10 +155,9 @@ export async function POST(request: Request) {
     ]);
     const name = profile?.full_name ?? profile?.first_name ?? 'Member';
     const planName = `Coaching: ${instructor?.full_name ?? 'Instructor'}`;
-    const paid = amount ?? txn.amount / 100;
     await Promise.allSettled([
-      sendReceipt(user.email!, { name, amount: paid, plan: planName, endDate: end_date }),
-      profile?.phone ? waReceipt(profile.phone, { name, amount: paid, endDate: end_date }) : Promise.resolve(),
+      sendReceipt(user.email!, { name, amount: expectedTotal, plan: planName, endDate: end_date }),
+      profile?.phone ? waReceipt(profile.phone, { name, amount: expectedTotal, endDate: end_date }) : Promise.resolve(),
     ]);
   } catch (e) {
     console.warn('[GF verify-instructor] receipt notification failed:', (e as Error).message);

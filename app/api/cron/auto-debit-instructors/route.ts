@@ -7,6 +7,8 @@ import { waAutoDebitSuccess, waAutoDebitFailure } from '@/lib/whatsapp';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
+const DAY_MS = 86_400_000;
+
 function isoDate(d: Date) {
   return d.toISOString().split('T')[0];
 }
@@ -30,6 +32,9 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient();
   const today = isoDate(new Date());
+  const windowStart = isoDate(new Date(Date.now() - 2 * DAY_MS));
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
   const summary = { charged: 0, failed: 0, no_card: 0, no_price: 0 };
 
   const { data: due } = await supabase
@@ -39,7 +44,8 @@ export async function GET(request: Request) {
     )
     .eq('status', 'active')
     .eq('auto_renew', true)
-    .eq('end_date', today);
+    .gte('end_date', windowStart)
+    .lte('end_date', today);
 
   for (const sub of due ?? []) {
     const profile = Array.isArray(sub.profiles) ? sub.profiles[0] : sub.profiles;
@@ -76,6 +82,19 @@ export async function GET(request: Request) {
       summary.no_card++;
       continue;
     }
+
+    // Idempotency: don't charge twice in the same calendar day.
+    const { data: alreadyCharged } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('member_id', sub.member_id)
+      .eq('gym_id', sub.gym_id)
+      .eq('payment_method', 'card')
+      .eq('payment_status', 'successful')
+      .gte('payment_date', startOfToday.toISOString())
+      .limit(1)
+      .maybeSingle();
+    if (alreadyCharged) continue;
 
     let result: ChargeResult;
     try {
