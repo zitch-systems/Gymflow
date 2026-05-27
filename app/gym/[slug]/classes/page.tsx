@@ -57,20 +57,26 @@ export default async function MemberClassesPage({ params }: PageProps) {
   }
 
   // Confirmed-booking counts across all members (counts only, no PII) via service role —
-  // RLS otherwise hides other members' rows from a member session.
+  // RLS otherwise hides other members' rows from a member session. Best-effort:
+  // if the service-role key is unset/unavailable, fall back to no capacity badges
+  // rather than crashing the page (booking itself still enforces capacity).
   const confirmedCount = new Map<string, number>();
   if (scheduleIds.length > 0) {
-    const admin = createAdminClient();
-    const { data: allBooked } = await admin
-      .from('class_bookings')
-      .select('class_schedule_id, booking_date')
-      .eq('gym_id', gym.id)
-      .eq('status', 'booked')
-      .in('class_schedule_id', scheduleIds);
-    for (const b of allBooked ?? []) {
-      if (!b.class_schedule_id || !b.booking_date) continue;
-      const k = bookedKey(b.class_schedule_id, b.booking_date);
-      confirmedCount.set(k, (confirmedCount.get(k) ?? 0) + 1);
+    try {
+      const admin = createAdminClient();
+      const { data: allBooked } = await admin
+        .from('class_bookings')
+        .select('class_schedule_id, booking_date')
+        .eq('gym_id', gym.id)
+        .eq('status', 'booked')
+        .in('class_schedule_id', scheduleIds);
+      for (const b of allBooked ?? []) {
+        if (!b.class_schedule_id || !b.booking_date) continue;
+        const k = bookedKey(b.class_schedule_id, b.booking_date);
+        confirmedCount.set(k, (confirmedCount.get(k) ?? 0) + 1);
+      }
+    } catch (e) {
+      console.warn('[GF classes] capacity counts unavailable:', (e as Error).message);
     }
   }
 

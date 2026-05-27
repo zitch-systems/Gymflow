@@ -83,6 +83,24 @@ export async function requestPayout(slug: string, formData: FormData): Promise<R
   if (!amount || amount <= 0) return { ok: false, error: 'Enter a valid amount' };
 
   const supabase = await createClient();
+
+  // Cap the request to what's actually available: lifetime revenue-share earned
+  // minus what's already paid out or pending. Prevents self-service over-requests.
+  const sharePct = gym.instructor_revenue_share_pct ?? 50;
+  const [{ data: subs }, { data: payouts }] = await Promise.all([
+    supabase.from('instructor_subscriptions').select('amount_paid').eq('gym_id', gym.id).eq('instructor_id', user.id),
+    supabase.from('instructor_payouts').select('amount, status').eq('gym_id', gym.id).eq('instructor_id', user.id),
+  ]);
+  const gross = (subs ?? []).reduce((s, r) => s + (Number(r.amount_paid) || 0), 0);
+  const earned = Math.round((gross * sharePct) / 100);
+  const committed = (payouts ?? [])
+    .filter((p) => p.status === 'paid' || p.status === 'requested' || p.status === 'approved')
+    .reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const available = Math.max(0, earned - committed);
+  if (amount > available) {
+    return { ok: false, error: `You can request at most ₦${available.toLocaleString('en-NG')}` };
+  }
+
   const { error } = await supabase.from('instructor_payouts').insert({
     gym_id: gym.id,
     instructor_id: user.id,
