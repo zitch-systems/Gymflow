@@ -5451,3 +5451,84 @@ body::after {
 .mk-auth-panel-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .mk-auth-panel-title { font-family: var(--gf-font-display); font-size: 1.375rem; font-weight: 700; color: var(--gf-text); }
 .mk-auth-panel-sub { font-size: 0.875rem; color: var(--gf-text-muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Multi-page marketing — photo hero, galleries, feature rows, pricing tiers
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Graceful image fallback: container shows a brand-tinted gradient if the photo
+   is missing, and the <img> covers it once present. */
+.mk-gallery-item, .mk-feature-row-media, .mk-masonry-item {
+  background: linear-gradient(135deg, var(--gf-elevated), var(--gf-surface));
+  overflow: hidden;
+}
+.mk-gallery-item img, .mk-feature-row-media img, .mk-masonry-item img {
+  width: 100%; height: 100%; object-fit: cover; display: block; color: transparent;
+}
+
+/* Photo hero (home) */
+.mk-hero-photo { position: relative; overflow: hidden; background: var(--gf-bg); }
+.mk-hero-photo-bg {
+  position: absolute; inset: 0; background-size: cover; background-position: center;
+  opacity: 0.5; z-index: 0;
+}
+.mk-hero-photo::after {
+  content: ''; position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(180deg, rgba(var(--gf-bg-rgb), 0.55) 0%, rgba(var(--gf-bg-rgb), 0.82) 55%, var(--gf-bg) 100%);
+}
+.mk-hero-photo-inner { position: relative; z-index: 1; text-align: center; }
+.mk-hero-photo-inner .marketing-eyebrow { margin-left: auto; margin-right: auto; }
+.mk-hero-photo-inner .marketing-hero-actions,
+.mk-hero-photo-inner .marketing-stats { justify-content: center; }
+
+/* Sub-page hero (smaller) */
+.mk-subhero { padding-top: clamp(48px, 8vw, 88px); padding-bottom: 8px; text-align: center; }
+.mk-subhero .marketing-eyebrow { margin-left: auto; margin-right: auto; }
+.mk-subhero .marketing-hero-actions { justify-content: center; }
+
+/* Home gallery strip */
+.mk-gallery-strip { background: rgba(var(--gf-surface-rgb), 0.4); }
+.mk-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 36px; }
+@media (max-width: 760px) { .mk-gallery { grid-template-columns: repeat(2, 1fr); } }
+.mk-gallery-item { aspect-ratio: 3 / 4; border-radius: var(--gf-radius); border: 1px solid var(--gf-border); transition: transform var(--gf-t); }
+.mk-gallery-item:hover { transform: translateY(-4px); }
+
+/* Feature rows (alternating image + copy) */
+.mk-rows { display: block; }
+.mk-feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; margin-bottom: 56px; }
+.mk-feature-row:last-child { margin-bottom: 0; }
+.mk-feature-row.reverse .mk-feature-row-media { order: 2; }
+.mk-feature-row-media { aspect-ratio: 4 / 3; border-radius: var(--gf-radius-lg); border: 1px solid var(--gf-border); box-shadow: var(--gf-shadow-md); }
+@media (max-width: 860px) {
+  .mk-feature-row { grid-template-columns: 1fr; gap: 24px; margin-bottom: 40px; }
+  .mk-feature-row.reverse .mk-feature-row-media { order: 0; }
+}
+
+/* Pricing tier cards */
+.mk-price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px; align-items: start; }
+@media (max-width: 860px) { .mk-price-grid { grid-template-columns: 1fr; max-width: 420px; margin-inline: auto; } }
+.mk-price-card { position: relative; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 26px 22px; display: flex; flex-direction: column; gap: 12px; }
+.mk-price-card.best { border-color: var(--gf-brand); box-shadow: var(--gf-shadow-glow); }
+.mk-price-badge { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: var(--gf-brand); color: #fff; font-family: var(--gf-font-display); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 12px; border-radius: var(--gf-radius-pill); white-space: nowrap; }
+.mk-price-name { font-family: var(--gf-font-display); font-size: 1.0625rem; font-weight: 700; color: var(--gf-text-secondary); }
+.mk-price-amount { font-family: var(--gf-font-display); font-size: 2.25rem; font-weight: 700; color: var(--gf-text); letter-spacing: -0.03em; line-height: 1; }
+.mk-price-amount span { font-size: 0.9375rem; font-weight: 500; color: var(--gf-text-muted); }
+.mk-price-note { font-size: 0.8125rem; color: var(--gf-text-muted); min-height: 1.2em; }
+.mk-price-list { list-style: none; padding: 14px 0 0; margin: 4px 0 0; border-top: 1px solid var(--gf-border); display: flex; flex-direction: column; gap: 9px; }
+.mk-price-list li { display: flex; align-items: flex-start; gap: 8px; font-size: 0.875rem; color: var(--gf-text-secondary); }
+.mk-price-list li svg { color: var(--gf-brand); flex-shrink: 0; margin-top: 2px; }
+.mk-price-foot { text-align: center; color: var(--gf-text-muted); font-size: 0.8125rem; margin-top: 24px; }
+
+/* About masonry gallery */
+.mk-masonry { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 220px; gap: 14px; }
+@media (max-width: 760px) { .mk-masonry { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 180px; } }
+.mk-masonry-item { margin: 0; border-radius: var(--gf-radius); border: 1px solid var(--gf-border); }
+.mk-masonry-item.span { grid-column: span 2; grid-row: span 2; }
+@media (max-width: 760px) { .mk-masonry-item.span { grid-column: span 2; grid-row: span 1; } }
+
+/* Stats band (about) */
+.mk-stats-band { background: rgba(var(--gf-surface-rgb), 0.4); border-top: 1px solid var(--gf-border); border-bottom: 1px solid var(--gf-border); }
+.mk-statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; text-align: center; }
+@media (max-width: 640px) { .mk-statgrid { grid-template-columns: repeat(2, 1fr); gap: 28px; } }
+.mk-statgrid-num { display: block; font-family: var(--gf-font-display); font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700; color: var(--gf-brand); letter-spacing: -0.02em; }
+.mk-statgrid-cap { display: block; font-size: 0.875rem; color: var(--gf-text-secondary); margin-top: 4px; }
