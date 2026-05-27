@@ -5194,3 +5194,30 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 .mk-billing-per { font-size: 0.8125rem; font-weight: 500; color: var(--gf-text-muted); }
 .mk-billing-eq { font-size: 0.75rem; color: var(--gf-text-muted); }
 .mk-billing-save { align-self: flex-start; margin-top: 4px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Member & Coach portal shells (mobile-first) — bottom tab bar integration
+   ═══════════════════════════════════════════════════════════════════════════ */
+.gf-has-tabbar { min-height: 100vh; min-height: 100dvh; }
+
+/* Clear the fixed bottom nav so content/FAB never overlaps the last items. */
+.gf-has-tabbar .member-portal,
+.gf-has-tabbar .gf-page {
+  padding-bottom: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+/* On wide screens keep the app feel: center the bar over the content column. */
+@media (min-width: 760px) {
+  .gf-mobile-nav {
+    max-width: 600px;
+    margin: 0 auto;
+    border-left: 1px solid var(--gf-border);
+    border-right: 1px solid var(--gf-border);
+    border-top-left-radius: var(--gf-radius);
+    border-top-right-radius: var(--gf-radius);
+  }
+}
+
+/* Slightly larger, comfortable tap targets for the portal nav. */
+.gf-mobile-nav .gf-nav-tab { min-width: 56px; padding-top: 8px; }
+.gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
