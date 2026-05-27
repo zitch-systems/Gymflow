@@ -12,13 +12,13 @@
 
 /* ── CSS Variables ── */
 :root {
-  /* Brand — electric violet */
-  --gf-brand: #7c5cff;
-  --gf-brand-rgb: 124, 92, 255;
-  --gf-brand-dark: #5d3bff;
-  --gf-brand-light: #a48bff;
-  --gf-brand-glow: rgba(124, 92, 255, 0.28);
-  --gf-brand-soft: rgba(124, 92, 255, 0.10);
+  /* Brand — emerald green */
+  --gf-brand: #11d18b;
+  --gf-brand-rgb: 17, 209, 139;
+  --gf-brand-dark: #07a86c;
+  --gf-brand-light: #4fe3a8;
+  --gf-brand-glow: rgba(17, 209, 139, 0.28);
+  --gf-brand-soft: rgba(17, 209, 139, 0.10);
 
   /* Secondary — volt lime (energy accent) */
   --gf-accent: #c6f24e;
@@ -43,7 +43,7 @@
   --gf-elevated-rgb: 27, 27, 43;
   --gf-border: #2a2a40;
   --gf-border-light: #3d3d5a;
-  --gf-border-glow: rgba(124, 92, 255, 0.16);
+  --gf-border-glow: rgba(17, 209, 139, 0.16);
 
   /* Text */
   --gf-text: #f3f3fa;
@@ -63,7 +63,7 @@
   --gf-info-soft: rgba(64, 128, 255, 0.08);
   --gf-success: #00c896;
   --gf-success-rgb: 0, 200, 150;
-  --gf-success-soft: rgba(124, 92, 255, 0.08);
+  --gf-success-soft: rgba(17, 209, 139, 0.08);
 
   /* Shape */
   --gf-radius: 16px;
@@ -79,8 +79,8 @@
   --gf-shadow: 0 4px 24px rgba(0,0,0,0.4);
   --gf-shadow-md: 0 8px 32px rgba(0,0,0,0.45);
   --gf-shadow-lg: 0 16px 48px rgba(0,0,0,0.55);
-  --gf-shadow-glow: 0 0 40px rgba(124, 92, 255, 0.20);
-  --gf-shadow-glow-strong: 0 0 64px rgba(124, 92, 255, 0.34);
+  --gf-shadow-glow: 0 0 40px rgba(17, 209, 139, 0.20);
+  --gf-shadow-glow-strong: 0 0 64px rgba(17, 209, 139, 0.34);
 
   /* Motion */
   --gf-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -111,17 +111,17 @@
   --gf-elevated-rgb: 240, 240, 247;
   --gf-border: #e3e3ee;
   --gf-border-light: #cdcde0;
-  --gf-border-glow: rgba(124, 92, 255, 0.12);
+  --gf-border-glow: rgba(17, 209, 139, 0.12);
   --gf-text: #14121f;
   --gf-text-secondary: #55546e;
   --gf-text-muted: #8a89a3;
   --gf-text-subtle: #cdcde0;
-  --gf-brand: #6638ff;
-  --gf-brand-rgb: 102, 56, 255;
-  --gf-brand-dark: #5021e6;
-  --gf-brand-light: #7c5cff;
-  --gf-brand-glow: rgba(102, 56, 255, 0.18);
-  --gf-brand-soft: rgba(102, 56, 255, 0.07);
+  --gf-brand: #08a86c;
+  --gf-brand-rgb: 8, 168, 108;
+  --gf-brand-dark: #06794f;
+  --gf-brand-light: #11d18b;
+  --gf-brand-glow: rgba(8, 168, 108, 0.18);
+  --gf-brand-soft: rgba(8, 168, 108, 0.07);
   --gf-accent: #7fb800;
   --gf-accent-rgb: 127, 184, 0;
   --gf-accent-dark: #6a9c00;
@@ -132,7 +132,7 @@
   --gf-shadow: 0 4px 20px rgba(20,18,31,0.09);
   --gf-shadow-md: 0 8px 28px rgba(20,18,31,0.1);
   --gf-shadow-lg: 0 16px 48px rgba(20,18,31,0.12);
-  --gf-shadow-glow: 0 0 32px rgba(102, 56, 255, 0.12);
+  --gf-shadow-glow: 0 0 32px rgba(8, 168, 108, 0.12);
 }
 
 /* ── Reset ── */
@@ -1154,7 +1154,7 @@ h1, h2, h3, h4, h5, h6,
   border: 2px solid var(--gf-border);
 }
 .gf-result-overlay {
-  position: absolute; inset: 0; background: rgba(124, 92, 255,0.12);
+  position: absolute; inset: 0; background: rgba(17, 209, 139,0.12);
   border: 2px solid var(--gf-brand); border-radius: var(--gf-radius-lg);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   backdrop-filter: blur(2px);
@@ -1383,7 +1383,7 @@ h1, h2, h3, h4, h5, h6,
   color: white;
   margin: 12px auto 0;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(124, 92, 255, 0.3);
+  box-shadow: 0 8px 24px rgba(17, 209, 139, 0.3);
 }
 
 .form-stack { display: flex; flex-direction: column; gap: 14px; }
@@ -1535,9 +1535,9 @@ h1, h2, h3, h4, h5, h6,
   cursor: pointer;
   text-decoration: none;
   transition: all .2s;
-  box-shadow: 0 8px 24px rgba(124, 92, 255, 0.3);
+  box-shadow: 0 8px 24px rgba(17, 209, 139, 0.3);
 }
-.btn-lg:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(124, 92, 255, 0.4); }
+.btn-lg:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(17, 209, 139, 0.4); }
 .btn-outline-lg {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   padding: 14px 26px;
@@ -1637,7 +1637,7 @@ h1, h2, h3, h4, h5, h6,
 }
 .hero-bg {
   position: absolute; inset: 0;
-  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124, 92, 255,0.08), transparent 60%);
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(17, 209, 139,0.08), transparent 60%);
   pointer-events: none;
 }
 .hero-grid {
@@ -1650,7 +1650,7 @@ h1, h2, h3, h4, h5, h6,
   display: inline-flex; align-items: center;
   padding: 6px 14px;
   background: var(--gf-brand-soft);
-  border: 1px solid rgba(124, 92, 255, 0.25);
+  border: 1px solid rgba(17, 209, 139, 0.25);
   border-radius: 100px;
   font-size: 0.8125rem; font-weight: 600; color: var(--gf-brand);
   margin-bottom: 20px;
@@ -1776,7 +1776,7 @@ h1, h2, h3, h4, h5, h6,
   border-radius: 50%;
   background: linear-gradient(135deg, var(--gf-brand) 0%, var(--gf-brand-dark) 100%);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 8px 20px rgba(124, 92, 255, 0.45);
+  box-shadow: 0 8px 20px rgba(17, 209, 139, 0.45);
   margin-bottom: 2px;
 }
 
@@ -2423,7 +2423,7 @@ section {
   padding: 5px 12px;
   background: var(--gf-brand-soft);
   color: var(--gf-brand);
-  border: 1px solid rgba(124, 92, 255, 0.25);
+  border: 1px solid rgba(17, 209, 139, 0.25);
   border-radius: 100px;
   font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   margin-bottom: 12px;
@@ -2508,7 +2508,7 @@ section {
   text-align: center;
   position: relative;
 }
-.pricing-card.popular { border-color: var(--gf-brand); box-shadow: 0 8px 28px rgba(124, 92, 255, 0.15); }
+.pricing-card.popular { border-color: var(--gf-brand); box-shadow: 0 8px 28px rgba(17, 209, 139, 0.15); }
 .pricing-desc { font-size: 0.875rem; color: var(--gf-text-secondary); margin: 8px 0 16px; }
 .pricing-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -3508,7 +3508,7 @@ section {
   border: none;
   display: none;
   align-items: center; justify-content: center;
-  box-shadow: 0 10px 28px rgba(124, 92, 255, 0.45);
+  box-shadow: 0 10px 28px rgba(17, 209, 139, 0.45);
   z-index: 45;
   cursor: pointer;
   transition: transform .2s;
@@ -4922,12 +4922,12 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(60% 50% at 85% -5%, rgba(124, 92, 255, 0.10), transparent 60%),
+    radial-gradient(60% 50% at 85% -5%, rgba(17, 209, 139, 0.10), transparent 60%),
     radial-gradient(50% 45% at 0% 0%, rgba(198, 242, 78, 0.05), transparent 55%);
 }
 [data-theme="light"] body::before {
   background:
-    radial-gradient(55% 45% at 90% -10%, rgba(102, 56, 255, 0.07), transparent 60%),
+    radial-gradient(55% 45% at 90% -10%, rgba(8, 168, 108, 0.07), transparent 60%),
     radial-gradient(45% 40% at -5% 0%, rgba(127, 184, 0, 0.04), transparent 55%);
 }
 
