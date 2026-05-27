@@ -17,7 +17,6 @@ const PHOTOS = [
   { src: '/images/gym-machines.jpg', alt: 'Machines and lockers on a wood floor' },
   { src: '/images/gym-studio.jpg', alt: 'Cardio studio with treadmills and lockers' },
   { src: '/images/gym-kettlebell.jpg', alt: 'Kettlebell close-up on the rack' },
-  { src: '/images/gym-hex.jpg', alt: 'Hex dumbbells on the training floor' },
 ];
 
 export default function AboutPage() {
