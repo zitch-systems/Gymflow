@@ -68,6 +68,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing or invalid onboarding metadata' }, { status: 400 });
   }
 
+  // Verify the money actually charged covers the chosen plan, in Naira. The
+  // amount/metadata on the inline checkout are client-influenced, so without
+  // this a caller could pay ₦1 and have a full subscription provisioned.
+  if ((txn.currency ?? 'NGN') !== 'NGN') {
+    return NextResponse.json({ error: 'Unsupported payment currency' }, { status: 400 });
+  }
+  if (Number(txn.amount) < PLATFORM_PRICING[billing].amount * 100) {
+    return NextResponse.json({ error: 'Amount paid is less than the plan price' }, { status: 400 });
+  }
+
   const admin = createAdminClient();
 
   // Idempotency: if we already provisioned this reference, return existing gym.

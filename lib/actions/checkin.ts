@@ -1,8 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
-import { getGymBySlug } from '@/lib/auth/gym';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getGymBySlug, getStaffRole } from '@/lib/auth/gym';
 import { getSessionUser } from '@/lib/auth/dal';
 
 export type CheckInResult =
@@ -23,10 +23,27 @@ export async function checkInBySlug(
 ): Promise<CheckInResult> {
   if (!memberId) return { ok: false, error: 'Member ID required' };
 
+  const method = opts.method ?? 'manual';
+
+  // Authorization: this is an exported server action, so it is directly
+  // invocable by any signed-in client. Manual check-in of an arbitrary member
+  // is a staff-only operation; self/QR check-in may only target the caller.
+  const caller = await getSessionUser();
+  if (!caller) return { ok: false, error: 'Not signed in' };
+  if (method === 'manual') {
+    const role = await getStaffRole(slug);
+    if (!role || role === 'member') return { ok: false, error: 'Not authorized' };
+  } else if (memberId !== caller.id) {
+    return { ok: false, error: 'Not authorized' };
+  }
+
   const gym = await getGymBySlug(slug);
   if (!gym) return { ok: false, error: 'Gym not found' };
 
-  const supabase = await createClient();
+  // Authorized above; use the service-role client for the data work
+  // (check_ins has no authenticated-role INSERT policy, and staff manual
+  // check-in legitimately writes a row for another member).
+  const supabase = createAdminClient();
 
   const { data: link } = await supabase
     .from('gym_member_links')
@@ -52,7 +69,6 @@ export async function checkInBySlug(
 
   // Member-initiated check-in (self / QR) requires a valid active subscription.
   // Staff manual check-in may log a visit regardless (e.g. day pass, grace).
-  const method = opts.method ?? 'manual';
   if (!sub && method !== 'manual') {
     return { ok: false, error: 'Your membership has expired or is inactive. Please renew to check in.' };
   }

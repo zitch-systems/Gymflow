@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
 import { fulfilMembershipPurchase } from '@/lib/paystack-fulfill';
 
@@ -45,8 +46,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Payment does not match your account' }, { status: 403 });
   }
 
+  // Authorization is complete (session verified, Paystack charge verified, email
+  // matched). The privileged writes (memberships/payments/saved_cards have no
+  // authenticated-role INSERT policy by design) go through the service-role
+  // client — same path the webhook uses.
+  const admin = createAdminClient();
   const result = await fulfilMembershipPurchase(
-    supabase,
+    admin,
     user.id,
     plan_id,
     {

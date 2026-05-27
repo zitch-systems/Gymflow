@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
 import { sendReceipt } from '@/lib/email';
 import { waReceipt } from '@/lib/whatsapp';
@@ -24,11 +25,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'reference, gym_id, instructor_id, months required' }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const userClient = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await userClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+
+  // Authorized (session verified, Paystack charge verified below). payments has
+  // no authenticated-role INSERT policy, so the writes use the service-role
+  // client — same pattern as the membership verify route and the webhook.
+  const supabase = createAdminClient();
 
   // Look up the instructor's price server-side — never trust the client.
   const { data: pricing, error: pricingError } = await supabase

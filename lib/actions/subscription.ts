@@ -1,9 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getSessionUser } from '@/lib/auth/dal';
 import { getGymBySlug, requireStaff } from '@/lib/auth/gym';
+
+// memberships is SELECT-only under RLS, so all writes here go through the
+// service-role client. Every function authorizes first (member ownership via
+// getSessionUser + .eq('member_id', …), or requireStaff for admin ops) and
+// keeps the explicit gym_id / member_id filters, so RLS bypass is safe.
 
 type Result = { ok: boolean; error?: string };
 
@@ -15,7 +20,7 @@ export async function requestPause(slug: string, reason: string): Promise<Result
   const gym = await getGymBySlug(slug);
   if (!gym) return { ok: false, error: 'Gym not found' };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: sub } = await supabase
     .from('memberships')
     .select('id')
@@ -57,7 +62,7 @@ export async function cancelAtPeriodEnd(slug: string): Promise<Result> {
   const gym = await getGymBySlug(slug);
   if (!gym) return { ok: false, error: 'Gym not found' };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: sub } = await supabase
     .from('memberships')
     .select('id')
@@ -92,7 +97,7 @@ export async function cancelAtPeriodEnd(slug: string): Promise<Result> {
 
 export async function approvePause(slug: string, membershipId: string): Promise<Result> {
   const { user, gym } = await requireStaffContext(slug);
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const now = new Date().toISOString();
   const { error } = await supabase
     .from('memberships')
@@ -114,7 +119,7 @@ export async function approvePause(slug: string, membershipId: string): Promise<
 
 export async function resumeMembership(slug: string, membershipId: string): Promise<Result> {
   const { user, gym } = await requireStaffContext(slug);
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: m } = await supabase
     .from('memberships')
     .select('end_date, paused_at')
@@ -164,7 +169,7 @@ export async function resumeMembership(slug: string, membershipId: string): Prom
 export async function extendMembership(slug: string, membershipId: string, days: number): Promise<Result> {
   const { user, gym } = await requireStaffContext(slug);
   if (!Number.isFinite(days) || days <= 0 || days > 365) return { ok: false, error: 'Days must be 1-365' };
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: m } = await supabase
     .from('memberships')
     .select('end_date')
@@ -196,7 +201,7 @@ export async function extendMembership(slug: string, membershipId: string, days:
 
 export async function cancelMembership(slug: string, membershipId: string): Promise<Result> {
   const { user, gym } = await requireStaffContext(slug);
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from('memberships')
     .update({ status: 'cancelled', auto_debit_enabled: false, auto_renew: false, updated_at: new Date().toISOString() })
