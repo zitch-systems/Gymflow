@@ -6,12 +6,15 @@ import { waReceipt } from '@/lib/whatsapp';
 
 type VerifyBody = {
   reference?: string;
-  gym_id?: string;
-  plan_id?: string | null;
-  amount?: number;
-  end_date?: string; // ISO date for the new membership period
+  plan_id?: string;
   payment_method?: string;
 };
+
+function addMonths(isoDate: string, months: number): string {
+  const d = new Date(isoDate + 'T00:00:00Z');
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().split('T')[0];
+}
 
 export async function POST(request: Request) {
   let body: VerifyBody;
@@ -21,9 +24,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { reference, gym_id, plan_id, amount, end_date, payment_method = 'card' } = body;
-  if (!reference || !gym_id || !end_date) {
-    return NextResponse.json({ error: 'reference, gym_id and end_date required' }, { status: 400 });
+  const { reference, plan_id, payment_method = 'card' } = body;
+  if (!reference || !plan_id) {
+    return NextResponse.json({ error: 'reference and plan_id required' }, { status: 400 });
   }
 
   const supabase = await createClient();
@@ -33,6 +36,31 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
+
+  // Idempotency: never process the same Paystack reference twice. A replayed
+  // reference must not mint a second membership.
+  const { data: existingPayment } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('paystack_reference', reference)
+    .maybeSingle();
+  if (existingPayment) {
+    return NextResponse.json({ success: true, already: true });
+  }
+
+  // The plan is the source of truth for gym, price, and duration — NEVER the
+  // client. This prevents tampering with amount / end_date / gym_id.
+  const { data: plan } = await supabase
+    .from('membership_plans')
+    .select('id, gym_id, name, price, duration_months, is_active')
+    .eq('id', plan_id)
+    .maybeSingle();
+  if (!plan || plan.is_active === false) {
+    return NextResponse.json({ error: 'Plan not found or inactive' }, { status: 400 });
+  }
+  const gym_id = plan.gym_id as string;
+  const price = Number(plan.price);
+  const durationMonths = Number(plan.duration_months ?? 1);
 
   let txn: Awaited<ReturnType<typeof verifyTransaction>>;
   try {
@@ -44,19 +72,39 @@ export async function POST(request: Request) {
   if (txn.status !== 'success') {
     return NextResponse.json({ error: 'Payment not successful' }, { status: 400 });
   }
-  // Belt-and-braces: tie verified email to signed-in user to prevent ref-stuffing.
+  // Tie the verified email to the signed-in user to prevent reference stuffing.
   if (txn.customer?.email !== user.email) {
-    return NextResponse.json({ error: 'Email on payment does not match account' }, { status: 403 });
+    return NextResponse.json({ error: 'Payment does not match your account' }, { status: 403 });
+  }
+  // Verify the money actually charged matches the plan, in Naira.
+  if ((txn.currency ?? 'NGN') !== 'NGN') {
+    return NextResponse.json({ error: 'Unsupported payment currency' }, { status: 400 });
+  }
+  if (Number(txn.amount) < Math.round(price * 100)) {
+    return NextResponse.json({ error: 'Amount paid is less than the plan price' }, { status: 400 });
   }
 
   const today = new Date().toISOString().split('T')[0];
+
+  // Support pay-ahead: stack on top of the member's current active period.
+  const { data: current } = await supabase
+    .from('memberships')
+    .select('end_date')
+    .eq('member_id', user.id)
+    .eq('gym_id', gym_id)
+    .eq('status', 'active')
+    .order('end_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const base = current?.end_date && current.end_date > today ? current.end_date : today;
+  const end_date = addMonths(base, durationMonths);
 
   const { data: membership, error: membershipError } = await supabase
     .from('memberships')
     .insert({
       member_id: user.id,
       gym_id,
-      plan_id: plan_id ?? null,
+      plan_id,
       status: 'active',
       start_date: today,
       end_date,
@@ -66,15 +114,15 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (membershipError) {
-    return NextResponse.json({ error: `Membership create failed: ${membershipError.message}` }, { status: 500});
+    return NextResponse.json({ error: `Membership create failed: ${membershipError.message}` }, { status: 500 });
   }
 
   const { error: paymentError } = await supabase.from('payments').insert({
     gym_id,
     member_id: user.id,
-    plan_id: plan_id ?? null,
-    amount: amount ?? txn.amount / 100,
-    currency: txn.currency ?? 'NGN',
+    plan_id,
+    amount: price,
+    currency: 'NGN',
     payment_method,
     payment_status: 'successful',
     paystack_reference: reference,
@@ -108,29 +156,21 @@ export async function POST(request: Request) {
     savedCard = !cardError;
   }
 
-  // Fire-and-forget receipt notifications
+  // Fire-and-forget receipt notifications.
   try {
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name, first_name, phone, email')
       .eq('id', user.id)
       .maybeSingle();
-    const { data: plan } = plan_id
-      ? await supabase.from('membership_plans').select('name').eq('id', plan_id).maybeSingle()
-      : { data: null };
     const name = profile?.full_name ?? profile?.first_name ?? 'Member';
-    const planName = plan?.name ?? 'Membership';
     await Promise.allSettled([
-      sendReceipt(user.email!, { name, amount: amount ?? txn.amount / 100, plan: planName, endDate: end_date }),
-      profile?.phone ? waReceipt(profile.phone, { name, amount: amount ?? txn.amount / 100, endDate: end_date }) : Promise.resolve(),
+      sendReceipt(user.email!, { name, amount: price, plan: plan.name ?? 'Membership', endDate: end_date }),
+      profile?.phone ? waReceipt(profile.phone, { name, amount: price, endDate: end_date }) : Promise.resolve(),
     ]);
   } catch (e) {
     console.warn('[GF verify] receipt notification failed:', (e as Error).message);
   }
 
-  return NextResponse.json({
-    success: true,
-    membership,
-    saved_card: savedCard,
-  });
+  return NextResponse.json({ success: true, membership, saved_card: savedCard });
 }

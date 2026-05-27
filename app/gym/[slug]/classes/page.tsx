@@ -1,5 +1,6 @@
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { BookClassButton } from './book-button';
 import { Card, CardHeader } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -35,22 +36,43 @@ export default async function MemberClassesPage({ params }: PageProps) {
     .order('start_time', { ascending: true });
 
   const scheduleIds = (schedules ?? []).map((s) => s.id);
+  const bookedKey = (schId: string, date: string) => `${schId}|${date}`;
+
+  // The member's own bookings (RLS scopes this to them).
   const { data: bookings } =
     scheduleIds.length > 0
       ? await supabase
           .from('class_bookings')
-          .select('class_schedule_id, booking_date, status')
+          .select('id, class_schedule_id, booking_date, status')
           .eq('member_id', user.id)
           .in('class_schedule_id', scheduleIds)
           .neq('status', 'cancelled')
-      : { data: [] as Array<{ class_schedule_id: string | null; booking_date: string | null; status: string | null }> };
+      : { data: [] as Array<{ id: string; class_schedule_id: string | null; booking_date: string | null; status: string | null }> };
 
-  const bookedKey = (schId: string, date: string) => `${schId}|${date}`;
-  const bookedSet = new Set(
-    (bookings ?? [])
-      .filter((b) => b.class_schedule_id && b.booking_date)
-      .map((b) => bookedKey(b.class_schedule_id!, b.booking_date!)),
-  );
+  const myBooking = new Map<string, { id: string; status: string }>();
+  for (const b of bookings ?? []) {
+    if (b.class_schedule_id && b.booking_date && b.id) {
+      myBooking.set(bookedKey(b.class_schedule_id, b.booking_date), { id: b.id, status: b.status ?? 'booked' });
+    }
+  }
+
+  // Confirmed-booking counts across all members (counts only, no PII) via service role —
+  // RLS otherwise hides other members' rows from a member session.
+  const confirmedCount = new Map<string, number>();
+  if (scheduleIds.length > 0) {
+    const admin = createAdminClient();
+    const { data: allBooked } = await admin
+      .from('class_bookings')
+      .select('class_schedule_id, booking_date')
+      .eq('gym_id', gym.id)
+      .eq('status', 'booked')
+      .in('class_schedule_id', scheduleIds);
+    for (const b of allBooked ?? []) {
+      if (!b.class_schedule_id || !b.booking_date) continue;
+      const k = bookedKey(b.class_schedule_id, b.booking_date);
+      confirmedCount.set(k, (confirmedCount.get(k) ?? 0) + 1);
+    }
+  }
 
   const byDay: Record<number, NonNullable<typeof schedules>> = {};
   for (const s of schedules ?? []) {
@@ -77,16 +99,35 @@ export default async function MemberClassesPage({ params }: PageProps) {
               <ul className="gf-list">
                 {slots.map((s) => {
                   const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
-                  const booked = bookedSet.has(bookedKey(s.id, date));
+                  const key = bookedKey(s.id, date);
+                  const mine = myBooking.get(key);
+                  const capacity = cls?.max_capacity ?? null;
+                  const taken = confirmedCount.get(key) ?? 0;
+                  const spotsLeft = capacity != null ? Math.max(0, capacity - taken) : null;
+                  const isFull = capacity != null && taken >= capacity;
                   return (
                     <li key={s.id} className="gf-list-row class-row">
                       <div>
-                        <div style={{ fontWeight: 600 }}>{cls?.name ?? 'Class'}</div>
+                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {cls?.name ?? 'Class'}
+                          {capacity != null && !mine && (
+                            <span className={`gf-badge ${isFull ? 'gf-badge-warning' : 'gf-badge-neutral'}`}>
+                              {isFull ? 'Full' : `${spotsLeft} left`}
+                            </span>
+                          )}
+                        </div>
                         <div className="gf-table-meta">
                           {s.start_time} – {s.end_time} · {cls?.instructor ?? 'TBA'} · {s.room ?? '—'}
                         </div>
                       </div>
-                      <BookClassButton slug={slug} scheduleId={s.id} bookingDate={date} alreadyBooked={booked} />
+                      <BookClassButton
+                        slug={slug}
+                        scheduleId={s.id}
+                        bookingDate={date}
+                        memberStatus={(mine?.status as 'booked' | 'waitlisted' | undefined) ?? null}
+                        bookingId={mine?.id ?? null}
+                        isFull={isFull}
+                      />
                     </li>
                   );
                 })}

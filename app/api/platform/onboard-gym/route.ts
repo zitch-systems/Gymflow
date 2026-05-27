@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
 import { sendTempPassword } from '@/lib/email';
 import { waTempPassword } from '@/lib/whatsapp';
+import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
 
 // Completes a gym onboarding once the prospective owner has paid the ₦20k
 // platform fee via Paystack. Called from the browser AFTER the inline
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
   const ownerName = String(m.owner_name ?? '').trim();
   const ownerPhone = String(m.owner_phone ?? '').trim();
   const ownerEmail = (txn.customer?.email ?? '').toLowerCase().trim();
+  const billing = isBillingPeriod(m.billing) ? m.billing : 'monthly';
 
   if (!slug || !SLUG_RE.test(slug) || !gymName || !ownerName || !ownerEmail) {
     return NextResponse.json({ error: 'Missing or invalid onboarding metadata' }, { status: 400 });
@@ -82,7 +84,7 @@ export async function POST(request: Request) {
   // 1. Insert gym row
   const periodStart = new Date();
   const periodEnd = new Date(periodStart);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  periodEnd.setMonth(periodEnd.getMonth() + PLATFORM_PRICING[billing].months);
   const { data: gymRow, error: gymError } = await admin
     .from('gyms')
     .insert({
@@ -91,7 +93,7 @@ export async function POST(request: Request) {
       email: ownerEmail,
       phone: ownerPhone || null,
       currency: 'NGN',
-      subscription_plan: 'monthly',
+      subscription_plan: billing,
       subscription_status: 'active',
       status: 'active',
       trial_ends_at: periodEnd.toISOString(),

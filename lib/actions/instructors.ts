@@ -111,7 +111,8 @@ export async function setInstructorActive(slug: string, userId: string, active: 
     .from('gym_staff_links')
     .update({ is_active: active })
     .eq('gym_id', gym.id)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .eq('role', 'instructor');
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/gym/${slug}/admin/instructors`);
   return { ok: true };

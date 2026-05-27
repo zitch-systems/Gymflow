@@ -156,6 +156,30 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
       </Card>
 
       <Card>
+        <CardHeader title="Revenue vs expenses · last 6 months" />
+        <div className="gf-trend">
+          <div className="gf-trend-legend">
+            <span><i className="gf-trend-key gf-trend-key-rev" /> Revenue</span>
+            <span><i className="gf-trend-key gf-trend-key-exp" /> Expenses</span>
+          </div>
+          <div className="gf-trend-chart">
+            {(() => {
+              const trendMax = Math.max(1, ...pnlRows.map((r) => Math.max(r.revenue, r.expense)));
+              return pnlRows.map((r) => (
+                <div key={r.key} className="gf-trend-group" title={`${r.label}: ${fmtNaira(r.revenue)} in / ${fmtNaira(r.expense)} out`}>
+                  <div className="gf-trend-bars">
+                    <div className="gf-trend-bar gf-trend-bar-rev" style={{ height: `${(r.revenue / trendMax) * 100}%` }} />
+                    <div className="gf-trend-bar gf-trend-bar-exp" style={{ height: `${(r.expense / trendMax) * 100}%` }} />
+                  </div>
+                  <span className="gf-trend-label">{r.label}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </div>
+      </Card>
+
+      <Card>
         <CardHeader title="Profit & loss · last 6 months" />
         <div className="gf-table-wrap">
           <table className="gf-table">

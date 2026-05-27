@@ -9,7 +9,7 @@ Multi-tenant by subdomain (`powerhouse.gymflow.ng`, `lekki-fit.gymflow.ng`, …)
 - **Framework:** Next.js 16 (App Router, Turbopack, React 19.2)
 - **Auth & DB:** Supabase (Postgres + RLS + `@supabase/ssr`)
 - **Payments:** Paystack (inline checkout + signature-verified webhook)
-- **Styling:** Tailwind v4 + custom `gf-*` design system (preserved from v1)
+- **Styling:** Tailwind v4 + custom `gf-*` design system — electric-violet + volt-lime palette, Space Grotesk (display) / Inter (body), dark + light themes
 - **PWA:** Service worker, offline shell, install prompts
 - **Hosting:** Vercel
 
@@ -96,6 +96,15 @@ Before signups work you must enable email signups in the Supabase dashboard:
 4. Disable "Confirm email" for testing (re-enable for production)
 
 Without this, `auth.signUp()` returns **401 Unauthorized**.
+
+## Deploy to Vercel
+
+1. Import the repo into Vercel (framework auto-detected as Next.js).
+2. Add the environment variables from the table above in **Project → Settings → Environment Variables** (all of them — the cron routes and admin server actions need `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET`).
+3. Deploy. `vercel.json` registers the daily cron jobs (expiry reminders, auto-debit, instructor auto-debit). Vercel calls them with the `CRON_SECRET` you set.
+4. For real subdomain multi-tenancy, add a wildcard domain (`*.gymflow.ng`) to the Vercel project and point your DNS at Vercel. `proxy.ts` maps `{slug}.gymflow.ng` → the gym's routes.
+
+> The Supabase schema lives in `supabase/migrations/`. Apply it to your project (Supabase SQL editor or `supabase db push`) before the app can serve real data, then run `PENDING_SEED.sql` to create a demo gym + test users.
 
 ## Contact
 
