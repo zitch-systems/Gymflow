@@ -5241,3 +5241,74 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
   .member-quick-actions .gf-quick-action { padding: 10px 2px; font-size: 0.5625rem; }
   .member-quick-actions .gf-quick-action-icon { width: 30px; height: 30px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Ambient background effects — drifting aurora, dot-grid texture, hero orbs
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Aurora layer (already defined on body::before) now slowly breathes/drifts. */
+body::before {
+  animation: gf-aurora-drift 28s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes gf-aurora-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(-3%, 2.5%, 0) scale(1.12); }
+}
+
+/* Faint dot-grid texture, fading out away from the top. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 65% at 50% -5%, #000 10%, transparent 72%);
+  mask-image: radial-gradient(ellipse 90% 65% at 50% -5%, #000 10%, transparent 72%);
+}
+[data-theme="light"] body::after {
+  background-image: radial-gradient(circle, rgba(20, 18, 31, 0.04) 1px, transparent 1px);
+}
+
+/* Landing hero: soft, slowly drifting brand/accent glow orbs. */
+.marketing-hero { overflow: hidden; }
+.marketing-hero::before,
+.marketing-hero::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+.marketing-hero::before {
+  width: 460px; height: 460px;
+  top: -140px; left: -100px;
+  background: radial-gradient(circle, var(--gf-brand-glow), transparent 70%);
+  animation: gf-orb-a 22s ease-in-out infinite;
+}
+.marketing-hero::after {
+  width: 380px; height: 380px;
+  top: -60px; right: -120px;
+  background: radial-gradient(circle, var(--gf-accent-glow), transparent 70%);
+  animation: gf-orb-b 26s ease-in-out infinite;
+}
+.marketing-hero > .container { position: relative; z-index: 1; }
+@keyframes gf-orb-a {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(60px, 40px, 0); }
+}
+@keyframes gf-orb-b {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(-50px, 30px, 0); }
+}
+
+/* Accessibility: respect reduced-motion — keep the visuals, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  .marketing-hero::before,
+  .marketing-hero::after { animation: none; }
+}
