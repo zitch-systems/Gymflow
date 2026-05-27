@@ -13,10 +13,10 @@ export const metadata = {
 };
 
 const GALLERY = [
-  { src: '/images/gym-floor.jpg', alt: 'Gym training floor with machines' },
-  { src: '/images/gym-dumbbells.jpg', alt: 'Dumbbell rack' },
+  { src: '/images/gym-bikes.jpg', alt: 'Air bikes with a mountain view' },
+  { src: '/images/gym-machines.jpg', alt: 'Machines and lockers' },
+  { src: '/images/gym-kettlebells.jpg', alt: 'Kettlebells and dumbbells by the window' },
   { src: '/images/gym-barbell.jpg', alt: 'Loaded barbell on the floor' },
-  { src: '/images/gym-studio.jpg', alt: 'Cardio studio with treadmills' },
 ];
 
 export default function MarketingHome() {

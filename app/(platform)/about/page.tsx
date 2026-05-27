@@ -11,8 +11,13 @@ const PHOTOS = [
   { src: '/images/gym-hero.jpg', alt: 'Treadmill by floor-to-ceiling windows', span: true },
   { src: '/images/gym-floor.jpg', alt: 'Strength machines on the gym floor' },
   { src: '/images/gym-dumbbells.jpg', alt: 'Dumbbell rack close-up' },
+  { src: '/images/gym-bikes.jpg', alt: 'Air bikes with a mountain view', span: true },
+  { src: '/images/gym-kettlebells.jpg', alt: 'Kettlebells and dumbbell rack by the window' },
   { src: '/images/gym-barbell.jpg', alt: 'Loaded Olympic barbell on the floor' },
+  { src: '/images/gym-machines.jpg', alt: 'Machines and lockers on a wood floor' },
   { src: '/images/gym-studio.jpg', alt: 'Cardio studio with treadmills and lockers' },
+  { src: '/images/gym-kettlebell.jpg', alt: 'Kettlebell close-up on the rack' },
+  { src: '/images/gym-hex.jpg', alt: 'Hex dumbbells on the training floor' },
 ];
 
 export default function AboutPage() {
