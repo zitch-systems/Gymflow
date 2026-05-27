@@ -106,6 +106,27 @@ Without this, `auth.signUp()` returns **401 Unauthorized**.
 
 > The Supabase schema lives in `supabase/migrations/`. Apply it to your project (Supabase SQL editor or `supabase db push`) before the app can serve real data, then run `PENDING_SEED.sql` to create a demo gym + test users.
 
+## Going-live checklist
+
+**Environment variables (Vercel → Settings → Environment Variables):**
+
+- [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- [ ] `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` + `PAYSTACK_SECRET_KEY` — switch from `pk_test_…`/`sk_test_…` to **live** keys
+- [ ] `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO` — transactional email (verify your sending domain in Resend)
+- [ ] `TERMII_API_KEY`, `TERMII_SENDER_ID` — WhatsApp/SMS reminders
+- [ ] `CRON_SECRET` — shared secret for the daily cron routes (`openssl rand -base64 32`)
+- [ ] `NEXT_PUBLIC_SITE_URL` — your public origin (e.g. `https://gymflow.ng`)
+
+**Supabase:**
+
+- [ ] Apply all migrations in `supabase/migrations/`, including `20260527_harden_function_search_path.sql`
+- [ ] Auth → Providers → Email: enable provider + signups; **enable "Leaked password protection"**; re-enable "Confirm email" for production
+- [ ] Set the Paystack webhook URL to `https://<your-domain>/api/paystack/webhook`
+
+**Vercel / DNS:**
+
+- [ ] Add the `*.gymflow.ng` wildcard domain and point DNS at Vercel (enables real `{slug}.gymflow.ng` tenancy)
+
 ## Contact
 
 41 Ogudu Road, Lagos · 08166938327 · hello@gymflow.ng
