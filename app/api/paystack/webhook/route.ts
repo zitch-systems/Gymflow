@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackSecretKey } from '@/lib/paystack';
+import { fulfilMembershipPurchase, type FulfilAuthorization } from '@/lib/paystack-fulfill';
+
+type WebhookData = {
+  reference?: string;
+  amount?: number;
+  currency?: string;
+  customer?: { email?: string };
+  authorization?: FulfilAuthorization;
+  metadata?: Record<string, unknown>;
+};
 
 export async function POST(request: Request) {
   const raw = await request.text();
@@ -13,7 +23,12 @@ export async function POST(request: Request) {
     .update(raw)
     .digest('hex');
 
-  if (sig !== expected) return new NextResponse('Bad signature', { status: 401 });
+  // Constant-time comparison to avoid leaking the signature via timing.
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return new NextResponse('Bad signature', { status: 401 });
+  }
 
   let event: { event?: string; data?: Record<string, unknown> };
   try {
@@ -22,15 +37,55 @@ export async function POST(request: Request) {
     return new NextResponse('Bad JSON', { status: 400 });
   }
 
-  // Acknowledge the webhook fast and record it for offline reconciliation.
-  // Verify endpoint is still the source of truth for end-of-flow updates.
   if (event.event === 'charge.success') {
-    // Service-role: this is a server-to-server call with no user session, so the
-    // anon-scoped client would be blocked by RLS and the update would no-op.
+    // Service-role: server-to-server call with no user session, so an
+    // anon-scoped client would be blocked by RLS.
     const supabase = createAdminClient();
-    const data = event.data ?? {};
-    const reference = String((data as { reference?: string }).reference ?? '');
-    if (reference) {
+    const data = (event.data ?? {}) as WebhookData;
+    const reference = String(data.reference ?? '');
+    if (!reference) return NextResponse.json({ received: true });
+
+    const metadata = (data.metadata ?? {}) as Record<string, unknown>;
+    const planId = typeof metadata.plan_id === 'string' ? metadata.plan_id : null;
+    const customerEmail = data.customer?.email ?? null;
+
+    // Membership payment: the webhook is the reliable backstop for the
+    // browser /verify call. If the member paid but their tab closed before
+    // /verify ran, fulfilment happens here instead. Idempotent on reference,
+    // so it no-ops when /verify already created the membership.
+    if (planId && customerEmail) {
+      let memberId = typeof metadata.member_id === 'string' ? metadata.member_id : null;
+      if (!memberId) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('email', customerEmail)
+          .maybeSingle();
+        memberId = prof?.id ?? null;
+      }
+      if (memberId) {
+        const result = await fulfilMembershipPurchase(
+          supabase,
+          memberId,
+          planId,
+          {
+            reference,
+            amountKobo: Number(data.amount ?? 0),
+            currency: data.currency,
+            customerEmail,
+            authorization: data.authorization,
+          },
+          { paymentMethod: 'card', notify: true },
+        );
+        if (!result.ok) {
+          console.error('[GF webhook] membership fulfilment failed for', reference, '-', result.error);
+        }
+      } else {
+        console.error('[GF webhook] could not resolve member for charge', reference, customerEmail);
+      }
+    } else {
+      // Non-membership charge (e.g. instructor subscription handled by its own
+      // verify route): just mark any existing payment row as settled.
       await supabase
         .from('payments')
         .update({ payment_status: 'successful' })

@@ -151,7 +151,7 @@ export async function cancelBooking(slug: string, bookingId: string): Promise<{ 
   // Read the booking first so we can promote the waitlist if a confirmed spot frees up.
   const { data: target } = await supabase
     .from('class_bookings')
-    .select('id, status, class_schedule_id, booking_date')
+    .select('id, status, class_schedule_id, booking_date, gym_id')
     .eq('id', bookingId)
     .eq('member_id', user.id)
     .maybeSingle();
@@ -165,12 +165,13 @@ export async function cancelBooking(slug: string, bookingId: string): Promise<{ 
 
   // A confirmed seat opened up — promote the oldest waitlisted member.
   // Uses the service-role client because RLS scopes member updates to their own rows.
-  if (target?.status === 'booked' && target.class_schedule_id && target.booking_date) {
+  if (target?.status === 'booked' && target.class_schedule_id && target.booking_date && target.gym_id) {
     try {
       const admin = createAdminClient();
       const { data: next } = await admin
         .from('class_bookings')
         .select('id')
+        .eq('gym_id', target.gym_id)
         .eq('class_schedule_id', target.class_schedule_id)
         .eq('booking_date', target.booking_date)
         .eq('status', 'waitlisted')
@@ -178,7 +179,7 @@ export async function cancelBooking(slug: string, bookingId: string): Promise<{ 
         .limit(1)
         .maybeSingle();
       if (next) {
-        await admin.from('class_bookings').update({ status: 'booked' }).eq('id', next.id);
+        await admin.from('class_bookings').update({ status: 'booked' }).eq('id', next.id).eq('gym_id', target.gym_id);
       }
     } catch {
       // Promotion is best-effort; the cancellation itself already succeeded.
