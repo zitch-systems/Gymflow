@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { preload } from 'react-dom';
 import { ThemeToggleButton } from '@/lib/theme';
 import { getGymBySlug } from '@/lib/auth/gym';
 import { LogoMark } from '@/components/ui/logo';
@@ -17,6 +18,10 @@ const MEMBER_POINTS = [
 ];
 
 export default async function LoginPage({ params, searchParams }: PageProps) {
+  // Studio backdrop is a CSS background-image — preload so it arrives before
+  // CSS parsing on members landing from email links.
+  preload('/images/gym-studio.jpg', { as: 'image', fetchPriority: 'high' });
+
   const { slug } = await params;
   const sp = await searchParams;
   const gym = await getGymBySlug(slug);
