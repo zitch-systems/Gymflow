@@ -4,6 +4,7 @@ import { verifyTransaction } from '@/lib/paystack';
 import { sendTempPassword } from '@/lib/email';
 import { waTempPassword } from '@/lib/whatsapp';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
+import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
 
 // Completes a gym onboarding once the prospective owner has paid the ₦20k
 // platform fee via Paystack. Called from the browser AFTER the inline
@@ -32,6 +33,10 @@ function tempPassword(): string {
 }
 
 export async function POST(request: Request) {
+  const ip = clientIpFromRequest(request);
+  const rl = rateLimit({ key: `onboard-gym:${ip}`, limit: 5, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl);
+
   let body: { reference?: string };
   try {
     body = await request.json();

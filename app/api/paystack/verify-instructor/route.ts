@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
 import { sendReceipt } from '@/lib/email';
 import { waReceipt } from '@/lib/whatsapp';
+import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
 
 type Body = {
   reference?: string;
@@ -13,6 +14,10 @@ type Body = {
 };
 
 export async function POST(request: Request) {
+  const ip = clientIpFromRequest(request);
+  const rl = rateLimit({ key: `paystack-verify-instructor:${ip}`, limit: 20, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl);
+
   let body: Body;
   try {
     body = await request.json();

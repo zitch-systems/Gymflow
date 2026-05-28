@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
 const RESERVED = new Set([
@@ -9,6 +10,12 @@ const RESERVED = new Set([
 ]);
 
 export async function GET(request: Request) {
+  // Prevent slug enumeration / DoS: 30 checks per minute per IP is enough for
+  // a single user filling the signup form, far short of useful for scraping.
+  const ip = clientIpFromRequest(request);
+  const rl = rateLimit({ key: `check-slug:${ip}`, limit: 30, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl);
+
   const url = new URL(request.url);
   const slug = (url.searchParams.get('slug') ?? '').toLowerCase().trim();
 

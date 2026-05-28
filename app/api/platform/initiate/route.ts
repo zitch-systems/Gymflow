@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { initializeTransaction } from '@/lib/paystack';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
+import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
 
 // Initiates a gym-onboarding Paystack transaction. This route doesn't require
 // auth (no session yet — the gym doesn't exist!) but it locks the purpose to
@@ -9,6 +10,12 @@ import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
 
 export async function POST(request: Request) {
+  // This endpoint is unauthenticated (the gym doesn't exist yet) — strict
+  // per-IP cap blocks signup spam and Paystack cost amplification.
+  const ip = clientIpFromRequest(request);
+  const rl = rateLimit({ key: `platform-initiate:${ip}`, limit: 5, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl);
+
   let body: { gymName?: string; ownerEmail?: string; ownerName?: string; ownerPhone?: string; slug?: string; billing?: string };
   try {
     body = await request.json();

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
 import { fulfilMembershipPurchase } from '@/lib/paystack-fulfill';
+import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
 
 type VerifyBody = {
   reference?: string;
@@ -11,6 +12,12 @@ type VerifyBody = {
 };
 
 export async function POST(request: Request) {
+  // Verify is idempotent on reference, but a flood of bogus references still
+  // costs Paystack API calls; cap per IP.
+  const ip = clientIpFromRequest(request);
+  const rl = rateLimit({ key: `paystack-verify:${ip}`, limit: 20, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl);
+
   let body: VerifyBody;
   try {
     body = await request.json();
