@@ -68,7 +68,7 @@ export default function AboutPage() {
             We handle check-ins, payments, classes, staff and analytics so you can focus on your members.
           </p>
           <div className="marketing-hero-actions" style={{ justifyContent: 'center', marginTop: 24 }}>
-            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Start free trial</Link>
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
             <Link href="/features" className="gf-btn gf-btn-outline gf-btn-lg">Explore features</Link>
           </div>
         </div>

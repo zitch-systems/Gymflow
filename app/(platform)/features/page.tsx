@@ -44,7 +44,7 @@ export default function FeaturesPage() {
           <h1 className="marketing-hero-title">Everything to run and grow your gym</h1>
           <p className="marketing-hero-sub">One platform for members, payments, classes, staff, and the back office — built mobile-first for Nigeria.</p>
           <div className="marketing-hero-actions">
-            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Start free trial</Link>
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
             <Link href="/pricing" className="gf-btn gf-btn-outline gf-btn-lg">See pricing</Link>
           </div>
         </div>
@@ -102,7 +102,7 @@ export default function FeaturesPage() {
             <h2 className="mk-cta-title">See it running for your gym</h2>
             <p className="mk-cta-sub">Spin up your branded instance in minutes.</p>
             <div className="marketing-hero-actions" style={{ justifyContent: 'center' }}>
-              <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Start free trial</Link>
+              <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
             </div>
           </div>
         </div>
