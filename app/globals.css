@@ -3523,6 +3523,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 2px;
 }
 
+/* Pill-style filter chip used in the audit log + future list pages. Tab-style
+   inline-link with subtle resting state and a brand-tinted active state. */
+.gf-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--gf-elevated);
+  border: 1px solid var(--gf-border);
+  color: var(--gf-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.gf-chip:hover { color: var(--gf-text); border-color: color-mix(in srgb, var(--gf-brand) 30%, var(--gf-border)); }
+.gf-chip.active {
+  background: color-mix(in srgb, var(--gf-brand) 16%, var(--gf-surface));
+  border-color: color-mix(in srgb, var(--gf-brand) 36%, transparent);
+  color: var(--gf-brand);
+}
+
 /* Skip-to-main link — visually hidden until keyboard focus reveals it. Sits
    above the sticky marketing nav so a keyboard user lands here on Tab from
    the URL bar and can jump straight to page content. */
@@ -5254,13 +5277,16 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 .gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
 
 /* ── Member/Coach dashboard quick actions: compact 5-up row ── */
-.member-quick-actions { grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.member-quick-actions { grid-template-columns: repeat(5, 1fr); gap: 12px; }
 .member-quick-actions .gf-quick-action {
-  min-height: 0;
-  padding: 16px 6px 14px;
-  gap: 10px;
-  border-radius: var(--gf-radius-sm);
-  font-size: 0.6875rem;
+  /* Bigger tiles: explicit min-height so the row has presence on desktop,
+     larger label so it reads at a glance, more vertical padding around the
+     icon chip so the tile feels like a real tap target, not a thumbnail. */
+  min-height: 120px;
+  padding: 22px 10px 18px;
+  gap: 12px;
+  border-radius: 14px;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.2;
 }
@@ -5268,9 +5294,9 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
   /* Solid brand-tinted fill (not the default soft) + inset ring + raised
      shadow so the icon reads as a tappable chip on white tile, not a faint
      decorative dot. */
-  width: 50px;
-  height: 50px;
-  border-radius: 14px;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
   background: color-mix(in srgb, var(--gf-brand) 14%, var(--gf-surface));
   color: var(--gf-brand);
   box-shadow:
@@ -5278,8 +5304,8 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
     0 1px 2px color-mix(in srgb, var(--gf-brand) 14%, transparent);
 }
 .member-quick-actions .gf-quick-action-icon svg {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   stroke-width: 2;
 }
 .member-quick-actions .gf-quick-action:hover .gf-quick-action-icon {
@@ -5288,10 +5314,10 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 }
 .member-quick-actions .gf-quick-action-label { overflow-wrap: break-word; hyphens: auto; }
 @media (max-width: 380px) {
-  .member-quick-actions { gap: 7px; }
-  .member-quick-actions .gf-quick-action { padding: 13px 3px 11px; font-size: 0.625rem; gap: 8px; }
-  .member-quick-actions .gf-quick-action-icon { width: 44px; height: 44px; border-radius: 12px; }
-  .member-quick-actions .gf-quick-action-icon svg { width: 23px; height: 23px; }
+  .member-quick-actions { gap: 8px; }
+  .member-quick-actions .gf-quick-action { min-height: 102px; padding: 16px 4px 14px; font-size: 0.75rem; gap: 10px; }
+  .member-quick-actions .gf-quick-action-icon { width: 48px; height: 48px; border-radius: 13px; }
+  .member-quick-actions .gf-quick-action-icon svg { width: 24px; height: 24px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
