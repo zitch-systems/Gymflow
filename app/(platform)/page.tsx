@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MarketingNav } from '@/components/marketing/nav';
 import { MarketingFooter } from '@/components/marketing/footer';
 import { FeatureCard, Step, Testimonial } from '@/components/marketing/sections';
@@ -146,8 +147,17 @@ export default function MarketingHome() {
           <p className="marketing-section-sub">From boutique studios to multi-floor facilities.</p>
           <div className="mk-gallery">
             {GALLERY.map((g) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <div key={g.src} className="mk-gallery-item"><img src={g.src} alt={g.alt} loading="lazy" /></div>
+              <div key={g.src} className="mk-gallery-item">
+                <Image
+                  src={g.src}
+                  alt={g.alt}
+                  width={480}
+                  height={720}
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  loading="lazy"
+                  style={{ width: '100%', height: 'auto' }}
+                />
+              </div>
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: 24 }}>

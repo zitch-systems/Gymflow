@@ -44,6 +44,13 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
+  images: {
+    // Gym logos and member photos can be uploaded with arbitrary HTTPS sources
+    // (Supabase Storage, Cloudinary, owner's existing CDN, etc.). Accept any
+    // https origin but never http — img-src CSP also enforces https.
+    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    formats: ['image/avif', 'image/webp'],
+  },
   async headers() {
     return [
       { source: '/:path*', headers: SECURITY_HEADERS },

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MarketingNav } from '@/components/marketing/nav';
 import { MarketingFooter } from '@/components/marketing/footer';
 
@@ -8,15 +9,15 @@ export const metadata = {
 };
 
 const PHOTOS = [
-  { src: '/images/gym-hero.jpg', alt: 'Treadmill by floor-to-ceiling windows', span: true },
-  { src: '/images/gym-floor.jpg', alt: 'Strength machines on the gym floor' },
-  { src: '/images/gym-dumbbells.jpg', alt: 'Dumbbell rack close-up' },
-  { src: '/images/gym-bikes.jpg', alt: 'Air bikes with a mountain view', span: true },
-  { src: '/images/gym-kettlebells.jpg', alt: 'Kettlebells and dumbbell rack by the window' },
-  { src: '/images/gym-barbell.jpg', alt: 'Loaded Olympic barbell on the floor' },
-  { src: '/images/gym-machines.jpg', alt: 'Machines and lockers on a wood floor' },
-  { src: '/images/gym-studio.jpg', alt: 'Cardio studio with treadmills and lockers' },
-  { src: '/images/gym-kettlebell.jpg', alt: 'Kettlebell close-up on the rack' },
+  { src: '/images/gym-hero.jpg',        alt: 'Treadmill by floor-to-ceiling windows',          w: 1080, h: 720, span: true },
+  { src: '/images/gym-floor.jpg',       alt: 'Strength machines on the gym floor',             w: 1080, h: 720 },
+  { src: '/images/gym-dumbbells.jpg',   alt: 'Dumbbell rack close-up',                         w: 480,  h: 720 },
+  { src: '/images/gym-bikes.jpg',       alt: 'Air bikes with a mountain view',                 w: 480,  h: 720, span: true },
+  { src: '/images/gym-kettlebells.jpg', alt: 'Kettlebells and dumbbell rack by the window',    w: 480,  h: 720 },
+  { src: '/images/gym-barbell.jpg',     alt: 'Loaded Olympic barbell on the floor',            w: 480,  h: 720 },
+  { src: '/images/gym-machines.jpg',    alt: 'Machines and lockers on a wood floor',           w: 480,  h: 720 },
+  { src: '/images/gym-studio.jpg',      alt: 'Cardio studio with treadmills and lockers',      w: 1080, h: 720 },
+  { src: '/images/gym-kettlebell.jpg',  alt: 'Kettlebell close-up on the rack',                w: 540,  h: 720 },
 ];
 
 export default function AboutPage() {
@@ -40,8 +41,15 @@ export default function AboutPage() {
           <div className="mk-masonry">
             {PHOTOS.map((p) => (
               <figure key={p.src} className={`mk-masonry-item${p.span ? ' span' : ''}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.src} alt={p.alt} loading="lazy" />
+                <Image
+                  src={p.src}
+                  alt={p.alt}
+                  width={p.w}
+                  height={p.h}
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  loading="lazy"
+                  style={{ width: '100%', height: 'auto' }}
+                />
               </figure>
             ))}
           </div>

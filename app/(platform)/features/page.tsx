@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MarketingNav } from '@/components/marketing/nav';
 import { MarketingFooter } from '@/components/marketing/footer';
 import { FeatureCard } from '@/components/marketing/sections';
@@ -18,8 +19,15 @@ function FeatureRow({
   return (
     <div className={`mk-feature-row${reverse ? ' reverse' : ''}`}>
       <div className="mk-feature-row-media">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={img} alt={alt} loading="lazy" />
+        <Image
+          src={img}
+          alt={alt}
+          width={1080}
+          height={720}
+          sizes="(max-width: 768px) 100vw, 50vw"
+          loading="lazy"
+          style={{ width: '100%', height: 'auto' }}
+        />
       </div>
       <div className="mk-feature-row-copy">
         <span className="marketing-eyebrow">{eyebrow}</span>
