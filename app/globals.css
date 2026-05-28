@@ -5223,33 +5223,44 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 .gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
 
 /* ── Member/Coach dashboard quick actions: compact 5-up row ── */
-.member-quick-actions { grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.member-quick-actions { grid-template-columns: repeat(5, 1fr); gap: 10px; }
 .member-quick-actions .gf-quick-action {
   min-height: 0;
-  padding: 14px 6px 12px;
-  gap: 8px;
+  padding: 16px 6px 14px;
+  gap: 10px;
   border-radius: var(--gf-radius-sm);
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.2;
 }
 .member-quick-actions .gf-quick-action-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gf-brand) 18%, transparent);
+  /* Solid brand-tinted fill (not the default soft) + inset ring + raised
+     shadow so the icon reads as a tappable chip on white tile, not a faint
+     decorative dot. */
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--gf-brand) 14%, var(--gf-surface));
+  color: var(--gf-brand);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--gf-brand) 28%, transparent),
+    0 1px 2px color-mix(in srgb, var(--gf-brand) 14%, transparent);
 }
 .member-quick-actions .gf-quick-action-icon svg {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   stroke-width: 2;
+}
+.member-quick-actions .gf-quick-action:hover .gf-quick-action-icon {
+  background: color-mix(in srgb, var(--gf-brand) 22%, var(--gf-surface));
+  transform: scale(1.04);
 }
 .member-quick-actions .gf-quick-action-label { overflow-wrap: break-word; hyphens: auto; }
 @media (max-width: 380px) {
-  .member-quick-actions { gap: 6px; }
-  .member-quick-actions .gf-quick-action { padding: 12px 3px 10px; font-size: 0.625rem; }
-  .member-quick-actions .gf-quick-action-icon { width: 38px; height: 38px; border-radius: 11px; }
-  .member-quick-actions .gf-quick-action-icon svg { width: 20px; height: 20px; }
+  .member-quick-actions { gap: 7px; }
+  .member-quick-actions .gf-quick-action { padding: 13px 3px 11px; font-size: 0.625rem; gap: 8px; }
+  .member-quick-actions .gf-quick-action-icon { width: 44px; height: 44px; border-radius: 12px; }
+  .member-quick-actions .gf-quick-action-icon svg { width: 23px; height: 23px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
