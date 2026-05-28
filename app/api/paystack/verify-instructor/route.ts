@@ -68,7 +68,10 @@ export async function POST(request: Request) {
   if (txn.status !== 'success') {
     return NextResponse.json({ error: 'Payment not successful' }, { status: 400 });
   }
-  if (txn.customer?.email !== user.email) {
+  // Case-fold both sides — both providers normally lowercase, but defence in depth.
+  const txnEmail = (txn.customer?.email ?? '').toLowerCase();
+  const userEmail = (user.email ?? '').toLowerCase();
+  if (!txnEmail || txnEmail !== userEmail) {
     return NextResponse.json({ error: 'Email on payment does not match account' }, { status: 403 });
   }
   if ((txn.currency ?? '').toUpperCase() !== 'NGN') {

@@ -49,7 +49,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Payment not successful' }, { status: 400 });
   }
   // Tie the verified email to the signed-in user to prevent reference stuffing.
-  if (txn.customer?.email !== user.email) {
+  // Both Paystack and Supabase normally lowercase emails, but a case-sensitive
+  // comparison is brittle — fold both sides before comparing.
+  const txnEmail = (txn.customer?.email ?? '').toLowerCase();
+  const userEmail = (user.email ?? '').toLowerCase();
+  if (!txnEmail || txnEmail !== userEmail) {
     return NextResponse.json({ error: 'Payment does not match your account' }, { status: 403 });
   }
 

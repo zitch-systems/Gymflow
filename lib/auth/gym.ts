@@ -33,8 +33,11 @@ export async function requireGym(slug: string): Promise<Gym> {
  * 'cancelled'. past_due is intentionally allowed: the renewals cron is mid-retry
  * and a hard cutoff would lock out members who paid on time for a billing issue
  * they didn't cause. Suspended/inactive/cancelled all block.
+ *
+ * Exported so the suspension policy is unit-testable and a future caller
+ * (e.g. an API route) can apply the same rule without reaching into the guard.
  */
-function gymIsOperational(gym: Gym): boolean {
+export function gymIsOperational(gym: Gym): boolean {
   if (gym.status && gym.status !== 'active') return false;
   if (gym.subscription_status === 'cancelled') return false;
   return true;
