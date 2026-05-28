@@ -28,8 +28,21 @@ export async function requireGym(slug: string): Promise<Gym> {
   return gym!;
 }
 
+/**
+ * A gym is operational only when status='active' AND subscription_status is not
+ * 'cancelled'. past_due is intentionally allowed: the renewals cron is mid-retry
+ * and a hard cutoff would lock out members who paid on time for a billing issue
+ * they didn't cause. Suspended/inactive/cancelled all block.
+ */
+function gymIsOperational(gym: Gym): boolean {
+  if (gym.status && gym.status !== 'active') return false;
+  if (gym.subscription_status === 'cancelled') return false;
+  return true;
+}
+
 export async function requireMember(slug: string) {
   const gym = await requireGym(slug);
+  if (!gymIsOperational(gym)) redirect(`/gym/${slug}/login?suspended=1`);
   const user = await getSessionUser();
   if (!user) redirect(`/gym/${slug}/login`);
   const supabase = await createClient();
@@ -95,11 +108,18 @@ export async function requireStaff(slug: string) {
   const role = await getStaffRole(slug);
   if (!role || role === 'member') redirect(`/gym/${slug}/login`);
   const gym = await getGymBySlug(slug);
+  // platform_admin retains support access even on suspended/cancelled gyms —
+  // they need it to unsuspend or terminate from the superadmin. Local owners
+  // and other staff get blocked just like members.
+  if (gym && !gymIsOperational(gym) && role !== 'platform_admin') {
+    redirect(`/gym/${slug}/login?suspended=1`);
+  }
   return { role, gym: gym! };
 }
 
 export async function requireInstructor(slug: string) {
   const gym = await requireGym(slug);
+  if (!gymIsOperational(gym)) redirect(`/gym/${slug}/login?suspended=1`);
   const user = await getSessionUser();
   if (!user) redirect(`/gym/${slug}/login`);
   const supabase = await createClient();
