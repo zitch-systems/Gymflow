@@ -3523,6 +3523,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 2px;
 }
 
+/* Pill-style filter chip used in the audit log + future list pages. Tab-style
+   inline-link with subtle resting state and a brand-tinted active state. */
+.gf-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--gf-elevated);
+  border: 1px solid var(--gf-border);
+  color: var(--gf-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.gf-chip:hover { color: var(--gf-text); border-color: color-mix(in srgb, var(--gf-brand) 30%, var(--gf-border)); }
+.gf-chip.active {
+  background: color-mix(in srgb, var(--gf-brand) 16%, var(--gf-surface));
+  border-color: color-mix(in srgb, var(--gf-brand) 36%, transparent);
+  color: var(--gf-brand);
+}
+
 /* Skip-to-main link — visually hidden until keyboard focus reveals it. Sits
    above the sticky marketing nav so a keyboard user lands here on Tab from
    the URL bar and can jump straight to page content. */
