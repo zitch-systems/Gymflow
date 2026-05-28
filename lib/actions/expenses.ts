@@ -41,7 +41,7 @@ export async function upsertExpense(slug: string, formData: FormData): Promise<{
       .maybeSingle();
     const { error } = await supabase.from('expenses').update(row).eq('id', id).eq('gym_id', gym.id);
     if (error) return { ok: false, error: error.message };
-    await audit(supabase, {
+    await audit({
       gymId: gym.id,
       actorId: actor?.id ?? null,
       action: 'admin.expense_updated',
@@ -53,7 +53,7 @@ export async function upsertExpense(slug: string, formData: FormData): Promise<{
   } else {
     const { data: created, error } = await supabase.from('expenses').insert(row).select('id').maybeSingle();
     if (error) return { ok: false, error: error.message };
-    await audit(supabase, {
+    await audit({
       gymId: gym.id,
       actorId: actor?.id ?? null,
       action: 'admin.expense_created',
@@ -79,7 +79,7 @@ export async function deleteExpense(slug: string, id: string): Promise<{ ok: boo
     .maybeSingle();
   const { error } = await supabase.from('expenses').delete().eq('id', id).eq('gym_id', gym.id);
   if (error) return { ok: false, error: error.message };
-  await audit(supabase, {
+  await audit({
     gymId: gym.id,
     actorId: actor?.id ?? null,
     action: 'admin.expense_deleted',

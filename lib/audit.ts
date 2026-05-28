@@ -1,34 +1,31 @@
 import 'server-only';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/database.types';
-
-type DB = SupabaseClient<Database>;
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * Best-effort audit log insert. Never throws — auditing must not block the
  * operation it's tracking. Use as fire-and-forget:
  *
- *   await audit(supabase, { gymId, actorId, action: 'admin.plan_created',
+ *   await audit({ gymId, actorId, action: 'admin.plan_created',
  *     table: 'membership_plans', recordId: plan.id, after: { name, price } });
  *
- * Skipped silently if any required field is missing so callers don't need
- * to defensively guard every site.
+ * Uses its own admin (service-role) client because audit_logs.INSERT policy
+ * is restricted to service_role — letting authenticated callers write would
+ * let a malicious actor forge audit entries with someone else's actor_id.
+ * The caller has already done its own authz before invoking this helper.
  */
-export async function audit(
-  supabase: DB,
-  args: {
-    gymId: string | null;
-    actorId: string | null;
-    action: string;
-    table: string;
-    recordId?: string | null;
-    before?: Record<string, unknown> | null;
-    after?: Record<string, unknown> | null;
-    userId?: string | null;
-  },
-): Promise<void> {
+export async function audit(args: {
+  gymId: string | null;
+  actorId: string | null;
+  action: string;
+  table: string;
+  recordId?: string | null;
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+  userId?: string | null;
+}): Promise<void> {
   try {
-    await supabase.from('audit_logs').insert({
+    const admin = createAdminClient();
+    await admin.from('audit_logs').insert({
       gym_id: args.gymId,
       actor_id: args.actorId,
       user_id: args.userId ?? null,
@@ -43,8 +40,8 @@ export async function audit(
       new_values: args.after ? JSON.parse(JSON.stringify(args.after)) : null,
     });
   } catch (e) {
-    // audit_logs has its own INSERT policy that may not match every caller
-    // (e.g. member-initiated paths). Never propagate.
+    // Service-role-key misconfiguration or transient DB error. Never propagate
+    // — auditing must not block the op it's tracking.
     console.warn('[GF audit] insert failed:', (e as Error).message);
   }
 }

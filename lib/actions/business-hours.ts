@@ -28,7 +28,7 @@ export async function upsertBusinessHours(slug: string, formData: FormData) {
   // Delete then insert — simple but reliable for 7 rows.
   await supabase.from('business_hours').delete().eq('gym_id', gym.id);
   await supabase.from('business_hours').insert(rows);
-  await audit(supabase, {
+  await audit({
     gymId: gym.id,
     actorId: actor?.id ?? null,
     action: 'admin.business_hours_updated',

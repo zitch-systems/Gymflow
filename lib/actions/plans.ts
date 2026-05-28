@@ -31,7 +31,7 @@ export async function createPlan(slug: string, formData: FormData) {
     })
     .select('id')
     .maybeSingle();
-  await audit(supabase, {
+  await audit({
     gymId: gym.id,
     actorId: actor?.id ?? null,
     action: 'admin.plan_created',
@@ -67,7 +67,7 @@ export async function updatePlan(slug: string, planId: string, formData: FormDat
     .update({ name, price, duration_months, description, is_active })
     .eq('id', planId)
     .eq('gym_id', gym.id);
-  await audit(supabase, {
+  await audit({
     gymId: gym.id,
     actorId: actor?.id ?? null,
     action: 'admin.plan_updated',
@@ -91,7 +91,7 @@ export async function deletePlan(slug: string, planId: string) {
     .eq('gym_id', gym.id)
     .maybeSingle();
   await supabase.from('membership_plans').delete().eq('id', planId).eq('gym_id', gym.id);
-  await audit(supabase, {
+  await audit({
     gymId: gym.id,
     actorId: actor?.id ?? null,
     action: 'admin.plan_deleted',

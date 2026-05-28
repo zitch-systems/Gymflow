@@ -45,7 +45,7 @@ export async function upsertEquipment(slug: string, formData: FormData): Promise
       .maybeSingle();
     const { error } = await supabase.from('equipment').update(row).eq('id', id).eq('gym_id', gym.id);
     if (error) return { ok: false, error: error.message };
-    await audit(supabase, {
+    await audit({
       gymId: gym.id,
       actorId: actor?.id ?? null,
       action: 'admin.equipment_updated',
@@ -57,7 +57,7 @@ export async function upsertEquipment(slug: string, formData: FormData): Promise
   } else {
     const { data: created, error } = await supabase.from('equipment').insert(row).select('id').maybeSingle();
     if (error) return { ok: false, error: error.message };
-    await audit(supabase, {
+    await audit({
       gymId: gym.id,
       actorId: actor?.id ?? null,
       action: 'admin.equipment_created',
@@ -82,7 +82,7 @@ export async function deleteEquipment(slug: string, id: string): Promise<{ ok: b
     .maybeSingle();
   const { error } = await supabase.from('equipment').delete().eq('id', id).eq('gym_id', gym.id);
   if (error) return { ok: false, error: error.message };
-  await audit(supabase, {
+  await audit({
     gymId: gym.id,
     actorId: actor?.id ?? null,
     action: 'admin.equipment_deleted',

@@ -58,7 +58,7 @@ export async function createClassWithSchedule(slug: string, formData: FormData) 
     is_active: true,
   });
 
-  await audit(supabase, {
+  await audit({
     gymId: gym.id,
     actorId: actor?.id ?? null,
     action: 'admin.class_created',
@@ -83,7 +83,7 @@ export async function deleteClass(slug: string, classId: string) {
     .maybeSingle();
   await supabase.from('class_schedules').delete().eq('class_id', classId).eq('gym_id', gym.id);
   await supabase.from('classes').delete().eq('id', classId).eq('gym_id', gym.id);
-  await audit(supabase, {
+  await audit({
     gymId: gym.id,
     actorId: actor?.id ?? null,
     action: 'admin.class_deleted',
