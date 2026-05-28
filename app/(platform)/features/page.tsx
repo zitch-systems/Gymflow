@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MarketingNav } from '@/components/marketing/nav';
 import { MarketingFooter } from '@/components/marketing/footer';
 import { FeatureCard } from '@/components/marketing/sections';
@@ -18,8 +19,15 @@ function FeatureRow({
   return (
     <div className={`mk-feature-row${reverse ? ' reverse' : ''}`}>
       <div className="mk-feature-row-media">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={img} alt={alt} loading="lazy" />
+        <Image
+          src={img}
+          alt={alt}
+          width={1080}
+          height={720}
+          sizes="(max-width: 768px) 100vw, 50vw"
+          loading="lazy"
+          style={{ width: '100%', height: 'auto' }}
+        />
       </div>
       <div className="mk-feature-row-copy">
         <span className="marketing-eyebrow">{eyebrow}</span>
@@ -44,7 +52,7 @@ export default function FeaturesPage() {
           <h1 className="marketing-hero-title">Everything to run and grow your gym</h1>
           <p className="marketing-hero-sub">One platform for members, payments, classes, staff, and the back office — built mobile-first for Nigeria.</p>
           <div className="marketing-hero-actions">
-            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Start free trial</Link>
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
             <Link href="/pricing" className="gf-btn gf-btn-outline gf-btn-lg">See pricing</Link>
           </div>
         </div>
@@ -102,7 +110,7 @@ export default function FeaturesPage() {
             <h2 className="mk-cta-title">See it running for your gym</h2>
             <p className="mk-cta-sub">Spin up your branded instance in minutes.</p>
             <div className="marketing-hero-actions" style={{ justifyContent: 'center' }}>
-              <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Start free trial</Link>
+              <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
             </div>
           </div>
         </div>

@@ -129,9 +129,20 @@ export async function platformOnboardGym(formData: FormData): Promise<OnboardRes
 export async function platformSetGymStatus(gymId: string, status: 'active' | 'suspended' | 'terminated'): Promise<{ ok: boolean; error?: string }> {
   await requirePlatformAdmin();
   const admin = createAdminClient();
+  // gyms.status and gyms.subscription_status have DIFFERENT allowed value sets:
+  //   status              ∈ active | inactive | suspended
+  //   subscription_status ∈ trial  | active   | past_due | cancelled
+  // Map the caller's intent onto a valid value for each column independently —
+  // writing the same literal to both violates one of the CHECK constraints.
+  const STATUS_MAP = {
+    active: { status: 'active', subscription_status: 'active' },
+    suspended: { status: 'suspended', subscription_status: 'past_due' },
+    terminated: { status: 'inactive', subscription_status: 'cancelled' },
+  } as const;
+  const mapped = STATUS_MAP[status];
   const { error } = await admin
     .from('gyms')
-    .update({ subscription_status: status, status, updated_at: new Date().toISOString() })
+    .update({ subscription_status: mapped.subscription_status, status: mapped.status, updated_at: new Date().toISOString() })
     .eq('id', gymId);
   if (error) return { ok: false, error: error.message };
   await admin.from('audit_logs').insert({

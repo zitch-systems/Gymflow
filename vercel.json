@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/auto-debit-instructors",
       "schedule": "10 5 * * *"
+    },
+    {
+      "path": "/api/cron/platform-renewals",
+      "schedule": "20 5 * * *"
     }
   ]
 }

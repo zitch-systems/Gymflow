@@ -39,7 +39,7 @@ export default function GymSignupPage() {
 
       <div className="container mk-auth-split">
         <aside className="mk-auth-aside">
-          <span className="marketing-eyebrow">14-day free trial</span>
+          <span className="marketing-eyebrow">Launch in an afternoon</span>
           <h1 className="mk-auth-title">Open your gym on GymFlow</h1>
           <p className="mk-auth-sub">
             One signup provisions everything you need to run your gym online — no installs, no hardware,

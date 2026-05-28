@@ -8,6 +8,10 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const DAY_MS = 86_400_000;
+// Cap per-run work so a large overdue queue can't blow maxDuration. Any row
+// we skip stays in the [end_date .. end_date+2] window for the next run.
+const CONCURRENCY = 8;
+const MAX_ROWS_PER_RUN = 400;
 
 function isoDate(d: Date) {
   return d.toISOString().split('T')[0];
@@ -49,14 +53,16 @@ export async function GET(request: Request) {
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
+  const startOfTodayIso = startOfToday.toISOString();
 
-  for (const m of due ?? []) {
+  type Row = NonNullable<typeof due>[number];
+  async function processOne(m: Row): Promise<void> {
     const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
     const gym = Array.isArray(m.gyms) ? m.gyms[0] : m.gyms;
     const plan = Array.isArray(m.membership_plans) ? m.membership_plans[0] : m.membership_plans;
     if (!profile?.email || !gym?.slug || !plan) {
       summary.failed++;
-      continue;
+      return;
     }
 
     const { data: cards } = await supabase
@@ -71,7 +77,7 @@ export async function GET(request: Request) {
     const card = cards?.[0];
     if (!card) {
       summary.failed++;
-      continue;
+      return;
     }
 
     // Idempotency: if we already took a successful auto-debit for this member at
@@ -83,10 +89,10 @@ export async function GET(request: Request) {
       .eq('gym_id', m.gym_id ?? '')
       .eq('payment_method', 'card')
       .eq('payment_status', 'successful')
-      .gte('payment_date', startOfToday.toISOString())
+      .gte('payment_date', startOfTodayIso)
       .limit(1)
       .maybeSingle();
-    if (alreadyCharged) continue;
+    if (alreadyCharged) return;
 
     const name = profile.full_name ?? profile.first_name ?? 'Member';
     const renewUrl = `https://${gym.slug}.gymflow.ng/dashboard/renew`;
@@ -121,23 +127,34 @@ export async function GET(request: Request) {
           payment_date: new Date().toISOString(),
         });
         if (payErr) console.error('[GF auto-debit] payment record insert failed:', payErr.message);
-        await sendAutoDebitSuccess(profile.email, { name, amount: Number(plan.price), endDate: newEnd });
-        if (profile.phone) await waAutoDebitSuccess(profile.phone, { name, amount: Number(plan.price), endDate: newEnd });
+        await Promise.allSettled([
+          sendAutoDebitSuccess(profile.email, { name, amount: Number(plan.price), endDate: newEnd }),
+          profile.phone ? waAutoDebitSuccess(profile.phone, { name, amount: Number(plan.price), endDate: newEnd }) : Promise.resolve(),
+        ]);
         summary.charged++;
       } else {
         throw new Error(result.message ?? 'Charge declined');
       }
     } catch (err) {
       // Notify but DO NOT touch end_date — overwriting it would both hand out a
-      // free extension and pull the row out of tomorrow's retry window. The
-      // membership keeps its real expiry; it stays in the [expiry .. expiry+2]
-      // window for up to two more daily retries, then the expiry-reminders cron
-      // marks it expired once the grace window passes.
+      // free extension and pull the row out of tomorrow's retry window.
       summary.failed++;
-      await sendAutoDebitFailure(profile.email, { name, reason: (err as Error).message, attempts: 1, renewUrl });
-      if (profile.phone) await waAutoDebitFailure(profile.phone, { name, attempts: 1, renewUrl });
+      await Promise.allSettled([
+        sendAutoDebitFailure(profile.email, { name, reason: (err as Error).message, attempts: 1, renewUrl }),
+        profile.phone ? waAutoDebitFailure(profile.phone, { name, attempts: 1, renewUrl }) : Promise.resolve(),
+      ]);
     }
   }
 
-  return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), ...summary });
+  const queue = (due ?? []).slice(0, MAX_ROWS_PER_RUN);
+  const skipped = Math.max(0, (due?.length ?? 0) - queue.length);
+  for (let i = 0; i < queue.length; i += CONCURRENCY) {
+    const chunk = queue.slice(i, i + CONCURRENCY);
+    await Promise.all(chunk.map((row) => processOne(row).catch((e) => {
+      console.error('[GF auto-debit] row failed:', (e as Error).message);
+      summary.failed++;
+    })));
+  }
+
+  return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), processed: queue.length, skipped, ...summary });
 }

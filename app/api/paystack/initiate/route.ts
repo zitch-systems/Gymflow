@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { initializeTransaction } from '@/lib/paystack';
+import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
+  // Rate limit: each IP can initiate at most 10 Paystack transactions per minute.
+  // Caps card-testing / cost amplification regardless of authentication status.
+  const ip = clientIpFromRequest(request);
+  const rl = rateLimit({ key: `paystack-initiate:${ip}`, limit: 10, windowMs: 60_000 });
+  if (!rl.ok) return rateLimitResponse(rl);
+
   let body: { email?: string; amount?: number; metadata?: Record<string, unknown>; callbackUrl?: string };
   try {
     body = await request.json();

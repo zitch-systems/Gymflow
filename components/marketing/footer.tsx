@@ -23,7 +23,7 @@ export function MarketingFooter() {
         </div>
         <div className="mk-footer-col">
           <h4>Account</h4>
-          <Link href="/signup">Start free trial</Link>
+          <Link href="/signup">Launch your gym</Link>
           <Link href="/login">Sign in</Link>
         </div>
         <div className="mk-footer-col">

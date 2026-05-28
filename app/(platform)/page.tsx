@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { MarketingNav } from '@/components/marketing/nav';
 import { MarketingFooter } from '@/components/marketing/footer';
 import { FeatureCard, Step, Testimonial } from '@/components/marketing/sections';
@@ -19,9 +20,59 @@ const GALLERY = [
   { src: '/images/gym-barbell.jpg', alt: 'Loaded barbell on the floor' },
 ];
 
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
+
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE}/#org`,
+      name: 'GymFlow',
+      url: SITE,
+      logo: `${SITE}/icon.svg`,
+      areaServed: 'NG',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: '41 Ogudu Road',
+        addressLocality: 'Lagos',
+        addressCountry: 'NG',
+      },
+      contactPoint: [{
+        '@type': 'ContactPoint',
+        contactType: 'sales',
+        email: 'hello@gymflow.ng',
+        telephone: '+234-816-693-8327',
+        areaServed: 'NG',
+        availableLanguage: ['en'],
+      }],
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${SITE}/#app`,
+      name: 'GymFlow',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web, iOS (PWA), Android (PWA)',
+      description: 'Multi-tenant gym management SaaS for Nigerian fitness businesses: QR check-in, Paystack subscriptions, class scheduling, automated reminders, analytics.',
+      offers: {
+        '@type': 'AggregateOffer',
+        priceCurrency: 'NGN',
+        lowPrice: '13999',
+        highPrice: '119999',
+        offerCount: 3,
+      },
+      provider: { '@id': `${SITE}/#org` },
+    },
+  ],
+};
+
 export default function MarketingHome() {
   return (
     <div className="marketing">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+      />
       <MarketingNav />
 
       <header className="marketing-hero mk-hero-photo">
@@ -36,7 +87,7 @@ export default function MarketingHome() {
             mobile-first platform that works on Naija data.
           </p>
           <div className="marketing-hero-actions">
-            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Start free trial</Link>
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
             <Link href="/features" className="gf-btn gf-btn-outline gf-btn-lg">Explore features</Link>
           </div>
           <dl className="marketing-stats">
@@ -96,8 +147,17 @@ export default function MarketingHome() {
           <p className="marketing-section-sub">From boutique studios to multi-floor facilities.</p>
           <div className="mk-gallery">
             {GALLERY.map((g) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <div key={g.src} className="mk-gallery-item"><img src={g.src} alt={g.alt} loading="lazy" /></div>
+              <div key={g.src} className="mk-gallery-item">
+                <Image
+                  src={g.src}
+                  alt={g.alt}
+                  width={480}
+                  height={720}
+                  sizes="(max-width: 768px) 50vw, 25vw"
+                  loading="lazy"
+                  style={{ width: '100%', height: 'auto' }}
+                />
+              </div>
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: 24 }}>
@@ -122,9 +182,9 @@ export default function MarketingHome() {
         <div className="container">
           <div className="mk-cta">
             <h2 className="mk-cta-title">Ready to run your gym the modern way?</h2>
-            <p className="mk-cta-sub">Start a 14-day free trial. No card required to begin.</p>
+            <p className="mk-cta-sub">Launch your gym in an afternoon. From ₦13,999/mo · cancel anytime · no setup fees.</p>
             <div className="marketing-hero-actions" style={{ justifyContent: 'center' }}>
-              <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Start free trial</Link>
+              <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
               <Link href="/pricing" className="gf-btn gf-btn-outline gf-btn-lg">See pricing</Link>
             </div>
           </div>

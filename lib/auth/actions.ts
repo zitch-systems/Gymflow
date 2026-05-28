@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { roleHome } from './dal';
 import { sendWelcome } from '@/lib/email';
 import { waWelcome } from '@/lib/whatsapp';
+import { rateLimit, clientIpFromHeaders } from '@/lib/rate-limit';
 
 export type SignInState =
   | { error: string }
@@ -17,6 +18,15 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
 
   if (!email || !password) {
     return { error: 'Please fill in all fields.' };
+  }
+
+  // Throttle credential stuffing: keyed on IP + email so neither dimension
+  // alone can mask a brute-force attempt.
+  const ip = await clientIpFromHeaders();
+  const rlIp = rateLimit({ key: `signin-ip:${ip}`, limit: 10, windowMs: 60_000 });
+  const rlEmail = rateLimit({ key: `signin-email:${email.toLowerCase()}`, limit: 5, windowMs: 60_000 });
+  if (!rlIp.ok || !rlEmail.ok) {
+    return { error: 'Too many sign-in attempts. Please wait a minute and try again.' };
   }
 
   const supabase = await createClient();
@@ -51,6 +61,10 @@ export type SignUpState =
   | undefined;
 
 export async function signUp(_prev: SignUpState, formData: FormData): Promise<SignUpState> {
+  const ip = await clientIpFromHeaders();
+  const rl = rateLimit({ key: `signup:${ip}`, limit: 5, windowMs: 60_000 });
+  if (!rl.ok) return { error: 'Too many signups from this network. Please wait a minute.' };
+
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   const fullName = String(formData.get('full_name') ?? '').trim();
@@ -143,10 +157,31 @@ export async function signOut() {
 }
 
 export async function requestPasswordReset(email: string, originUrl: string): Promise<{ error: string | null }> {
+  const ip = await clientIpFromHeaders();
+  const rl = rateLimit({ key: `pwreset:${ip}`, limit: 5, windowMs: 60_000 });
+  if (!rl.ok) return { error: 'Too many reset attempts. Please wait a minute.' };
+
   if (!email) return { error: 'Enter your email first' };
+
+  // Validate redirectTo against an allowlist — Supabase's redirectTo is the
+  // post-reset landing URL, and accepting any client-supplied origin would let
+  // an attacker craft a reset link that lands the victim on a phishing clone
+  // of the login page. Allow only the public site and *.gymflow.ng subdomains.
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
+  let safeOrigin = site;
+  try {
+    const u = new URL(originUrl);
+    const siteHost = new URL(site).host;
+    if (u.host === siteHost || u.host.endsWith('.gymflow.ng') || u.host === 'gymflow.ng') {
+      safeOrigin = `${u.protocol}//${u.host}`;
+    }
+  } catch {
+    // fall back to site
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${originUrl}/login?reset=1`,
+    redirectTo: `${safeOrigin}/login?reset=1`,
   });
   return { error: error?.message ?? null };
 }

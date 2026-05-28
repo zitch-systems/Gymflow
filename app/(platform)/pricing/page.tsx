@@ -10,6 +10,30 @@ export const metadata = {
   description: 'One flat plan, no per-member fees. From ₦13,999/month — pay monthly, quarterly, or annually.',
 };
 
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
+
+const PRICING_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'GymFlow',
+  description: 'Multi-tenant gym management SaaS for Nigerian fitness businesses.',
+  brand: { '@type': 'Brand', name: 'GymFlow' },
+  offers: BILLING_PERIODS.map((p) => ({
+    '@type': 'Offer',
+    name: PLATFORM_PRICING[p].label,
+    price: String(PLATFORM_PRICING[p].amount),
+    priceCurrency: 'NGN',
+    url: `${SITE}/pricing`,
+    availability: 'https://schema.org/InStock',
+    priceSpecification: {
+      '@type': 'UnitPriceSpecification',
+      price: String(PLATFORM_PRICING[p].amount),
+      priceCurrency: 'NGN',
+      unitText: PLATFORM_PRICING[p].per,
+    },
+  })),
+};
+
 const INCLUDED = [
   'Unlimited members & staff',
   'Paystack payments & auto-debit',
@@ -25,6 +49,10 @@ const INCLUDED = [
 export default function PricingPage() {
   return (
     <div className="marketing">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(PRICING_LD) }}
+      />
       <MarketingNav />
 
       <header className="marketing-hero mk-subhero">
@@ -53,7 +81,7 @@ export default function PricingPage() {
                     {savings > 0 ? ` · save ${formatNaira(savings)}` : ''}
                   </p>
                   <Link href="/signup" className={`gf-btn gf-btn-full ${best ? 'gf-btn-primary' : 'gf-btn-secondary'}`}>
-                    Start free trial
+                    Launch your gym
                   </Link>
                   <ul className="mk-price-list">
                     {INCLUDED.map((i) => <li key={i}><Check size={15} strokeWidth={2.5} /> {i}</li>)}
@@ -62,7 +90,7 @@ export default function PricingPage() {
               );
             })}
           </div>
-          <p className="mk-price-foot">14-day free trial · cancel anytime · no setup fees. Paystack transaction fees apply per payment.</p>
+          <p className="mk-price-foot">Cancel anytime · no setup fees · no per-member fees. Paystack transaction fees apply per payment.</p>
         </div>
       </section>
 

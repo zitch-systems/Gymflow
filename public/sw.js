@@ -1,5 +1,5 @@
-// GymFlow Service Worker v4 — Next.js App Router
-const VERSION = 'gymflow-v4';
+// GymFlow Service Worker v5 — Next.js App Router
+const VERSION = 'gymflow-v5';
 const STATIC_CACHE = VERSION + '-static';
 const RUNTIME_CACHE = VERSION + '-runtime';
 
@@ -58,20 +58,27 @@ self.addEventListener('fetch', (event) => {
 
   const accept = req.headers.get('accept') || '';
 
-  // Navigation: network-first with offline fallback
+  // Navigation: network-first with offline fallback.
+  // CRITICAL: never cache authenticated HTML — a cached /dashboard or /admin
+  // page can be replayed for a different user on a shared device (gym front
+  // desk) or after logout. Only public marketing routes are runtime-cacheable.
   if (req.mode === 'navigate' || accept.includes('text/html')) {
+    const isAuthRoute =
+      /^\/(?:dashboard|admin|coach|superadmin|checkin|classes|cards|join|login|signup)(?:\/|$)/.test(url.pathname) ||
+      url.pathname.startsWith('/gym/');
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res.ok) {
+          if (res.ok && !isAuthRoute) {
             const clone = res.clone();
             caches.open(RUNTIME_CACHE).then((c) => c.put(req, clone));
           }
           return res;
         })
-        .catch(() =>
-          caches.match(req).then((r) => r || caches.match('/offline')),
-        ),
+        .catch(() => {
+          if (isAuthRoute) return caches.match('/offline');
+          return caches.match(req).then((r) => r || caches.match('/offline'));
+        }),
     );
     return;
   }

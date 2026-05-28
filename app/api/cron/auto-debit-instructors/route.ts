@@ -7,6 +7,10 @@ import { waAutoDebitSuccess, waAutoDebitFailure } from '@/lib/whatsapp';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
+const DAY_MS = 86_400_000;
+const CONCURRENCY = 8;
+const MAX_ROWS_PER_RUN = 400;
+
 function isoDate(d: Date) {
   return d.toISOString().split('T')[0];
 }
@@ -30,6 +34,9 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient();
   const today = isoDate(new Date());
+  const windowStart = isoDate(new Date(Date.now() - 2 * DAY_MS));
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
   const summary = { charged: 0, failed: 0, no_card: 0, no_price: 0 };
 
   const { data: due } = await supabase
@@ -39,15 +46,17 @@ export async function GET(request: Request) {
     )
     .eq('status', 'active')
     .eq('auto_renew', true)
-    .eq('end_date', today);
+    .gte('end_date', windowStart)
+    .lte('end_date', today);
 
-  for (const sub of due ?? []) {
+  const startOfTodayIso = startOfToday.toISOString();
+  type Row = NonNullable<typeof due>[number];
+
+  async function processOne(sub: Row): Promise<void> {
     const profile = Array.isArray(sub.profiles) ? sub.profiles[0] : sub.profiles;
     const gym = Array.isArray(sub.gyms) ? sub.gyms[0] : sub.gyms;
-    const instructor = Array.isArray(sub.instructor) ? sub.instructor[0] : sub.instructor;
-    if (!profile?.email || !gym?.slug || !sub.member_id || !sub.end_date) continue;
+    if (!profile?.email || !gym?.slug || !sub.member_id || !sub.end_date) return;
 
-    // Look up the monthly rate (we always renew for 30 days = 1 month).
     const { data: pricing } = await supabase
       .from('instructor_pricing')
       .select('price')
@@ -58,11 +67,10 @@ export async function GET(request: Request) {
       .maybeSingle();
     if (!pricing?.price) {
       summary.no_price++;
-      continue;
+      return;
     }
     const amount = Number(pricing.price);
 
-    // Find a reusable saved card for the member at this gym.
     const { data: card } = await supabase
       .from('saved_cards')
       .select('authorization_code')
@@ -74,8 +82,20 @@ export async function GET(request: Request) {
       .maybeSingle();
     if (!card?.authorization_code) {
       summary.no_card++;
-      continue;
+      return;
     }
+
+    const { data: alreadyCharged } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('member_id', sub.member_id)
+      .eq('gym_id', sub.gym_id)
+      .eq('payment_method', 'card')
+      .eq('payment_status', 'successful')
+      .gte('payment_date', startOfTodayIso)
+      .limit(1)
+      .maybeSingle();
+    if (alreadyCharged) return;
 
     let result: ChargeResult;
     try {
@@ -97,7 +117,6 @@ export async function GET(request: Request) {
     const name = profile.full_name ?? profile.first_name ?? 'Member';
 
     if (result.status && result.data?.status === 'success') {
-      // Extend by 30 days.
       const newEnd = new Date(sub.end_date);
       newEnd.setDate(newEnd.getDate() + 30);
       await supabase
@@ -117,26 +136,30 @@ export async function GET(request: Request) {
         payment_date: new Date().toISOString(),
       });
 
-      try {
-        await Promise.allSettled([
-          sendAutoDebitSuccess(profile.email, { name, amount, endDate: isoDate(newEnd) }),
-          profile.phone ? waAutoDebitSuccess(profile.phone, { name, amount, endDate: isoDate(newEnd) }) : Promise.resolve(),
-        ]);
-      } catch {}
+      await Promise.allSettled([
+        sendAutoDebitSuccess(profile.email, { name, amount, endDate: isoDate(newEnd) }),
+        profile.phone ? waAutoDebitSuccess(profile.phone, { name, amount, endDate: isoDate(newEnd) }) : Promise.resolve(),
+      ]);
       summary.charged++;
     } else {
       summary.failed++;
       const renewUrl = `https://${gym.slug}.gymflow.ng/dashboard/instructors/${sub.instructor_id}`;
-      try {
-        await Promise.allSettled([
-          sendAutoDebitFailure(profile.email, { name, reason: result.message ?? 'card declined', attempts: 1, renewUrl }),
-          profile.phone ? waAutoDebitFailure(profile.phone, { name, renewUrl, attempts: 1 }) : Promise.resolve(),
-        ]);
-      } catch {}
+      await Promise.allSettled([
+        sendAutoDebitFailure(profile.email, { name, reason: result.message ?? 'card declined', attempts: 1, renewUrl }),
+        profile.phone ? waAutoDebitFailure(profile.phone, { name, renewUrl, attempts: 1 }) : Promise.resolve(),
+      ]);
     }
-
-    void instructor; // type-checked but unused for now
   }
 
-  return NextResponse.json({ today, summary });
+  const queue = (due ?? []).slice(0, MAX_ROWS_PER_RUN);
+  const skipped = Math.max(0, (due?.length ?? 0) - queue.length);
+  for (let i = 0; i < queue.length; i += CONCURRENCY) {
+    const chunk = queue.slice(i, i + CONCURRENCY);
+    await Promise.all(chunk.map((row) => processOne(row).catch((e) => {
+      console.error('[GF auto-debit-instructors] row failed:', (e as Error).message);
+      summary.failed++;
+    })));
+  }
+
+  return NextResponse.json({ today, processed: queue.length, skipped, summary });
 }
