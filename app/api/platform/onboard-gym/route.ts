@@ -125,9 +125,14 @@ export async function POST(request: Request) {
   });
   if (createErr) {
     if (/already.*registered|exists/i.test(createErr.message)) {
-      // Owner already has an account — find their id and skip password set
-      const { data: list } = await admin.auth.admin.listUsers();
-      userId = list?.users?.find((u) => u.email?.toLowerCase() === ownerEmail)?.id ?? null;
+      // Owner already has an account — resolve via profiles (auth.admin.listUsers
+      // is paginated and silently misses lookups past 50 users).
+      const { data: existing } = await admin
+        .from('profiles')
+        .select('id')
+        .ilike('email', ownerEmail)
+        .maybeSingle();
+      userId = existing?.id ?? null;
     } else {
       return NextResponse.json({ error: `Owner create failed: ${createErr.message}` }, { status: 500 });
     }

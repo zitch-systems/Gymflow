@@ -67,8 +67,14 @@ export async function adminOnboardMember(slug: string, formData: FormData): Prom
     if (!/already.*registered|exists/i.test(createErr.message)) {
       return { error: createErr.message };
     }
-    const { data: list } = await admin.auth.admin.listUsers();
-    userId = list?.users?.find((u) => u.email?.toLowerCase() === email)?.id ?? null;
+    // Resolve existing user via profiles (auth.admin.listUsers is paginated
+    // and breaks past 50 users — silently misses lookups at scale).
+    const { data: existing } = await admin
+      .from('profiles')
+      .select('id')
+      .ilike('email', email)
+      .maybeSingle();
+    userId = existing?.id ?? null;
     if (!userId) return { error: 'Email is already taken by another account.' };
   } else {
     userId = created?.user?.id ?? null;

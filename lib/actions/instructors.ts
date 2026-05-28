@@ -35,8 +35,13 @@ export async function inviteInstructor(slug: string, formData: FormData): Promis
   });
   if (createErr) {
     if (/already.*registered|exists/i.test(createErr.message)) {
-      const { data: list } = await admin.auth.admin.listUsers();
-      userId = list?.users?.find((u) => u.email?.toLowerCase() === email)?.id ?? null;
+      // Resolve via profiles, not auth.admin.listUsers (paginated, breaks at scale).
+      const { data: existing } = await admin
+        .from('profiles')
+        .select('id')
+        .ilike('email', email)
+        .maybeSingle();
+      userId = existing?.id ?? null;
     } else {
       return { ok: false, error: createErr.message };
     }
