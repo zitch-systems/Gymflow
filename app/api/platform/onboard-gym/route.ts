@@ -200,6 +200,32 @@ export async function POST(request: Request) {
     billing_period_end: periodEnd.toISOString().split('T')[0],
   });
 
+  // 6b. Save the owner's card so the platform-renewals cron can auto-renew
+  // the gym's GymFlow subscription. Without this the platform fee is paid
+  // exactly once at signup and the gym uses GymFlow free forever.
+  const ownerAuth = txn.authorization;
+  if (ownerAuth?.reusable && ownerAuth.authorization_code) {
+    await admin.from('saved_cards').upsert(
+      {
+        gym_id: gymRow.id,
+        member_id: userId,
+        authorization_code: ownerAuth.authorization_code,
+        paystack_authorization_code: ownerAuth.authorization_code,
+        card_type: ownerAuth.card_type ?? null,
+        last4: ownerAuth.last4 ?? null,
+        exp_month: ownerAuth.exp_month ?? null,
+        exp_year: ownerAuth.exp_year ?? null,
+        bank: ownerAuth.bank ?? null,
+        brand: ownerAuth.brand ?? null,
+        reusable: ownerAuth.reusable ?? true,
+        email: ownerEmail,
+        is_default: true,
+        is_active: true,
+      },
+      { onConflict: 'member_id,authorization_code' },
+    );
+  }
+
   // 7. Notify owner (only if we created them with a temp password)
   if (!createErr) {
     const loginUrl = `https://${gymRow.slug}.gymflow.ng/login`;

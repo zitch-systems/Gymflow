@@ -162,9 +162,26 @@ export async function requestPasswordReset(email: string, originUrl: string): Pr
   if (!rl.ok) return { error: 'Too many reset attempts. Please wait a minute.' };
 
   if (!email) return { error: 'Enter your email first' };
+
+  // Validate redirectTo against an allowlist — Supabase's redirectTo is the
+  // post-reset landing URL, and accepting any client-supplied origin would let
+  // an attacker craft a reset link that lands the victim on a phishing clone
+  // of the login page. Allow only the public site and *.gymflow.ng subdomains.
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
+  let safeOrigin = site;
+  try {
+    const u = new URL(originUrl);
+    const siteHost = new URL(site).host;
+    if (u.host === siteHost || u.host.endsWith('.gymflow.ng') || u.host === 'gymflow.ng') {
+      safeOrigin = `${u.protocol}//${u.host}`;
+    }
+  } catch {
+    // fall back to site
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${originUrl}/login?reset=1`,
+    redirectTo: `${safeOrigin}/login?reset=1`,
   });
   return { error: error?.message ?? null };
 }

@@ -37,6 +37,37 @@ export async function POST(request: Request) {
     return new NextResponse('Bad JSON', { status: 400 });
   }
 
+  // Mirror refunds back into our payments table so the dashboards/analytics
+  // reflect reality. Paystack sends `refund.processed` with a nested
+  // `transaction.reference` field.
+  if (event.event === 'refund.processed' || event.event === 'refund.pending') {
+    const supabase = createAdminClient();
+    const data = (event.data ?? {}) as { transaction?: { reference?: string }; reference?: string };
+    const ref = String(data.transaction?.reference ?? data.reference ?? '');
+    if (ref) {
+      await supabase
+        .from('payments')
+        .update({ payment_status: 'refunded' })
+        .eq('paystack_reference', ref);
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  // Mirror failed charge_authorization attempts (e.g. auto-debit declines)
+  // so the wallet history matches Paystack.
+  if (event.event === 'charge.failed') {
+    const supabase = createAdminClient();
+    const data = (event.data ?? {}) as { reference?: string };
+    const ref = String(data.reference ?? '');
+    if (ref) {
+      await supabase
+        .from('payments')
+        .update({ payment_status: 'failed' })
+        .eq('paystack_reference', ref);
+    }
+    return NextResponse.json({ received: true });
+  }
+
   if (event.event === 'charge.success') {
     // Service-role: server-to-server call with no user session, so an
     // anon-scoped client would be blocked by RLS.
