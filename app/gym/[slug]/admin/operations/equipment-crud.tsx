@@ -152,8 +152,9 @@ export function EquipmentCrud({ slug, gymId, items }: { slug: string; gymId: str
               <input type="hidden" name="photo_url" defaultValue={editing.photo_url ?? ''} id="eq-photo-url" />
 
               <div className="gf-form-group form-grid-full">
-                <label className="gf-label">Photo</label>
+                <label className="gf-label" htmlFor="eq-photo-file">Photo</label>
                 <input
+                  id="eq-photo-file"
                   type="file"
                   accept="image/*"
                   onChange={async (e) => {

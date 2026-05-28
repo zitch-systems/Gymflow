@@ -46,6 +46,7 @@ export default function FeaturesPage() {
     <div className="marketing">
       <MarketingNav />
 
+      <main id="main-content" tabIndex={-1}>
       <header className="marketing-hero mk-subhero">
         <div className="container">
           <span className="marketing-eyebrow">Features</span>
@@ -115,6 +116,7 @@ export default function FeaturesPage() {
           </div>
         </div>
       </section>
+      </main>
 
       <MarketingFooter />
     </div>

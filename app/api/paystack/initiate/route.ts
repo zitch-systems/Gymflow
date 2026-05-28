@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { initializeTransaction } from '@/lib/paystack';
-import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   // Rate limit: each IP can initiate at most 10 Paystack transactions per minute.
@@ -10,12 +10,9 @@ export async function POST(request: Request) {
   const rl = rateLimit({ key: `paystack-initiate:${ip}`, limit: 10, windowMs: 60_000 });
   if (!rl.ok) return rateLimitResponse(rl);
 
-  let body: { email?: string; amount?: number; metadata?: Record<string, unknown>; callbackUrl?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
+  type Body = { email?: string; amount?: number; metadata?: Record<string, unknown>; callbackUrl?: string };
+  const body = await readJsonBody<Body>(request);
+  if (body instanceof Response) return body;
 
   const { email, amount, metadata, callbackUrl } = body;
   if (!email || !amount) {

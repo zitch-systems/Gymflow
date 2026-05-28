@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { preload } from 'react-dom';
 import { MarketingNav } from '@/components/marketing/nav';
 import { MarketingFooter } from '@/components/marketing/footer';
 import { FeatureCard, Step, Testimonial } from '@/components/marketing/sections';
@@ -67,6 +68,12 @@ const STRUCTURED_DATA = {
 };
 
 export default function MarketingHome() {
+  // The hero is a CSS `background-image: url(...)` so Next/the browser can't
+  // discover it until CSS finishes parsing — that delays LCP. Use React 19's
+  // `preload()` so a `<link rel="preload" as="image" fetchpriority="high">`
+  // ships in <head>, which the preload scanner picks up immediately.
+  preload('/images/gym-floor.jpg', { as: 'image', fetchPriority: 'high' });
+
   return (
     <div className="marketing">
       <script
@@ -75,6 +82,7 @@ export default function MarketingHome() {
       />
       <MarketingNav />
 
+      <main id="main-content" tabIndex={-1}>
       <header className="marketing-hero mk-hero-photo">
         <div className="mk-hero-photo-bg" style={{ backgroundImage: 'url(/images/gym-floor.jpg)' }} aria-hidden />
         <div className="container mk-hero-photo-inner">
@@ -190,6 +198,7 @@ export default function MarketingHome() {
           </div>
         </div>
       </section>
+      </main>
 
       <MarketingFooter />
     </div>

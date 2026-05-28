@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackFetch } from '@/lib/paystack';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
+import { sendPlatformRenewalFailure } from '@/lib/email';
 
 // Daily renewal of the GymFlow subscription each gym owes the platform.
 // Without this cron the gym pays once at signup and uses the product free
@@ -166,11 +167,25 @@ export async function GET(request: Request) {
       summary.charged++;
     } else {
       summary.failed++;
-      if (gym.subscription_status === 'active') {
+      // First failure of the retry window — flip to past_due AND email the
+      // owner. We only email on the active→past_due transition so the owner
+      // isn't spammed every day of the 3-day window.
+      const isFirstFailure = gym.subscription_status === 'active';
+      if (isFirstFailure) {
         await supabase
           .from('gyms')
           .update({ subscription_status: 'past_due', updated_at: new Date().toISOString() })
           .eq('id', gym.id);
+        try {
+          await sendPlatformRenewalFailure(gym.email, {
+            gymName: gym.name ?? gym.slug ?? 'your gym',
+            reason: result.message ?? 'card declined',
+            attempts: 1,
+            billingUrl: `https://${gym.slug}.gymflow.ng/admin/billing`,
+          });
+        } catch (e) {
+          console.warn('[GF platform-renewals] owner notify failed:', (e as Error).message);
+        }
       }
       // Use a distinct reference per failed attempt (paystack_reference is
       // UNIQUE) so successive retries each leave a wallet-history row.

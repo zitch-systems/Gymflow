@@ -158,11 +158,24 @@ export function ExpensesCrud({ slug, gymId, items }: { slug: string; gymId: stri
                 <label className="gf-label" htmlFor="exp-amount">Amount (₦)</label>
                 <input id="exp-amount" name="amount" type="number" min="0" step="100" required className="gf-input" defaultValue={editing.amount} />
               </div>
-              <div className="gf-form-group">
-                <label className="gf-label" htmlFor="exp-freq">Recurring?</label>
+              <div className="gf-form-group" role="group" aria-labelledby="exp-recurring-label">
+                <span id="exp-recurring-label" className="gf-label">Recurring?</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input type="checkbox" name="is_recurring" defaultChecked={!!editing.is_recurring} className="gf-check" />
-                  <select name="recurring_frequency" className="gf-select" defaultValue={editing.recurring_frequency ?? 'monthly'}>
+                  <input
+                    id="exp-is-recurring"
+                    type="checkbox"
+                    name="is_recurring"
+                    defaultChecked={!!editing.is_recurring}
+                    aria-label="This expense recurs"
+                    className="gf-check"
+                  />
+                  <select
+                    id="exp-freq"
+                    name="recurring_frequency"
+                    className="gf-select"
+                    defaultValue={editing.recurring_frequency ?? 'monthly'}
+                    aria-label="Recurrence frequency"
+                  >
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
                     <option value="quarterly">Quarterly</option>
@@ -175,8 +188,9 @@ export function ExpensesCrud({ slug, gymId, items }: { slug: string; gymId: stri
                 <textarea id="exp-desc" name="description" rows={2} className="gf-input" defaultValue={editing.description ?? ''} />
               </div>
               <div className="gf-form-group form-grid-full">
-                <label className="gf-label">Receipt photo</label>
+                <label className="gf-label" htmlFor="exp-receipt-file">Receipt photo</label>
                 <input
+                  id="exp-receipt-file"
                   type="file"
                   accept="image/*,application/pdf"
                   onChange={async (e) => {
