@@ -3586,6 +3586,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   overflow-y: auto;
   flex: 1;
 }
+.gf-cmdk-section {
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gf-text-muted);
+}
 .gf-cmdk-item {
   display: flex;
   align-items: center;

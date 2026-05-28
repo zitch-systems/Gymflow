@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
-import { CommandPalette, type CommandItem } from '@/components/ui/command-palette';
+import { CommandPalette, type CommandItem, type CommandSearchHit } from '@/components/ui/command-palette';
+import { searchMembers } from '@/lib/actions/search-members';
 
 type NavItem = { href: string; label: string; section: 'main' | 'admin'; icon: LucideIcon };
 
@@ -34,12 +35,14 @@ const NAV: NavItem[] = [
 
 export function AdminShell({
   children,
+  slug,
   gymName,
   role,
   userName,
   userInitial,
 }: {
   children: React.ReactNode;
+  slug: string;
   gymName: string;
   role: string;
   userName: string;
@@ -61,12 +64,23 @@ export function AdminShell({
     hint: i.section === 'main' ? 'Main' : 'Admin',
   }));
 
+  // Live member search — fires on every keystroke (debounced inside the
+  // palette) so typing "tunde" surfaces members alongside the static pages.
+  // Server action does its own requireStaff(slug) gate, so even a malicious
+  // client crafting the call directly would be rejected.
+  const fetchExtra = async (query: string): Promise<CommandSearchHit[]> => {
+    const hits = await searchMembers(slug, query);
+    return hits.map((m) => ({ id: m.id, label: m.label, href: m.href, hint: m.email ?? undefined }));
+  };
+
   return (
     <>
       <CommandPalette
         items={cmdItems}
-        placeholder="Jump to…  (try Members, Analytics, Audit)"
-        listLabel="Admin pages"
+        placeholder="Jump to a page or search a member…"
+        listLabel="Admin pages and members"
+        fetchExtra={fetchExtra}
+        extraSectionLabel="Members"
       />
       <div className={`gf-sidebar-overlay${open ? ' open' : ''}`} onClick={() => setOpen(false)} />
 
