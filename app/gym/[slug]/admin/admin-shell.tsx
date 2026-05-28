@@ -7,7 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Users, ScanLine, BarChart3, CalendarDays, GraduationCap,
   Tag, Bell, Wrench, Clock, FileText, ShieldCheck, Wallet, Settings,
-  LogOut, Menu,
+  LogOut, Menu, CreditCard,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
@@ -27,6 +27,7 @@ const NAV: NavItem[] = [
   { href: '/admin/waiver',        label: 'Waiver',     section: 'admin', icon: FileText },
   { href: '/admin/audit',         label: 'Audit',      section: 'admin', icon: ShieldCheck },
   { href: '/admin/wallet',        label: 'Wallet',     section: 'admin', icon: Wallet },
+  { href: '/admin/billing',       label: 'Billing',    section: 'admin', icon: CreditCard },
   { href: '/admin/settings',      label: 'Settings',   section: 'admin', icon: Settings },
 ];
 
