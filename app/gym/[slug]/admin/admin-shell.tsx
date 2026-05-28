@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
+import { CommandPalette, type CommandItem } from './command-palette';
 
 type NavItem = { href: string; label: string; section: 'main' | 'admin'; icon: LucideIcon };
 
@@ -51,8 +52,18 @@ export function AdminShell({
   const mainItems = NAV.filter((i) => i.section === 'main');
   const adminItems = NAV.filter((i) => i.section === 'admin');
 
+  // Reuse the nav array as the command-palette dataset — every page is
+  // already in NAV, so ⌘K and the sidebar can't drift out of sync.
+  const cmdItems: CommandItem[] = NAV.map((i) => ({
+    href: i.href,
+    label: i.label,
+    icon: i.icon,
+    hint: i.section === 'main' ? 'Main' : 'Admin',
+  }));
+
   return (
     <>
+      <CommandPalette items={cmdItems} />
       <div className={`gf-sidebar-overlay${open ? ' open' : ''}`} onClick={() => setOpen(false)} />
 
       <aside className={`gf-sidebar${open ? ' open' : ''}`}>
@@ -134,6 +145,19 @@ export function AdminShell({
             <Menu size={20} strokeWidth={1.75} />
           </button>
           <span className="gf-topbar-title">{gymName}</span>
+          <span style={{ flex: 1 }} />
+          <button
+            type="button"
+            className="gf-topbar-cmdk"
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            aria-label="Open command palette"
+            title="Jump to any page (⌘K)"
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span>Jump to&hellip;</span>
+              <kbd>⌘K</kbd>
+            </span>
+          </button>
         </header>
         {children}
       </div>

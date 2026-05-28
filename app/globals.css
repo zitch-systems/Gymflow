@@ -3523,6 +3523,160 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 2px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Admin command palette (⌘K)
+   Floating overlay that lets active admins jump to any page in 2 keystrokes.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.gf-cmdk-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: color-mix(in srgb, var(--gf-bg) 60%, rgba(0,0,0,0.5));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: clamp(48px, 12vh, 140px);
+  animation: gf-cmdk-fade 120ms ease-out;
+}
+@keyframes gf-cmdk-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.gf-cmdk {
+  width: min(560px, calc(100vw - 32px));
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--gf-surface);
+  border: 1px solid var(--gf-border);
+  border-radius: 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.18);
+  overflow: hidden;
+  animation: gf-cmdk-slide 160ms ease-out;
+}
+@keyframes gf-cmdk-slide {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.gf-cmdk-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--gf-border);
+  color: var(--gf-text-secondary);
+}
+.gf-cmdk-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gf-text);
+  font-family: inherit;
+}
+.gf-cmdk-search input::placeholder { color: var(--gf-text-muted); }
+.gf-cmdk-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+.gf-cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--gf-text);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.08s;
+}
+.gf-cmdk-item.active {
+  background: color-mix(in srgb, var(--gf-brand) 14%, var(--gf-surface));
+}
+.gf-cmdk-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--gf-elevated);
+  color: var(--gf-text-secondary);
+}
+.gf-cmdk-item.active .gf-cmdk-item-icon { background: color-mix(in srgb, var(--gf-brand) 22%, var(--gf-surface)); color: var(--gf-brand); }
+.gf-cmdk-item-label { flex: 1; font-weight: 500; }
+.gf-cmdk-item-hint { font-size: 11px; color: var(--gf-text-muted); }
+.gf-cmdk-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--gf-text-muted);
+  font-size: 13px;
+}
+.gf-cmdk-footer {
+  display: flex;
+  gap: 14px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--gf-border);
+  background: var(--gf-elevated);
+  font-size: 11px;
+  color: var(--gf-text-muted);
+}
+.gf-cmdk-kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--gf-border);
+  border-radius: 4px;
+  background: var(--gf-surface);
+  color: var(--gf-text-secondary);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10px;
+}
+/* Topbar trigger — a quiet "Jump to…" pill that opens the palette and reminds
+   the user of the shortcut so they discover ⌘K. */
+.gf-topbar-cmdk {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--gf-border);
+  border-radius: 8px;
+  background: var(--gf-elevated);
+  color: var(--gf-text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.gf-topbar-cmdk:hover { color: var(--gf-text); border-color: color-mix(in srgb, var(--gf-brand) 30%, var(--gf-border)); }
+.gf-topbar-cmdk kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--gf-border);
+  border-radius: 4px;
+  background: var(--gf-surface);
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10px;
+}
+@media (max-width: 640px) {
+  /* Mobile: hide the wordmark, just keep the shortcut hint */
+  .gf-topbar-cmdk span > span:first-child { display: none; }
+}
+
 /* Pill-style filter chip used in the audit log + future list pages. Tab-style
    inline-link with subtle resting state and a brand-tinted active state. */
 .gf-chip {
