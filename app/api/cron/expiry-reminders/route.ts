@@ -11,6 +11,8 @@ export const maxDuration = 60;
 
 const REMINDER_DAYS = [7, 3, 1] as const;
 const DAY_MS = 86_400_000;
+const CONCURRENCY = 10;
+const MAX_ROWS_PER_DAY = 500;
 
 function isoDate(d: Date) {
   return d.toISOString().split('T')[0];
@@ -34,18 +36,32 @@ export async function GET(request: Request) {
   const now = new Date();
   const summary = { sent: 0, failed: 0, expired: 0 };
 
+  // Run reminders in concurrent batches per-window so a single run can serve
+  // hundreds of expiring members within maxDuration.
+  async function runChunked<T>(rows: T[], fn: (row: T) => Promise<void>): Promise<void> {
+    for (let i = 0; i < rows.length; i += CONCURRENCY) {
+      const chunk = rows.slice(i, i + CONCURRENCY);
+      await Promise.all(chunk.map((row) => fn(row).catch((e) => {
+        console.error('[GF expiry-reminders] row failed:', (e as Error).message);
+        summary.failed++;
+      })));
+    }
+  }
+
   for (const days of REMINDER_DAYS) {
     const target = isoDate(new Date(now.getTime() + days * DAY_MS));
     const { data: rows } = await supabase
       .from('memberships')
       .select('id, member_id, gym_id, end_date, auto_renew, auto_debit_enabled, gyms(name, slug), profiles:member_id(email, phone, full_name, first_name)')
       .eq('status', 'active')
-      .eq('end_date', target);
+      .eq('end_date', target)
+      .limit(MAX_ROWS_PER_DAY);
 
-    for (const r of rows ?? []) {
+    type ReminderRow = NonNullable<typeof rows>[number];
+    await runChunked(rows ?? [], async (r: ReminderRow) => {
       const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
       const gym = Array.isArray(r.gyms) ? r.gyms[0] : r.gyms;
-      if (!profile?.email || !gym?.slug) continue;
+      if (!profile?.email || !gym?.slug) return;
       const name = profile.full_name ?? profile.first_name ?? 'Member';
       const renewUrl = `https://${gym.slug}.gymflow.ng/dashboard/renew`;
       const autoDebit = !!(r.auto_renew || r.auto_debit_enabled);
@@ -67,7 +83,7 @@ export async function GET(request: Request) {
         failed_count: okE && okW ? 0 : okE || okW ? 1 : 2,
         message_preview: `Expiry in ${days}d for ${profile.email}`,
       });
-    }
+    });
   }
 
   // Mark expired only once the 3-day auto-debit retry/grace window has passed
@@ -78,16 +94,19 @@ export async function GET(request: Request) {
     .from('memberships')
     .select('id, member_id, gym_id, end_date, status, gyms(slug), profiles:member_id(email, full_name, first_name)')
     .eq('status', 'active')
-    .lte('end_date', expiredCutoff);
-  for (const r of expiredRows ?? []) {
+    .lte('end_date', expiredCutoff)
+    .limit(MAX_ROWS_PER_DAY);
+
+  type ExpiredRow = NonNullable<typeof expiredRows>[number];
+  await runChunked(expiredRows ?? [], async (r: ExpiredRow) => {
     const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
     const gym = Array.isArray(r.gyms) ? r.gyms[0] : r.gyms;
-    if (!profile?.email || !gym?.slug) continue;
+    if (!profile?.email || !gym?.slug) return;
     const name = profile.full_name ?? profile.first_name ?? 'Member';
     await sendExpired(profile.email, name, `https://${gym.slug}.gymflow.ng/dashboard/renew`);
     await supabase.from('memberships').update({ status: 'expired' }).eq('id', r.id);
     summary.expired++;
-  }
+  });
 
   return NextResponse.json({ ok: true, ranAt: now.toISOString(), ...summary });
 }
