@@ -30,6 +30,16 @@ function isoDate(d: Date) {
   return d.toISOString().split('T')[0];
 }
 
+/**
+ * Deterministic per-day-per-gym reference. Same gym charged twice on the same
+ * UTC day collides on the reference, so Paystack rejects the second attempt
+ * AND our idempotency SELECT short-circuits before we hit Paystack at all.
+ * Exported for unit testing.
+ */
+export function renewalReference(gymId: string, isoDay: string): string {
+  return `GFP-${gymId}-${isoDay}`;
+}
+
 function assertAuthorized(request: Request): boolean {
   const expected = process.env.CRON_SECRET;
   if (!expected) return false;
@@ -108,7 +118,7 @@ export async function GET(request: Request) {
 
     // Idempotency: deterministic reference so two cron runs on the same UTC
     // day can't charge the same gym twice. Paystack rejects duplicate refs.
-    const reference = `GFP-${gym.id}-${today}`;
+    const reference = renewalReference(gym.id, today);
 
     const { data: alreadyCharged } = await supabase
       .from('platform_payments')
