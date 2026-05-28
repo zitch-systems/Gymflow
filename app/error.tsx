@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import * as Sentry from '@sentry/nextjs';
 import { Logo } from '@/components/ui/logo';
 
 export default function Error({
@@ -12,6 +13,9 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
+    // Report the error to Sentry (no-op when DSN isn't configured) AND keep
+    // the console log so local dev still gets the stack without a DSN.
+    Sentry.captureException(error);
     console.error(error);
   }, [error]);
 

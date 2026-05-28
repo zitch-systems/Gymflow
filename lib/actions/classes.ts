@@ -5,9 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff, requireMember } from '@/lib/auth/gym';
 import { getSessionUser } from '@/lib/auth/dal';
+import { audit } from '@/lib/audit';
 
 export async function createClassWithSchedule(slug: string, formData: FormData) {
   const { gym } = await requireStaff(slug);
+  const actor = await getSessionUser();
   const name = String(formData.get('name') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim() || null;
   const category = String(formData.get('category') ?? '').trim() || null;
@@ -56,15 +58,39 @@ export async function createClassWithSchedule(slug: string, formData: FormData) 
     is_active: true,
   });
 
+  await audit(supabase, {
+    gymId: gym.id,
+    actorId: actor?.id ?? null,
+    action: 'admin.class_created',
+    table: 'classes',
+    recordId: cls.id,
+    after: { name, category, level, duration_minutes, max_capacity, instructor, day_of_week, start_time, end_time, room },
+  });
+
   revalidatePath('/admin/classes');
   revalidatePath('/classes');
 }
 
 export async function deleteClass(slug: string, classId: string) {
   const { gym } = await requireStaff(slug);
+  const actor = await getSessionUser();
   const supabase = await createClient();
+  const { data: before } = await supabase
+    .from('classes')
+    .select('name, category, instructor, day_of_week, start_time, end_time')
+    .eq('id', classId)
+    .eq('gym_id', gym.id)
+    .maybeSingle();
   await supabase.from('class_schedules').delete().eq('class_id', classId).eq('gym_id', gym.id);
   await supabase.from('classes').delete().eq('id', classId).eq('gym_id', gym.id);
+  await audit(supabase, {
+    gymId: gym.id,
+    actorId: actor?.id ?? null,
+    action: 'admin.class_deleted',
+    table: 'classes',
+    recordId: classId,
+    before: before ?? null,
+  });
   revalidatePath('/admin/classes');
   revalidatePath('/classes');
 }

@@ -3,9 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { requireStaff } from '@/lib/auth/gym';
+import { getSessionUser } from '@/lib/auth/dal';
+import { audit } from '@/lib/audit';
 
 export async function upsertEquipment(slug: string, formData: FormData): Promise<{ ok: boolean; error?: string }> {
   const { gym } = await requireStaff(slug);
+  const actor = await getSessionUser();
   const id = String(formData.get('id') ?? '').trim();
   const name = String(formData.get('name') ?? '').trim();
   const category = String(formData.get('category') ?? '').trim() || null;
@@ -34,11 +37,34 @@ export async function upsertEquipment(slug: string, formData: FormData): Promise
     maintenance_notes,
   };
   if (id) {
+    const { data: before } = await supabase
+      .from('equipment')
+      .select('name, category, status, location, purchase_price, next_maintenance_date')
+      .eq('id', id)
+      .eq('gym_id', gym.id)
+      .maybeSingle();
     const { error } = await supabase.from('equipment').update(row).eq('id', id).eq('gym_id', gym.id);
     if (error) return { ok: false, error: error.message };
+    await audit(supabase, {
+      gymId: gym.id,
+      actorId: actor?.id ?? null,
+      action: 'admin.equipment_updated',
+      table: 'equipment',
+      recordId: id,
+      before: before ?? null,
+      after: row,
+    });
   } else {
-    const { error } = await supabase.from('equipment').insert(row);
+    const { data: created, error } = await supabase.from('equipment').insert(row).select('id').maybeSingle();
     if (error) return { ok: false, error: error.message };
+    await audit(supabase, {
+      gymId: gym.id,
+      actorId: actor?.id ?? null,
+      action: 'admin.equipment_created',
+      table: 'equipment',
+      recordId: created?.id ?? null,
+      after: row,
+    });
   }
   revalidatePath('/admin/operations');
   return { ok: true };
@@ -46,9 +72,24 @@ export async function upsertEquipment(slug: string, formData: FormData): Promise
 
 export async function deleteEquipment(slug: string, id: string): Promise<{ ok: boolean; error?: string }> {
   const { gym } = await requireStaff(slug);
+  const actor = await getSessionUser();
   const supabase = await createClient();
+  const { data: before } = await supabase
+    .from('equipment')
+    .select('name, category, status')
+    .eq('id', id)
+    .eq('gym_id', gym.id)
+    .maybeSingle();
   const { error } = await supabase.from('equipment').delete().eq('id', id).eq('gym_id', gym.id);
   if (error) return { ok: false, error: error.message };
+  await audit(supabase, {
+    gymId: gym.id,
+    actorId: actor?.id ?? null,
+    action: 'admin.equipment_deleted',
+    table: 'equipment',
+    recordId: id,
+    before: before ?? null,
+  });
   revalidatePath('/admin/operations');
   return { ok: true };
 }

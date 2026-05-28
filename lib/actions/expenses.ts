@@ -3,9 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { requireStaff } from '@/lib/auth/gym';
+import { getSessionUser } from '@/lib/auth/dal';
+import { audit } from '@/lib/audit';
 
 export async function upsertExpense(slug: string, formData: FormData): Promise<{ ok: boolean; error?: string }> {
   const { gym } = await requireStaff(slug);
+  const actor = await getSessionUser();
   const id = String(formData.get('id') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim() || null;
   const category = String(formData.get('category') ?? '').trim();
@@ -30,11 +33,34 @@ export async function upsertExpense(slug: string, formData: FormData): Promise<{
     receipt_url,
   };
   if (id) {
+    const { data: before } = await supabase
+      .from('expenses')
+      .select('description, category, amount, expense_date, is_recurring')
+      .eq('id', id)
+      .eq('gym_id', gym.id)
+      .maybeSingle();
     const { error } = await supabase.from('expenses').update(row).eq('id', id).eq('gym_id', gym.id);
     if (error) return { ok: false, error: error.message };
+    await audit(supabase, {
+      gymId: gym.id,
+      actorId: actor?.id ?? null,
+      action: 'admin.expense_updated',
+      table: 'expenses',
+      recordId: id,
+      before: before ?? null,
+      after: row,
+    });
   } else {
-    const { error } = await supabase.from('expenses').insert(row);
+    const { data: created, error } = await supabase.from('expenses').insert(row).select('id').maybeSingle();
     if (error) return { ok: false, error: error.message };
+    await audit(supabase, {
+      gymId: gym.id,
+      actorId: actor?.id ?? null,
+      action: 'admin.expense_created',
+      table: 'expenses',
+      recordId: created?.id ?? null,
+      after: row,
+    });
   }
   revalidatePath('/admin/operations');
   revalidatePath('/admin/analytics');
@@ -43,9 +69,24 @@ export async function upsertExpense(slug: string, formData: FormData): Promise<{
 
 export async function deleteExpense(slug: string, id: string): Promise<{ ok: boolean; error?: string }> {
   const { gym } = await requireStaff(slug);
+  const actor = await getSessionUser();
   const supabase = await createClient();
+  const { data: before } = await supabase
+    .from('expenses')
+    .select('description, category, amount, expense_date')
+    .eq('id', id)
+    .eq('gym_id', gym.id)
+    .maybeSingle();
   const { error } = await supabase.from('expenses').delete().eq('id', id).eq('gym_id', gym.id);
   if (error) return { ok: false, error: error.message };
+  await audit(supabase, {
+    gymId: gym.id,
+    actorId: actor?.id ?? null,
+    action: 'admin.expense_deleted',
+    table: 'expenses',
+    recordId: id,
+    before: before ?? null,
+  });
   revalidatePath('/admin/operations');
   revalidatePath('/admin/analytics');
   return { ok: true };
