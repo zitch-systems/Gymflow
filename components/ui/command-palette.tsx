@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { Search } from 'lucide-react';
+import { filterCommandItems, clampHighlight } from '@/lib/command-palette';
 
 export type CommandItem = {
   href: string;
@@ -14,14 +15,23 @@ export type CommandItem = {
 
 type Props = {
   items: CommandItem[];
+  /** Placeholder shown in the search input. */
+  placeholder?: string;
+  /** A11y label for the listbox describing what kind of items it lists. */
+  listLabel?: string;
 };
 
-// Spotlight-style ⌘K command palette for the admin. Keyboard-first because
-// active admins navigate the 14-item side nav constantly. Opens on Cmd/Ctrl-K
-// or Cmd/Ctrl-P from anywhere on an admin page; closes on Escape or backdrop
-// click. Arrow keys + Enter to select. Filter is a simple case-insensitive
-// substring match on label + optional hint.
-export function CommandPalette({ items }: Props) {
+// Spotlight-style ⌘K command palette. Keyboard-first: opens on Cmd/Ctrl-K
+// (or Cmd/Ctrl-P) from anywhere on the page; closes on Escape or backdrop
+// click. Arrow keys + Enter to select. Filter is a case-insensitive substring
+// match on label + optional hint. Shared between admin / member / coach
+// portals — items come from the parent so the palette can't drift out of
+// sync with whatever nav the shell renders.
+export function CommandPalette({
+  items,
+  placeholder = 'Jump to…',
+  listLabel = 'Pages',
+}: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlight, setHighlight] = useState(0);
@@ -34,13 +44,12 @@ export function CommandPalette({ items }: Props) {
     setQuery('');
     setHighlight(0);
     setOpen(true);
-    // Defer the focus to the next frame so the input has mounted.
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
   const closePalette = useCallback(() => setOpen(false), []);
 
   // Global key listener. Suppressed inside <input>/<textarea>/[contenteditable]
-  // so the typist doesn't lose their letter K to the palette.
+  // so typing the letter K in a form doesn't hijack to the palette.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -60,15 +69,10 @@ export function CommandPalette({ items }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, openPalette, closePalette]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => i.label.toLowerCase().includes(q) || (i.hint ?? '').toLowerCase().includes(q));
-  }, [items, query]);
-
-  // Derive the effective highlight at render time rather than clamping via an
-  // effect — avoids the cascading-render React Compiler rule.
-  const effectiveHighlight = filtered.length === 0 ? 0 : Math.min(highlight, filtered.length - 1);
+  const filtered = useMemo(() => filterCommandItems(items, query), [items, query]);
+  // Derive the effective highlight at render time rather than clamping via
+  // an effect — avoids the cascading-render React Compiler rule.
+  const effectiveHighlight = clampHighlight(highlight, filtered.length);
 
   const onSelect = useCallback(
     (item: CommandItem) => {
@@ -119,11 +123,11 @@ export function CommandPalette({ items }: Props) {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Jump to…  (try Members, Analytics, Audit)"
+            placeholder={placeholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKey}
-            aria-label="Search admin pages"
+            aria-label={`Search ${listLabel.toLowerCase()}`}
             autoComplete="off"
             spellCheck={false}
           />
@@ -133,7 +137,7 @@ export function CommandPalette({ items }: Props) {
         {filtered.length === 0 ? (
           <div className="gf-cmdk-empty">No matches for &ldquo;{query}&rdquo;</div>
         ) : (
-          <ul className="gf-cmdk-list" role="listbox" aria-label="Admin pages">
+          <ul className="gf-cmdk-list" role="listbox" aria-label={listLabel}>
             {filtered.map((item, idx) => {
               const Icon = item.icon;
               const active = idx === effectiveHighlight;

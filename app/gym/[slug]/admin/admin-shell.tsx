@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
-import { CommandPalette, type CommandItem } from './command-palette';
+import { CommandPalette, type CommandItem } from '@/components/ui/command-palette';
 
 type NavItem = { href: string; label: string; section: 'main' | 'admin'; icon: LucideIcon };
 
@@ -63,7 +63,11 @@ export function AdminShell({
 
   return (
     <>
-      <CommandPalette items={cmdItems} />
+      <CommandPalette
+        items={cmdItems}
+        placeholder="Jump to…  (try Members, Analytics, Audit)"
+        listLabel="Admin pages"
+      />
       <div className={`gf-sidebar-overlay${open ? ' open' : ''}`} onClick={() => setOpen(false)} />
 
       <aside className={`gf-sidebar${open ? ' open' : ''}`}>
