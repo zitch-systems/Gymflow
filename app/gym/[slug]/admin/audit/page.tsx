@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireManager } from '@/lib/auth/gym';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDateTime } from '@/lib/format';
+import { actionLabel, renderAuditDelta } from '@/lib/audit-render';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card } from '@/components/ui/card';
@@ -10,37 +11,6 @@ import { ShieldCheck, Filter } from 'lucide-react';
 type PageProps = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ scope?: string; days?: string }>;
-};
-
-// Human-readable label for each action string we emit. Falls back to a
-// title-cased version of the raw action so newly-added actions still render
-// without breaking the page.
-const ACTION_LABEL: Record<string, string> = {
-  'admin.member_onboarded': 'Onboarded member',
-  'admin.pause_approved': 'Approved pause',
-  'admin.resume': 'Resumed membership',
-  'admin.extend_membership': 'Extended membership',
-  'admin.cancel_membership': 'Cancelled membership',
-  'admin.instructor_invited': 'Invited instructor',
-  'admin.subaccount_created': 'Connected Paystack subaccount',
-  'admin.subaccount_updated': 'Updated Paystack subaccount',
-  'admin.plan_created': 'Created plan',
-  'admin.plan_updated': 'Updated plan',
-  'admin.plan_deleted': 'Deleted plan',
-  'admin.equipment_created': 'Added equipment',
-  'admin.equipment_updated': 'Updated equipment',
-  'admin.equipment_deleted': 'Removed equipment',
-  'admin.expense_created': 'Logged expense',
-  'admin.expense_updated': 'Updated expense',
-  'admin.expense_deleted': 'Deleted expense',
-  'admin.class_created': 'Created class',
-  'admin.class_deleted': 'Deleted class',
-  'admin.business_hours_updated': 'Updated business hours',
-  'admin.gym_active': 'Re-activated gym',
-  'admin.gym_suspended': 'Suspended gym',
-  'admin.gym_terminated': 'Terminated gym',
-  'member.pause_requested': 'Requested pause',
-  'member.cancel_at_period_end': 'Cancelled at period end',
 };
 
 const SCOPES = [
@@ -61,43 +31,6 @@ const DAY_OPTIONS = [
 ] as const;
 
 const DAY_MS = 86_400_000;
-
-function actionLabel(action: string): string {
-  return ACTION_LABEL[action] ?? action.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
-}
-
-function fmt(v: unknown): string {
-  if (v === null || v === undefined) return '∅';
-  if (typeof v === 'string') return v.length > 40 ? v.slice(0, 37) + '…' : v;
-  if (typeof v === 'object') return JSON.stringify(v);
-  return String(v);
-}
-
-// Compact before → after delta for updates. For inserts and deletes only one
-// side is populated, so we just show the relevant set.
-function renderDelta(before: unknown, after: unknown): {
-  rows: Array<{ key: string; from: string; to: string }>;
-  raw: string | null;
-} {
-  if (typeof before === 'object' && before !== null && typeof after === 'object' && after !== null) {
-    const b = before as Record<string, unknown>;
-    const a = after as Record<string, unknown>;
-    const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(a)]));
-    const changed = keys
-      .filter((k) => JSON.stringify(b[k]) !== JSON.stringify(a[k]))
-      .map((k) => ({ key: k, from: fmt(b[k]), to: fmt(a[k]) }));
-    return { rows: changed, raw: null };
-  }
-  const side = after ?? before;
-  if (typeof side === 'object' && side !== null) {
-    const s = side as Record<string, unknown>;
-    return {
-      rows: Object.entries(s).map(([k, v]) => ({ key: k, from: '', to: fmt(v) })),
-      raw: null,
-    };
-  }
-  return { rows: [], raw: side != null ? JSON.stringify(side) : null };
-}
 
 export default async function AdminAuditPage({ params, searchParams }: PageProps) {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
@@ -187,7 +120,7 @@ export default async function AdminAuditPage({ params, searchParams }: PageProps
                 {rows.map((r) => {
                   const actor = r.actor_id ? actorById.get(r.actor_id) : null;
                   const actorName = actor?.full_name ?? actor?.first_name ?? actor?.email ?? 'System';
-                  const delta = renderDelta(r.old_values, r.new_values);
+                  const delta = renderAuditDelta(r.old_values, r.new_values);
                   return (
                     <tr key={r.id}>
                       <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
