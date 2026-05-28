@@ -78,7 +78,7 @@ function TabBar({ tabs }: { tabs: Tab[] }) {
 
 const MEMBER_EXTRAS: CommandItem[] = [
   { href: '/dashboard/cards', label: 'Saved cards', icon: CreditCard, hint: 'Page' },
-  { href: '/dashboard', label: 'Profile', icon: UserCircle2, hint: 'Page' },
+  { href: '/dashboard/profile', label: 'Profile & notifications', icon: UserCircle2, hint: 'Page' },
 ];
 
 const COACH_EXTRAS: CommandItem[] = [

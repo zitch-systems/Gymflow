@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendExpiryReminder, sendExpired } from '@/lib/email';
 import { waExpiryReminder } from '@/lib/whatsapp';
+import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
 
 // Vercel hits this once a day via vercel.json schedule; protect with CRON_SECRET.
 // Sends reminders at 7, 3, 1 days before expiry, and an "expired" notice on day 0.
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
     const target = isoDate(new Date(now.getTime() + days * DAY_MS));
     const { data: rows } = await supabase
       .from('memberships')
-      .select('id, member_id, gym_id, end_date, auto_renew, auto_debit_enabled, gyms(name, slug), profiles:member_id(email, phone, full_name, first_name)')
+      .select('id, member_id, gym_id, end_date, auto_renew, auto_debit_enabled, gyms(name, slug), profiles:member_id(email, phone, full_name, first_name, notification_email, notification_whatsapp)')
       .eq('status', 'active')
       .eq('end_date', target)
       .limit(MAX_ROWS_PER_DAY);
@@ -67,8 +68,12 @@ export async function GET(request: Request) {
       const autoDebit = !!(r.auto_renew || r.auto_debit_enabled);
       const args = { name, daysLeft: days, endDate: r.end_date, renewUrl, autoDebit };
       const [email, wa] = await Promise.allSettled([
-        sendExpiryReminder(profile.email, args),
-        profile.phone ? waExpiryReminder(profile.phone, args) : Promise.resolve({ ok: false, error: 'no_phone' }),
+        respectsEmail(profile)
+          ? sendExpiryReminder(profile.email, args)
+          : Promise.resolve({ ok: false, error: 'email_opted_out' }),
+        profile.phone && respectsWhatsapp(profile)
+          ? waExpiryReminder(profile.phone, args)
+          : Promise.resolve({ ok: false, error: 'no_phone_or_opted_out' }),
       ]);
       const okE = email.status === 'fulfilled' && email.value.ok;
       const okW = wa.status === 'fulfilled' && wa.value.ok;
@@ -92,7 +97,7 @@ export async function GET(request: Request) {
   const expiredCutoff = isoDate(new Date(now.getTime() - 3 * DAY_MS));
   const { data: expiredRows } = await supabase
     .from('memberships')
-    .select('id, member_id, gym_id, end_date, status, gyms(slug), profiles:member_id(email, full_name, first_name)')
+    .select('id, member_id, gym_id, end_date, status, gyms(slug), profiles:member_id(email, full_name, first_name, notification_email, notification_whatsapp)')
     .eq('status', 'active')
     .lte('end_date', expiredCutoff)
     .limit(MAX_ROWS_PER_DAY);
@@ -103,7 +108,9 @@ export async function GET(request: Request) {
     const gym = Array.isArray(r.gyms) ? r.gyms[0] : r.gyms;
     if (!profile?.email || !gym?.slug) return;
     const name = profile.full_name ?? profile.first_name ?? 'Member';
-    await sendExpired(profile.email, name, `https://${gym.slug}.gymflow.ng/dashboard/renew`);
+    if (respectsEmail(profile)) {
+      await sendExpired(profile.email, name, `https://${gym.slug}.gymflow.ng/dashboard/renew`);
+    }
     await supabase.from('memberships').update({ status: 'expired' }).eq('id', r.id);
     summary.expired++;
   });

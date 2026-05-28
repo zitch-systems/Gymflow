@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackFetch } from '@/lib/paystack';
 import { sendAutoDebitSuccess, sendAutoDebitFailure } from '@/lib/email';
 import { waAutoDebitSuccess, waAutoDebitFailure } from '@/lib/whatsapp';
+import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
   const { data: due } = await supabase
     .from('instructor_subscriptions')
     .select(
-      'id, gym_id, instructor_id, member_id, end_date, gyms(slug, name, paystack_subaccount_code), profiles:member_id(email, full_name, first_name, phone), instructor:instructor_id(full_name)',
+      'id, gym_id, instructor_id, member_id, end_date, gyms(slug, name, paystack_subaccount_code), profiles:member_id(email, full_name, first_name, phone, notification_email, notification_whatsapp), instructor:instructor_id(full_name)',
     )
     .eq('status', 'active')
     .eq('auto_renew', true)
@@ -137,16 +138,24 @@ export async function GET(request: Request) {
       });
 
       await Promise.allSettled([
-        sendAutoDebitSuccess(profile.email, { name, amount, endDate: isoDate(newEnd) }),
-        profile.phone ? waAutoDebitSuccess(profile.phone, { name, amount, endDate: isoDate(newEnd) }) : Promise.resolve(),
+        respectsEmail(profile)
+          ? sendAutoDebitSuccess(profile.email, { name, amount, endDate: isoDate(newEnd) })
+          : Promise.resolve(),
+        profile.phone && respectsWhatsapp(profile)
+          ? waAutoDebitSuccess(profile.phone, { name, amount, endDate: isoDate(newEnd) })
+          : Promise.resolve(),
       ]);
       summary.charged++;
     } else {
       summary.failed++;
       const renewUrl = `https://${gym.slug}.gymflow.ng/dashboard/instructors/${sub.instructor_id}`;
       await Promise.allSettled([
-        sendAutoDebitFailure(profile.email, { name, reason: result.message ?? 'card declined', attempts: 1, renewUrl }),
-        profile.phone ? waAutoDebitFailure(profile.phone, { name, renewUrl, attempts: 1 }) : Promise.resolve(),
+        respectsEmail(profile)
+          ? sendAutoDebitFailure(profile.email, { name, reason: result.message ?? 'card declined', attempts: 1, renewUrl })
+          : Promise.resolve(),
+        profile.phone && respectsWhatsapp(profile)
+          ? waAutoDebitFailure(profile.phone, { name, renewUrl, attempts: 1 })
+          : Promise.resolve(),
       ]);
     }
   }
