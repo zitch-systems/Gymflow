@@ -16,7 +16,7 @@ const CSP = [
   "font-src 'self' data: https://fonts.gstatic.com",
   // Gym/member photos may come from any HTTPS source (uploads, third-party CDNs).
   "img-src 'self' data: blob: https:",
-  `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://api.paystack.co`,
+  `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://api.paystack.co https://*.ingest.sentry.io https://us.i.posthog.com https://eu.i.posthog.com https://app.posthog.com`,
   // Paystack inline checkout iframes load from these hosts.
   "frame-src 'self' https://checkout.paystack.com https://standard.paystack.co https://js.paystack.co",
   "frame-ancestors 'none'",

@@ -1,4 +1,5 @@
 import 'server-only';
+import { after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/database.types';
 import { sendReceipt } from '@/lib/email';
@@ -160,20 +161,25 @@ export async function fulfilMembershipPurchase(
   }
 
   if (opts.notify) {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name, first_name, phone')
-        .eq('id', memberId)
-        .maybeSingle();
-      const name = profile?.full_name ?? profile?.first_name ?? 'Member';
-      await Promise.allSettled([
-        sendReceipt(txn.customerEmail, { name, amount: price, plan: plan.name ?? 'Membership', endDate: end_date }),
-        profile?.phone ? waReceipt(profile.phone, { name, amount: price, endDate: end_date }) : Promise.resolve(),
-      ]);
-    } catch (e) {
-      console.warn('[GF fulfil] receipt notification failed:', (e as Error).message);
-    }
+    // Defer to `after()` so the HTTP response returns immediately. Receipts
+    // are non-critical to the response payload and email/WhatsApp providers
+    // can be slow under load — never make the customer wait on them.
+    after(async () => {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, first_name, phone')
+          .eq('id', memberId)
+          .maybeSingle();
+        const name = profile?.full_name ?? profile?.first_name ?? 'Member';
+        await Promise.allSettled([
+          sendReceipt(txn.customerEmail, { name, amount: price, plan: plan.name ?? 'Membership', endDate: end_date }),
+          profile?.phone ? waReceipt(profile.phone, { name, amount: price, endDate: end_date }) : Promise.resolve(),
+        ]);
+      } catch (e) {
+        console.warn('[GF fulfil] receipt notification failed:', (e as Error).message);
+      }
+    });
   }
 
   return { ok: true, membershipId: membership?.id ?? null };

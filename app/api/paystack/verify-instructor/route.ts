@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
@@ -150,29 +150,32 @@ export async function POST(request: Request) {
     );
   }
 
-  // Receipt notifications (fire-and-forget).
-  try {
-    const [{ data: profile }, { data: instructor }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('full_name, first_name, phone, email')
-        .eq('id', user.id)
-        .maybeSingle(),
-      supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', instructor_id)
-        .maybeSingle(),
-    ]);
-    const name = profile?.full_name ?? profile?.first_name ?? 'Member';
-    const planName = `Coaching: ${instructor?.full_name ?? 'Instructor'}`;
-    await Promise.allSettled([
-      sendReceipt(user.email!, { name, amount: expectedTotal, plan: planName, endDate: end_date }),
-      profile?.phone ? waReceipt(profile.phone, { name, amount: expectedTotal, endDate: end_date }) : Promise.resolve(),
-    ]);
-  } catch (e) {
-    console.warn('[GF verify-instructor] receipt notification failed:', (e as Error).message);
-  }
+  // Defer receipts to after the response so slow email/WhatsApp providers
+  // can't stretch the user's wait time.
+  after(async () => {
+    try {
+      const [{ data: profile }, { data: instructor }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('full_name, first_name, phone, email')
+          .eq('id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', instructor_id)
+          .maybeSingle(),
+      ]);
+      const name = profile?.full_name ?? profile?.first_name ?? 'Member';
+      const planName = `Coaching: ${instructor?.full_name ?? 'Instructor'}`;
+      await Promise.allSettled([
+        sendReceipt(user.email!, { name, amount: expectedTotal, plan: planName, endDate: end_date }),
+        profile?.phone ? waReceipt(profile.phone, { name, amount: expectedTotal, endDate: end_date }) : Promise.resolve(),
+      ]);
+    } catch (e) {
+      console.warn('[GF verify-instructor] receipt notification failed:', (e as Error).message);
+    }
+  });
 
   return NextResponse.json({ success: true, subscription, months });
 }

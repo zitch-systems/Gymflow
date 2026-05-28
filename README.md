@@ -117,9 +117,14 @@ Without this, `auth.signUp()` returns **401 Unauthorized**.
 - [ ] `CRON_SECRET` — shared secret for the daily cron routes (`openssl rand -base64 32`)
 - [ ] `NEXT_PUBLIC_SITE_URL` — your public origin (e.g. `https://gymflow.ng`)
 
+**Observability (optional, but strongly recommended pre-launch):**
+
+- [ ] `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` — error tracking (server + client + edge). Init is a no-op when absent.
+- [ ] `NEXT_PUBLIC_POSTHOG_KEY` (+ optional `NEXT_PUBLIC_POSTHOG_HOST`) — product analytics. Defaults to `us.i.posthog.com`. Init is a no-op when absent.
+
 **Supabase:**
 
-- [ ] Apply all migrations in `supabase/migrations/`, including `20260527_harden_function_search_path.sql`
+- [ ] Apply all migrations in `supabase/migrations/`, including `20260527_harden_function_search_path.sql` and `20260528_rls_write_policies.sql` (`supabase db push` or paste into the SQL editor).
 - [ ] Auth → Providers → Email: enable provider + signups; **enable "Leaked password protection"**; re-enable "Confirm email" for production
 - [ ] Set the Paystack webhook URL to `https://<your-domain>/api/paystack/webhook`
 
