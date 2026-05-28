@@ -75,6 +75,7 @@ export default function MarketingHome() {
       />
       <MarketingNav />
 
+      <main id="main-content" tabIndex={-1}>
       <header className="marketing-hero mk-hero-photo">
         <div className="mk-hero-photo-bg" style={{ backgroundImage: 'url(/images/gym-floor.jpg)' }} aria-hidden />
         <div className="container mk-hero-photo-inner">
@@ -190,6 +191,7 @@ export default function MarketingHome() {
           </div>
         </div>
       </section>
+      </main>
 
       <MarketingFooter />
     </div>

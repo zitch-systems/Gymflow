@@ -25,6 +25,7 @@ export default function AboutPage() {
     <div className="marketing">
       <MarketingNav />
 
+      <main id="main-content" tabIndex={-1}>
       <header className="marketing-hero mk-subhero">
         <div className="container">
           <span className="marketing-eyebrow">Built in Lagos</span>
@@ -81,6 +82,7 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      </main>
 
       <MarketingFooter />
     </div>

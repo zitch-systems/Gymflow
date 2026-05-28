@@ -85,13 +85,13 @@ export function ProfileForm({ userId, slug, initial }: { userId: string; slug: s
       </div>
 
       <div className="gf-form-group">
-        <label className="gf-label">Name</label>
-        <input className="gf-input" defaultValue={initial.full_name ?? ''} disabled />
+        <label className="gf-label" htmlFor="coach-full-name">Name</label>
+        <input id="coach-full-name" className="gf-input" defaultValue={initial.full_name ?? ''} disabled />
         <p className="gf-form-hint">Ask gym admin to change.</p>
       </div>
       <div className="gf-form-group">
-        <label className="gf-label">Email</label>
-        <input className="gf-input" defaultValue={initial.email ?? ''} disabled />
+        <label className="gf-label" htmlFor="coach-email">Email</label>
+        <input id="coach-email" className="gf-input" defaultValue={initial.email ?? ''} disabled />
       </div>
 
       <div className="gf-form-group">

@@ -45,9 +45,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="gf-toast-container" id="gf-toasts">
+      {/* Live region for screen reader announcements. Errors are 'assertive'
+          (interrupt-now), everything else is 'polite' so non-critical info
+          waits its turn. aria-atomic re-reads the whole message each update
+          rather than just the diff. */}
+      <div
+        className="gf-toast-container"
+        id="gf-toasts"
+        aria-live="polite"
+        aria-atomic="true"
+      >
         {toasts.map((t) => (
-          <div key={t.id} className={`gf-toast gf-toast-${t.type} show`} role={t.type === 'error' ? 'alert' : 'status'}>
+          <div
+            key={t.id}
+            className={`gf-toast gf-toast-${t.type} show`}
+            role={t.type === 'error' ? 'alert' : 'status'}
+          >
             <span aria-hidden="true">{ICONS[t.type]}</span>
             <span>{t.message}</span>
           </div>

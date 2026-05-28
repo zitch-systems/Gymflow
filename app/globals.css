@@ -3523,6 +3523,37 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 2px;
 }
 
+/* Skip-to-main link — visually hidden until keyboard focus reveals it. Sits
+   above the sticky marketing nav so a keyboard user lands here on Tab from
+   the URL bar and can jump straight to page content. */
+.skip-link {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+  padding: 10px 16px;
+  background: var(--gf-brand);
+  color: var(--gf-text);
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 0.18s;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--gf-text);
+  outline-offset: 2px;
+}
+/* When focus moves to <main id="main-content"> we don't want the default
+   ugly focus ring on a non-interactive landmark. Keep it accessible (focus
+   still goes there) but visually quiet. */
+main[tabindex="-1"]:focus,
+main[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
 /* ── Reduce motion preference ── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

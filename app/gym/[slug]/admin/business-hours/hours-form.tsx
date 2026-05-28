@@ -43,6 +43,7 @@ export function BusinessHoursForm({ slug, rows }: { slug: string; rows: Row[] })
                   type="time"
                   name={`open_${r.dow}`}
                   defaultValue={r.open}
+                  aria-label={`${r.label} opening time`}
                   className="gf-input"
                   style={{ maxWidth: 130 }}
                 />
@@ -52,12 +53,19 @@ export function BusinessHoursForm({ slug, rows }: { slug: string; rows: Row[] })
                   type="time"
                   name={`close_${r.dow}`}
                   defaultValue={r.close}
+                  aria-label={`${r.label} closing time`}
                   className="gf-input"
                   style={{ maxWidth: 130 }}
                 />
               </td>
               <td>
-                <input type="checkbox" name={`closed_${r.dow}`} defaultChecked={r.closed} className="gf-check" />
+                <input
+                  type="checkbox"
+                  name={`closed_${r.dow}`}
+                  defaultChecked={r.closed}
+                  aria-label={`${r.label} closed all day`}
+                  className="gf-check"
+                />
               </td>
             </tr>
           ))}

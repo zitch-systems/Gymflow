@@ -55,6 +55,7 @@ export default function PricingPage() {
       />
       <MarketingNav />
 
+      <main id="main-content" tabIndex={-1}>
       <header className="marketing-hero mk-subhero">
         <div className="container">
           <span className="marketing-eyebrow">Pricing</span>
@@ -108,6 +109,7 @@ export default function PricingPage() {
           </div>
         </div>
       </section>
+      </main>
 
       <MarketingFooter />
     </div>
