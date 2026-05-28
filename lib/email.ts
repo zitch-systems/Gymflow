@@ -152,6 +152,22 @@ export async function sendAutoDebitFailure(to: string, args: { name: string; rea
   );
 }
 
+export async function sendPlatformRenewalFailure(
+  to: string,
+  args: { gymName: string; reason: string; attempts: number; billingUrl: string },
+) {
+  return send(
+    to,
+    `Your GymFlow subscription couldn't be renewed`,
+    shell(
+      'Subscription renewal failed',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi — we couldn't charge your saved card for the GymFlow subscription on <strong>${escape(args.gymName)}</strong> (attempt ${args.attempts} of 3). Reason: ${escape(args.reason)}.</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">If we can't take payment in the next 2 days your gym is suspended. Update your card or renew manually below.</p>`,
+      'Fix billing',
+      args.billingUrl,
+    ),
+  );
+}
+
 export async function sendTempPassword(to: string, args: { name: string; gymName: string; tempPassword: string; loginUrl: string }) {
   return send(
     to,

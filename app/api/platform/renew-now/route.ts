@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
-import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
 
 // Owner-initiated GymFlow subscription renewal. Same security shape as the
 // member /verify route — verify the Paystack reference server-side, derive
@@ -17,10 +17,8 @@ export async function POST(request: Request) {
   const rl = rateLimit({ key: `platform-renew:${ip}`, limit: 10, windowMs: 60_000 });
   if (!rl.ok) return rateLimitResponse(rl);
 
-  let body: Body;
-  try { body = await request.json(); } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
+  const body = await readJsonBody<Body>(request);
+  if (body instanceof Response) return body;
   const { reference, gym_id } = body;
   if (!reference || !gym_id) {
     return NextResponse.json({ error: 'reference and gym_id required' }, { status: 400 });

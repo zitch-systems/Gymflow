@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { initializeTransaction } from '@/lib/paystack';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
-import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
 
 // Initiates a gym-onboarding Paystack transaction. This route doesn't require
 // auth (no session yet — the gym doesn't exist!) but it locks the purpose to
@@ -16,12 +16,9 @@ export async function POST(request: Request) {
   const rl = rateLimit({ key: `platform-initiate:${ip}`, limit: 5, windowMs: 60_000 });
   if (!rl.ok) return rateLimitResponse(rl);
 
-  let body: { gymName?: string; ownerEmail?: string; ownerName?: string; ownerPhone?: string; slug?: string; billing?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
+  type Body = { gymName?: string; ownerEmail?: string; ownerName?: string; ownerPhone?: string; slug?: string; billing?: string };
+  const body = await readJsonBody<Body>(request);
+  if (body instanceof Response) return body;
   const slug = (body.slug ?? '').toLowerCase().trim();
   const gymName = (body.gymName ?? '').trim();
   const ownerEmail = (body.ownerEmail ?? '').trim().toLowerCase();

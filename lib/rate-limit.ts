@@ -99,3 +99,37 @@ export function rateLimitResponse(result: RateLimitResult): Response {
     },
   });
 }
+
+/**
+ * Read a JSON body with a hard size cap. Vercel's serverless body limits are
+ * generous; for our small payloads anything above ~8KB is suspicious (form
+ * floods, JSON bombs to OOM the function). Returns a 413 Response on overflow
+ * or invalid JSON so callers can `if (result instanceof Response) return result`.
+ */
+export async function readJsonBody<T>(
+  request: Request,
+  maxBytes = 8 * 1024,
+): Promise<T | Response> {
+  const lengthHeader = request.headers.get('content-length');
+  if (lengthHeader && Number(lengthHeader) > maxBytes) {
+    return new Response(JSON.stringify({ error: 'Request body too large' }), {
+      status: 413,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  const text = await request.text();
+  if (text.length > maxBytes) {
+    return new Response(JSON.stringify({ error: 'Request body too large' }), {
+      status: 413,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}

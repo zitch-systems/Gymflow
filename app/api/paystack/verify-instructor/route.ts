@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
 import { sendReceipt } from '@/lib/email';
 import { waReceipt } from '@/lib/whatsapp';
-import { rateLimit, rateLimitResponse, clientIpFromRequest } from '@/lib/rate-limit';
+import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
 
 type Body = {
   reference?: string;
@@ -18,12 +18,8 @@ export async function POST(request: Request) {
   const rl = rateLimit({ key: `paystack-verify-instructor:${ip}`, limit: 20, windowMs: 60_000 });
   if (!rl.ok) return rateLimitResponse(rl);
 
-  let body: Body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-  }
+  const body = await readJsonBody<Body>(request);
+  if (body instanceof Response) return body;
 
   const { reference, gym_id, instructor_id, months } = body;
   if (!reference || !gym_id || !instructor_id || !months || months < 1 || months > 24) {
