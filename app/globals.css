@@ -3524,6 +3524,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   Skeleton primitives — used in per-route loading.tsx files so the UI's
+   structural boundaries are visible during the fetch instead of a blank
+   centre with a spinner. Subtle moving gradient communicates "loading"
+   without being distracting.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.gf-skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--gf-elevated) 0%,
+    color-mix(in srgb, var(--gf-elevated) 60%, var(--gf-border)) 50%,
+    var(--gf-elevated) 100%
+  );
+  background-size: 200% 100%;
+  animation: gf-skeleton-shimmer 1.4s linear infinite;
+}
+@keyframes gf-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gf-skeleton { animation: none; opacity: 0.65; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    Admin command palette (⌘K)
    Floating overlay that lets active admins jump to any page in 2 keystrokes.
    ═══════════════════════════════════════════════════════════════════════════ */
