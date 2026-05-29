@@ -41,9 +41,15 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
   }
 
   async function startScanner() {
+    // Guard the React 19 / StrictMode double-mount and a user racing the
+    // click — a second start would try to attach Html5Qrcode to the same
+    // #qr-reader div and fight for the camera.
+    if (scannerRef.current) return;
     setScanning(true);
     try {
       const mod = await import('html5-qrcode');
+      // If something stopped us during the async import, bail.
+      if (scannerRef.current) return;
       // wait one tick so the #qr-reader div is in the DOM
       await new Promise((r) => requestAnimationFrame(() => r(null)));
       const scanner = new mod.Html5Qrcode('qr-reader');
@@ -63,20 +69,49 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
         },
       );
     } catch (err) {
+      // Most common: user denied the camera prompt, or the device has no
+      // camera. Toast it and fall back to the button view so they can still
+      // use "check in without scanning".
       toast((err as Error).message || 'Could not open camera', 'error');
       setScanning(false);
     }
   }
 
-  useEffect(() => () => void stopScanner(), []); // unmount cleanup
+  // Auto-open the camera as soon as the page loads — the whole point of the
+  // bottom-nav Check In tab is "scan to check in". On denial / no-camera the
+  // catch block above reverts to the button view, which still works. The
+  // setScanning(true) inside startScanner is the legitimate "kick off an
+  // external system" pattern the React Compiler rule documents an exception
+  // for.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void startScanner();
+    return () => void stopScanner();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (scanning) {
     return (
       <div>
         <div id="qr-reader" style={{ width: '100%', maxWidth: 360, margin: '0 auto', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--gf-border)' }} />
-        <button type="button" className="gf-btn gf-btn-ghost gf-btn-full" onClick={stopScanner} style={{ marginTop: 12 }}>
-          Cancel scan
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          <button
+            type="button"
+            className="gf-btn gf-btn-ghost gf-btn-full"
+            disabled={pending}
+            onClick={() => {
+              start(async () => {
+                await stopScanner();
+                handleResult(await selfCheckIn(slug));
+              });
+            }}
+          >
+            {pending ? 'Checking in…' : "Can't see the QR? Check in without scanning"}
+          </button>
+          <button type="button" className="gf-btn gf-btn-ghost gf-btn-full" onClick={stopScanner}>
+            Cancel
+          </button>
+        </div>
       </div>
     );
   }
