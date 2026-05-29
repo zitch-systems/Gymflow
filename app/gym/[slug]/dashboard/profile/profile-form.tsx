@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateMemberProfile } from '@/lib/actions/member-profile';
+import { requestPasswordReset } from '@/lib/auth/actions';
 import { useToast } from '@/lib/toast';
 
 type Initial = {
@@ -11,8 +12,9 @@ type Initial = {
   notification_whatsapp: boolean;
 };
 
-export function ProfileForm({ slug, initial }: { slug: string; initial: Initial }) {
+export function ProfileForm({ slug, email, initial }: { slug: string; email: string | null; initial: Initial }) {
   const [pending, start] = useTransition();
+  const [resetPending, startReset] = useTransition();
   const toast = useToast();
   const router = useRouter();
   const [emailOpt, setEmailOpt] = useState(initial.notification_email);
@@ -89,6 +91,31 @@ export function ProfileForm({ slug, initial }: { slug: string; initial: Initial 
       <div className="form-grid-full" style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button type="submit" className="gf-btn gf-btn-primary" disabled={pending}>
           {pending ? 'Saving…' : 'Save changes'}
+        </button>
+      </div>
+
+      <div className="gf-form-group form-grid-full" style={{ borderTop: '1px solid var(--gf-border)', paddingTop: 16, marginTop: 4 }}>
+        <span className="gf-label">Security</span>
+        <p className="gf-form-hint" style={{ marginTop: 0 }}>
+          We&apos;ll email you a secure link to set a new password.
+        </p>
+        <button
+          type="button"
+          className="gf-btn gf-btn-secondary gf-btn-sm"
+          disabled={resetPending}
+          onClick={() => {
+            if (!email) {
+              toast('No email on file — contact the gym to reset your password', 'warning');
+              return;
+            }
+            startReset(async () => {
+              const res = await requestPasswordReset(email, window.location.origin);
+              if (res.error) toast(res.error, 'error');
+              else toast('Password reset link sent — check your email', 'success');
+            });
+          }}
+        >
+          {resetPending ? 'Sending…' : 'Change password'}
         </button>
       </div>
     </form>

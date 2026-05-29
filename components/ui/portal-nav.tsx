@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
   Home, CalendarDays, ScanLine, GraduationCap, CreditCard,
-  LayoutGrid, Users, ClipboardCheck, Wallet, UserCircle2,
+  LayoutGrid, Users, ClipboardCheck, Wallet, UserCircle2, Settings,
 } from 'lucide-react';
 import { CommandPalette, type CommandItem } from '@/components/ui/command-palette';
 
@@ -27,6 +27,7 @@ const MEMBER_TABS: Tab[] = [
   { href: '/checkin', label: 'Check In', icon: ScanLine, fab: true },
   { href: '/dashboard/instructors', label: 'Coaches', icon: GraduationCap },
   { href: '/dashboard/renew', label: 'Renew', icon: CreditCard },
+  { href: '/dashboard/profile', label: 'Settings', icon: Settings },
 ];
 
 const COACH_TABS: Tab[] = [
@@ -77,8 +78,8 @@ function TabBar({ tabs }: { tabs: Tab[] }) {
 }
 
 const MEMBER_EXTRAS: CommandItem[] = [
+  // Settings/profile is now a primary tab, so it's not duplicated here.
   { href: '/dashboard/cards', label: 'Saved cards', icon: CreditCard, hint: 'Page' },
-  { href: '/dashboard/profile', label: 'Profile & notifications', icon: UserCircle2, hint: 'Page' },
 ];
 
 const COACH_EXTRAS: CommandItem[] = [

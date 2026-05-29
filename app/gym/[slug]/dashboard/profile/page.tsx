@@ -74,6 +74,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
         <div style={{ padding: 18 }}>
           <ProfileForm
             slug={slug}
+            email={p?.email ?? user.email ?? null}
             initial={{
               phone: p?.phone ?? null,
               // Default to opted-in (matches the column default) if the
