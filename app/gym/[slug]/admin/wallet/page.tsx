@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDateTime, fmtDate } from '@/lib/format';
 import { daysAgoDate, todayDate } from '@/lib/dates';
 import { WalletFilters } from './wallet-filters';
+import { ExportPaymentsCsvButton } from './export-csv-button';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card } from '@/components/ui/card';
 import { Stat, StatGrid } from '@/components/ui/stat';
@@ -55,6 +56,7 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
       <PageHeader
         title="Wallet & payments"
         subtitle={`${fmtDate(from)} → ${fmtDate(to)} · ${rows?.length ?? 0} transaction(s)`}
+        actions={<ExportPaymentsCsvButton slug={slug} from={from} to={to} method={method || undefined} status={status || undefined} />}
       />
 
       <StatGrid>
