@@ -152,6 +152,22 @@ export async function sendAutoDebitFailure(to: string, args: { name: string; rea
   );
 }
 
+export async function sendClassReminder(
+  to: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return send(
+    to,
+    `Reminder: ${escape(args.className)} ${args.classTime ? `at ${escape(args.classTime)}` : 'today'}`,
+    shell(
+      'See you soon',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — just a quick reminder that <strong>${escape(args.className)}</strong> is today${args.classTime ? ` at <strong>${escape(args.classTime)}</strong>` : ''}.</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">If you can no longer make it, please cancel so the next person on the waitlist gets your spot.</p>`,
+      'View your class',
+      args.classesUrl,
+    ),
+  );
+}
+
 export async function sendBookingConfirmed(
   to: string,
   args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
