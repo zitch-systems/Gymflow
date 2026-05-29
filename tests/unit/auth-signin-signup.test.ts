@@ -59,6 +59,10 @@ vi.mock('@/lib/rate-limit', () => ({ rateLimit: rateMock, clientIpFromHeaders: i
 vi.mock('@/lib/email', () => ({ sendWelcome: vi.fn(async () => ({ ok: true })) }));
 vi.mock('@/lib/whatsapp', () => ({ waWelcome: vi.fn(async () => ({ ok: true })) }));
 vi.mock('next/navigation', () => ({ redirect: (url: string) => { throw new Error(`NEXT_REDIRECT:${url}`); } }));
+// signUp defers welcome notifications via after(); run the callback inline so
+// the test still exercises the (fire-and-forget) send path without a request
+// scope. The real after() schedules it post-response.
+vi.mock('next/server', () => ({ after: (fn: () => unknown) => { void fn(); } }));
 
 import { signIn, signUp } from '@/lib/auth/actions';
 

@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { roleHome } from './dal';
 import { sendWelcome } from '@/lib/email';
@@ -132,20 +133,26 @@ export async function signUp(_prev: SignUpState, formData: FormData): Promise<Si
     return { error: error.message };
   }
 
-  // Fire-and-forget welcome notifications. Errors logged, not surfaced —
-  // the user shouldn't be blocked from signing in just because Resend hiccupped.
-  try {
-    const dashboardUrl = gymSlug
-      ? `https://${gymSlug}.gymflow.ng/dashboard`
-      : `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/dashboard`;
-    const gymName = gymSlug ? gymSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'GymFlow';
-    await Promise.allSettled([
-      sendWelcome(email, fullName, gymName, dashboardUrl),
-      phone ? waWelcome(phone, fullName, gymName, dashboardUrl) : Promise.resolve(),
-    ]);
-  } catch (e) {
-    console.warn('[GF signUp] welcome notifications failed:', (e as Error).message);
-  }
+  // Welcome notifications run AFTER the response is sent. Email/WhatsApp
+  // providers can be slow (or cold), and previously this block was awaited
+  // before the redirect — a slow Resend call could push the whole signup
+  // request past the serverless function timeout (504). Deferring with
+  // after() lets the redirect fire immediately; the sends finish in the
+  // background. Mirrors the receipt-send pattern in lib/paystack-fulfill.ts.
+  after(async () => {
+    try {
+      const dashboardUrl = gymSlug
+        ? `https://${gymSlug}.gymflow.ng/dashboard`
+        : `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/dashboard`;
+      const gymName = gymSlug ? gymSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'GymFlow';
+      await Promise.allSettled([
+        sendWelcome(email, fullName, gymName, dashboardUrl),
+        phone ? waWelcome(phone, fullName, gymName, dashboardUrl) : Promise.resolve(),
+      ]);
+    } catch (e) {
+      console.warn('[GF signUp] welcome notifications failed:', (e as Error).message);
+    }
+  });
 
   redirect(`/login?welcome=1${gymSlug ? `&gym=${encodeURIComponent(gymSlug)}` : ''}`);
 }
