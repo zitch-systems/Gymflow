@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card } from '@/components/ui/card';
 import { ShieldCheck, Filter } from 'lucide-react';
+import { ExportAuditCsvButton } from './export-csv-button';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -78,6 +79,7 @@ export default async function AdminAuditPage({ params, searchParams }: PageProps
       <PageHeader
         title="Audit log"
         subtitle={`${rows?.length ?? 0} event${(rows?.length ?? 0) === 1 ? '' : 's'} at ${gym.name} · ${days.label.toLowerCase()}`}
+        actions={<ExportAuditCsvButton slug={slug} scopeId={scopeId} daysId={daysId} />}
       />
 
       <Card>
