@@ -91,8 +91,8 @@ export default function MarketingHome() {
             Run your gym the <span className="marketing-accent">modern way</span>.
           </h1>
           <p className="marketing-hero-sub">
-            Member check-in, Paystack subscriptions, class booking, and automated reminders — in one
-            mobile-first platform that works on Naija data.
+            Check-ins, Paystack subscriptions, class booking and automated reminders — one
+            mobile-first platform, built light enough to run smoothly on Nigerian networks.
           </p>
           <div className="marketing-hero-actions">
             <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
