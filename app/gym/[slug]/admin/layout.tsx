@@ -1,3 +1,5 @@
+import '@/app/admin.css';
+
 import { requireStaff } from '@/lib/auth/gym';
 import { getProfile } from '@/lib/auth/dal';
 import { AdminShell } from './admin-shell';
