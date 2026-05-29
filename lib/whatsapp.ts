@@ -88,6 +88,16 @@ export async function waAutoDebitFailure(phone: string, args: { name: string; re
   );
 }
 
+export async function waWaitlistPromoted(
+  phone: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return sendWhatsApp(
+    phone,
+    `Hi ${args.name}, a spot opened up — you're off the waitlist and confirmed for ${args.className} on ${args.classDate}${args.classTime ? ` at ${args.classTime}` : ''}. ${args.classesUrl} — GymFlow`,
+  );
+}
+
 export async function waTempPassword(phone: string, args: { name: string; gymName: string; tempPassword: string; loginUrl: string }) {
   return sendWhatsApp(
     phone,

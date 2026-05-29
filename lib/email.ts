@@ -152,6 +152,22 @@ export async function sendAutoDebitFailure(to: string, args: { name: string; rea
   );
 }
 
+export async function sendWaitlistPromoted(
+  to: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return send(
+    to,
+    `You're in! Your ${escape(args.className)} spot just opened up`,
+    shell(
+      'A spot opened up!',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — someone cancelled their <strong>${escape(args.className)}</strong> booking on <strong>${escape(args.classDate)}</strong>${args.classTime ? ` at ${escape(args.classTime)}` : ''}, so you're off the waitlist and confirmed in.</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">See you at the gym! If you can't make it, please cancel so the next person on the waitlist gets the spot.</p>`,
+      'View your class',
+      args.classesUrl,
+    ),
+  );
+}
+
 export async function sendPlatformRenewalFailure(
   to: string,
   args: { gymName: string; reason: string; attempts: number; billingUrl: string },

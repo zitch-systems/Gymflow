@@ -6,6 +6,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff, requireMember } from '@/lib/auth/gym';
 import { getSessionUser } from '@/lib/auth/dal';
 import { audit } from '@/lib/audit';
+import { sendWaitlistPromoted } from '@/lib/email';
+import { waWaitlistPromoted } from '@/lib/whatsapp';
+import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
 
 export async function createClassWithSchedule(slug: string, formData: FormData) {
   const { gym } = await requireStaff(slug);
@@ -191,12 +194,15 @@ export async function cancelBooking(slug: string, bookingId: string): Promise<{ 
 
   // A confirmed seat opened up — promote the oldest waitlisted member.
   // Uses the service-role client because RLS scopes member updates to their own rows.
+  // We also fetch the promoted member's contact + the class details in the
+  // same admin client so we can fire a "you're off the waitlist" notification
+  // — without it the promoted member has no idea their booking is now active.
   if (target?.status === 'booked' && target.class_schedule_id && target.booking_date && target.gym_id) {
     try {
       const admin = createAdminClient();
       const { data: next } = await admin
         .from('class_bookings')
-        .select('id')
+        .select('id, member_id')
         .eq('gym_id', target.gym_id)
         .eq('class_schedule_id', target.class_schedule_id)
         .eq('booking_date', target.booking_date)
@@ -205,7 +211,18 @@ export async function cancelBooking(slug: string, bookingId: string): Promise<{ 
         .limit(1)
         .maybeSingle();
       if (next) {
-        await admin.from('class_bookings').update({ status: 'booked' }).eq('id', next.id).eq('gym_id', target.gym_id);
+        await admin
+          .from('class_bookings')
+          .update({ status: 'booked' })
+          .eq('id', next.id)
+          .eq('gym_id', target.gym_id);
+
+        // Best-effort notification. Skipped silently when the promoted member
+        // has opted out, or when any of the joined records (profile / class /
+        // gym) is missing — never crash the cancellation.
+        if (next.member_id) {
+          await notifyWaitlistPromoted(admin, next.member_id, target.class_schedule_id, target.booking_date, target.gym_id);
+        }
       }
     } catch {
       // Promotion is best-effort; the cancellation itself already succeeded.
@@ -214,4 +231,80 @@ export async function cancelBooking(slug: string, bookingId: string): Promise<{ 
 
   revalidatePath('/classes');
   return { ok: true };
+}
+
+// Internal helper for the cancel-then-promote path. Joins the promoted
+// member's profile (email + phone + notification prefs) with the class /
+// schedule context, then fires email + WhatsApp where the member is opted in.
+// Never throws — the caller already considers this best-effort.
+async function notifyWaitlistPromoted(
+  admin: ReturnType<typeof createAdminClient>,
+  memberId: string,
+  classScheduleId: string,
+  bookingDate: string,
+  gymId: string,
+): Promise<void> {
+  try {
+    // notification_email + notification_whatsapp ship in
+    // 20260529_member_notification_prefs but the generated types haven't been
+    // regenerated; widen via `as never` on the select + unknown cast on the
+    // return so this compiles before `supabase gen types` is rerun.
+    type ProfileRow = {
+      email: string | null;
+      phone: string | null;
+      full_name: string | null;
+      first_name: string | null;
+      notification_email: boolean | null;
+      notification_whatsapp: boolean | null;
+    };
+    const [{ data: profileRaw }, { data: schedule }, { data: gym }] = await Promise.all([
+      admin
+        .from('profiles')
+        .select('email, phone, full_name, first_name, notification_email, notification_whatsapp' as never)
+        .eq('id', memberId)
+        .maybeSingle(),
+      admin
+        .from('class_schedules')
+        .select('start_time, classes(name)')
+        .eq('id', classScheduleId)
+        .eq('gym_id', gymId)
+        .maybeSingle(),
+      admin
+        .from('gyms')
+        .select('slug')
+        .eq('id', gymId)
+        .maybeSingle(),
+    ]);
+    const profile = profileRaw as unknown as ProfileRow | null;
+
+    if (!profile?.email && !profile?.phone) return; // nothing to send to
+    const cls = Array.isArray(schedule?.classes) ? schedule.classes[0] : schedule?.classes;
+    const className = cls?.name ?? 'class';
+    const classTime = schedule?.start_time ?? null;
+    const name = profile?.full_name ?? profile?.first_name ?? 'Member';
+    const classesUrl = gym?.slug ? `https://${gym.slug}.gymflow.ng/classes` : '/classes';
+
+    await Promise.allSettled([
+      profile?.email && respectsEmail(profile)
+        ? sendWaitlistPromoted(profile.email, {
+            name,
+            className,
+            classDate: bookingDate,
+            classTime,
+            classesUrl,
+          })
+        : Promise.resolve(),
+      profile?.phone && respectsWhatsapp(profile)
+        ? waWaitlistPromoted(profile.phone, {
+            name,
+            className,
+            classDate: bookingDate,
+            classTime,
+            classesUrl,
+          })
+        : Promise.resolve(),
+    ]);
+  } catch {
+    // best-effort
+  }
 }

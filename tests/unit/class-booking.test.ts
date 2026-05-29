@@ -93,11 +93,18 @@ const { state, requireMember, getSessionUser, userSupabase, adminSupabase } = vi
   return { state, requireMember, getSessionUser, userSupabase, adminSupabase };
 });
 
+const { sendWaitlistPromoted, waWaitlistPromoted } = vi.hoisted(() => ({
+  sendWaitlistPromoted: vi.fn(async () => ({ ok: true })),
+  waWaitlistPromoted: vi.fn(async () => ({ ok: true })),
+}));
+
 vi.mock('@/lib/auth/gym', () => ({ requireMember, requireStaff: vi.fn() }));
 vi.mock('@/lib/auth/dal', () => ({ getSessionUser }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => userSupabase }));
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminSupabase }));
 vi.mock('@/lib/audit', () => ({ audit: vi.fn(async () => {}) }));
+vi.mock('@/lib/email', () => ({ sendWaitlistPromoted }));
+vi.mock('@/lib/whatsapp', () => ({ waWaitlistPromoted }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 import { bookClass, cancelBooking } from '@/lib/actions/classes';
@@ -112,6 +119,8 @@ beforeEach(() => {
   state.updates.length = 0;
   requireMember.mockClear();
   getSessionUser.mockClear();
+  sendWaitlistPromoted.mockClear();
+  waWaitlistPromoted.mockClear();
 });
 
 describe('bookClass — guards', () => {
@@ -266,5 +275,116 @@ describe('cancelBooking — waitlist promotion', () => {
     // No promotion update because the SELECT returned null.
     const adminUpdates = state.updates.filter((u) => u.client === 'admin');
     expect(adminUpdates).toHaveLength(0);
+  });
+});
+
+describe('cancelBooking — waitlist promotion notification', () => {
+  // Shared promotion fixtures: a cancelled "booked" row, a waitlisted member
+  // ready to be promoted, then the joined profile + schedule + gym lookups
+  // the notifyWaitlistPromoted helper does in Promise.all order.
+  function setupPromotion(profile: Record<string, unknown> | null) {
+    state.userQueue.set('class_bookings', [
+      { data: { id: 'b-1', status: 'booked', class_schedule_id: 's-1', booking_date: '2026-05-30', gym_id: 'gym-1' }, error: null },
+    ]);
+    state.adminQueue.set('class_bookings', [
+      { data: { id: 'next-wl', member_id: 'promoted-1' }, error: null },
+    ]);
+    state.adminQueue.set('profiles', [{ data: profile, error: null }]);
+    state.adminQueue.set('class_schedules', [
+      { data: { start_time: '18:00', classes: { name: 'HIIT' } }, error: null },
+    ]);
+    state.adminQueue.set('gyms', [{ data: { slug: 'demo' }, error: null }]);
+  }
+
+  it('fires email + WhatsApp when the promoted member is opted into both', async () => {
+    setupPromotion({
+      email: 'promoted@example.com',
+      phone: '+2348000000000',
+      full_name: 'Promoted Member',
+      first_name: 'Promoted',
+      notification_email: true,
+      notification_whatsapp: true,
+    });
+
+    await cancelBooking('demo', 'b-1');
+
+    expect(sendWaitlistPromoted).toHaveBeenCalledTimes(1);
+    expect(waWaitlistPromoted).toHaveBeenCalledTimes(1);
+    const emailCall = sendWaitlistPromoted.mock.calls[0] as unknown as [string, { name: string; className: string; classDate: string }];
+    expect(emailCall[0]).toBe('promoted@example.com');
+    expect(emailCall[1]).toMatchObject({
+      name: 'Promoted Member',
+      className: 'HIIT',
+      classDate: '2026-05-30',
+    });
+  });
+
+  it('honours notification_email=false (NDPR opt-out) — no email, WhatsApp still fires', async () => {
+    setupPromotion({
+      email: 'promoted@example.com',
+      phone: '+2348000000000',
+      full_name: 'Promoted',
+      first_name: 'Promoted',
+      notification_email: false,
+      notification_whatsapp: true,
+    });
+
+    await cancelBooking('demo', 'b-1');
+
+    expect(sendWaitlistPromoted).not.toHaveBeenCalled();
+    expect(waWaitlistPromoted).toHaveBeenCalledTimes(1);
+  });
+
+  it('honours notification_whatsapp=false — WhatsApp suppressed, email still fires', async () => {
+    setupPromotion({
+      email: 'promoted@example.com',
+      phone: '+2348000000000',
+      full_name: 'Promoted',
+      first_name: 'Promoted',
+      notification_email: true,
+      notification_whatsapp: false,
+    });
+
+    await cancelBooking('demo', 'b-1');
+
+    expect(sendWaitlistPromoted).toHaveBeenCalledTimes(1);
+    expect(waWaitlistPromoted).not.toHaveBeenCalled();
+  });
+
+  it('skips WhatsApp when the promoted member has no phone, regardless of opt-in', async () => {
+    setupPromotion({
+      email: 'promoted@example.com',
+      phone: null,
+      full_name: 'Promoted',
+      first_name: 'Promoted',
+      notification_email: true,
+      notification_whatsapp: true,
+    });
+
+    await cancelBooking('demo', 'b-1');
+
+    expect(sendWaitlistPromoted).toHaveBeenCalledTimes(1);
+    expect(waWaitlistPromoted).not.toHaveBeenCalled();
+  });
+
+  it('does not crash + sends nothing when the promoted member\'s profile is missing', async () => {
+    setupPromotion(null);
+
+    const r = await cancelBooking('demo', 'b-1');
+
+    expect(r).toEqual({ ok: true });
+    expect(sendWaitlistPromoted).not.toHaveBeenCalled();
+    expect(waWaitlistPromoted).not.toHaveBeenCalled();
+  });
+
+  it('does NOT fire any notification when cancelling a waitlisted row (no one was promoted)', async () => {
+    state.userQueue.set('class_bookings', [
+      { data: { id: 'b-1', status: 'waitlisted', class_schedule_id: 's-1', booking_date: '2026-05-30', gym_id: 'gym-1' }, error: null },
+    ]);
+
+    await cancelBooking('demo', 'b-1');
+
+    expect(sendWaitlistPromoted).not.toHaveBeenCalled();
+    expect(waWaitlistPromoted).not.toHaveBeenCalled();
   });
 });
