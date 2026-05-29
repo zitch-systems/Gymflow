@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireInstructor } from '@/lib/auth/gym';
+import { resolveAccount } from '@/lib/paystack';
 
 type Result = { ok: boolean; error?: string };
 
@@ -109,6 +110,48 @@ export async function requestPayout(slug: string, formData: FormData): Promise<R
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/gym/${slug}/coach/earnings`);
+  return { ok: true };
+}
+
+export async function saveBankDetails(slug: string, formData: FormData): Promise<Result> {
+  const { user } = await requireInstructor(slug);
+  const bankCode = String(formData.get('bank_code') ?? '').trim();
+  const bankName = String(formData.get('bank_name') ?? '').trim();
+  const accountNumber = String(formData.get('account_number') ?? '').trim();
+  if (!/^\d{3,6}$/.test(bankCode)) return { ok: false, error: 'Invalid bank code' };
+  if (!/^\d{10}$/.test(accountNumber)) return { ok: false, error: 'Account number must be 10 digits' };
+  if (!bankName) return { ok: false, error: 'Bank name required' };
+
+  // Resolve against Paystack so we store the verified account name and catch
+  // a wrong NUBAN before payout time — the admin paying out trusts this name.
+  let accountName: string;
+  try {
+    const resolved = await resolveAccount(accountNumber, bankCode);
+    accountName = resolved.account_name;
+  } catch (e) {
+    return { ok: false, error: `Could not verify account: ${(e as Error).message}` };
+  }
+
+  // User-scoped client: RLS (instructor_bank_details_*_own) enforces that a
+  // coach can only write their own row. instructor_bank_details isn't in the
+  // generated types yet (20260529_instructor_bank_details.sql); cast through
+  // `never`.
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('instructor_bank_details' as never)
+    .upsert(
+      {
+        instructor_id: user.id,
+        bank_code: bankCode,
+        bank_name: bankName,
+        account_number: accountNumber,
+        account_name: accountName,
+        updated_at: new Date().toISOString(),
+      } as never,
+      { onConflict: 'instructor_id' } as never,
+    );
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/gym/${slug}/coach/profile`);
   return { ok: true };
 }
 

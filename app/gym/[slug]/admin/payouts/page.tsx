@@ -48,9 +48,36 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
 
   const rows = (data ?? []) as unknown as PayoutRow[];
 
-  // For each instructor, find the most recent payout that already has
-  // bank details — used to pre-fill the form so admins don't re-enter the
-  // same NUBAN every time.
+  const pendingRows = rows.filter((p) => p.status === 'requested');
+  const otherRows = rows.filter((p) => p.status !== 'requested');
+
+  // Pre-fill source #1 (preferred): the coach's saved bank account. Read via
+  // service-role because instructor_bank_details is owner-readable only and
+  // the admin is not the owner. Scoped to just the coaches with pending
+  // payouts so we don't pull every coach's account.
+  const pendingInstructorIds = [...new Set(pendingRows.map((r) => r.instructor_id))];
+  const bankByInstructor = new Map<string, { bank_code: string; bank_name: string; account_number: string }>();
+  if (pendingInstructorIds.length > 0) {
+    const { data: bankRows } = await admin
+      .from('instructor_bank_details' as never)
+      .select('instructor_id, bank_code, bank_name, account_number')
+      .in('instructor_id' as never, pendingInstructorIds);
+    for (const b of (bankRows ?? []) as unknown as {
+      instructor_id: string;
+      bank_code: string;
+      bank_name: string;
+      account_number: string;
+    }[]) {
+      bankByInstructor.set(b.instructor_id, {
+        bank_code: b.bank_code,
+        bank_name: b.bank_name,
+        account_number: b.account_number,
+      });
+    }
+  }
+
+  // Pre-fill source #2 (fallback): the most recent prior payout that already
+  // carried bank details. Used only when the coach hasn't saved an account.
   const lastBankByInstructor = new Map<string, { bank_code: string; bank_name: string; account_number: string }>();
   for (const r of rows) {
     if (r.bank_code && r.bank_name && r.account_number && !lastBankByInstructor.has(r.instructor_id)) {
@@ -71,9 +98,6 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
     },
     { paid: 0, pending: 0, rejected: 0 },
   );
-
-  const pendingRows = rows.filter((p) => p.status === 'requested');
-  const otherRows = rows.filter((p) => p.status !== 'requested');
 
   return (
     <div className="gf-page">
@@ -107,7 +131,9 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
               <tbody>
                 {pendingRows.map((p) => {
                   const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
-                  const prefill = lastBankByInstructor.get(p.instructor_id);
+                  // Prefer the coach's saved bank account; fall back to the
+                  // last payout's snapshot if they never saved one.
+                  const prefill = bankByInstructor.get(p.instructor_id) ?? lastBankByInstructor.get(p.instructor_id);
                   return (
                     <tr key={p.id}>
                       <td>{fmtDateTime(p.requested_at)}</td>
