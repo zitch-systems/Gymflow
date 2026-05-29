@@ -1,3 +1,5 @@
+import '@/app/admin.css';
+
 import { requireStaff } from '@/lib/auth/gym';
 import { getProfile } from '@/lib/auth/dal';
 import { AdminShell } from './admin-shell';
@@ -12,7 +14,6 @@ const DAY_MS = 86_400_000;
 
 export default async function AdminLayout({ children, params }: LayoutProps) {
   const { slug } = await params;
-  void slug;
   const { role, gym } = await requireStaff(slug);
   const profile = await getProfile();
 
@@ -27,6 +28,7 @@ export default async function AdminLayout({ children, params }: LayoutProps) {
 
   return (
     <AdminShell
+      slug={slug}
       gymName={gym.name}
       role={role}
       userName={profile?.full_name ?? profile?.email ?? 'Staff'}

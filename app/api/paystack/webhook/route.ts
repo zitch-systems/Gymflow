@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackSecretKey } from '@/lib/paystack';
 import { fulfilMembershipPurchase, type FulfilAuthorization } from '@/lib/paystack-fulfill';
+import { sendPayoutPaid, sendPayoutFailed } from '@/lib/email';
+import { waPayoutPaid, waPayoutFailed } from '@/lib/whatsapp';
 
 type WebhookData = {
   reference?: string;
@@ -35,6 +37,92 @@ export async function POST(request: Request) {
     event = JSON.parse(raw);
   } catch {
     return new NextResponse('Bad JSON', { status: 400 });
+  }
+
+  // Paystack Transfer events — used to settle instructor payouts. We match
+  // on the `transfer_code` field stored on instructor_payouts. Three states
+  // mirrored: success (→ status='paid'), failed (→ 'rejected'), reversed
+  // (→ 'rejected'). Admin-initiated transfers via the Paystack dashboard hit
+  // this path the same way our own initiated transfers will.
+  if (
+    event.event === 'transfer.success' ||
+    event.event === 'transfer.failed' ||
+    event.event === 'transfer.reversed'
+  ) {
+    const supabase = createAdminClient();
+    const data = (event.data ?? {}) as { transfer_code?: string };
+    const code = String(data.transfer_code ?? '');
+    if (code) {
+      const newStatus = event.event === 'transfer.success' ? 'paid' : 'rejected';
+
+      // Look up the payout BEFORE updating so we know (a) whether this is a
+      // genuine state transition or a Paystack webhook retry (in which case
+      // status is already final and we must NOT re-notify), and (b) which
+      // coach to notify + which bank/amount to put in the message.
+      // paystack_transfer_code / bank_* / account_* are in the 20260529_*
+      // migrations but not in the generated types yet — cast through never.
+      const { data: priorRow } = await supabase
+        .from('instructor_payouts')
+        .select(
+          'id, instructor_id, amount, status, bank_name, account_number, profiles:instructor_id(email, phone, full_name, first_name, notification_email, notification_whatsapp)' as never,
+        )
+        .eq('paystack_transfer_code' as never, code)
+        .maybeSingle();
+
+      await supabase
+        .from('instructor_payouts')
+        .update({
+          status: newStatus,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('paystack_transfer_code' as never, code);
+
+      // Notify only on a real transition. If priorRow.status === newStatus
+      // this is a Paystack retry — webhooks promise at-least-once delivery,
+      // not exactly-once, so the dedupe has to live on our side.
+      type PayoutProfile = {
+        email: string | null;
+        phone: string | null;
+        full_name: string | null;
+        first_name: string | null;
+        notification_email: boolean | null;
+        notification_whatsapp: boolean | null;
+      };
+      type PayoutRowWithProfile = {
+        id: string;
+        instructor_id: string;
+        amount: number;
+        status: string;
+        bank_name: string | null;
+        account_number: string | null;
+        profiles: PayoutProfile | PayoutProfile[] | null;
+      };
+      const row = priorRow as unknown as PayoutRowWithProfile | null;
+      if (row && row.status !== newStatus) {
+        const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+        if (profile) {
+          const name = profile.first_name ?? profile.full_name ?? 'there';
+          const amount = Number(row.amount);
+          const earningsUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/coach/earnings`;
+          // Honour notification opt-outs (NDPR). Payout notifications are
+          // operational rather than promotional, but we still respect the
+          // same flags for consistency with the rest of the app.
+          const okEmail = profile.notification_email !== false && !!profile.email;
+          const okWa = profile.notification_whatsapp !== false && !!profile.phone;
+          if (event.event === 'transfer.success') {
+            const bankName = row.bank_name ?? 'your bank';
+            const last4 = row.account_number?.slice(-4) ?? '----';
+            if (okEmail) await sendPayoutPaid(profile.email!, { name, amount, bankName, accountLast4: last4, earningsUrl });
+            if (okWa) await waPayoutPaid(profile.phone!, { name, amount, bankName, accountLast4: last4 });
+          } else {
+            const reason = event.event === 'transfer.reversed' ? 'reversed' : 'failed';
+            if (okEmail) await sendPayoutFailed(profile.email!, { name, amount, reason, earningsUrl });
+            if (okWa) await waPayoutFailed(profile.phone!, { name, amount, reason, earningsUrl });
+          }
+        }
+      }
+    }
+    return NextResponse.json({ received: true });
   }
 
   // Mirror refunds back into our payments table so the dashboards/analytics

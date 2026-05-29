@@ -7,10 +7,12 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Users, ScanLine, BarChart3, CalendarDays, GraduationCap,
   Tag, Bell, Wrench, Clock, FileText, ShieldCheck, Wallet, Settings,
-  LogOut, Menu, CreditCard,
+  LogOut, Menu, CreditCard, BanknoteArrowUp,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
+import { CommandPalette, type CommandItem, type CommandSearchHit } from '@/components/ui/command-palette';
+import { searchMembers } from '@/lib/actions/search-members';
 
 type NavItem = { href: string; label: string; section: 'main' | 'admin'; icon: LucideIcon };
 
@@ -27,18 +29,21 @@ const NAV: NavItem[] = [
   { href: '/admin/waiver',        label: 'Waiver',     section: 'admin', icon: FileText },
   { href: '/admin/audit',         label: 'Audit',      section: 'admin', icon: ShieldCheck },
   { href: '/admin/wallet',        label: 'Wallet',     section: 'admin', icon: Wallet },
+  { href: '/admin/payouts',       label: 'Payouts',    section: 'admin', icon: BanknoteArrowUp },
   { href: '/admin/billing',       label: 'Billing',    section: 'admin', icon: CreditCard },
   { href: '/admin/settings',      label: 'Settings',   section: 'admin', icon: Settings },
 ];
 
 export function AdminShell({
   children,
+  slug,
   gymName,
   role,
   userName,
   userInitial,
 }: {
   children: React.ReactNode;
+  slug: string;
   gymName: string;
   role: string;
   userName: string;
@@ -51,8 +56,33 @@ export function AdminShell({
   const mainItems = NAV.filter((i) => i.section === 'main');
   const adminItems = NAV.filter((i) => i.section === 'admin');
 
+  // Reuse the nav array as the command-palette dataset — every page is
+  // already in NAV, so ⌘K and the sidebar can't drift out of sync.
+  const cmdItems: CommandItem[] = NAV.map((i) => ({
+    href: i.href,
+    label: i.label,
+    icon: i.icon,
+    hint: i.section === 'main' ? 'Main' : 'Admin',
+  }));
+
+  // Live member search — fires on every keystroke (debounced inside the
+  // palette) so typing "tunde" surfaces members alongside the static pages.
+  // Server action does its own requireStaff(slug) gate, so even a malicious
+  // client crafting the call directly would be rejected.
+  const fetchExtra = async (query: string): Promise<CommandSearchHit[]> => {
+    const hits = await searchMembers(slug, query);
+    return hits.map((m) => ({ id: m.id, label: m.label, href: m.href, hint: m.email ?? undefined }));
+  };
+
   return (
     <>
+      <CommandPalette
+        items={cmdItems}
+        placeholder="Jump to a page or search a member…"
+        listLabel="Admin pages and members"
+        fetchExtra={fetchExtra}
+        extraSectionLabel="Members"
+      />
       <div className={`gf-sidebar-overlay${open ? ' open' : ''}`} onClick={() => setOpen(false)} />
 
       <aside className={`gf-sidebar${open ? ' open' : ''}`}>
@@ -134,6 +164,19 @@ export function AdminShell({
             <Menu size={20} strokeWidth={1.75} />
           </button>
           <span className="gf-topbar-title">{gymName}</span>
+          <span style={{ flex: 1 }} />
+          <button
+            type="button"
+            className="gf-topbar-cmdk"
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            aria-label="Open command palette"
+            title="Jump to any page (⌘K)"
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span>Jump to&hellip;</span>
+              <kbd>⌘K</kbd>
+            </span>
+          </button>
         </header>
         {children}
       </div>

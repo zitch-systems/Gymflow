@@ -88,6 +88,68 @@ export async function waAutoDebitFailure(phone: string, args: { name: string; re
   );
 }
 
+export async function waClassReminder(
+  phone: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return sendWhatsApp(
+    phone,
+    `Hi ${args.name}, reminder that ${args.className} is today${args.classTime ? ` at ${args.classTime}` : ''}. ${args.classesUrl} — GymFlow`,
+  );
+}
+
+export async function waBookingConfirmed(
+  phone: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return sendWhatsApp(
+    phone,
+    `Hi ${args.name}, you're confirmed for ${args.className} on ${args.classDate}${args.classTime ? ` at ${args.classTime}` : ''}. ${args.classesUrl} — GymFlow`,
+  );
+}
+
+export async function waWaitlistJoined(
+  phone: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string; position?: number | null },
+) {
+  const pos = args.position ? ` (#${args.position})` : '';
+  return sendWhatsApp(
+    phone,
+    `Hi ${args.name}, ${args.className} on ${args.classDate}${args.classTime ? ` at ${args.classTime}` : ''} was full so we added you to the waitlist${pos}. We'll message you if a spot opens up. ${args.classesUrl} — GymFlow`,
+  );
+}
+
+export async function waWaitlistPromoted(
+  phone: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return sendWhatsApp(
+    phone,
+    `Hi ${args.name}, a spot opened up — you're off the waitlist and confirmed for ${args.className} on ${args.classDate}${args.classTime ? ` at ${args.classTime}` : ''}. ${args.classesUrl} — GymFlow`,
+  );
+}
+
+export async function waPayoutPaid(
+  phone: string,
+  args: { name: string; amount: number; bankName: string; accountLast4: string },
+) {
+  return sendWhatsApp(
+    phone,
+    `Hi ${args.name}, your GymFlow payout of ₦${args.amount.toLocaleString('en-NG')} has been sent to your ${args.bankName} account ending in ${args.accountLast4}. — GymFlow`,
+  );
+}
+
+export async function waPayoutFailed(
+  phone: string,
+  args: { name: string; amount: number; reason: 'failed' | 'reversed'; earningsUrl: string },
+) {
+  const verb = args.reason === 'reversed' ? 'was reversed' : 'failed';
+  return sendWhatsApp(
+    phone,
+    `Hi ${args.name}, your GymFlow payout of ₦${args.amount.toLocaleString('en-NG')} ${verb} — funds are back in your balance. Check details: ${args.earningsUrl} — GymFlow`,
+  );
+}
+
 export async function waTempPassword(phone: string, args: { name: string; gymName: string; tempPassword: string; loginUrl: string }) {
   return sendWhatsApp(
     phone,

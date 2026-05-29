@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackFetch } from '@/lib/paystack';
 import { sendAutoDebitSuccess, sendAutoDebitFailure } from '@/lib/email';
 import { waAutoDebitSuccess, waAutoDebitFailure } from '@/lib/whatsapp';
+import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
+import { reportCronCap } from '@/lib/cron-observability';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -44,7 +46,7 @@ export async function GET(request: Request) {
   const { data: due } = await supabase
     .from('memberships')
     .select(
-      'id, member_id, gym_id, end_date, plan_id, auto_debit_enabled, gyms(slug, name), profiles:member_id(email, full_name, first_name, phone), membership_plans:plan_id(name, price, duration_months)',
+      'id, member_id, gym_id, end_date, plan_id, auto_debit_enabled, gyms(slug, name), profiles:member_id(email, full_name, first_name, phone, notification_email, notification_whatsapp), membership_plans:plan_id(name, price, duration_months)',
     )
     .eq('status', 'active')
     .eq('auto_debit_enabled', true)
@@ -128,8 +130,12 @@ export async function GET(request: Request) {
         });
         if (payErr) console.error('[GF auto-debit] payment record insert failed:', payErr.message);
         await Promise.allSettled([
-          sendAutoDebitSuccess(profile.email, { name, amount: Number(plan.price), endDate: newEnd }),
-          profile.phone ? waAutoDebitSuccess(profile.phone, { name, amount: Number(plan.price), endDate: newEnd }) : Promise.resolve(),
+          respectsEmail(profile)
+            ? sendAutoDebitSuccess(profile.email, { name, amount: Number(plan.price), endDate: newEnd })
+            : Promise.resolve(),
+          profile.phone && respectsWhatsapp(profile)
+            ? waAutoDebitSuccess(profile.phone, { name, amount: Number(plan.price), endDate: newEnd })
+            : Promise.resolve(),
         ]);
         summary.charged++;
       } else {
@@ -140,8 +146,12 @@ export async function GET(request: Request) {
       // free extension and pull the row out of tomorrow's retry window.
       summary.failed++;
       await Promise.allSettled([
-        sendAutoDebitFailure(profile.email, { name, reason: (err as Error).message, attempts: 1, renewUrl }),
-        profile.phone ? waAutoDebitFailure(profile.phone, { name, attempts: 1, renewUrl }) : Promise.resolve(),
+        respectsEmail(profile)
+          ? sendAutoDebitFailure(profile.email, { name, reason: (err as Error).message, attempts: 1, renewUrl })
+          : Promise.resolve(),
+        profile.phone && respectsWhatsapp(profile)
+          ? waAutoDebitFailure(profile.phone, { name, attempts: 1, renewUrl })
+          : Promise.resolve(),
       ]);
     }
   }
@@ -156,5 +166,6 @@ export async function GET(request: Request) {
     })));
   }
 
+  reportCronCap({ cron: 'auto-debit', processed: queue.length, skipped, extra: summary });
   return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), processed: queue.length, skipped, ...summary });
 }

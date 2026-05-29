@@ -152,6 +152,108 @@ export async function sendAutoDebitFailure(to: string, args: { name: string; rea
   );
 }
 
+export async function sendClassReminder(
+  to: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return send(
+    to,
+    `Reminder: ${escape(args.className)} ${args.classTime ? `at ${escape(args.classTime)}` : 'today'}`,
+    shell(
+      'See you soon',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — just a quick reminder that <strong>${escape(args.className)}</strong> is today${args.classTime ? ` at <strong>${escape(args.classTime)}</strong>` : ''}.</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">If you can no longer make it, please cancel so the next person on the waitlist gets your spot.</p>`,
+      'View your class',
+      args.classesUrl,
+    ),
+  );
+}
+
+export async function sendBookingConfirmed(
+  to: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return send(
+    to,
+    `You're booked for ${escape(args.className)} on ${escape(args.classDate)}`,
+    shell(
+      'Your booking is confirmed',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — you're confirmed for <strong>${escape(args.className)}</strong> on <strong>${escape(args.classDate)}</strong>${args.classTime ? ` at ${escape(args.classTime)}` : ''}.</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">If something comes up, please cancel ahead of time so the next person on the waitlist gets the spot.</p>`,
+      'View your class',
+      args.classesUrl,
+    ),
+  );
+}
+
+export async function sendWaitlistJoined(
+  to: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string; position?: number | null },
+) {
+  const posSentence = args.position ? `You're #${args.position} on the waitlist.` : 'You\'re on the waitlist.';
+  return send(
+    to,
+    `Waitlisted for ${escape(args.className)} — we'll text you if a spot opens`,
+    shell(
+      'You\'re on the waitlist',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — <strong>${escape(args.className)}</strong> on <strong>${escape(args.classDate)}</strong>${args.classTime ? ` at ${escape(args.classTime)}` : ''} was full when you booked, so we\'ve added you to the waitlist. ${escape(posSentence)}</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">If anyone cancels we\'ll automatically promote the next person in line and email you the confirmation.</p>`,
+      'View your class',
+      args.classesUrl,
+    ),
+  );
+}
+
+export async function sendWaitlistPromoted(
+  to: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return send(
+    to,
+    `You're in! Your ${escape(args.className)} spot just opened up`,
+    shell(
+      'A spot opened up!',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — someone cancelled their <strong>${escape(args.className)}</strong> booking on <strong>${escape(args.classDate)}</strong>${args.classTime ? ` at ${escape(args.classTime)}` : ''}, so you're off the waitlist and confirmed in.</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">See you at the gym! If you can't make it, please cancel so the next person on the waitlist gets the spot.</p>`,
+      'View your class',
+      args.classesUrl,
+    ),
+  );
+}
+
+export async function sendPayoutPaid(
+  to: string,
+  args: { name: string; amount: number; bankName: string; accountLast4: string; earningsUrl: string },
+) {
+  return send(
+    to,
+    `Payout sent — ${fmtNairaEmail(args.amount)}`,
+    shell(
+      'Your payout is on its way',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — your payout of <strong>${fmtNairaEmail(args.amount)}</strong> has been sent to your ${escape(args.bankName)} account ending in <strong>${escape(args.accountLast4)}</strong>. Nigerian bank transfers normally land within minutes; settlement can take up to a few hours during weekends or holidays.</p>`,
+      'View earnings',
+      args.earningsUrl,
+    ),
+  );
+}
+
+export async function sendPayoutFailed(
+  to: string,
+  args: { name: string; amount: number; reason: 'failed' | 'reversed'; earningsUrl: string },
+) {
+  const headline = args.reason === 'reversed' ? 'Your payout was reversed' : 'Your payout failed';
+  const explainer =
+    args.reason === 'reversed'
+      ? `the receiving bank returned the funds. The amount is back in your available balance — please double-check your bank details before requesting again.`
+      : `the transfer didn't go through. The amount is back in your available balance — please double-check your bank details before requesting again.`;
+  return send(
+    to,
+    `${headline} — ${fmtNairaEmail(args.amount)}`,
+    shell(
+      headline,
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — your payout of <strong>${fmtNairaEmail(args.amount)}</strong> was processed but ${explainer}</p>`,
+      'Check earnings',
+      args.earningsUrl,
+    ),
+  );
+}
+
 export async function sendPlatformRenewalFailure(
   to: string,
   args: { gymName: string; reason: string; attempts: number; billingUrl: string },

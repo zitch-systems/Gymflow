@@ -5,8 +5,9 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Slug pattern enforced at signup; mirroring it here keeps obviously-bogus
-// subdomain probes from being rewritten into the tenant tree.
-const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
+// subdomain probes from being rewritten into the tenant tree. Exported so the
+// path-rewriting logic is unit-testable without mocking Next internals.
+export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -98,7 +99,7 @@ export async function proxy(request: NextRequest) {
   return rewriteRes;
 }
 
-function buildRewrite(url: URL, slug: string): URL {
+export function buildRewrite(url: URL, slug: string): URL {
   const out = new URL(url.toString());
   const path = url.pathname;
   if (path.startsWith('/admin')) {

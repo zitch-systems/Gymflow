@@ -29,6 +29,9 @@ export class MockBuilder {
   lte(): this { return this; }
   ilike(): this { return this; }
   in(): this { return this; }
+  not(): this { return this; }
+  is(): this { return this; }
+  or(): this { return this; }
   order(): this { return this; }
   limit(): this { return this; }
   maybeSingle(): this { return this; }

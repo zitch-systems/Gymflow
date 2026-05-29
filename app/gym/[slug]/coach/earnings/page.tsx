@@ -6,6 +6,19 @@ import { PayoutRequestForm } from './payout-request-form';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
+// The DB stores raw payout states; coaches see plainer language. 'approved'
+// means the admin has initiated the bank transfer and it's settling — the
+// webhook flips it to 'paid' on transfer.success.
+function payoutStatusLabel(status: string): string {
+  switch (status) {
+    case 'requested': return 'Awaiting admin';
+    case 'approved':  return 'Sent · settling';
+    case 'paid':      return 'Paid';
+    case 'rejected':  return 'Rejected';
+    default:          return status;
+  }
+}
+
 export default async function CoachEarningsPage({ params }: PageProps) {
   const { slug } = await params;
   const { gym, user } = await requireInstructor(slug);
@@ -88,7 +101,7 @@ export default async function CoachEarningsPage({ params }: PageProps) {
                   <tr key={p.id}>
                     <td>{fmtDate(p.requested_at)}</td>
                     <td>₦{Number(p.amount).toLocaleString('en-NG')}</td>
-                    <td><span className={`status-pill ${p.status === 'paid' ? 'on' : p.status === 'rejected' ? 'off' : ''}`}>{p.status}</span></td>
+                    <td><span className={`status-pill ${p.status === 'paid' ? 'on' : p.status === 'rejected' ? 'off' : ''}`}>{payoutStatusLabel(p.status)}</span></td>
                     <td>{p.processed_at ? fmtDate(p.processed_at) : '—'}</td>
                   </tr>
                 ))}

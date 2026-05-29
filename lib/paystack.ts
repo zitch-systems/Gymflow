@@ -140,6 +140,71 @@ export async function createSubaccount(args: {
   return data.data;
 }
 
+// ─── Transfers (used to pay instructor payouts) ───────────────────────────
+// Two-step flow per Paystack docs: create a transfer recipient (one-time per
+// coach + bank account combo), then initiate a transfer against that
+// recipient. The recipient_code is persisted on instructor_payouts so
+// subsequent transfers to the same coach + account reuse the same recipient
+// rather than creating duplicates on the Paystack side.
+
+export type PaystackTransferRecipient = {
+  recipient_code: string;
+  type: string;
+  name: string;
+  details: { account_number: string; account_name: string; bank_code: string; bank_name: string };
+};
+
+export async function createTransferRecipient(args: {
+  name: string;
+  accountNumber: string;
+  bankCode: string;
+  currency?: string;
+}): Promise<PaystackTransferRecipient> {
+  const data = await paystackFetch<{ status: boolean; data: PaystackTransferRecipient }>(
+    '/transferrecipient',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'nuban',
+        name: args.name,
+        account_number: args.accountNumber,
+        bank_code: args.bankCode,
+        currency: args.currency ?? 'NGN',
+      }),
+    },
+  );
+  return data.data;
+}
+
+export type PaystackTransfer = {
+  transfer_code: string;
+  reference: string;
+  amount: number;
+  status: string;
+};
+
+export async function initiateTransfer(args: {
+  amount: number; // Naira whole units; converted to kobo
+  recipientCode: string;
+  reason?: string;
+  reference?: string; // idempotency — pass our payout id
+}): Promise<PaystackTransfer> {
+  const data = await paystackFetch<{ status: boolean; data: PaystackTransfer }>(
+    '/transfer',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        source: 'balance',
+        amount: Math.round(args.amount * 100),
+        recipient: args.recipientCode,
+        reason: args.reason,
+        reference: args.reference,
+      }),
+    },
+  );
+  return data.data;
+}
+
 export async function updateSubaccount(code: string, args: {
   businessName?: string;
   bankCode?: string;

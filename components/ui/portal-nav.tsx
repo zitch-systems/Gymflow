@@ -5,10 +5,21 @@ import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
   Home, CalendarDays, ScanLine, GraduationCap, CreditCard,
-  LayoutGrid, Users, ClipboardCheck, Wallet,
+  LayoutGrid, Users, ClipboardCheck, Wallet, UserCircle2,
 } from 'lucide-react';
+import { CommandPalette, type CommandItem } from '@/components/ui/command-palette';
 
 type Tab = { href: string; label: string; icon: LucideIcon; fab?: boolean };
+
+// ⌘K dataset for the portal — every tab + a couple of secondary destinations
+// the bottom-tab-bar doesn't surface so members/coaches still get there in
+// 2 keystrokes on desktop / iPad with a keyboard.
+function tabsToCmdItems(tabs: Tab[], extras: CommandItem[] = []): CommandItem[] {
+  return [
+    ...tabs.map((t) => ({ href: t.href, label: t.label, icon: t.icon, hint: 'Tab' })),
+    ...extras,
+  ];
+}
 
 const MEMBER_TABS: Tab[] = [
   { href: '/dashboard', label: 'Home', icon: Home },
@@ -65,10 +76,37 @@ function TabBar({ tabs }: { tabs: Tab[] }) {
   );
 }
 
+const MEMBER_EXTRAS: CommandItem[] = [
+  { href: '/dashboard/cards', label: 'Saved cards', icon: CreditCard, hint: 'Page' },
+  { href: '/dashboard/profile', label: 'Profile & notifications', icon: UserCircle2, hint: 'Page' },
+];
+
+const COACH_EXTRAS: CommandItem[] = [
+  { href: '/coach/profile', label: 'Profile', icon: UserCircle2, hint: 'Page' },
+];
+
 export function MemberTabBar() {
-  return <TabBar tabs={MEMBER_TABS} />;
+  return (
+    <>
+      <CommandPalette
+        items={tabsToCmdItems(MEMBER_TABS, MEMBER_EXTRAS)}
+        placeholder="Jump to…  (try Classes, Coaches, Renew)"
+        listLabel="Member pages"
+      />
+      <TabBar tabs={MEMBER_TABS} />
+    </>
+  );
 }
 
 export function CoachTabBar() {
-  return <TabBar tabs={COACH_TABS} />;
+  return (
+    <>
+      <CommandPalette
+        items={tabsToCmdItems(COACH_TABS, COACH_EXTRAS)}
+        placeholder="Jump to…  (try Clients, Schedule, Earnings)"
+        listLabel="Coach pages"
+      />
+      <TabBar tabs={COACH_TABS} />
+    </>
+  );
 }
