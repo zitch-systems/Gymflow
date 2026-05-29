@@ -1,6 +1,7 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { ClassCreateForm, ClassDeleteButton } from './class-forms';
+import { ExportAttendanceCsvButton } from './export-csv-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -24,7 +25,11 @@ export default async function AdminClassesPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <PageHeader title="Class schedule" subtitle={`${schedules?.length ?? 0} scheduled slot(s)`} />
+      <PageHeader
+        title="Class schedule"
+        subtitle={`${schedules?.length ?? 0} scheduled slot(s)`}
+        actions={<ExportAttendanceCsvButton slug={slug} />}
+      />
 
       <Card>
         <CardHeader title="Add a class" />
