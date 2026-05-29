@@ -217,6 +217,43 @@ export async function sendWaitlistPromoted(
   );
 }
 
+export async function sendPayoutPaid(
+  to: string,
+  args: { name: string; amount: number; bankName: string; accountLast4: string; earningsUrl: string },
+) {
+  return send(
+    to,
+    `Payout sent — ${fmtNairaEmail(args.amount)}`,
+    shell(
+      'Your payout is on its way',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — your payout of <strong>${fmtNairaEmail(args.amount)}</strong> has been sent to your ${escape(args.bankName)} account ending in <strong>${escape(args.accountLast4)}</strong>. Nigerian bank transfers normally land within minutes; settlement can take up to a few hours during weekends or holidays.</p>`,
+      'View earnings',
+      args.earningsUrl,
+    ),
+  );
+}
+
+export async function sendPayoutFailed(
+  to: string,
+  args: { name: string; amount: number; reason: 'failed' | 'reversed'; earningsUrl: string },
+) {
+  const headline = args.reason === 'reversed' ? 'Your payout was reversed' : 'Your payout failed';
+  const explainer =
+    args.reason === 'reversed'
+      ? `the receiving bank returned the funds. The amount is back in your available balance — please double-check your bank details before requesting again.`
+      : `the transfer didn't go through. The amount is back in your available balance — please double-check your bank details before requesting again.`;
+  return send(
+    to,
+    `${headline} — ${fmtNairaEmail(args.amount)}`,
+    shell(
+      headline,
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — your payout of <strong>${fmtNairaEmail(args.amount)}</strong> was processed but ${explainer}</p>`,
+      'Check earnings',
+      args.earningsUrl,
+    ),
+  );
+}
+
 export async function sendPlatformRenewalFailure(
   to: string,
   args: { gymName: string; reason: string; attempts: number; billingUrl: string },

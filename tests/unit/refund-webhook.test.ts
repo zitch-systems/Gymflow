@@ -2,12 +2,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'node:crypto';
 
 // Capture supabase calls to assert webhook routes the event correctly.
-const { state, adminMock } = vi.hoisted(() => {
+// transferLookup is FIFO-popped by the .maybeSingle() chain so each test
+// stages whatever priorRow it needs (or null for a no-row case).
+const { state, adminMock, emailMocks, waMocks } = vi.hoisted(() => {
   type Call = { table: string; verb: 'update'; payload: Record<string, unknown>; refEq: string };
-  const state: { calls: Call[] } = { calls: [] };
+  const state: { calls: Call[]; transferLookup: unknown[] } = { calls: [], transferLookup: [] };
   const adminMock = {
     from(table: string) {
       return {
+        select() {
+          return {
+            eq() {
+              return {
+                maybeSingle: async () => ({ data: state.transferLookup.shift() ?? null, error: null }),
+              };
+            },
+          };
+        },
         update(payload: Record<string, unknown>) {
           return {
             eq(_col: string, val: string) {
@@ -19,12 +30,24 @@ const { state, adminMock } = vi.hoisted(() => {
       };
     },
   };
-  return { state, adminMock };
+  type PaidArgs = { name: string; amount: number; bankName: string; accountLast4: string; earningsUrl?: string };
+  type FailArgs = { name: string; amount: number; reason: 'failed' | 'reversed'; earningsUrl: string };
+  const emailMocks = {
+    sendPayoutPaid: vi.fn(async (to: string, args: PaidArgs) => { void to; void args; return { ok: true }; }),
+    sendPayoutFailed: vi.fn(async (to: string, args: FailArgs) => { void to; void args; return { ok: true }; }),
+  };
+  const waMocks = {
+    waPayoutPaid: vi.fn(async (phone: string, args: PaidArgs) => { void phone; void args; return { ok: true }; }),
+    waPayoutFailed: vi.fn(async (phone: string, args: FailArgs) => { void phone; void args; return { ok: true }; }),
+  };
+  return { state, adminMock, emailMocks, waMocks };
 });
 
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminMock }));
 vi.mock('@/lib/paystack', () => ({ paystackSecretKey: () => 'test_secret' }));
 vi.mock('@/lib/paystack-fulfill', () => ({ fulfilMembershipPurchase: vi.fn(async () => ({ ok: true })) }));
+vi.mock('@/lib/email', () => emailMocks);
+vi.mock('@/lib/whatsapp', () => waMocks);
 
 import { POST } from '@/app/api/paystack/webhook/route';
 
@@ -42,7 +65,14 @@ function buildRequest(body: unknown, opts: { badSig?: boolean } = {}): Request {
   });
 }
 
-beforeEach(() => { state.calls = []; });
+beforeEach(() => {
+  state.calls = [];
+  state.transferLookup = [];
+  emailMocks.sendPayoutPaid.mockClear();
+  emailMocks.sendPayoutFailed.mockClear();
+  waMocks.waPayoutPaid.mockClear();
+  waMocks.waPayoutFailed.mockClear();
+});
 
 describe('Paystack webhook', () => {
   it('rejects requests with a bad signature', async () => {
@@ -114,6 +144,11 @@ describe('Paystack webhook', () => {
 
 describe('Paystack webhook — transfer events (instructor payouts)', () => {
   it('transfer.success → flips the matching instructor_payouts row to status=paid', async () => {
+    state.transferLookup.push({
+      id: 'pay-1', instructor_id: 'coach-1', amount: 50000, status: 'approved',
+      bank_name: 'GTBank', account_number: '0123456789',
+      profiles: { email: 'c@e.com', phone: '+234123', full_name: 'Ada', first_name: 'Ada', notification_email: true, notification_whatsapp: true },
+    });
     const res = await POST(buildRequest({
       event: 'transfer.success',
       data: { transfer_code: 'TRF_abc123' },
@@ -127,6 +162,11 @@ describe('Paystack webhook — transfer events (instructor payouts)', () => {
   });
 
   it('transfer.failed → flips the matching row to status=rejected', async () => {
+    state.transferLookup.push({
+      id: 'pay-1', instructor_id: 'coach-1', amount: 50000, status: 'approved',
+      bank_name: 'GTBank', account_number: '0123456789',
+      profiles: { email: 'c@e.com', phone: '+234123', full_name: 'Ada', first_name: 'Ada', notification_email: true, notification_whatsapp: true },
+    });
     const res = await POST(buildRequest({
       event: 'transfer.failed',
       data: { transfer_code: 'TRF_def456' },
@@ -138,6 +178,11 @@ describe('Paystack webhook — transfer events (instructor payouts)', () => {
   });
 
   it('transfer.reversed (settlement bounced back) → also marks rejected', async () => {
+    state.transferLookup.push({
+      id: 'pay-1', instructor_id: 'coach-1', amount: 50000, status: 'approved',
+      bank_name: 'GTBank', account_number: '0123456789',
+      profiles: { email: 'c@e.com', phone: '+234123', full_name: 'Ada', first_name: 'Ada', notification_email: true, notification_whatsapp: true },
+    });
     const res = await POST(buildRequest({
       event: 'transfer.reversed',
       data: { transfer_code: 'TRF_ghi789' },
@@ -154,6 +199,69 @@ describe('Paystack webhook — transfer events (instructor payouts)', () => {
     }));
     expect(res.status).toBe(200);
     expect(state.calls.filter((c) => c.table === 'instructor_payouts')).toHaveLength(0);
+  });
+
+  it('transfer.success sends email + WhatsApp to the coach on a fresh transition', async () => {
+    state.transferLookup.push({
+      id: 'pay-1', instructor_id: 'coach-1', amount: 50000, status: 'approved',
+      bank_name: 'GTBank', account_number: '0123456789',
+      profiles: { email: 'coach@example.com', phone: '+2348100000000', full_name: 'Ada Lovelace', first_name: 'Ada', notification_email: true, notification_whatsapp: true },
+    });
+    await POST(buildRequest({ event: 'transfer.success', data: { transfer_code: 'TRF_notify' } }));
+    expect(emailMocks.sendPayoutPaid).toHaveBeenCalledTimes(1);
+    expect(waMocks.waPayoutPaid).toHaveBeenCalledTimes(1);
+    const emailArg = emailMocks.sendPayoutPaid.mock.calls[0]![1];
+    expect(emailArg.name).toBe('Ada');
+    expect(emailArg.amount).toBe(50000);
+    expect(emailArg.bankName).toBe('GTBank');
+    // PII: only last 4 digits in the message body.
+    expect(emailArg.accountLast4).toBe('6789');
+  });
+
+  it('Paystack webhook retry (status already = newStatus) does NOT re-notify', async () => {
+    // Paystack guarantees at-least-once delivery. The same transfer.success
+    // arriving twice must not double-email the coach.
+    state.transferLookup.push({
+      id: 'pay-1', instructor_id: 'coach-1', amount: 50000, status: 'paid', // already paid
+      bank_name: 'GTBank', account_number: '0123456789',
+      profiles: { email: 'coach@example.com', phone: '+2348100000000', full_name: 'Ada', first_name: 'Ada', notification_email: true, notification_whatsapp: true },
+    });
+    await POST(buildRequest({ event: 'transfer.success', data: { transfer_code: 'TRF_retry' } }));
+    expect(emailMocks.sendPayoutPaid).not.toHaveBeenCalled();
+    expect(waMocks.waPayoutPaid).not.toHaveBeenCalled();
+  });
+
+  it('transfer.failed → sends the failure notification (not the success one)', async () => {
+    state.transferLookup.push({
+      id: 'pay-1', instructor_id: 'coach-1', amount: 25000, status: 'approved',
+      bank_name: 'GTBank', account_number: '0123456789',
+      profiles: { email: 'coach@example.com', phone: '+2348100000000', full_name: 'Ada', first_name: 'Ada', notification_email: true, notification_whatsapp: true },
+    });
+    await POST(buildRequest({ event: 'transfer.failed', data: { transfer_code: 'TRF_fail' } }));
+    expect(emailMocks.sendPayoutFailed).toHaveBeenCalledTimes(1);
+    expect(emailMocks.sendPayoutFailed.mock.calls[0]![1].reason).toBe('failed');
+    expect(emailMocks.sendPayoutPaid).not.toHaveBeenCalled();
+  });
+
+  it('transfer.reversed → sends failure notification with reason=reversed', async () => {
+    state.transferLookup.push({
+      id: 'pay-1', instructor_id: 'coach-1', amount: 25000, status: 'approved',
+      bank_name: 'GTBank', account_number: '0123456789',
+      profiles: { email: 'coach@example.com', phone: '+2348100000000', full_name: 'Ada', first_name: 'Ada', notification_email: true, notification_whatsapp: true },
+    });
+    await POST(buildRequest({ event: 'transfer.reversed', data: { transfer_code: 'TRF_rev' } }));
+    expect(emailMocks.sendPayoutFailed.mock.calls[0]![1].reason).toBe('reversed');
+  });
+
+  it('honours notification opt-outs — neither email nor WhatsApp sent when both flags are false', async () => {
+    state.transferLookup.push({
+      id: 'pay-1', instructor_id: 'coach-1', amount: 50000, status: 'approved',
+      bank_name: 'GTBank', account_number: '0123456789',
+      profiles: { email: 'coach@example.com', phone: '+2348100000000', full_name: 'Ada', first_name: 'Ada', notification_email: false, notification_whatsapp: false },
+    });
+    await POST(buildRequest({ event: 'transfer.success', data: { transfer_code: 'TRF_optout' } }));
+    expect(emailMocks.sendPayoutPaid).not.toHaveBeenCalled();
+    expect(waMocks.waPayoutPaid).not.toHaveBeenCalled();
   });
 
   it('transfer event always returns BEFORE the charge.success membership fulfilment path', async () => {
