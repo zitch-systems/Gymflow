@@ -152,6 +152,23 @@ export async function sendAutoDebitFailure(to: string, args: { name: string; rea
   );
 }
 
+export async function sendWaitlistJoined(
+  to: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string; position?: number | null },
+) {
+  const posSentence = args.position ? `You're #${args.position} on the waitlist.` : 'You\'re on the waitlist.';
+  return send(
+    to,
+    `Waitlisted for ${escape(args.className)} — we'll text you if a spot opens`,
+    shell(
+      'You\'re on the waitlist',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — <strong>${escape(args.className)}</strong> on <strong>${escape(args.classDate)}</strong>${args.classTime ? ` at ${escape(args.classTime)}` : ''} was full when you booked, so we\'ve added you to the waitlist. ${escape(posSentence)}</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">If anyone cancels we\'ll automatically promote the next person in line and email you the confirmation.</p>`,
+      'View your class',
+      args.classesUrl,
+    ),
+  );
+}
+
 export async function sendWaitlistPromoted(
   to: string,
   args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },

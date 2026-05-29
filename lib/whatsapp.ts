@@ -88,6 +88,17 @@ export async function waAutoDebitFailure(phone: string, args: { name: string; re
   );
 }
 
+export async function waWaitlistJoined(
+  phone: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string; position?: number | null },
+) {
+  const pos = args.position ? ` (#${args.position})` : '';
+  return sendWhatsApp(
+    phone,
+    `Hi ${args.name}, ${args.className} on ${args.classDate}${args.classTime ? ` at ${args.classTime}` : ''} was full so we added you to the waitlist${pos}. We'll message you if a spot opens up. ${args.classesUrl} — GymFlow`,
+  );
+}
+
 export async function waWaitlistPromoted(
   phone: string,
   args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
