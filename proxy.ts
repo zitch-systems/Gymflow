@@ -9,6 +9,19 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // path-rewriting logic is unit-testable without mocking Next internals.
 export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
 
+// Public marketing / unauthenticated routes that never read a session. Skipping
+// the Supabase getUser() round-trip on these is a real latency win: every one
+// of these requests previously paid for a network call to Supabase Auth in the
+// middleware before rendering. Exported for unit testing.
+const PUBLIC_EXACT = new Set(['/', '/pricing', '/features', '/about', '/signup', '/offline']);
+export function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_EXACT.has(pathname)) return true;
+  // Static marketing sub-trees + crawler files.
+  if (pathname.startsWith('/features/')) return true;
+  if (pathname === '/robots.txt' || pathname === '/sitemap.xml') return true;
+  return false;
+}
+
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
 
@@ -28,8 +41,13 @@ export async function proxy(request: NextRequest) {
   // Pattern from the official @supabase/ssr middleware guide: we hold a
   // `cookieResponse` that the Supabase cookie adapter writes refreshed cookies
   // onto, then we copy those cookies onto whatever response we actually return.
+  //
+  // Perf: skip this entirely on public marketing routes — they never read a
+  // session, so the getUser() network round-trip was pure latency on the
+  // pages most likely to be a visitor's first impression (/, /pricing, …).
+  const skipSession = isPublicPath(url.pathname);
   let cookieResponse = NextResponse.next({ request });
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  if (!skipSession && SUPABASE_URL && SUPABASE_ANON_KEY) {
     const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       cookies: {
         getAll() {

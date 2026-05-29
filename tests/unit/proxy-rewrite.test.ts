@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRewrite, SLUG_RE } from '@/proxy';
+import { buildRewrite, SLUG_RE, isPublicPath } from '@/proxy';
 
 // proxy.ts is the multi-tenant router: a request to {slug}.gymflow.ng/admin
 // is rewritten to the internal /gym/{slug}/admin tree. buildRewrite is the
@@ -91,5 +91,26 @@ describe('proxy.SLUG_RE — subdomain allowlist', () => {
   it('rejects an over-long slug (>32 chars), accepts exactly 32', () => {
     expect(SLUG_RE.test('a'.repeat(33))).toBe(false);
     expect(SLUG_RE.test('a'.repeat(32))).toBe(true);
+  });
+});
+
+describe('proxy.isPublicPath — session-refresh skip allowlist', () => {
+  it('treats marketing + unauth routes as public (no session round-trip)', () => {
+    for (const p of ['/', '/pricing', '/features', '/about', '/signup', '/offline']) {
+      expect(isPublicPath(p)).toBe(true);
+    }
+    expect(isPublicPath('/features/booking')).toBe(true);
+    expect(isPublicPath('/robots.txt')).toBe(true);
+    expect(isPublicPath('/sitemap.xml')).toBe(true);
+  });
+
+  it('treats authenticated routes as NOT public (session must refresh)', () => {
+    // The safety-critical direction: a false positive here would skip the
+    // session refresh on an authed page and log users out mid-session.
+    for (const p of ['/dashboard', '/dashboard/profile', '/admin', '/admin/wallet', '/coach', '/coach/earnings', '/checkin', '/classes', '/login', '/join']) {
+      expect(isPublicPath(p)).toBe(false);
+    }
+    // /signup is public but /signup/done (post-signup, may read session) is not.
+    expect(isPublicPath('/signup/done')).toBe(false);
   });
 });
