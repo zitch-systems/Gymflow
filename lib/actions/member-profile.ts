@@ -11,6 +11,7 @@ type Result = { ok: boolean; error?: string };
 /**
  * Member-controlled profile update. Currently covers:
  *   - phone
+ *   - photo_url (avatar; uploaded to the gym-assets bucket client-side)
  *   - notification_email (NDPR opt-out for reminder/dunning emails)
  *   - notification_whatsapp (same, for WhatsApp)
  *
@@ -38,6 +39,18 @@ export async function updateMemberProfile(
     return { ok: false, error: 'Phone number looks invalid' };
   }
 
+  // photo_url comes from the client storage upload. Empty string = removed.
+  // Only accept our own gym-assets public URLs (or empty) so a tampered form
+  // can't point the avatar at an arbitrary external URL.
+  const photoRaw = String(formData.get('photo_url') ?? '').trim();
+  let photo_url: string | null = null;
+  if (photoRaw !== '') {
+    if (!/\/storage\/v1\/object\/public\/gym-assets\//.test(photoRaw)) {
+      return { ok: false, error: 'Invalid photo URL' };
+    }
+    photo_url = photoRaw;
+  }
+
   const supabase = await createClient();
 
   // Snapshot the before-state for the audit entry. The two notification-pref
@@ -46,7 +59,7 @@ export async function updateMemberProfile(
   // via `as never` on the select string + unknown cast on the return.
   const { data: beforeRaw } = await supabase
     .from('profiles')
-    .select('phone, notification_email, notification_whatsapp' as never)
+    .select('phone, photo_url, notification_email, notification_whatsapp' as never)
     .eq('id', user.id)
     .maybeSingle();
   const before = beforeRaw as unknown as Record<string, unknown> | null;
@@ -56,6 +69,7 @@ export async function updateMemberProfile(
   // generated types until the next supabase gen types run.
   const updatePayload: Record<string, unknown> = {
     phone,
+    photo_url,
     notification_email,
     notification_whatsapp,
     updated_at: new Date().toISOString(),
@@ -74,7 +88,7 @@ export async function updateMemberProfile(
     table: 'profiles',
     recordId: user.id,
     before: before ?? null,
-    after: { phone, notification_email, notification_whatsapp },
+    after: { phone, photo_url, notification_email, notification_whatsapp },
   });
 
   revalidatePath('/dashboard');

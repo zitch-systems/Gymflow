@@ -171,6 +171,19 @@ export default async function MemberDashboard({ params }: PageProps) {
 
       <Card>
         <CardHeader title="Your profile" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '4px 18px 12px' }}>
+          {profile?.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.photo_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gf-border)' }} />
+          ) : (
+            <div style={{ width: 56, height: 56, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>
+              {(profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div style={{ fontSize: 13, color: 'var(--gf-text-muted)' }}>
+            <a href="/dashboard/profile" style={{ color: 'var(--gf-brand)', fontWeight: 600, textDecoration: 'none' }}>Edit profile &amp; photo</a>
+          </div>
+        </div>
         <dl className="gf-detail-list">
           <div>
             <dt>Name</dt>

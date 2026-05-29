@@ -20,6 +20,7 @@ type ProfileRow = {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  photo_url: string | null;
   notification_email?: boolean | null;
   notification_whatsapp?: boolean | null;
 };
@@ -31,7 +32,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
   const supabase = await createClient();
   const { data: p } = await supabase
     .from('profiles')
-    .select('full_name, first_name, last_name, email, phone, notification_email, notification_whatsapp')
+    .select('full_name, first_name, last_name, email, phone, photo_url, notification_email, notification_whatsapp')
     .eq('id', user.id)
     .maybeSingle<ProfileRow>();
 
@@ -74,9 +75,12 @@ export default async function MemberProfilePage({ params }: PageProps) {
         <div style={{ padding: 18 }}>
           <ProfileForm
             slug={slug}
+            userId={user.id}
             email={p?.email ?? user.email ?? null}
+            displayName={displayName}
             initial={{
               phone: p?.phone ?? null,
+              photo_url: p?.photo_url ?? null,
               // Default to opted-in (matches the column default) if the
               // migration hasn't been applied yet for this gym's DB.
               notification_email: p?.notification_email ?? true,

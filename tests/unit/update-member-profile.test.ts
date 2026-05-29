@@ -121,6 +121,29 @@ describe('updateMemberProfile — phone validation', () => {
   });
 });
 
+describe('updateMemberProfile — avatar photo_url', () => {
+  const GOOD_PHOTO = 'https://kdbb.supabase.co/storage/v1/object/public/gym-assets/user-1/avatar-123.jpg';
+
+  it('persists a valid gym-assets public URL', async () => {
+    const r = await updateMemberProfile('demo', formData({ phone: '+2348000000000', photo_url: GOOD_PHOTO }));
+    expect(r.ok).toBe(true);
+    expect((state.capturedUpdate as { photo_url?: string | null }).photo_url).toBe(GOOD_PHOTO);
+  });
+
+  it('treats an empty photo_url as removal (null), not an error', async () => {
+    const r = await updateMemberProfile('demo', formData({ phone: '+2348000000000', photo_url: '' }));
+    expect(r.ok).toBe(true);
+    expect((state.capturedUpdate as { photo_url?: string | null }).photo_url).toBeNull();
+  });
+
+  it('rejects a photo_url that is not a gym-assets public URL (anti-tamper), no write', async () => {
+    const r = await updateMemberProfile('demo', formData({ phone: '+2348000000000', photo_url: 'https://evil.com/track.gif' }));
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/Invalid photo URL/);
+    expect(state.capturedUpdate).toBeNull();
+  });
+});
+
 describe('updateMemberProfile — toggle semantics', () => {
   it('checkboxes absent (= unchecked) opt the user OUT', async () => {
     await updateMemberProfile('demo', formData({ phone: '+2348000000000' })); // no toggles
@@ -155,7 +178,7 @@ describe('updateMemberProfile — audit + revalidate', () => {
       gymId: string | null;
       actorId: string | null;
       userId: string | null;
-      after: { phone: string; notification_email: boolean; notification_whatsapp: boolean };
+      after: { phone: string; photo_url: string | null; notification_email: boolean; notification_whatsapp: boolean };
     };
     expect(call.action).toBe('member.profile_updated');
     expect(call.table).toBe('profiles');
@@ -164,6 +187,7 @@ describe('updateMemberProfile — audit + revalidate', () => {
     expect(call.userId).toBe('user-1');
     expect(call.after).toEqual({
       phone: '+2349999999999',
+      photo_url: null,
       notification_email: true,
       notification_whatsapp: false,
     });

@@ -5,20 +5,48 @@ import { useRouter } from 'next/navigation';
 import { updateMemberProfile } from '@/lib/actions/member-profile';
 import { requestPasswordReset } from '@/lib/auth/actions';
 import { useToast } from '@/lib/toast';
+import { createClient } from '@/lib/supabase/client';
 
 type Initial = {
   phone: string | null;
+  photo_url: string | null;
   notification_email: boolean;
   notification_whatsapp: boolean;
 };
 
-export function ProfileForm({ slug, email, initial }: { slug: string; email: string | null; initial: Initial }) {
+export function ProfileForm({ slug, userId, email, displayName, initial }: { slug: string; userId: string; email: string | null; displayName: string; initial: Initial }) {
   const [pending, start] = useTransition();
   const [resetPending, startReset] = useTransition();
   const toast = useToast();
   const router = useRouter();
+  const supabase = createClient();
   const [emailOpt, setEmailOpt] = useState(initial.notification_email);
   const [waOpt, setWaOpt] = useState(initial.notification_whatsapp);
+  const [photoUrl, setPhotoUrl] = useState(initial.photo_url ?? '');
+  const [uploading, setUploading] = useState(false);
+
+  async function uploadPhoto(file: File) {
+    // Guard against accidental huge uploads — avatars don't need to be big,
+    // and a member on Naija data shouldn't push a 10MB photo.
+    if (file.size > 5 * 1024 * 1024) {
+      toast('Please choose an image under 5MB', 'warning');
+      return;
+    }
+    setUploading(true);
+    try {
+      const path = `${userId}/avatar-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { error } = await supabase.storage.from('gym-assets').upload(path, file, { upsert: true });
+      if (error) {
+        toast(error.message, 'error');
+        return;
+      }
+      const { data: pub } = supabase.storage.from('gym-assets').getPublicUrl(path);
+      setPhotoUrl(pub?.publicUrl ?? '');
+      toast('Photo uploaded — tap Save changes to keep it', 'success');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,6 +64,47 @@ export function ProfileForm({ slug, email, initial }: { slug: string; email: str
 
   return (
     <form onSubmit={onSubmit} className="form-grid">
+      <div className="gf-form-group form-grid-full">
+        <label className="gf-label">Profile photo</label>
+        <input type="hidden" name="photo_url" value={photoUrl} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photoUrl} alt="" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gf-border)' }} />
+          ) : (
+            <div className="gf-avatar gf-avatar-lg" style={{ width: 72, height: 72, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 28, fontWeight: 700, background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>
+              {(displayName || email || 'M').charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label className="gf-btn gf-btn-secondary gf-btn-sm" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
+              {uploading ? 'Uploading…' : photoUrl ? 'Change photo' : 'Upload photo'}
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploading}
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) uploadPhoto(f);
+                }}
+              />
+            </label>
+            {photoUrl && (
+              <button
+                type="button"
+                className="gf-btn gf-btn-ghost gf-btn-sm"
+                disabled={uploading}
+                onClick={() => { setPhotoUrl(''); toast('Photo removed — tap Save changes to keep it', 'success'); }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="gf-form-hint">A square image works best. Max 5MB.</p>
+      </div>
+
       <div className="gf-form-group">
         <label className="gf-label" htmlFor="phone">Phone</label>
         <input
