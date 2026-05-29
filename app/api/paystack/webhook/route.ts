@@ -37,6 +37,36 @@ export async function POST(request: Request) {
     return new NextResponse('Bad JSON', { status: 400 });
   }
 
+  // Paystack Transfer events — used to settle instructor payouts. We match
+  // on the `transfer_code` field stored on instructor_payouts. Three states
+  // mirrored: success (→ status='paid'), failed (→ 'rejected'), reversed
+  // (→ 'rejected'). Admin-initiated transfers via the Paystack dashboard hit
+  // this path the same way our own initiated transfers will.
+  if (
+    event.event === 'transfer.success' ||
+    event.event === 'transfer.failed' ||
+    event.event === 'transfer.reversed'
+  ) {
+    const supabase = createAdminClient();
+    const data = (event.data ?? {}) as { transfer_code?: string };
+    const code = String(data.transfer_code ?? '');
+    if (code) {
+      const newStatus = event.event === 'transfer.success' ? 'paid' : 'rejected';
+      // paystack_transfer_code is in 20260529_instructor_payouts_transfer_columns.sql
+      // but not in the generated types until `supabase gen types` is rerun.
+      // Cast to never so the column lookup typechecks against the
+      // (intentionally narrow) generated union.
+      await supabase
+        .from('instructor_payouts')
+        .update({
+          status: newStatus,
+          processed_at: new Date().toISOString(),
+        })
+        .eq('paystack_transfer_code' as never, code);
+    }
+    return NextResponse.json({ received: true });
+  }
+
   // Mirror refunds back into our payments table so the dashboards/analytics
   // reflect reality. Paystack sends `refund.processed` with a nested
   // `transaction.reference` field.

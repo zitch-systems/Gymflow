@@ -111,3 +111,68 @@ describe('Paystack webhook', () => {
     });
   });
 });
+
+describe('Paystack webhook — transfer events (instructor payouts)', () => {
+  it('transfer.success → flips the matching instructor_payouts row to status=paid', async () => {
+    const res = await POST(buildRequest({
+      event: 'transfer.success',
+      data: { transfer_code: 'TRF_abc123' },
+    }));
+    expect(res.status).toBe(200);
+    const call = state.calls.find((c) => c.table === 'instructor_payouts');
+    expect(call).toBeDefined();
+    expect(call?.payload.status).toBe('paid');
+    expect(call?.payload.processed_at).toBeDefined();
+    expect(call?.refEq).toBe('TRF_abc123');
+  });
+
+  it('transfer.failed → flips the matching row to status=rejected', async () => {
+    const res = await POST(buildRequest({
+      event: 'transfer.failed',
+      data: { transfer_code: 'TRF_def456' },
+    }));
+    expect(res.status).toBe(200);
+    const call = state.calls.find((c) => c.table === 'instructor_payouts');
+    expect(call?.payload.status).toBe('rejected');
+    expect(call?.refEq).toBe('TRF_def456');
+  });
+
+  it('transfer.reversed (settlement bounced back) → also marks rejected', async () => {
+    const res = await POST(buildRequest({
+      event: 'transfer.reversed',
+      data: { transfer_code: 'TRF_ghi789' },
+    }));
+    expect(res.status).toBe(200);
+    const call = state.calls.find((c) => c.table === 'instructor_payouts');
+    expect(call?.payload.status).toBe('rejected');
+  });
+
+  it('transfer event without a transfer_code is a no-op (200, no DB writes)', async () => {
+    const res = await POST(buildRequest({
+      event: 'transfer.success',
+      data: {},
+    }));
+    expect(res.status).toBe(200);
+    expect(state.calls.filter((c) => c.table === 'instructor_payouts')).toHaveLength(0);
+  });
+
+  it('transfer event always returns BEFORE the charge.success membership fulfilment path', async () => {
+    // Critical for routing: an attacker forging a transfer.success with a fake
+    // transfer_code must NOT also trigger membership creation. The transfer
+    // handler returns inline so the rest of the route never sees the event.
+    const res = await POST(buildRequest({
+      event: 'transfer.success',
+      data: {
+        transfer_code: 'TRF_x',
+        // These would normally trigger membership fulfilment if the event
+        // type fell through — they must NOT be touched.
+        reference: 'GF-attacker',
+        customer: { email: 'attacker@example.com' },
+        metadata: { plan_id: 'plan-1' },
+      },
+    }));
+    expect(res.status).toBe(200);
+    // No payments row touched.
+    expect(state.calls.filter((c) => c.table === 'payments')).toHaveLength(0);
+  });
+});
