@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
 import { daysAgoIso } from '@/lib/dates';
-import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, LogOut, Flame, MapPin, Clock } from 'lucide-react';
+import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, LogOut, Flame, MapPin, Clock, Settings } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -86,6 +86,7 @@ export default async function MemberDashboard({ params }: PageProps) {
         <QuickAction href="/dashboard/instructors" icon={GraduationCap} label="Coaches" />
         <QuickAction href="/dashboard/renew" icon={CreditCard} label="Renew" />
         <QuickAction href="/dashboard/cards" icon={Wallet} label="Cards" />
+        <QuickAction href="/dashboard/profile" icon={Settings} label="Settings" />
       </section>
 
       <div className="member-cards-row">

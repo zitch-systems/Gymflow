@@ -1,10 +1,13 @@
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
+import { signOut } from '@/lib/auth/actions';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
+import { QuickAction } from '@/components/ui/quick-action';
 import { ProfileForm } from './profile-form';
+import { CreditCard, Wallet, GraduationCap, LogOut } from 'lucide-react';
 
-export const metadata = { title: 'Profile' };
+export const metadata = { title: 'Settings' };
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -40,9 +43,15 @@ export default async function MemberProfilePage({ params }: PageProps) {
   return (
     <div className="member-portal">
       <PageHeader
-        title="Profile"
+        title="Settings"
         subtitle={`${displayName} · member of ${gym.name}`}
       />
+
+      <section className="member-quick-actions">
+        <QuickAction href="/dashboard/renew" icon={CreditCard} label="Renew" />
+        <QuickAction href="/dashboard/cards" icon={Wallet} label="Cards" />
+        <QuickAction href="/dashboard/instructors" icon={GraduationCap} label="Coaches" />
+      </section>
 
       <Card>
         <CardHeader title="Account details" />
@@ -73,6 +82,17 @@ export default async function MemberProfilePage({ params }: PageProps) {
               notification_whatsapp: p?.notification_whatsapp ?? true,
             }}
           />
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Account" />
+        <div style={{ padding: 18 }}>
+          <form action={signOut}>
+            <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <LogOut size={16} strokeWidth={1.75} /> Sign out
+            </button>
+          </form>
         </div>
       </Card>
     </div>
