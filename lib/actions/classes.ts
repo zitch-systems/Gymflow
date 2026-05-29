@@ -6,8 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff, requireMember } from '@/lib/auth/gym';
 import { getSessionUser } from '@/lib/auth/dal';
 import { audit } from '@/lib/audit';
-import { sendWaitlistJoined, sendWaitlistPromoted } from '@/lib/email';
-import { waWaitlistJoined, waWaitlistPromoted } from '@/lib/whatsapp';
+import { sendBookingConfirmed, sendWaitlistJoined, sendWaitlistPromoted } from '@/lib/email';
+import { waBookingConfirmed, waWaitlistJoined, waWaitlistPromoted } from '@/lib/whatsapp';
 import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
 
 export async function createClassWithSchedule(slug: string, formData: FormData) {
@@ -151,6 +151,8 @@ export async function bookClass(slug: string, scheduleId: string, bookingDate: s
     if (error) return { ok: false, error: error.message };
     if (isFull) {
       await notifyWaitlistJoined(user.id, scheduleId, bookingDate, gym.id);
+    } else {
+      await notifyBookingConfirmed(user.id, scheduleId, bookingDate, gym.id);
     }
     revalidatePath('/classes');
     return { ok: true, bookingId: existing.id, waitlisted: isFull };
@@ -173,6 +175,8 @@ export async function bookClass(slug: string, scheduleId: string, bookingDate: s
   if (error || !booking) return { ok: false, error: error?.message ?? 'Booking failed' };
   if (isFull) {
     await notifyWaitlistJoined(user.id, scheduleId, bookingDate, gym.id);
+  } else {
+    await notifyBookingConfirmed(user.id, scheduleId, bookingDate, gym.id);
   }
   revalidatePath('/classes');
   return { ok: true, bookingId: booking.id, waitlisted: isFull };
@@ -383,6 +387,65 @@ async function notifyWaitlistJoined(
         : Promise.resolve(),
       profile?.phone && respectsWhatsapp(profile)
         ? waWaitlistJoined(profile.phone, { name, className, classDate: bookingDate, classTime, classesUrl, position })
+        : Promise.resolve(),
+    ]);
+  } catch {
+    // best-effort
+  }
+}
+
+// Confirmation when bookClass lands status='booked' (seat available). Mirrors
+// notifyWaitlistJoined but skips the position lookup. Best-effort, opt-out
+// aware, never crashes the booking.
+async function notifyBookingConfirmed(
+  memberId: string,
+  classScheduleId: string,
+  bookingDate: string,
+  gymId: string,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    type ProfileRow = {
+      email: string | null;
+      phone: string | null;
+      full_name: string | null;
+      first_name: string | null;
+      notification_email: boolean | null;
+      notification_whatsapp: boolean | null;
+    };
+    const [{ data: profileRaw }, { data: schedule }, { data: gym }] = await Promise.all([
+      admin
+        .from('profiles')
+        .select('email, phone, full_name, first_name, notification_email, notification_whatsapp' as never)
+        .eq('id', memberId)
+        .maybeSingle(),
+      admin
+        .from('class_schedules')
+        .select('start_time, classes(name)')
+        .eq('id', classScheduleId)
+        .eq('gym_id', gymId)
+        .maybeSingle(),
+      admin
+        .from('gyms')
+        .select('slug')
+        .eq('id', gymId)
+        .maybeSingle(),
+    ]);
+    const profile = profileRaw as unknown as ProfileRow | null;
+
+    if (!profile?.email && !profile?.phone) return;
+    const cls = Array.isArray(schedule?.classes) ? schedule.classes[0] : schedule?.classes;
+    const className = cls?.name ?? 'class';
+    const classTime = schedule?.start_time ?? null;
+    const name = profile?.full_name ?? profile?.first_name ?? 'Member';
+    const classesUrl = gym?.slug ? `https://${gym.slug}.gymflow.ng/classes` : '/classes';
+
+    await Promise.allSettled([
+      profile?.email && respectsEmail(profile)
+        ? sendBookingConfirmed(profile.email, { name, className, classDate: bookingDate, classTime, classesUrl })
+        : Promise.resolve(),
+      profile?.phone && respectsWhatsapp(profile)
+        ? waBookingConfirmed(profile.phone, { name, className, classDate: bookingDate, classTime, classesUrl })
         : Promise.resolve(),
     ]);
   } catch {

@@ -93,9 +93,18 @@ const { state, requireMember, getSessionUser, userSupabase, adminSupabase } = vi
   return { state, requireMember, getSessionUser, userSupabase, adminSupabase };
 });
 
-const { sendWaitlistJoined, sendWaitlistPromoted, waWaitlistJoined, waWaitlistPromoted } = vi.hoisted(() => ({
+const {
+  sendBookingConfirmed,
+  sendWaitlistJoined,
+  sendWaitlistPromoted,
+  waBookingConfirmed,
+  waWaitlistJoined,
+  waWaitlistPromoted,
+} = vi.hoisted(() => ({
+  sendBookingConfirmed: vi.fn(async () => ({ ok: true })),
   sendWaitlistJoined: vi.fn(async () => ({ ok: true })),
   sendWaitlistPromoted: vi.fn(async () => ({ ok: true })),
+  waBookingConfirmed: vi.fn(async () => ({ ok: true })),
   waWaitlistJoined: vi.fn(async () => ({ ok: true })),
   waWaitlistPromoted: vi.fn(async () => ({ ok: true })),
 }));
@@ -105,8 +114,8 @@ vi.mock('@/lib/auth/dal', () => ({ getSessionUser }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => userSupabase }));
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminSupabase }));
 vi.mock('@/lib/audit', () => ({ audit: vi.fn(async () => {}) }));
-vi.mock('@/lib/email', () => ({ sendWaitlistJoined, sendWaitlistPromoted }));
-vi.mock('@/lib/whatsapp', () => ({ waWaitlistJoined, waWaitlistPromoted }));
+vi.mock('@/lib/email', () => ({ sendBookingConfirmed, sendWaitlistJoined, sendWaitlistPromoted }));
+vi.mock('@/lib/whatsapp', () => ({ waBookingConfirmed, waWaitlistJoined, waWaitlistPromoted }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
 import { bookClass, cancelBooking } from '@/lib/actions/classes';
@@ -121,8 +130,10 @@ beforeEach(() => {
   state.updates.length = 0;
   requireMember.mockClear();
   getSessionUser.mockClear();
+  sendBookingConfirmed.mockClear();
   sendWaitlistJoined.mockClear();
   sendWaitlistPromoted.mockClear();
+  waBookingConfirmed.mockClear();
   waWaitlistJoined.mockClear();
   waWaitlistPromoted.mockClear();
 });
@@ -503,6 +514,86 @@ describe('bookClass — waitlist-joined notification', () => {
 
     const r = await bookClass('demo', 'sched-1', '2026-05-30');
     expect(r).toEqual({ ok: true, bookingId: 'old-cancelled', waitlisted: true });
+    expect(sendWaitlistJoined).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('bookClass — confirmation notification on a successful booking', () => {
+  function setupOpenClass(profile: Record<string, unknown> | null) {
+    state.userQueue.set('class_schedules', [
+      { data: { id: 'sched-1', class_id: 'cls-1', gym_id: 'gym-1', classes: { max_capacity: 20 } }, error: null },
+    ]);
+    state.userQueue.set('class_bookings', [
+      { data: null, error: null },                                  // no existing
+      { data: null, error: null, count: 5 },                        // seat available
+      { data: { id: 'new-b' }, error: null },                       // insert returns
+    ]);
+    state.adminQueue.set('profiles', [{ data: profile, error: null }]);
+    state.adminQueue.set('class_schedules', [
+      { data: { start_time: '18:00', classes: { name: 'Yoga' } }, error: null },
+    ]);
+    state.adminQueue.set('gyms', [{ data: { slug: 'demo' }, error: null }]);
+  }
+
+  it('fires both channels for an opted-in member when their booking is confirmed', async () => {
+    setupOpenClass({
+      email: 'mary@example.com',
+      phone: '+2348000000000',
+      full_name: 'Mary',
+      first_name: 'Mary',
+      notification_email: true,
+      notification_whatsapp: true,
+    });
+
+    const r = await bookClass('demo', 'sched-1', '2026-05-30');
+    expect(r).toEqual({ ok: true, bookingId: 'new-b', waitlisted: false });
+    expect(sendBookingConfirmed).toHaveBeenCalledTimes(1);
+    expect(waBookingConfirmed).toHaveBeenCalledTimes(1);
+    // Waitlist notifications must NOT fire — this is the confirmed-booking path.
+    expect(sendWaitlistJoined).not.toHaveBeenCalled();
+    expect(waWaitlistJoined).not.toHaveBeenCalled();
+  });
+
+  it('honours notification_email=false', async () => {
+    setupOpenClass({
+      email: 'mary@example.com',
+      phone: '+2348000000000',
+      full_name: 'Mary',
+      first_name: 'Mary',
+      notification_email: false,
+      notification_whatsapp: true,
+    });
+    await bookClass('demo', 'sched-1', '2026-05-30');
+    expect(sendBookingConfirmed).not.toHaveBeenCalled();
+    expect(waBookingConfirmed).toHaveBeenCalledTimes(1);
+  });
+
+  it('the waitlisted path does NOT fire the confirmed notification (exclusive branches)', async () => {
+    state.userQueue.set('class_schedules', [
+      { data: { id: 'sched-1', class_id: 'cls-1', gym_id: 'gym-1', classes: { max_capacity: 20 } }, error: null },
+    ]);
+    state.userQueue.set('class_bookings', [
+      { data: null, error: null },
+      { data: null, error: null, count: 20 },
+      { data: { id: 'wl-b' }, error: null },
+    ]);
+    state.adminQueue.set('profiles', [{
+      data: {
+        email: 'mary@example.com',
+        phone: '+2348000000000',
+        full_name: 'Mary',
+        first_name: 'Mary',
+        notification_email: true,
+        notification_whatsapp: true,
+      },
+      error: null,
+    }]);
+    state.adminQueue.set('class_schedules', [{ data: { start_time: '18:00', classes: { name: 'HIIT' } }, error: null }]);
+    state.adminQueue.set('gyms', [{ data: { slug: 'demo' }, error: null }]);
+    state.adminQueue.set('class_bookings', [{ data: null, count: 1, error: null }]);
+
+    await bookClass('demo', 'sched-1', '2026-05-30');
+    expect(sendBookingConfirmed).not.toHaveBeenCalled();
     expect(sendWaitlistJoined).toHaveBeenCalledTimes(1);
   });
 });

@@ -152,6 +152,22 @@ export async function sendAutoDebitFailure(to: string, args: { name: string; rea
   );
 }
 
+export async function sendBookingConfirmed(
+  to: string,
+  args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string },
+) {
+  return send(
+    to,
+    `You're booked for ${escape(args.className)} on ${escape(args.classDate)}`,
+    shell(
+      'Your booking is confirmed',
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)} — you're confirmed for <strong>${escape(args.className)}</strong> on <strong>${escape(args.classDate)}</strong>${args.classTime ? ` at ${escape(args.classTime)}` : ''}.</p><p style="margin:0 0 12px;font-size:14px;color:#64748b;">If something comes up, please cancel ahead of time so the next person on the waitlist gets the spot.</p>`,
+      'View your class',
+      args.classesUrl,
+    ),
+  );
+}
+
 export async function sendWaitlistJoined(
   to: string,
   args: { name: string; className: string; classDate: string; classTime?: string | null; classesUrl: string; position?: number | null },
