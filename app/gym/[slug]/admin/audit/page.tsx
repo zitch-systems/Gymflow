@@ -23,6 +23,7 @@ const SCOPES = [
   { id: 'equipment',   label: 'Equipment',            prefix: 'admin.equipment_' },
   { id: 'expenses',    label: 'Expenses',             prefix: 'admin.expense_' },
   { id: 'billing',     label: 'Billing',              prefix: 'admin.subaccount_' },
+  { id: 'payouts',     label: 'Payouts',              prefix: 'admin.payout_' },
 ] as const;
 
 const DAY_OPTIONS = [

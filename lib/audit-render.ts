@@ -15,6 +15,8 @@ const ACTION_LABEL: Record<string, string> = {
   'admin.instructor_invited': 'Invited instructor',
   'admin.subaccount_created': 'Connected Paystack subaccount',
   'admin.subaccount_updated': 'Updated Paystack subaccount',
+  'admin.payout_processed': 'Sent instructor payout',
+  'admin.payout_rejected': 'Rejected instructor payout',
   'admin.plan_created': 'Created plan',
   'admin.plan_updated': 'Updated plan',
   'admin.plan_deleted': 'Deleted plan',
