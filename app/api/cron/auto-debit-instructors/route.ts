@@ -4,6 +4,7 @@ import { paystackFetch } from '@/lib/paystack';
 import { sendAutoDebitSuccess, sendAutoDebitFailure } from '@/lib/email';
 import { waAutoDebitSuccess, waAutoDebitFailure } from '@/lib/whatsapp';
 import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
+import { reportCronCap } from '@/lib/cron-observability';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -170,5 +171,6 @@ export async function GET(request: Request) {
     })));
   }
 
+  reportCronCap({ cron: 'auto-debit-instructors', processed: queue.length, skipped, extra: summary });
   return NextResponse.json({ today, processed: queue.length, skipped, summary });
 }

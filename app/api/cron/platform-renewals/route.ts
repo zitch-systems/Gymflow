@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackFetch } from '@/lib/paystack';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
 import { sendPlatformRenewalFailure } from '@/lib/email';
+import { reportCronCap } from '@/lib/cron-observability';
 
 // Daily renewal of the GymFlow subscription each gym owes the platform.
 // Without this cron the gym pays once at signup and uses the product free
@@ -211,5 +212,6 @@ export async function GET(request: Request) {
     })));
   }
 
+  reportCronCap({ cron: 'platform-renewals', processed: queue.length, skipped, extra: summary });
   return NextResponse.json({ ok: true, ranAt: new Date().toISOString(), processed: queue.length, skipped, ...summary });
 }
