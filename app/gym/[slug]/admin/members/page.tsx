@@ -3,6 +3,7 @@ import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft } from '@/lib/format';
 import { MembersSearch } from './members-search';
+import { ExportMembersCsvButton } from './export-csv-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card } from '@/components/ui/card';
@@ -84,6 +85,7 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
         actions={
           <>
             <MembersSearch defaultValue={query} />
+            <ExportMembersCsvButton slug={slug} />
             <ButtonLink href="/admin/members/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
               Add member
             </ButtonLink>
