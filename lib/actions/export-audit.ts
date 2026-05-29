@@ -23,6 +23,7 @@ export const AUDIT_EXPORT_SCOPES = {
   expenses:    { prefix: 'admin.expense_',    label: 'Expenses' },
   billing:     { prefix: 'admin.subaccount_', label: 'Billing' },
   payouts:     { prefix: 'admin.payout_',     label: 'Payouts' },
+  announcements: { prefix: 'admin.announcement_', label: 'Announcements' },
 } as const;
 export type AuditExportScope = keyof typeof AUDIT_EXPORT_SCOPES;
 

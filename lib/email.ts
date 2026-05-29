@@ -270,6 +270,29 @@ export async function sendPlatformRenewalFailure(
   );
 }
 
+export async function sendAnnouncement(
+  to: string,
+  args: { name: string; gymName: string; subject: string; message: string; ctaLabel?: string; ctaUrl?: string },
+) {
+  // Member-facing broadcast from a gym admin. The body is admin-authored
+  // free text — escape() it and render with paragraph breaks so newlines in
+  // the textarea survive without allowing HTML injection.
+  const paragraphs = args.message
+    .split(/\n{2,}/)
+    .map((p) => `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">${escape(p).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+  return send(
+    to,
+    `${args.gymName}: ${args.subject}`,
+    shell(
+      escape(args.subject),
+      `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#475569;">Hi ${escape(args.name)},</p>${paragraphs}`,
+      args.ctaLabel && args.ctaUrl ? args.ctaLabel : undefined,
+      args.ctaLabel && args.ctaUrl ? args.ctaUrl : undefined,
+    ),
+  );
+}
+
 export async function sendTempPassword(to: string, args: { name: string; gymName: string; tempPassword: string; loginUrl: string }) {
   return send(
     to,

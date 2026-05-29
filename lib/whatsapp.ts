@@ -156,3 +156,13 @@ export async function waTempPassword(phone: string, args: { name: string; gymNam
     `Welcome to ${args.gymName}, ${args.name}! Sign in with temp password: ${args.tempPassword}\n\n${args.loginUrl}\n\nYou'll set a new password on first sign-in. — GymFlow`,
   );
 }
+
+export async function waAnnouncement(
+  phone: string,
+  args: { gymName: string; subject: string; message: string },
+) {
+  return sendWhatsApp(
+    phone,
+    `📣 ${args.gymName}: ${args.subject}\n\n${args.message}`,
+  );
+}

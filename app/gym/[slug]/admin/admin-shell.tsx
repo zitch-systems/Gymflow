@@ -7,7 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Users, ScanLine, BarChart3, CalendarDays, GraduationCap,
   Tag, Bell, Wrench, Clock, FileText, ShieldCheck, Wallet, Settings,
-  LogOut, Menu, CreditCard, BanknoteArrowUp,
+  LogOut, Menu, CreditCard, BanknoteArrowUp, Megaphone,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { href: '/admin/instructors',   label: 'Instructors',section: 'main',  icon: GraduationCap },
   { href: '/admin/pricing',       label: 'Pricing',    section: 'admin', icon: Tag },
   { href: '/admin/reminders',     label: 'Reminders',  section: 'admin', icon: Bell },
+  { href: '/admin/announcements', label: 'Announcements', section: 'admin', icon: Megaphone },
   { href: '/admin/operations',    label: 'Operations', section: 'admin', icon: Wrench },
   { href: '/admin/business-hours',label: 'Hours',      section: 'admin', icon: Clock },
   { href: '/admin/waiver',        label: 'Waiver',     section: 'admin', icon: FileText },

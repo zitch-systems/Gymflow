@@ -112,6 +112,11 @@ describe('exportAuditCsv — filter clamping (no validation errors)', () => {
     expect(state.capturedIlike).toContainEqual({ col: 'action', pattern: 'admin.payout_%' });
   });
 
+  it('the announcements scope filters on the admin.announcement_ prefix', async () => {
+    await exportAuditCsv('demo', 'announcements', '30');
+    expect(state.capturedIlike).toContainEqual({ col: 'action', pattern: 'admin.announcement_%' });
+  });
+
   it('an unknown window falls back to 30 days', async () => {
     await exportAuditCsv('demo', 'all', '9999');
     const createdAtGte = state.capturedGte.find((g) => g.col === 'created_at');
