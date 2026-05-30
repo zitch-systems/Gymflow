@@ -36,6 +36,31 @@ export default async function MemberDashboard({ params }: PageProps) {
   const remaining = subscription ? daysLeft(subscription.end_date) : 0;
   const isActive = remaining > 0;
 
+  // PT-pack credits the member holds at this gym. RLS on pt_pack_credits
+  // restricts SELECT to the row owner, so this read works via the user
+  // client without leaking other members' balances.
+  const { data: ptCreditsRaw } = await supabase
+    .from('pt_pack_credits' as never)
+    .select('id, instructor_id, sessions_total, sessions_used, purchased_at')
+    .eq('gym_id' as never, gym.id)
+    .eq('member_id' as never, user.id)
+    .order('purchased_at' as never, { ascending: true });
+  const ptCredits = ((ptCreditsRaw ?? []) as unknown as Array<{
+    id: string;
+    instructor_id: string;
+    sessions_total: number;
+    sessions_used: number;
+    purchased_at: string;
+  }>).filter((c) => c.sessions_used < c.sessions_total);
+  const ptInstructorIds = [...new Set(ptCredits.map((c) => c.instructor_id))];
+  const { data: ptInstructorProfiles } = ptInstructorIds.length
+    ? await supabase.from('profiles').select('id, full_name, first_name, last_name').in('id', ptInstructorIds)
+    : { data: [] as Array<{ id: string; full_name: string | null; first_name: string | null; last_name: string | null }> };
+  const ptCoachLabel = new Map((ptInstructorProfiles ?? []).map((p) => [
+    p.id,
+    p.full_name ?? [p.first_name, p.last_name].filter(Boolean).join(' ') ?? 'Coach',
+  ] as const));
+
   const [{ data: checkIns }, { data: schedules }] = await Promise.all([
     supabase
       .from('check_ins')
@@ -166,6 +191,26 @@ export default async function MemberDashboard({ params }: PageProps) {
               autoRenew={!!subscription.auto_debit_enabled}
             />
           </div>
+        </Card>
+      )}
+
+      {ptCredits.length > 0 && (
+        <Card>
+          <CardHeader title="Personal training credits" />
+          <ul className="gf-list">
+            {ptCredits.map((c) => {
+              const remaining = c.sessions_total - c.sessions_used;
+              return (
+                <li key={c.id} className="gf-list-row">
+                  <span>
+                    <strong>{remaining}</strong> session{remaining === 1 ? '' : 's'} left
+                    <span className="gf-table-meta"> · with {ptCoachLabel.get(c.instructor_id) ?? 'Coach'}</span>
+                  </span>
+                  <span className="gf-table-meta">{c.sessions_used} of {c.sessions_total} used</span>
+                </li>
+              );
+            })}
+          </ul>
         </Card>
       )}
 
