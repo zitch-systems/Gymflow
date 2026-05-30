@@ -91,10 +91,10 @@ export default async function MemberProfilePage({ params }: PageProps) {
         ) : null}
       </section>
 
-      {/* Quick actions — 5-up ring. The Sign out tile is a form-action button
-          styled like the others; keeps the row symmetrical without bolting a
-          card on at the bottom for one action. */}
-      <section className="m-qa m-qa-5" aria-label="Profile shortcuts">
+      {/* Quick actions — 4-up navigation ring. Sign out is deliberately NOT
+          here: it's destructive and confirmation-free, so it lives in a
+          discrete footer rather than as a peer tap target among nav tiles. */}
+      <section className="m-qa m-qa-4" aria-label="Profile shortcuts">
         <Link href="/dashboard/renew" className="m-qa-tile">
           <CreditCard size={20} strokeWidth={1.75} />
           <span>Renew</span>
@@ -112,12 +112,6 @@ export default async function MemberProfilePage({ params }: PageProps) {
           <Dumbbell size={20} strokeWidth={1.75} />
           <span>PT packs</span>
         </Link>
-        <form action={signOut} style={{ display: 'contents' }}>
-          <button type="submit" className="m-qa-tile">
-            <LogOut size={20} strokeWidth={1.75} />
-            <span>Sign out</span>
-          </button>
-        </form>
       </section>
 
       {/* Conditional renewal nudge. The "real ask" shape of the OPay banner —
@@ -189,6 +183,17 @@ export default async function MemberProfilePage({ params }: PageProps) {
               notification_whatsapp: p?.notification_whatsapp ?? true,
             }}
           />
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Account" />
+        <div style={{ padding: 18 }}>
+          <form action={signOut}>
+            <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <LogOut size={16} strokeWidth={1.75} /> Sign out
+            </button>
+          </form>
         </div>
       </Card>
     </div>

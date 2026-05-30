@@ -94,9 +94,10 @@ export default async function CoachProfilePage({ params }: PageProps) {
         </Link>
       </section>
 
-      {/* 5-up quick actions. Set-up badge on Bank when missing — that's the
-          gating step before payouts can land. */}
-      <section className="m-qa m-qa-5" aria-label="Profile shortcuts">
+      {/* 4-up navigation ring. Set-up badge on Pricing/Bank when missing —
+          the two gating steps before payouts can land. Sign out is destructive
+          and confirmation-free, so it lives in a discrete footer, not here. */}
+      <section className="m-qa m-qa-4" aria-label="Profile shortcuts">
         <Link href="/coach/earnings" className="m-qa-tile">
           <BarChart3 size={20} strokeWidth={1.75} />
           <span>Earnings</span>
@@ -115,12 +116,6 @@ export default async function CoachProfilePage({ params }: PageProps) {
           <Calendar size={20} strokeWidth={1.75} />
           <span>Schedule</span>
         </Link>
-        <form action={signOut} style={{ display: 'contents' }}>
-          <button type="submit" className="m-qa-tile">
-            <LogOut size={20} strokeWidth={1.75} />
-            <span>Sign out</span>
-          </button>
-        </form>
       </section>
 
       {/* Conditional setup nudge: bank missing > rate missing > nothing. Only
@@ -217,6 +212,17 @@ export default async function CoachProfilePage({ params }: PageProps) {
               account_name: bank?.account_name ?? null,
             }}
           />
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Account" />
+        <div style={{ padding: 18 }}>
+          <form action={signOut}>
+            <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <LogOut size={16} strokeWidth={1.75} /> Sign out
+            </button>
+          </form>
         </div>
       </Card>
     </div>

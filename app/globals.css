@@ -4715,14 +4715,13 @@ button[disabled] { opacity: 0.7; cursor: wait; }
    "hub" layout: a 5-up action ring with optional pill badges, a wide
    promotional banner, and a 2-up summary-card grid. */
 
-/* 5-up variant of m-qa. Wraps to 2 rows on narrow phones rather than
-   shrinking the tiles to the point labels clip. */
-.m-qa-5 { grid-template-columns: repeat(5, 1fr); }
-@media (max-width: 480px) {
-  .m-qa-5 { grid-template-columns: repeat(4, 1fr); }
-}
-@media (max-width: 340px) {
-  .m-qa-5 { grid-template-columns: repeat(3, 1fr); }
+/* 4-up variant of m-qa (navigation tiles only — destructive actions like
+   sign-out live in a discrete footer, never as a peer tap target here).
+   Collapses to a 2×2 grid on very narrow phones rather than shrinking the
+   tiles to where labels clip. */
+.m-qa-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 380px) {
+  .m-qa-4 { grid-template-columns: repeat(2, 1fr); }
 }
 /* The m-qa-tile is `display:flex`, so the tile itself isn't a positioning
    context for absolute badges — give it one without changing layout. */
@@ -4735,10 +4734,6 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   padding: 2px 6px; border-radius: var(--gf-radius-pill);
   line-height: 1.2;
 }
-
-/* Settings/profile entry button styled as an m-qa tile, for the sign-out
-   form-action tile (m-qa-tile is an anchor by default). */
-button.m-qa-tile { background: var(--gf-surface); cursor: pointer; }
 
 /* Wide promo/nudge banner (the OPay "Work Smart, Save Smart" pattern).
    Used conditionally — surfaces only when there's a real ask (renewal
