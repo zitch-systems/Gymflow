@@ -4691,6 +4691,30 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 .m-lc-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
 .m-lc-chev { color: var(--gf-text-muted); flex-shrink: 0; }
 
+/* Class cards (member classes timetable) — design-system .cls-card pattern:
+   time block · class info · capacity badge · book control. */
+.cls-card {
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); padding: 14px;
+  display: flex; align-items: center; gap: 12px;
+  transition: border-color var(--gf-t-fast);
+}
+.cls-card:hover { border-color: var(--gf-brand); }
+.cls-card .cls-tm { text-align: center; flex-shrink: 0; width: 56px; }
+.cls-card .cls-tm b {
+  font-family: var(--gf-font-display); font-size: 0.95rem; display: block; color: var(--gf-brand);
+}
+.cls-card .cls-tm span { font-size: 0.66rem; color: var(--gf-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.cls-card .cls-info { flex: 1; min-width: 0; }
+.cls-card .cls-info strong { font-family: var(--gf-font-display); font-size: 0.9rem; display: block; }
+.cls-card .cls-info small { color: var(--gf-text-muted); font-size: 0.76rem; }
+.cls-day-group { display: flex; flex-direction: column; gap: 10px; }
+.cls-day-title {
+  font-family: var(--gf-font-display); font-weight: 700; font-size: 0.92rem;
+  margin: 14px 2px 2px; display: flex; align-items: baseline; gap: 8px;
+}
+.cls-day-title span { font-size: 0.74rem; color: var(--gf-text-muted); font-weight: 500; }
+
 .member-portal {
   max-width: 600px;
   margin: 0 auto;

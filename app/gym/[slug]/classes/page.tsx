@@ -2,12 +2,22 @@ import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BookClassButton } from './book-button';
-import { Card, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { CalendarX } from 'lucide-react';
 
 const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Split an "HH:MM[:SS]" time into a display hour:min and an AM/PM marker for
+// the class-card time block (design-system .cls-tm pattern).
+function splitTime(t: string): { hm: string; ap: string } {
+  const [hRaw, m = '00'] = t.split(':');
+  const h = parseInt(hRaw, 10);
+  const ap = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return { hm: `${h12}:${m.padStart(2, '0')}`, ap };
+}
 
 function dateForNextDOW(targetDow: number): string {
   const today = new Date();
@@ -100,45 +110,48 @@ export default async function MemberClassesPage({ params }: PageProps) {
           if (!slots || slots.length === 0) return null;
           const date = dateForNextDOW(dow);
           return (
-            <Card key={dow}>
-              <CardHeader title={<>{label} <span className="gf-table-meta">({date})</span></>} />
-              <ul className="gf-list">
-                {slots.map((s) => {
-                  const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
-                  const key = bookedKey(s.id, date);
-                  const mine = myBooking.get(key);
-                  const capacity = cls?.max_capacity ?? null;
-                  const taken = confirmedCount.get(key) ?? 0;
-                  const spotsLeft = capacity != null ? Math.max(0, capacity - taken) : null;
-                  const isFull = capacity != null && taken >= capacity;
-                  return (
-                    <li key={s.id} className="gf-list-row class-row">
-                      <div>
-                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {cls?.name ?? 'Class'}
-                          {capacity != null && !mine && (
-                            <span className={`gf-badge ${isFull ? 'gf-badge-warning' : 'gf-badge-neutral'}`}>
-                              {isFull ? 'Full' : `${spotsLeft} left`}
-                            </span>
-                          )}
-                        </div>
-                        <div className="gf-table-meta">
-                          {s.start_time} – {s.end_time} · {cls?.instructor ?? 'TBA'} · {s.room ?? '—'}
-                        </div>
-                      </div>
-                      <BookClassButton
-                        slug={slug}
-                        scheduleId={s.id}
-                        bookingDate={date}
-                        memberStatus={(mine?.status as 'booked' | 'waitlisted' | undefined) ?? null}
-                        bookingId={mine?.id ?? null}
-                        isFull={isFull}
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-            </Card>
+            <div key={dow} className="cls-day-group">
+              <div className="cls-day-title">{label} <span>{date}</span></div>
+              {slots.map((s) => {
+                const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+                const key = bookedKey(s.id, date);
+                const mine = myBooking.get(key);
+                const capacity = cls?.max_capacity ?? null;
+                const taken = confirmedCount.get(key) ?? 0;
+                const spotsLeft = capacity != null ? Math.max(0, capacity - taken) : null;
+                const isFull = capacity != null && taken >= capacity;
+                const { hm, ap } = splitTime(s.start_time);
+                return (
+                  <div key={s.id} className="cls-card">
+                    <div className="cls-tm">
+                      <b>{hm}</b>
+                      <span>{ap}</span>
+                    </div>
+                    <div className="cls-info">
+                      <strong>{cls?.name ?? 'Class'}</strong>
+                      <small>
+                        {cls?.instructor ?? 'TBA'}
+                        {s.room ? ` · ${s.room}` : ''}
+                        {capacity != null ? ` · ${taken}/${capacity} booked` : ''}
+                      </small>
+                    </div>
+                    {capacity != null && !mine && (
+                      <span className={`gf-badge ${isFull ? 'gf-badge-warning' : 'gf-badge-neutral'}`}>
+                        {isFull ? 'Full' : `${spotsLeft} left`}
+                      </span>
+                    )}
+                    <BookClassButton
+                      slug={slug}
+                      scheduleId={s.id}
+                      bookingDate={date}
+                      memberStatus={(mine?.status as 'booked' | 'waitlisted' | undefined) ?? null}
+                      bookingId={mine?.id ?? null}
+                      isFull={isFull}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           );
         })
       )}
