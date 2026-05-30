@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackSecretKey } from '@/lib/paystack';
 import { fulfilMembershipPurchase, type FulfilAuthorization } from '@/lib/paystack-fulfill';
 import { fulfilPtPackPurchase } from '@/lib/pt-pack-fulfill';
+import { fulfilInstructorSubscription } from '@/lib/instructor-sub-fulfill';
 import { sendPayoutPaid, sendPayoutFailed } from '@/lib/email';
 import { waPayoutPaid, waPayoutFailed } from '@/lib/whatsapp';
 
@@ -197,6 +198,39 @@ export async function POST(request: Request) {
         }
       } else {
         console.error('[GF webhook] could not resolve member for pt-pack charge', reference, customerEmail);
+      }
+      return NextResponse.json({ received: true });
+    }
+
+    // Instructor-subscription backstop: the subscribe button tags the charge
+    // with metadata.gym_id + instructor_id + months (but no plan_id). If the
+    // member's tab closed before /verify-instructor ran, fulfil here.
+    // Idempotent on payment_reference — no-ops if /verify-instructor already ran.
+    const instructorId = typeof metadata.instructor_id === 'string' ? metadata.instructor_id : null;
+    const subGymId = typeof metadata.gym_id === 'string' ? metadata.gym_id : null;
+    const monthsRaw = Number(metadata.months);
+    if (!planId && instructorId && subGymId && Number.isFinite(monthsRaw) && monthsRaw >= 1 && monthsRaw <= 24 && customerEmail) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('email', customerEmail)
+        .maybeSingle();
+      const memberId = prof?.id ?? null;
+      if (memberId) {
+        const result = await fulfilInstructorSubscription(supabase, {
+          gymId: subGymId,
+          instructorId,
+          memberId,
+          months: Math.floor(monthsRaw),
+          reference,
+          authorization: data.authorization,
+          memberEmail: customerEmail,
+        });
+        if (!result.ok) {
+          console.error('[GF webhook] instructor-sub fulfilment failed for', reference, '-', result.error);
+        }
+      } else {
+        console.error('[GF webhook] could not resolve member for instructor-sub charge', reference, customerEmail);
       }
       return NextResponse.json({ received: true });
     }

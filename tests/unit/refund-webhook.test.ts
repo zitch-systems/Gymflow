@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 // Capture supabase calls to assert webhook routes the event correctly.
 // transferLookup is FIFO-popped by the .maybeSingle() chain so each test
 // stages whatever priorRow it needs (or null for a no-row case).
-const { state, adminMock, emailMocks, waMocks, ptPackFulfilMock } = vi.hoisted(() => {
+const { state, adminMock, emailMocks, waMocks, ptPackFulfilMock, instructorSubFulfilMock } = vi.hoisted(() => {
   type Call = { table: string; verb: 'update'; payload: Record<string, unknown>; refEq: string };
   const state: { calls: Call[]; transferLookup: unknown[]; profileLookup: { id: string } | null } = { calls: [], transferLookup: [], profileLookup: { id: 'member-1' } };
   const adminMock = {
@@ -33,6 +33,9 @@ const { state, adminMock, emailMocks, waMocks, ptPackFulfilMock } = vi.hoisted((
   const ptPackFulfilMock = vi.fn(async (_sb: unknown, args: { packId: string; memberId: string; reference: string }) => {
     void _sb; void args; return { ok: true as const };
   });
+  const instructorSubFulfilMock = vi.fn(async (_sb: unknown, args: { gymId: string; instructorId: string; memberId: string; months: number; reference: string }) => {
+    void _sb; void args; return { ok: true as const };
+  });
   type PaidArgs = { name: string; amount: number; bankName: string; accountLast4: string; earningsUrl?: string };
   type FailArgs = { name: string; amount: number; reason: 'failed' | 'reversed'; earningsUrl: string };
   const emailMocks = {
@@ -43,13 +46,14 @@ const { state, adminMock, emailMocks, waMocks, ptPackFulfilMock } = vi.hoisted((
     waPayoutPaid: vi.fn(async (phone: string, args: PaidArgs) => { void phone; void args; return { ok: true }; }),
     waPayoutFailed: vi.fn(async (phone: string, args: FailArgs) => { void phone; void args; return { ok: true }; }),
   };
-  return { state, adminMock, emailMocks, waMocks, ptPackFulfilMock };
+  return { state, adminMock, emailMocks, waMocks, ptPackFulfilMock, instructorSubFulfilMock };
 });
 
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminMock }));
 vi.mock('@/lib/paystack', () => ({ paystackSecretKey: () => 'test_secret' }));
 vi.mock('@/lib/paystack-fulfill', () => ({ fulfilMembershipPurchase: vi.fn(async () => ({ ok: true })) }));
 vi.mock('@/lib/pt-pack-fulfill', () => ({ fulfilPtPackPurchase: ptPackFulfilMock }));
+vi.mock('@/lib/instructor-sub-fulfill', () => ({ fulfilInstructorSubscription: instructorSubFulfilMock }));
 vi.mock('@/lib/email', () => emailMocks);
 vi.mock('@/lib/whatsapp', () => waMocks);
 
@@ -78,6 +82,7 @@ beforeEach(() => {
   waMocks.waPayoutPaid.mockClear();
   waMocks.waPayoutFailed.mockClear();
   ptPackFulfilMock.mockClear();
+  instructorSubFulfilMock.mockClear();
 });
 
 describe('Paystack webhook — PT-pack purchase backstop', () => {
@@ -129,6 +134,57 @@ describe('Paystack webhook — PT-pack purchase backstop', () => {
     }));
     expect(res.status).toBe(200);
     expect(ptPackFulfilMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('Paystack webhook — instructor-subscription backstop', () => {
+  it('fulfils an instructor-sub charge.success (closed-tab backstop)', async () => {
+    const res = await POST(buildRequest({
+      event: 'charge.success',
+      data: {
+        reference: 'GFI-backstop-1',
+        amount: 1000000,
+        currency: 'NGN',
+        customer: { email: 'member@example.com' },
+        metadata: { gym_id: 'gym-1', instructor_id: 'coach-1', months: 2 },
+      },
+    }));
+    expect(res.status).toBe(200);
+    expect(instructorSubFulfilMock).toHaveBeenCalledTimes(1);
+    const args = instructorSubFulfilMock.mock.calls[0]![1];
+    expect(args.gymId).toBe('gym-1');
+    expect(args.instructorId).toBe('coach-1');
+    expect(args.months).toBe(2);
+    expect(args.memberId).toBe('member-1');
+    expect(args.reference).toBe('GFI-backstop-1');
+  });
+
+  it('ignores an instructor charge with months out of [1,24] (no fulfilment, falls through)', async () => {
+    const res = await POST(buildRequest({
+      event: 'charge.success',
+      data: {
+        reference: 'GFI-bad',
+        customer: { email: 'member@example.com' },
+        metadata: { gym_id: 'gym-1', instructor_id: 'coach-1', months: 99 },
+      },
+    }));
+    expect(res.status).toBe(200);
+    expect(instructorSubFulfilMock).not.toHaveBeenCalled();
+  });
+
+  it('does NOT treat a membership charge (has plan_id) as an instructor sub', async () => {
+    // plan_id present → membership path, NOT instructor. instructor backstop
+    // requires the ABSENCE of plan_id.
+    const res = await POST(buildRequest({
+      event: 'charge.success',
+      data: {
+        reference: 'GF-membership',
+        customer: { email: 'member@example.com' },
+        metadata: { plan_id: 'plan-1', gym_id: 'gym-1', instructor_id: 'coach-1', months: 2 },
+      },
+    }));
+    expect(res.status).toBe(200);
+    expect(instructorSubFulfilMock).not.toHaveBeenCalled();
   });
 });
 

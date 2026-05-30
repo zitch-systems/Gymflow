@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
+import { fulfilInstructorSubscription } from '@/lib/instructor-sub-fulfill';
 import { sendReceipt } from '@/lib/email';
 import { waReceipt } from '@/lib/whatsapp';
 import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
@@ -77,97 +78,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Payment amount is less than the required price' }, { status: 400 });
   }
 
-  // Idempotency: if we've already recorded this reference, return success —
-  // but first repair the payments mirror if a previous partial failure left
-  // the subscription without one. Without this check, a transient failure
-  // mid-fulfilment would leave the wallet permanently missing the revenue.
-  const { data: existing } = await supabase
-    .from('instructor_subscriptions')
-    .select('id')
-    .eq('payment_reference', reference)
-    .maybeSingle();
-  if (existing) {
-    const { data: existingPayment } = await supabase
-      .from('payments')
-      .select('id')
-      .eq('paystack_reference', reference)
-      .maybeSingle();
-    if (!existingPayment) {
-      await supabase.from('payments').insert({
-        gym_id,
-        member_id: user.id,
-        amount: expectedTotal,
-        currency: 'NGN',
-        payment_method: 'card',
-        payment_status: 'successful',
-        paystack_reference: reference,
-        paystack_authorization_code: txn.authorization?.authorization_code ?? null,
-        payment_date: new Date().toISOString(),
-      });
-    }
-    return NextResponse.json({ success: true, subscription: existing, already: true });
-  }
-
-  // Compute dates server-side.
-  const today = new Date().toISOString().split('T')[0];
-  const endDateObj = new Date();
-  endDateObj.setMonth(endDateObj.getMonth() + months);
-  const end_date = endDateObj.toISOString().split('T')[0];
-
-  const { data: subscription, error: subError } = await supabase
-    .from('instructor_subscriptions')
-    .insert({
-      gym_id,
-      instructor_id,
-      member_id: user.id,
-      status: 'active',
-      start_date: today,
-      end_date,
-      amount_paid: expectedTotal,
-      payment_reference: reference,
-    })
-    .select()
-    .maybeSingle();
-
-  if (subError) {
-    return NextResponse.json({ error: `Subscription create failed: ${subError.message}` }, { status: 500 });
-  }
-
-  // Also record in payments for the gym's wallet history.
-  await supabase.from('payments').insert({
-    gym_id,
-    member_id: user.id,
-    amount: expectedTotal,
-    currency: 'NGN',
-    payment_method: 'card',
-    payment_status: 'successful',
-    paystack_reference: reference,
-    paystack_authorization_code: txn.authorization?.authorization_code ?? null,
-    payment_date: new Date().toISOString(),
+  // Provision subscription + payments mirror + saved card, idempotent on the
+  // reference and shared with the webhook backstop. Security gates above are
+  // the route's responsibility; the helper trusts the verified charge.
+  const result = await fulfilInstructorSubscription(supabase, {
+    gymId: gym_id,
+    instructorId: instructor_id,
+    memberId: user.id,
+    months,
+    reference,
+    authorization: txn.authorization,
+    memberEmail: txn.customer.email,
+    pricePerMonth, // reuse the rate already fetched for the amount gate
   });
-
-  // Also save the card so instructor sub can auto-renew later.
-  const auth = txn.authorization;
-  if (auth?.reusable && auth.authorization_code) {
-    await supabase.from('saved_cards').upsert(
-      {
-        gym_id,
-        member_id: user.id,
-        authorization_code: auth.authorization_code,
-        paystack_authorization_code: auth.authorization_code,
-        card_type: auth.card_type ?? null,
-        last4: auth.last4 ?? null,
-        exp_month: auth.exp_month ?? null,
-        exp_year: auth.exp_year ?? null,
-        bank: auth.bank ?? null,
-        brand: auth.brand ?? null,
-        reusable: auth.reusable ?? true,
-        email: txn.customer.email,
-        is_default: true,
-        is_active: true,
-      },
-      { onConflict: 'member_id,authorization_code' },
-    );
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
+  if (result.already) {
+    return NextResponse.json({ success: true, already: true });
   }
 
   // Defer receipts to after the response so slow email/WhatsApp providers
@@ -189,13 +117,13 @@ export async function POST(request: Request) {
       const name = profile?.full_name ?? profile?.first_name ?? 'Member';
       const planName = `Coaching: ${instructor?.full_name ?? 'Instructor'}`;
       await Promise.allSettled([
-        sendReceipt(user.email!, { name, amount: expectedTotal, plan: planName, endDate: end_date }),
-        profile?.phone ? waReceipt(profile.phone, { name, amount: expectedTotal, endDate: end_date }) : Promise.resolve(),
+        sendReceipt(user.email!, { name, amount: expectedTotal, plan: planName, endDate: result.endDate ?? '' }),
+        profile?.phone ? waReceipt(profile.phone, { name, amount: expectedTotal, endDate: result.endDate ?? '' }) : Promise.resolve(),
       ]);
     } catch (e) {
       console.warn('[GF verify-instructor] receipt notification failed:', (e as Error).message);
     }
   });
 
-  return NextResponse.json({ success: true, subscription, months });
+  return NextResponse.json({ success: true, months });
 }
