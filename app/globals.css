@@ -4577,6 +4577,120 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 .status-pill.off { background: var(--gf-danger-soft); color: var(--gf-danger); }
 
 /* ── Member dashboard ────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────
+   Member dashboard — native-app home screen. Structure + tokens mirror the
+   GymFlow Design System's revamp/member.html (the canonical member-PWA spec).
+   ───────────────────────────────────────────────────────────────────────── */
+.member-app { gap: 16px; }
+
+/* Greeting header (.mhead in the spec) */
+.m-head { display: flex; align-items: center; gap: 11px; padding: 2px 2px 6px; }
+.m-head-avatar {
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
+  display: inline-grid; place-items: center;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  border: 1px solid var(--gf-brand-glow);
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.05rem;
+  text-decoration: none; transition: transform var(--gf-t-fast);
+}
+.m-head-avatar:active { transform: scale(0.94); }
+.m-head-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.m-head-text { display: flex; flex-direction: column; min-width: 0; }
+.m-head-text small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.m-head-text strong { font-family: var(--gf-font-display); font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em; }
+.m-head-bell {
+  margin-left: auto; flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: 50%;
+  display: inline-grid; place-items: center;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  color: var(--gf-text-secondary); text-decoration: none;
+  transition: all var(--gf-t-fast);
+}
+.m-head-bell:hover { border-color: var(--gf-brand); color: var(--gf-brand); }
+.m-head-bell:active { transform: scale(0.92); }
+
+/* Status card (.status in the spec): always brand gradient, volt-lime bar */
+.m-status {
+  position: relative; overflow: hidden;
+  background: linear-gradient(150deg, var(--gf-brand), var(--gf-brand-dark));
+  border-radius: var(--gf-radius-lg);
+  padding: 20px; color: #fff;
+}
+.m-status::after {
+  content: ''; position: absolute; right: -30px; top: -30px;
+  width: 140px; height: 140px;
+  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  pointer-events: none;
+}
+.m-status-tag {
+  position: relative; z-index: 1;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--gf-font-display); font-weight: 700; font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: var(--gf-radius-pill);
+}
+.m-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+.m-status-plan {
+  position: relative; z-index: 1;
+  font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 800;
+  margin: 14px 0 2px; letter-spacing: -0.02em;
+}
+.m-status-meta { position: relative; z-index: 1; font-size: 0.82rem; opacity: 0.92; }
+.m-status-barwrap {
+  position: relative; z-index: 1;
+  height: 7px; background: rgba(255,255,255,0.25); border-radius: 99px;
+  margin: 16px 0 8px; overflow: hidden;
+}
+.m-status-bar { height: 100%; background: var(--gf-accent); border-radius: 99px; transition: width var(--gf-t-slow); }
+.m-status-days {
+  position: relative; z-index: 1;
+  font-size: 0.78rem; opacity: 0.92; display: flex; justify-content: space-between;
+}
+.m-status-renew { position: relative; z-index: 1; margin-top: 14px; }
+
+/* White button — for use on coloured surfaces (e.g. the status gradient) */
+.gf-btn-light { background: #fff; color: #0f172a; border: none; }
+.gf-btn-light:hover { background: #f1f5f9; color: #0f172a; }
+
+/* Quick actions (.qa): 3-up, icon-over-label, brand-green icons */
+.m-qa { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.m-qa-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 8px; border-radius: var(--gf-radius);
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  color: var(--gf-text); text-decoration: none;
+  font-family: var(--gf-font-display); font-weight: 600; font-size: 0.76rem;
+  transition: all var(--gf-t-fast);
+}
+.m-qa-tile:hover, .m-qa-tile:active { border-color: var(--gf-brand); color: var(--gf-brand); transform: translateY(-2px); }
+.m-qa-tile svg { width: 20px; height: 20px; color: var(--gf-brand); }
+
+/* Section title (.sect-t) */
+.m-sect-t {
+  font-family: var(--gf-font-display); font-weight: 700; font-size: 0.92rem;
+  margin: 6px 2px 0; display: flex; justify-content: space-between; align-items: center;
+}
+
+/* Compact list cards (.lc) for secondary destinations */
+.m-links { display: flex; flex-direction: column; gap: 8px; }
+.m-lc {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-sm); text-decoration: none; color: var(--gf-text);
+  transition: border-color var(--gf-t-fast), transform var(--gf-t-fast);
+}
+.m-lc:hover { border-color: var(--gf-brand); }
+.m-lc:active { transform: scale(0.99); }
+.m-lc-ic {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+}
+.m-lc-m { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.m-lc-m strong { font-family: var(--gf-font-display); font-size: 0.86rem; font-weight: 600; }
+.m-lc-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.m-lc-chev { color: var(--gf-text-muted); flex-shrink: 0; }
+
 .member-portal {
   max-width: 600px;
   margin: 0 auto;
@@ -4584,144 +4698,6 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   App-shell treatment for the member dashboard — make it read like a native
-   app, not a web page.
-   ───────────────────────────────────────────────────────────────────────── */
-.app-shell { gap: 18px; }
-
-/* Greeting header with avatar */
-.app-greeting {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-}
-.app-greeting-hi {
-  margin: 0; font-size: 0.9rem; color: var(--gf-text-muted); font-weight: 500;
-}
-.app-greeting-name {
-  margin: 2px 0 0;
-  font-family: var(--gf-font-display);
-  font-size: clamp(1.4rem, 5vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-.app-avatar {
-  flex-shrink: 0;
-  width: 46px; height: 46px; border-radius: 50%;
-  overflow: hidden;
-  display: inline-grid; place-items: center;
-  background: var(--gf-brand-soft); color: var(--gf-brand);
-  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.15rem;
-  border: 2px solid var(--gf-border);
-  text-decoration: none;
-  transition: transform var(--gf-t-fast), border-color var(--gf-t-fast);
-}
-.app-avatar:active { transform: scale(0.94); }
-.app-avatar:hover { border-color: var(--gf-brand); }
-.app-avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-/* Membership card — physical-card metaphor */
-.member-card {
-  position: relative; overflow: hidden;
-  border-radius: 20px;
-  padding: 20px;
-  color: #fff;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0b1220 100%);
-  box-shadow: 0 12px 32px rgba(15,23,42,0.28);
-  display: flex; flex-direction: column; gap: 16px;
-  min-height: 184px;
-}
-.member-card.is-active {
-  background: linear-gradient(135deg, var(--gf-brand-dark) 0%, var(--gf-brand) 55%, #0c8f63 100%);
-  box-shadow: 0 12px 36px var(--gf-brand-glow);
-}
-.member-card.is-inactive {
-  background: linear-gradient(135deg, #3a2330 0%, #4a2730 55%, #2a1620 100%);
-}
-.member-card-shine {
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(120% 80% at 0% 0%, rgba(255,255,255,0.18) 0%, transparent 45%),
-    radial-gradient(80% 60% at 100% 100%, rgba(255,255,255,0.08) 0%, transparent 50%);
-  pointer-events: none;
-}
-.member-card-top {
-  display: flex; align-items: center; justify-content: space-between;
-  position: relative; z-index: 1;
-}
-.member-card-gym {
-  font-family: var(--gf-font-display); font-weight: 700; font-size: 0.95rem;
-  letter-spacing: 0.01em; opacity: 0.95;
-}
-.member-card-badge {
-  font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 4px 10px; border-radius: 999px;
-  background: rgba(255,255,255,0.18); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-}
-.member-card-badge.off { background: rgba(0,0,0,0.25); }
-.member-card-body {
-  position: relative; z-index: 1;
-  display: flex; align-items: baseline; gap: 12px; margin-top: auto;
-}
-.member-card-days { display: flex; align-items: baseline; gap: 8px; }
-.member-card-days-num {
-  font-family: var(--gf-font-display); font-size: 3.2rem; font-weight: 800;
-  line-height: 1; letter-spacing: -0.03em;
-}
-.member-card-days-cap { font-size: 0.9rem; opacity: 0.85; font-weight: 500; }
-.member-card-meta { margin-left: auto; font-size: 0.8rem; opacity: 0.8; }
-.member-card-foot {
-  position: relative; z-index: 1;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.18);
-}
-.member-card-name {
-  font-size: 0.8rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.05em;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.member-card-cta {
-  flex-shrink: 0;
-  background: #fff; color: #0f172a;
-  font-size: 0.8rem; font-weight: 700;
-  padding: 7px 14px; border-radius: 999px; text-decoration: none;
-  transition: transform var(--gf-t-fast);
-}
-.member-card-cta:active { transform: scale(0.95); }
-
-/* Primary action — full-width "Check in" pill */
-.app-primary-action {
-  display: flex; align-items: center; gap: 14px;
-  padding: 16px 18px; border-radius: 16px;
-  background: var(--gf-surface); border: 1px solid var(--gf-border);
-  text-decoration: none; color: var(--gf-text);
-  box-shadow: 0 2px 8px rgba(15,23,42,0.05);
-  transition: transform var(--gf-t-fast), box-shadow var(--gf-t-fast);
-}
-.app-primary-action:active { transform: scale(0.99); }
-.app-primary-action:hover { box-shadow: 0 6px 18px rgba(15,23,42,0.10); }
-.app-primary-action-icon {
-  flex-shrink: 0; width: 48px; height: 48px; border-radius: 14px;
-  display: inline-grid; place-items: center;
-  background: linear-gradient(135deg, var(--gf-brand), var(--gf-brand-dark));
-  color: #fff; box-shadow: 0 4px 14px var(--gf-brand-glow);
-}
-.app-primary-action-text { display: flex; flex-direction: column; gap: 2px; }
-.app-primary-action-text strong { font-size: 1rem; font-weight: 700; }
-.app-primary-action-text small { font-size: 0.8rem; color: var(--gf-text-muted); }
-.app-primary-action-chev { margin-left: auto; color: var(--gf-text-muted); }
-
-/* App tile grid — 3-up like a native home screen */
-.app-tiles {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-}
-.app-tiles .gf-quick-action {
-  min-height: 92px;
-  border-radius: 16px;
-  background: var(--gf-surface);
-  border: 1px solid var(--gf-border);
-}
-@media (max-width: 360px) {
-  .app-tiles { grid-template-columns: repeat(2, 1fr); }
 }
 .member-header {
   display: flex;
