@@ -169,7 +169,11 @@ export default async function CoachProfilePage({ params }: PageProps) {
           <p style={{ fontWeight: 600, color: 'var(--gf-text)' }}>
             {hasBank ? bank!.bank_name ?? 'Bank set' : 'Not set'}
           </p>
-          <p>{hasBank ? `••••${(bank!.account_number ?? '').slice(-4)} · ${bank!.account_name ?? ''}` : 'Where the gym sends your share of revenue.'}</p>
+          <p>
+            {hasBank
+              ? [`••••${(bank!.account_number ?? '').slice(-4)}`, bank!.account_name].filter(Boolean).join(' · ')
+              : 'Where the gym sends your share of revenue.'}
+          </p>
           <Link href="#bank" className="gf-btn gf-btn-ghost gf-btn-sm">{hasBank ? 'Edit' : 'Add'} bank</Link>
         </div>
       </section>

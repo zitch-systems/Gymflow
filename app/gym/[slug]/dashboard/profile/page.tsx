@@ -53,7 +53,6 @@ export default async function MemberProfilePage({ params }: PageProps) {
     ?? 'Member';
   const planRel = subscription?.membership_plans;
   const plan = Array.isArray(planRel) ? planRel[0] : planRel;
-  const planName = plan?.name ?? 'No active plan';
   const remaining = subscription?.end_date ? daysLeft(subscription.end_date) : 0;
   const isActive = remaining > 0;
   // 14-day "Hot" threshold: nudge the member toward Renew before things lapse.
@@ -77,7 +76,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
           {isActive ? 'Active' : subscription ? 'Expired' : 'No membership'}
         </span>
         <div className="m-status-plan">
-          {isActive ? `${remaining} day${remaining === 1 ? '' : 's'} left` : planName}
+          {isActive
+            ? `${remaining} day${remaining === 1 ? '' : 's'} left`
+            : subscription
+              ? 'Membership expired'
+              : 'No active membership'}
         </div>
         <div className="m-status-meta">
           {subscription?.end_date ? (isActive ? `Renews ${fmtDate(subscription.end_date)}` : `Expired ${fmtDate(subscription.end_date)}`) : 'Renew to start training'}
@@ -120,17 +123,31 @@ export default async function MemberProfilePage({ params }: PageProps) {
       {/* Conditional renewal nudge. The "real ask" shape of the OPay banner —
           only surfaces when there's actually something to do. */}
       {showRenewalBanner ? (
-        <section className="profile-banner" aria-label="Renewal nudge">
+        <section className="profile-banner" aria-label={subscription ? 'Renewal nudge' : 'Start membership'}>
           <div className="profile-banner-title">
-            {isActive ? `${remaining} day${remaining === 1 ? '' : 's'} left on your ${plan?.name ?? 'membership'}` : 'Your membership has lapsed'}
+            {isActive
+              ? `${remaining} day${remaining === 1 ? '' : 's'} left on your ${plan?.name ?? 'membership'}`
+              : subscription
+                ? 'Your membership has lapsed'
+                : `Start training at ${gym.name}`}
           </div>
           <ul className="profile-banner-list">
-            <li>Renew now to keep your check-ins and class bookings.</li>
-            <li>Card on file? It&apos;ll renew in one tap.</li>
-            <li>Pause if you&apos;re travelling — admin can help.</li>
+            {subscription ? (
+              <>
+                <li>Renew now to keep your check-ins and class bookings.</li>
+                <li>Card on file? It&apos;ll renew in one tap.</li>
+                <li>Pause if you&apos;re travelling — admin can help.</li>
+              </>
+            ) : (
+              <>
+                <li>Pick a plan to unlock check-ins and class bookings.</li>
+                <li>Pay once and we&apos;ll save your card for later.</li>
+                <li>Cancel any time — no contracts.</li>
+              </>
+            )}
           </ul>
           <Link href="/dashboard/renew" className="gf-btn gf-btn-light gf-btn-sm profile-banner-cta">
-            Renew now <ChevronRight size={14} strokeWidth={2} />
+            {subscription ? 'Renew now' : 'Choose a plan'} <ChevronRight size={14} strokeWidth={2} />
           </Link>
         </section>
       ) : null}
