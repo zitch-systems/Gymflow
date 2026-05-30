@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
@@ -60,6 +61,16 @@ export default async function MemberDashboard({ params }: PageProps) {
     p.id,
     p.full_name ?? [p.first_name, p.last_name].filter(Boolean).join(' ') ?? 'Coach',
   ] as const));
+
+  // Is there at least one active PT pack on offer at this gym? Used to decide
+  // whether to surface a "Browse PT packs" CTA in the dashboard widget — no
+  // point linking to an empty page. head:true returns a count without rows.
+  const { count: ptPackOfferCount } = await supabase
+    .from('pt_packs' as never)
+    .select('id', { count: 'exact', head: true })
+    .eq('gym_id' as never, gym.id)
+    .eq('is_active' as never, true);
+  const ptPacksAvailable = (ptPackOfferCount ?? 0) > 0;
 
   const [{ data: checkIns }, { data: schedules }] = await Promise.all([
     supabase
@@ -194,23 +205,36 @@ export default async function MemberDashboard({ params }: PageProps) {
         </Card>
       )}
 
-      {ptCredits.length > 0 && (
+      {(ptCredits.length > 0 || ptPacksAvailable) && (
         <Card>
-          <CardHeader title="Personal training credits" />
-          <ul className="gf-list">
-            {ptCredits.map((c) => {
-              const remaining = c.sessions_total - c.sessions_used;
-              return (
-                <li key={c.id} className="gf-list-row">
-                  <span>
-                    <strong>{remaining}</strong> session{remaining === 1 ? '' : 's'} left
-                    <span className="gf-table-meta"> · with {ptCoachLabel.get(c.instructor_id) ?? 'Coach'}</span>
-                  </span>
-                  <span className="gf-table-meta">{c.sessions_used} of {c.sessions_total} used</span>
-                </li>
-              );
-            })}
-          </ul>
+          <CardHeader
+            title="Personal training credits"
+            action={ptPacksAvailable ? (
+              <Link href="/dashboard/pt-packs" style={{ color: 'var(--gf-brand)', fontWeight: 600, textDecoration: 'none', fontSize: 13 }}>
+                {ptCredits.length > 0 ? 'Browse more packs →' : 'Browse packs →'}
+              </Link>
+            ) : null}
+          />
+          {ptCredits.length > 0 ? (
+            <ul className="gf-list">
+              {ptCredits.map((c) => {
+                const remaining = c.sessions_total - c.sessions_used;
+                return (
+                  <li key={c.id} className="gf-list-row">
+                    <span>
+                      <strong>{remaining}</strong> session{remaining === 1 ? '' : 's'} left
+                      <span className="gf-table-meta"> · with {ptCoachLabel.get(c.instructor_id) ?? 'Coach'}</span>
+                    </span>
+                    <span className="gf-table-meta">{c.sessions_used} of {c.sessions_total} used</span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div style={{ padding: 18, fontSize: 14, color: 'var(--gf-text-secondary)' }}>
+              Train one-on-one with a coach — buy a session pack and book whenever you&apos;re ready.
+            </div>
+          )}
         </Card>
       )}
 
