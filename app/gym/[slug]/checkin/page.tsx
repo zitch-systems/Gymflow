@@ -31,7 +31,7 @@ export default async function CheckInPage({ params }: PageProps) {
 
       <div className="gf-card checkin-card">
         <p className="checkin-help">
-          Tap below to check yourself in, or show this code to the front desk.
+          Point your camera at the gym&apos;s QR code, or show this code to the front desk.
         </p>
         <div className="checkin-code">
           <div className="checkin-code-label">Your member code</div>

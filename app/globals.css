@@ -4693,18 +4693,99 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 
 /* ── Join page ───────────────────────────────────────────────────────── */
 .join-wrap {
-  max-width: 600px;
+  max-width: 760px;                     /* widened from 600 — 2-col grids actually pack */
   margin: 0 auto;
-  padding: 0 0 80px;
+  padding: 0 0 calc(96px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
-.join-form { display: flex; flex-direction: column; gap: 16px; padding: 0 16px; }
-.join-header-title    { font-weight: 700; color: var(--gf-text); }
-.join-header-subtitle { font-size: 0.6875rem; color: var(--gf-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.join-signin-link     { font-size: 0.8125rem; font-weight: 600; color: var(--gf-brand); text-decoration: none; }
-.join-signin-link:hover { color: var(--gf-brand-light); }
+.join-form { display: flex; flex-direction: column; gap: 18px; padding: 0 20px; }
+.join-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; gap: 16px;
+  background: var(--gf-surface); border-bottom: 1px solid var(--gf-border);
+  position: sticky; top: 0; z-index: 30;
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+}
+.join-back { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--gf-text); }
+.join-nav-logo, .join-nav-mark {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-family: var(--gf-font-display);
+  background: var(--gf-brand); color: #fff;
+}
+.join-nav-logo { object-fit: cover; }
+.join-nav-label { font-weight: 700; }
+.join-signin-link { font-size: 0.875rem; color: var(--gf-text-secondary); text-decoration: none; }
+.join-signin-link strong { color: var(--gf-brand); font-weight: 700; }
+.join-signin-link:hover strong { color: var(--gf-brand-light); }
+
+.join-hero {
+  padding: 8px 20px 4px;
+  text-align: left;
+}
+.join-hero-title {
+  font-family: var(--gf-font-display);
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-weight: 800; letter-spacing: -0.01em;
+  margin: 0;
+}
+.join-hero-sub {
+  margin: 6px 0 0;
+  color: var(--gf-text-secondary);
+  font-size: 0.95rem; max-width: 56ch;
+}
+
+.join-section {
+  background: var(--gf-surface);
+  border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius);
+  padding: 4px 0 6px;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+}
+.join-section-head {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 18px 8px;
+}
+.join-section-step {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 0.8125rem;
+}
+.join-section-icon {
+  display: inline-flex; color: var(--gf-text-secondary);
+}
+.join-section-title {
+  font-family: var(--gf-font-display); font-size: 1.1rem; font-weight: 800;
+  margin: 0; line-height: 1.15; letter-spacing: -0.005em;
+}
+.join-section-sub {
+  margin: 2px 0 0; font-size: 0.85rem; color: var(--gf-text-muted);
+}
+/* The form-grid inside a section gets a tighter bottom padding so the
+   section card hugs the inputs. */
+.join-section-grid { padding-top: 10px; padding-bottom: 14px; }
+
+/* "Optional" inline pill next to optional field labels — cuts the
+   "everything looks required" feeling. */
+.gf-optional {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 0.625rem; font-weight: 600;
+  color: var(--gf-text-muted);
+  background: var(--gf-elevated);
+  border: 1px solid var(--gf-border);
+  border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  vertical-align: middle;
+}
+
 .gf-waiver {
   display: flex;
   align-items: flex-start;
@@ -4714,6 +4795,24 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   border: 1px solid var(--gf-border);
   border-radius: var(--gf-radius-sm);
   cursor: pointer;
+  margin: 0 20px;
+}
+
+/* Sticky CTA on small viewports so the user never has to scroll past the
+   form to find the submit. On desktop it's inline. */
+.join-submit-bar {
+  padding: 0 20px;
+  display: flex; flex-direction: column;
+}
+@media (max-width: 700px) {
+  .join-submit-bar {
+    position: sticky;
+    bottom: env(safe-area-inset-bottom, 0px);
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, rgba(var(--gf-bg-rgb), 0) 0%, var(--gf-bg) 24%);
+    margin-left: -16px; margin-right: -16px;
+    z-index: 20;
+  }
 }
 
 /* ── Plan grid ───────────────────────────────────────────────────────── */
@@ -5673,19 +5772,59 @@ body::after {
 }
 
 /* Photo hero (home) */
-.mk-hero-photo { position: relative; overflow: hidden; background: var(--gf-bg); }
+.mk-hero-photo { position: relative; overflow: hidden; background: #0b0f14; }
 .mk-hero-photo-bg {
   position: absolute; inset: 0; background-size: cover; background-position: center;
-  opacity: 0.5; z-index: 0;
+  opacity: 0.9; z-index: 0;
 }
+/* Dark cinematic scrim so the photo reads as a backdrop and the (light) hero
+   text stays high-contrast regardless of theme. A diagonal darken on the left
+   where the copy sits, easing toward the equipment on the right, plus a bottom
+   fade into the page. */
 .mk-hero-photo::after {
   content: ''; position: absolute; inset: 0; z-index: 0;
-  background: linear-gradient(180deg, rgba(var(--gf-bg-rgb), 0.55) 0%, rgba(var(--gf-bg-rgb), 0.82) 55%, var(--gf-bg) 100%);
+  background:
+    linear-gradient(180deg, rgba(8,12,18,0.45) 0%, rgba(8,12,18,0.40) 45%, rgba(8,12,18,0.78) 80%, var(--gf-bg) 100%),
+    radial-gradient(ellipse 70% 60% at 50% 38%, rgba(8,12,18,0.30) 0%, rgba(8,12,18,0.62) 100%);
 }
 .mk-hero-photo-inner { position: relative; z-index: 1; text-align: center; }
 .mk-hero-photo-inner .marketing-eyebrow { margin-left: auto; margin-right: auto; }
 .mk-hero-photo-inner .marketing-hero-actions,
 .mk-hero-photo-inner .marketing-stats { justify-content: center; }
+
+/* Light text treatment for the photo hero (overrides the theme-tinted defaults
+   above, which assume a light page background). */
+.mk-hero-photo .marketing-hero-title { color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.35); }
+.mk-hero-photo .marketing-hero-sub { color: rgba(255,255,255,0.82); }
+.mk-hero-photo .marketing-eyebrow {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border-color: rgba(255,255,255,0.28);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.mk-hero-photo .marketing-accent {
+  /* On the dark scrim the gradient-clipped text can look dim; brighten it. */
+  background: linear-gradient(135deg, var(--gf-brand-light), #7ef0bd);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.mk-hero-photo .marketing-stats {
+  border-top: 1px solid rgba(255,255,255,0.14);
+  padding-top: 22px; margin-top: 4px; max-width: 540px;
+  margin-left: auto; margin-right: auto;
+}
+.mk-hero-photo .marketing-stats dt { color: rgba(255,255,255,0.6); }
+.mk-hero-photo .marketing-stats dd { color: #fff; }
+
+/* Secondary CTA: white outline reads cleaner than brand-green against the
+   dark photo + sets up clear hierarchy with the green primary button. */
+.mk-hero-photo .gf-btn-outline {
+  color: #fff; border-color: rgba(255,255,255,0.55);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.mk-hero-photo .gf-btn-outline:hover {
+  background: rgba(255,255,255,0.12); border-color: #fff;
+}
 
 /* Sub-page hero (smaller) */
 .mk-subhero { padding-top: clamp(48px, 8vw, 88px); padding-bottom: 8px; text-align: center; }

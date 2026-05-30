@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireInstructor } from '@/lib/auth/gym';
 import { resolveAccount } from '@/lib/paystack';
+import { consumePtCredit } from '@/lib/actions/pt-packs';
 
-type Result = { ok: boolean; error?: string };
+type Result = { ok: boolean; error?: string; ptCreditConsumed?: boolean; ptCreditsRemaining?: number };
 
 export async function scheduleSession(slug: string, formData: FormData): Promise<Result> {
   const { gym, user } = await requireInstructor(slug);
@@ -36,9 +37,16 @@ export async function scheduleSession(slug: string, formData: FormData): Promise
   });
   if (error) return { ok: false, error: error.message };
 
+  // Decrement a PT-pack credit if the member has one with this coach. We do
+  // this AFTER the session row is committed because a failed insert shouldn't
+  // burn a credit. If consumption races / fails, the session still books —
+  // the operator can reconcile manually rather than us silently double-
+  // billing or losing the booking.
+  const credit = await consumePtCredit({ gymId: gym.id, memberId, instructorId: user.id });
+
   revalidatePath(`/gym/${slug}/coach`);
   revalidatePath(`/gym/${slug}/coach/attendance`);
-  return { ok: true };
+  return { ok: true, ptCreditConsumed: credit.consumed, ptCreditsRemaining: credit.remaining };
 }
 
 export async function markSessionStatus(
