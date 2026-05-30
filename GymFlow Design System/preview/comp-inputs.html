@@ -1,0 +1,26 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../gymflow.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { margin:0; padding:22px; background:var(--gf-bg); color:var(--gf-text); font-family:var(--gf-font-body); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+  .sw { border-radius:12px; border:1px solid rgba(255,255,255,.08); }
+  .nm { font-family:var(--gf-font-display); font-weight:700; font-size:12.5px; margin-top:7px; }
+  .hex { font-family:var(--gf-font-mono); font-size:11px; color:var(--gf-text-muted); margin-top:2px; }
+  .cap { font-family:var(--gf-font-mono); font-size:11px; color:var(--gf-text-muted); }
+  
+</style>
+</head>
+<body>
+<div style="display:flex;flex-direction:column;gap:12px;max-width:340px">
+  <input class="gf-input" placeholder="Member name" />
+  <div class="gf-input-group"><i data-lucide="search" class="gf-input-icon"></i><input class="gf-input" placeholder="Search members…" /></div>
+  <div class="gf-naira-input"><input class="gf-input" placeholder="13,999" /></div>
+</div>
+<script>if(window.lucide)lucide.createIcons();</script>
+</body>
+</html>

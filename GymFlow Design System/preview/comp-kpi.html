@@ -1,0 +1,25 @@
+<!-- @dsCard group="Components" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../gymflow.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { margin:0; padding:22px; background:var(--gf-bg); color:var(--gf-text); font-family:var(--gf-font-body); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+  .sw { border-radius:12px; border:1px solid rgba(255,255,255,.08); }
+  .nm { font-family:var(--gf-font-display); font-weight:700; font-size:12.5px; margin-top:7px; }
+  .hex { font-family:var(--gf-font-mono); font-size:11px; color:var(--gf-text-muted); margin-top:2px; }
+  .cap { font-family:var(--gf-font-mono); font-size:11px; color:var(--gf-text-muted); }
+  
+</style>
+</head>
+<body>
+<div class="gf-kpi-card" style="max-width:240px">
+  <div class="gf-kpi-header"><div class="gf-kpi-icon" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="users" style="width:19px;height:19px"></i></div><span class="gf-kpi-change up"><i data-lucide="trending-up" style="width:13px;height:13px"></i> +12</span></div>
+  <div><div class="gf-kpi-value">482</div><div class="gf-kpi-label">Active members</div></div>
+</div>
+<script>if(window.lucide)lucide.createIcons();</script>
+</body>
+</html>

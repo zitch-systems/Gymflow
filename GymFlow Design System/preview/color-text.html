@@ -1,0 +1,27 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../gymflow.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { margin:0; padding:22px; background:var(--gf-bg); color:var(--gf-text); font-family:var(--gf-font-body); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+  .sw { border-radius:12px; border:1px solid rgba(255,255,255,.08); }
+  .nm { font-family:var(--gf-font-display); font-weight:700; font-size:12.5px; margin-top:7px; }
+  .hex { font-family:var(--gf-font-mono); font-size:11px; color:var(--gf-text-muted); margin-top:2px; }
+  .cap { font-family:var(--gf-font-mono); font-size:11px; color:var(--gf-text-muted); }
+  
+</style>
+</head>
+<body>
+<div style="display:flex;flex-direction:column;gap:10px">
+  <div style="font-family:var(--gf-font-display);font-size:20px;font-weight:700;color:#f3f3fa">Text — #f3f3fa <span class="cap">primary</span></div>
+  <div style="font-size:16px;color:#9b9bb8">Text secondary — #9b9bb8</div>
+  <div style="font-size:14px;color:#6a6a86">Text muted — #6a6a86</div>
+  <div style="font-size:13px;color:#3c3c54">Text subtle — #3c3c54 (dividers/disabled)</div>
+</div>
+<script>if(window.lucide)lucide.createIcons();</script>
+</body>
+</html>

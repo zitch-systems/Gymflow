@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Sign in</title>
+<link rel="stylesheet" href="revamp.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; }
+  /* Brand panel */
+  .brandside { position: relative; overflow: hidden; padding: 44px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--gf-border); }
+  .brandside-bg { position: absolute; inset: 0; background: url(../assets/gym-studio.jpg) center/cover; opacity: 0.28; }
+  .brandside-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, var(--gf-brand-soft), transparent 40%), linear-gradient(0deg, var(--gf-bg) 5%, transparent 60%); }
+  .brandside > * { position: relative; }
+  .bs-quote { max-width: 440px; }
+  .bs-quote .stars { display: flex; gap: 3px; color: var(--gf-accent); margin-bottom: 16px; }
+  .bs-quote .stars i { width: 18px; height: 18px; fill: var(--gf-accent); }
+  .bs-quote p { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.02em; margin: 0 0 18px; }
+  .bs-quote .by { display: flex; align-items: center; gap: 12px; }
+  .bs-quote .by .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); }
+  .bs-quote .by strong { font-family: var(--gf-font-display); display: block; }
+  .bs-quote .by small { color: var(--gf-text-secondary); }
+  .bs-stats { display: flex; gap: 36px; margin-top: 30px; }
+  .bs-stats dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gf-text-muted); font-weight: 600; }
+  .bs-stats dd { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 800; margin: 4px 0 0; color: var(--gf-brand); }
+
+  /* Form side */
+  .formside { display: flex; align-items: center; justify-content: center; padding: 44px; }
+  .formcard { width: 100%; max-width: 380px; }
+  .formcard h1 { font-family: var(--gf-font-display); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin: 26px 0 6px; }
+  .formcard .lede { color: var(--gf-text-secondary); font-size: 0.92rem; margin: 0 0 24px; }
+  .tabs { display: flex; gap: 4px; background: var(--gf-elevated); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-pill); padding: 4px; margin-bottom: 22px; }
+  .tabs button { flex: 1; border: none; background: transparent; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.875rem; padding: 9px; border-radius: var(--gf-radius-pill); cursor: pointer; transition: all var(--gf-t); }
+  .tabs button.on { background: var(--gf-brand); color: #fff; box-shadow: 0 2px 10px var(--gf-brand-glow); }
+  .field { margin-bottom: 14px; }
+  .row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 22px; }
+  .row label { display: flex; align-items: center; gap: 7px; color: var(--gf-text-secondary); font-size: 0.84rem; cursor: pointer; }
+  .row a { color: var(--gf-brand); font-size: 0.84rem; text-decoration: none; font-weight: 600; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; color: var(--gf-text-muted); font-size: 0.78rem; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--gf-border); }
+  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .role-btn { display: flex; align-items: center; gap: 9px; padding: 11px 13px; border-radius: var(--gf-radius-sm); background: var(--gf-elevated); border: 1px solid var(--gf-border); color: var(--gf-text); text-decoration: none; font-family: var(--gf-font-display); font-weight: 600; font-size: 0.82rem; transition: all var(--gf-t); }
+  .role-btn:hover { border-color: var(--gf-brand); color: var(--gf-brand); transform: translateY(-1px); }
+  .role-btn i { width: 16px; height: 16px; }
+  .foot-note { text-align: center; color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 24px; }
+  .foot-note a { color: var(--gf-brand); text-decoration: none; font-weight: 600; }
+  @media (max-width: 860px) { body { grid-template-columns: 1fr; } .brandside { display: none; } }
+</style>
+</head>
+<body>
+  <aside class="brandside">
+    <div class="brandside-bg"></div>
+    <a class="brand" href="marketing.html"><img class="mark-md" src="../assets/logomark-v2.svg" alt="" /><span class="brand-tx lg">Gym<em>Flow</em></span></a>
+    <div class="bs-quote">
+      <div class="stars"><i data-lucide="star"></i><i data-lucide="star"></i><i data-lucide="star"></i><i data-lucide="star"></i><i data-lucide="star"></i></div>
+      <p>"Setup took an afternoon. Members add it to their home screen and it feels like our own app."</p>
+      <div class="by"><span class="gf-avatar gf-avatar-md">K</span><span><strong>Kelechi Obi</strong><small>IronWorks Gym, Port Harcourt</small></span></div>
+      <dl class="bs-stats"><div><dt>Active gyms</dt><dd>1,200+</dd></div><div><dt>Check-ins / mo</dt><dd>480K</dd></div><div><dt>Uptime</dt><dd>99.9%</dd></div></dl>
+    </div>
+  </aside>
+
+  <main class="formside">
+    <div class="formcard">
+      <a class="brand" href="marketing.html" style="display:inline-flex"><img class="mark-sm" src="../assets/logomark-v2.svg" alt="" /><span class="brand-tx">Gym<em>Flow</em></span></a>
+      <h1 id="ftitle">Welcome back</h1>
+      <p class="lede" id="flede">Sign in to your gym's dashboard.</p>
+      <div class="tabs"><button class="on" data-t="in">Sign in</button><button data-t="up">Create gym</button></div>
+
+      <div class="field gf-form-group" id="nameField" style="display:none"><label class="gf-form-label">Gym name</label><input class="gf-input" placeholder="e.g. Powerhouse Fitness" /></div>
+      <div class="field gf-form-group"><label class="gf-form-label">Email</label><div class="gf-input-group"><i data-lucide="mail" class="gf-input-icon"></i><input class="gf-input" type="email" placeholder="you@gym.com" value="adunni@powerhouse.ng" /></div></div>
+      <div class="field gf-form-group"><label class="gf-form-label">Password</label><div class="gf-input-group"><i data-lucide="lock" class="gf-input-icon"></i><input class="gf-input" type="password" placeholder="••••••••" value="password" /></div></div>
+      <div class="row"><label><input type="checkbox" checked style="accent-color:var(--gf-brand)" /> Remember me</label><a href="#">Forgot password?</a></div>
+      <a href="admin.html" class="gf-btn gf-btn-primary gf-btn-full gf-btn-lg">Sign in <i data-lucide="arrow-right" style="width:17px;height:17px"></i></a>
+
+      <div class="divider">or jump in as</div>
+      <div class="roles">
+        <a class="role-btn" href="member.html"><i data-lucide="user"></i> Member</a>
+        <a class="role-btn" href="admin.html"><i data-lucide="layout-dashboard"></i> Gym owner</a>
+        <a class="role-btn" href="instructor.html"><i data-lucide="graduation-cap"></i> Instructor</a>
+        <a class="role-btn" href="superadmin.html"><i data-lucide="shield-check"></i> Platform</a>
+      </div>
+      <p class="foot-note">New to GymFlow? <a href="#" data-t="up" id="goUp">Launch your gym free</a></p>
+    </div>
+  </main>
+
+  <nav class="proto" id="proto"></nav>
+  <script src="proto.js"></script>
+  <script src="wire.js"></script>
+  <script>
+    const $$ = s => [...document.querySelectorAll(s)];
+    function setMode(t) {
+      $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t===t));
+      const up = t==='up';
+      document.getElementById('nameField').style.display = up ? 'flex' : 'none';
+      document.getElementById('ftitle').textContent = up ? 'Launch your gym' : 'Welcome back';
+      document.getElementById('flede').textContent = up ? 'Create your gym in one step — branded subdomain included.' : "Sign in to your gym's dashboard.";
+    }
+    $$('.tabs button').forEach(b => b.onclick = () => setMode(b.dataset.t));
+    document.getElementById('goUp').onclick = e => { e.preventDefault(); setMode('up'); };
+    buildProto('login'); lucide.createIcons();
+  </script>
+</body>
+</html>
