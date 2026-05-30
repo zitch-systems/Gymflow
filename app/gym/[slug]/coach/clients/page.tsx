@@ -47,7 +47,7 @@ export default async function CoachClientsPage({ params }: PageProps) {
   const clients = Array.from(byMember.values()).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="member-portal">
+    <div className="member-portal member-app">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">Clients</h1>

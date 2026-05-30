@@ -55,7 +55,7 @@ export default async function CoachEarningsPage({ params }: PageProps) {
   const available = Math.max(lifetimeShare - paidOut - pending, 0);
 
   return (
-    <div className="member-portal">
+    <div className="member-portal member-app">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">Earnings</h1>

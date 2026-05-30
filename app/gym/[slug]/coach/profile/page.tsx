@@ -45,7 +45,7 @@ export default async function CoachProfilePage({ params }: PageProps) {
   const bank = (bankRaw ?? null) as unknown as BankRow | null;
 
   return (
-    <div className="member-portal">
+    <div className="member-portal member-app">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">Profile</h1>

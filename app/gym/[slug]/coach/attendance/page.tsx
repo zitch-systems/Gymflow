@@ -72,7 +72,7 @@ export default async function CoachAttendancePage({ params }: PageProps) {
   });
 
   return (
-    <div className="member-portal">
+    <div className="member-portal member-app">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">Attendance</h1>
