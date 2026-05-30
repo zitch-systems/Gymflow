@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
 import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
+import { addMonths } from '@/lib/dates';
 
 // Owner-initiated GymFlow subscription renewal. Same security shape as the
 // member /verify route — verify the Paystack reference server-side, derive
@@ -87,8 +88,7 @@ export async function POST(request: Request) {
   const today = new Date();
   const currentEnd = gym.trial_ends_at ? new Date(gym.trial_ends_at) : today;
   const base = currentEnd > today ? currentEnd : today;
-  const newEnd = new Date(base);
-  newEnd.setMonth(newEnd.getMonth() + plan.months);
+  const newEnd = addMonths(base, plan.months);
 
   const { error: gymError } = await admin
     .from('gyms')

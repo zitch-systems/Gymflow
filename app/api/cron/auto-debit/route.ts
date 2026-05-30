@@ -5,6 +5,7 @@ import { sendAutoDebitSuccess, sendAutoDebitFailure } from '@/lib/email';
 import { waAutoDebitSuccess, waAutoDebitFailure } from '@/lib/whatsapp';
 import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
 import { reportCronCap } from '@/lib/cron-observability';
+import { addMonths } from '@/lib/dates';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -117,8 +118,7 @@ export async function GET(request: Request) {
       });
 
       if (result.data?.status === 'success') {
-        const next = new Date();
-        next.setMonth(next.getMonth() + Number(plan.duration_months ?? 1));
+        const next = addMonths(new Date(), Number(plan.duration_months ?? 1));
         const newEnd = isoDate(next);
         await supabase.from('memberships').update({ end_date: newEnd, updated_at: new Date().toISOString() }).eq('id', m.id);
         const { error: payErr } = await supabase.from('payments').insert({

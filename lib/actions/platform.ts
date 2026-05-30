@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getProfile, isPlatformAdmin } from '@/lib/auth/dal';
+import { addMonths } from '@/lib/dates';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
 
@@ -44,8 +45,7 @@ export async function platformOnboardGym(formData: FormData): Promise<OnboardRes
   if (existing) return { ok: false, error: 'Slug taken' };
 
   const periodStart = new Date();
-  const periodEnd = new Date(periodStart);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
+  const periodEnd = addMonths(periodStart, 1);
 
   const { data: gymRow, error: gymError } = await admin
     .from('gyms')

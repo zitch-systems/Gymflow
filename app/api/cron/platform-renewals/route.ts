@@ -4,6 +4,7 @@ import { paystackFetch } from '@/lib/paystack';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
 import { sendPlatformRenewalFailure } from '@/lib/email';
 import { reportCronCap } from '@/lib/cron-observability';
+import { addMonths } from '@/lib/dates';
 
 // Daily renewal of the GymFlow subscription each gym owes the platform.
 // Without this cron the gym pays once at signup and uses the product free
@@ -147,8 +148,7 @@ export async function GET(request: Request) {
     }
 
     if (result.status && result.data?.status === 'success') {
-      const newEnd = new Date(gym.trial_ends_at);
-      newEnd.setMonth(newEnd.getMonth() + plan.months);
+      const newEnd = addMonths(new Date(gym.trial_ends_at), plan.months);
       await supabase
         .from('gyms')
         .update({
