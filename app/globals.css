@@ -4742,19 +4742,8 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   justify-content: space-between;
   gap: 12px;
 }
-.status-card {
-  padding: 24px;
-  border-radius: var(--gf-radius);
-  background: var(--gf-surface);
-  border: 1px solid var(--gf-border);
-}
-.status-card.is-active   { border-color: rgba(var(--gf-brand-rgb), 0.4);  background: linear-gradient(135deg, rgba(var(--gf-brand-rgb), 0.08), var(--gf-surface)); }
-.status-card.is-inactive { border-color: rgba(var(--gf-danger-rgb), 0.4); background: linear-gradient(135deg, rgba(var(--gf-danger-rgb), 0.08), var(--gf-surface)); }
-.status-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.status-card-meta   { font-size: 0.75rem; color: var(--gf-text-muted); }
-.status-card-value  { font-family: var(--gf-font-display); font-size: 3rem; font-weight: 800; color: var(--gf-text); letter-spacing: -0.02em; line-height: 1; }
-.status-card-label  { font-size: 0.875rem; color: var(--gf-text-secondary); margin-top: 4px; }
-.status-card-due    { margin-top: 12px; font-size: 0.8125rem; color: var(--gf-text-muted); }
+/* (.status-card retired — the member dashboard's status hero is now .m-status,
+   and no page references .status-card anymore.) */
 .member-quick-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
 /* ── Tables ──────────────────────────────────────────────────────────── */
