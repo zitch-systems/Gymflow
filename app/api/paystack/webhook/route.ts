@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { paystackSecretKey } from '@/lib/paystack';
 import { fulfilMembershipPurchase, type FulfilAuthorization } from '@/lib/paystack-fulfill';
+import { fulfilPtPackPurchase } from '@/lib/pt-pack-fulfill';
 import { sendPayoutPaid, sendPayoutFailed } from '@/lib/email';
 import { waPayoutPaid, waPayoutFailed } from '@/lib/whatsapp';
 
@@ -167,6 +168,38 @@ export async function POST(request: Request) {
     const metadata = (data.metadata ?? {}) as Record<string, unknown>;
     const planId = typeof metadata.plan_id === 'string' ? metadata.plan_id : null;
     const customerEmail = data.customer?.email ?? null;
+
+    // PT-pack purchase backstop: if the member paid but their tab closed
+    // before /api/paystack/verify-pt-pack ran, the credit would otherwise be
+    // lost (money taken, nothing delivered). The buy button tags the charge
+    // with metadata.purpose='pt_pack' + pack_id, so we can fulfil here.
+    // Idempotent on reference — no-ops if /verify-pt-pack already ran.
+    const purpose = typeof metadata.purpose === 'string' ? metadata.purpose : null;
+    const packId = typeof metadata.pack_id === 'string' ? metadata.pack_id : null;
+    if (purpose === 'pt_pack' && packId && customerEmail) {
+      // Resolve the member by the Paystack customer email (the buy flow runs
+      // under the member's own session, so the email is theirs).
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('email', customerEmail)
+        .maybeSingle();
+      const memberId = prof?.id ?? null;
+      if (memberId) {
+        const result = await fulfilPtPackPurchase(supabase, {
+          packId,
+          memberId,
+          reference,
+          authorizationCode: data.authorization?.authorization_code ?? null,
+        });
+        if (!result.ok) {
+          console.error('[GF webhook] pt-pack fulfilment failed for', reference, '-', result.error);
+        }
+      } else {
+        console.error('[GF webhook] could not resolve member for pt-pack charge', reference, customerEmail);
+      }
+      return NextResponse.json({ received: true });
+    }
 
     // Membership payment: the webhook is the reliable backstop for the
     // browser /verify call. If the member paid but their tab closed before

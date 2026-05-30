@@ -4,20 +4,19 @@ import crypto from 'node:crypto';
 // Capture supabase calls to assert webhook routes the event correctly.
 // transferLookup is FIFO-popped by the .maybeSingle() chain so each test
 // stages whatever priorRow it needs (or null for a no-row case).
-const { state, adminMock, emailMocks, waMocks } = vi.hoisted(() => {
+const { state, adminMock, emailMocks, waMocks, ptPackFulfilMock } = vi.hoisted(() => {
   type Call = { table: string; verb: 'update'; payload: Record<string, unknown>; refEq: string };
-  const state: { calls: Call[]; transferLookup: unknown[] } = { calls: [], transferLookup: [] };
+  const state: { calls: Call[]; transferLookup: unknown[]; profileLookup: { id: string } | null } = { calls: [], transferLookup: [], profileLookup: { id: 'member-1' } };
   const adminMock = {
     from(table: string) {
-      return {
-        select() {
-          return {
-            eq() {
-              return {
-                maybeSingle: async () => ({ data: state.transferLookup.shift() ?? null, error: null }),
-              };
-            },
-          };
+      const chain = {
+        select() { return chain; },
+        eq() { return chain; },
+        ilike() { return chain; },
+        maybeSingle: async () => {
+          // profiles email lookup (pt-pack / membership member resolution)
+          if (table === 'profiles') return { data: state.profileLookup, error: null };
+          return { data: state.transferLookup.shift() ?? null, error: null };
         },
         update(payload: Record<string, unknown>) {
           return {
@@ -28,8 +27,12 @@ const { state, adminMock, emailMocks, waMocks } = vi.hoisted(() => {
           };
         },
       };
+      return chain;
     },
   };
+  const ptPackFulfilMock = vi.fn(async (_sb: unknown, args: { packId: string; memberId: string; reference: string }) => {
+    void _sb; void args; return { ok: true as const };
+  });
   type PaidArgs = { name: string; amount: number; bankName: string; accountLast4: string; earningsUrl?: string };
   type FailArgs = { name: string; amount: number; reason: 'failed' | 'reversed'; earningsUrl: string };
   const emailMocks = {
@@ -40,12 +43,13 @@ const { state, adminMock, emailMocks, waMocks } = vi.hoisted(() => {
     waPayoutPaid: vi.fn(async (phone: string, args: PaidArgs) => { void phone; void args; return { ok: true }; }),
     waPayoutFailed: vi.fn(async (phone: string, args: FailArgs) => { void phone; void args; return { ok: true }; }),
   };
-  return { state, adminMock, emailMocks, waMocks };
+  return { state, adminMock, emailMocks, waMocks, ptPackFulfilMock };
 });
 
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => adminMock }));
 vi.mock('@/lib/paystack', () => ({ paystackSecretKey: () => 'test_secret' }));
 vi.mock('@/lib/paystack-fulfill', () => ({ fulfilMembershipPurchase: vi.fn(async () => ({ ok: true })) }));
+vi.mock('@/lib/pt-pack-fulfill', () => ({ fulfilPtPackPurchase: ptPackFulfilMock }));
 vi.mock('@/lib/email', () => emailMocks);
 vi.mock('@/lib/whatsapp', () => waMocks);
 
@@ -68,10 +72,64 @@ function buildRequest(body: unknown, opts: { badSig?: boolean } = {}): Request {
 beforeEach(() => {
   state.calls = [];
   state.transferLookup = [];
+  state.profileLookup = { id: 'member-1' };
   emailMocks.sendPayoutPaid.mockClear();
   emailMocks.sendPayoutFailed.mockClear();
   waMocks.waPayoutPaid.mockClear();
   waMocks.waPayoutFailed.mockClear();
+  ptPackFulfilMock.mockClear();
+});
+
+describe('Paystack webhook — PT-pack purchase backstop', () => {
+  it('fulfils a pt_pack charge.success (closed-tab backstop) via fulfilPtPackPurchase', async () => {
+    const res = await POST(buildRequest({
+      event: 'charge.success',
+      data: {
+        reference: 'GFP-backstop-1',
+        amount: 5000000,
+        currency: 'NGN',
+        customer: { email: 'member@example.com' },
+        metadata: { purpose: 'pt_pack', pack_id: 'pack-1' },
+      },
+    }));
+    expect(res.status).toBe(200);
+    expect(ptPackFulfilMock).toHaveBeenCalledTimes(1);
+    const args = ptPackFulfilMock.mock.calls[0]![1];
+    expect(args.packId).toBe('pack-1');
+    expect(args.memberId).toBe('member-1'); // resolved from the Paystack email
+    expect(args.reference).toBe('GFP-backstop-1');
+  });
+
+  it('does NOT call membership fulfilment for a pt_pack charge (returns early)', async () => {
+    // A pt_pack charge has no plan_id; the early return must keep it off the
+    // membership path entirely.
+    const res = await POST(buildRequest({
+      event: 'charge.success',
+      data: {
+        reference: 'GFP-x',
+        customer: { email: 'member@example.com' },
+        metadata: { purpose: 'pt_pack', pack_id: 'pack-1' },
+      },
+    }));
+    expect(res.status).toBe(200);
+    expect(ptPackFulfilMock).toHaveBeenCalledTimes(1);
+    // No payments status-only update happened (that's the non-membership fall-through).
+    expect(state.calls.filter((c) => c.table === 'payments')).toHaveLength(0);
+  });
+
+  it('logs and 200s when the member email cannot be resolved (no crash)', async () => {
+    state.profileLookup = null; // email not found
+    const res = await POST(buildRequest({
+      event: 'charge.success',
+      data: {
+        reference: 'GFP-noemail',
+        customer: { email: 'ghost@example.com' },
+        metadata: { purpose: 'pt_pack', pack_id: 'pack-1' },
+      },
+    }));
+    expect(res.status).toBe(200);
+    expect(ptPackFulfilMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('Paystack webhook', () => {
