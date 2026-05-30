@@ -82,13 +82,18 @@ export async function GET(request: Request) {
       return;
     }
 
-    // Idempotency: if we already took a successful auto-debit for this member at
-    // this gym today, don't charge again (guards against a double cron run).
+    // Idempotency: if we already took a successful auto-debit for THIS
+    // membership today, don't charge again (guards against a double cron run).
+    // Scope by plan_id — without it, the guard matches any same-day card
+    // charge for this member at this gym, so a member who also auto-renews a
+    // PT/instructor subscription (plan_id null, charged by another cron) would
+    // have their membership charge silently skipped, or vice-versa.
     const { data: alreadyCharged } = await supabase
       .from('payments')
       .select('id')
       .eq('member_id', m.member_id ?? '')
       .eq('gym_id', m.gym_id ?? '')
+      .eq('plan_id', m.plan_id ?? '')
       .eq('payment_method', 'card')
       .eq('payment_status', 'successful')
       .gte('payment_date', startOfTodayIso)

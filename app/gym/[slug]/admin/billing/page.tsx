@@ -56,7 +56,7 @@ export default async function BillingPage({ params }: { params: Promise<{ slug: 
   ]);
 
   return (
-    <div>
+    <div className="gf-page">
       <header className="page-header">
         <div>
           <h1 className="gf-page-title">Billing</h1>

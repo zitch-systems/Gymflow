@@ -222,14 +222,42 @@ describe('verify-instructor — Paystack + money checks', () => {
 });
 
 describe('verify-instructor — idempotency + happy path', () => {
-  it('returns already=true and does NOT insert when the reference was seen before', async () => {
+  it('returns already=true with NO new inserts when BOTH the subscription AND payments mirror already exist', async () => {
     state.perTable.set('instructor_pricing', [{ data: { price: 5000 }, error: null }]);
     state.perTable.set('instructor_subscriptions', [{ data: { id: 'sub-existing' }, error: null }]);
+    // Payments mirror also exists → nothing to repair.
+    state.perTable.set('payments', [{ data: { id: 'pay-existing' }, error: null }]);
     const res = await POST(req(GOOD));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.already).toBe(true);
     expect(state.inserts).toHaveLength(0);
+  });
+
+  it('partial-failure recovery: subscription exists but payments mirror missing → REPAIR by inserting payments, returns already=true', async () => {
+    // The cross-route idempotency bug fix: a prior attempt inserted the
+    // subscription but failed before mirroring to payments. Without this
+    // recovery the wallet would never see the revenue.
+    state.perTable.set('instructor_pricing', [{ data: { price: 5000 }, error: null }]);
+    state.perTable.set('instructor_subscriptions', [{ data: { id: 'sub-existing' }, error: null }]);
+    state.perTable.set('payments', [{ data: null, error: null }]); // missing
+    const res = await POST(req(GOOD));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.already).toBe(true);
+    // Exactly one repair: the payments insert, with the SERVER-computed total.
+    const paymentInserts = state.inserts.filter((i) => i.table === 'payments');
+    expect(paymentInserts).toHaveLength(1);
+    expect(paymentInserts[0]!.payload).toMatchObject({
+      gym_id: 'gym-1',
+      member_id: 'user-1',
+      amount: 10000, // 5000 × 2 months from GOOD
+      payment_status: 'successful',
+      paystack_reference: 'GF-instr-ref',
+    });
+    // No subscription/saved_card inserts — only the missing mirror.
+    expect(state.inserts.some((i) => i.table === 'instructor_subscriptions')).toBe(false);
+    expect(state.inserts.some((i) => i.table === 'saved_cards:upsert')).toBe(false);
   });
 
   it('inserts the subscription with the SERVER-computed amount (price × months), not the client amount', async () => {

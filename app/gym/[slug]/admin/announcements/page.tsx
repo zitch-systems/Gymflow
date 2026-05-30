@@ -24,13 +24,15 @@ export default async function AdminAnnouncementsPage({ params }: PageProps) {
   const { gym } = await requireManager(slug);
   const admin = createAdminClient();
 
-  // Active member count (recipients) + a digest of recent broadcasts. The
-  // notifications table holds one row per recipient per send, so we group by
-  // (title, sent_at) to show one line per announcement with its reach.
-  const [{ count: memberCount }, { data: notifs }] = await Promise.all([
+  // Active members (the recipient universe) + a digest of recent broadcasts.
+  // We fetch the active user_ids rather than a head count because the tag
+  // dropdown must count tags against *active* members only — member_tags rows
+  // persist after a member goes inactive (no status cascade), so counting raw
+  // tag rows would over-promise a reach the send can't deliver.
+  const [{ data: activeLinks }, { data: notifs }, { data: tagRowsRaw }] = await Promise.all([
     admin
       .from('gym_member_links')
-      .select('id', { count: 'exact', head: true })
+      .select('user_id')
       .eq('gym_id', gym.id)
       .eq('is_active', true)
       .eq('status', 'active'),
@@ -41,7 +43,30 @@ export default async function AdminAnnouncementsPage({ params }: PageProps) {
       .eq('type', 'announcement')
       .order('sent_at', { ascending: false })
       .limit(200),
+    // Tag rows at this gym (with the owning user_id so we can intersect with
+    // active members). The member_tags table isn't in the generated types yet
+    // (migration 20260530_member_tags_and_notes.sql); cast through never.
+    admin
+      .from('member_tags' as never)
+      .select('user_id, tag')
+      .eq('gym_id' as never, gym.id),
   ]);
+
+  const activeIds = new Set(((activeLinks ?? []) as Array<{ user_id: string | null }>).map((r) => r.user_id));
+  const memberCount = activeIds.size;
+
+  // Distinct, sorted tag list with a per-tag ACTIVE-member count, so the
+  // dropdown shows "VIP (3)" and never lists a tag whose members have all
+  // gone inactive (which would error on send).
+  const tagRows = (tagRowsRaw ?? []) as unknown as Array<{ user_id: string; tag: string }>;
+  const tagCounts = new Map<string, number>();
+  for (const t of tagRows) {
+    if (!activeIds.has(t.user_id)) continue;
+    tagCounts.set(t.tag, (tagCounts.get(t.tag) ?? 0) + 1);
+  }
+  const tagOptions = [...tagCounts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => a.tag.localeCompare(b.tag));
 
   const rows = (notifs ?? []) as SentRow[];
   const sent = new Map<string, { title: string; channel: string | null; sent_at: string | null; count: number }>();
@@ -62,7 +87,7 @@ export default async function AdminAnnouncementsPage({ params }: PageProps) {
 
       <Card>
         <CardHeader title="New announcement" />
-        <AnnouncementForm slug={slug} memberCount={memberCount ?? 0} />
+        <AnnouncementForm slug={slug} memberCount={memberCount} tagOptions={tagOptions} />
       </Card>
 
       <Card>

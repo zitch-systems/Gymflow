@@ -1,12 +1,11 @@
+import Link from 'next/link';
 import { requireInstructor } from '@/lib/auth/gym';
+import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { signOut } from '@/lib/auth/actions';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, firstName } from '@/lib/format';
 import { startOfTodayIso, daysFromNowIso, todayIso, todayDate } from '@/lib/dates';
 import { Stat, StatGrid } from '@/components/ui/stat';
-import { QuickAction } from '@/components/ui/quick-action';
-import { Card, CardHeader } from '@/components/ui/card';
-import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import {
   Users, BadgeCheck, Banknote, CalendarClock,
@@ -63,19 +62,31 @@ export default async function CoachDashboard({ params }: PageProps) {
   const sharePct = gym.instructor_revenue_share_pct ?? 50;
   const myCut = Math.round((monthRevenue * sharePct) / 100);
 
+  const profile = await getProfile();
+  const coachName = firstName(profile?.full_name ?? profile?.first_name, 'Coach');
+  const avatarInitial = (profile?.full_name ?? profile?.email ?? user.email ?? 'C').charAt(0).toUpperCase();
+
   return (
-    <div className="member-portal">
-      <PageHeader
-        title="Coach"
-        subtitle={gym.name}
-        actions={
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />}>
-              Sign out
-            </Button>
-          </form>
-        }
-      />
+    <div className="member-portal member-app">
+      <header className="m-head">
+        <Link href="/coach/profile" className="m-head-avatar" aria-label="Profile">
+          {profile?.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.photo_url} alt="" />
+          ) : (
+            <span>{avatarInitial}</span>
+          )}
+        </Link>
+        <div className="m-head-text">
+          <small>{gym.name} · Coach</small>
+          <strong>Hi, {coachName} 👋</strong>
+        </div>
+        <form action={signOut} className="m-head-bell" style={{ padding: 0 }}>
+          <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />} style={{ minWidth: 0, padding: '4px 8px' }}>
+            <span className="sr-only">Sign out</span>
+          </Button>
+        </form>
+      </header>
 
       <StatGrid>
         <Stat label="Clients" value={clientCount ?? 0} icon={Users} accent="emerald" />
@@ -90,32 +101,47 @@ export default async function CoachDashboard({ params }: PageProps) {
         <Stat label="Upcoming (7d)" value={upcoming?.length ?? 0} icon={CalendarClock} accent="amber" />
       </StatGrid>
 
-      <section className="member-quick-actions">
-        <QuickAction href="/coach/clients" icon={Users} label="Clients" />
-        <QuickAction href="/coach/attendance" icon={ClipboardCheck} label="Attend" />
-        <QuickAction href="/coach/timetable" icon={CalendarDays} label="Schedule" />
-        <QuickAction href="/coach/earnings" icon={Wallet} label="Earnings" />
-        <QuickAction href="/coach/profile" icon={UserCircle2} label="Profile" />
+      <section className="m-qa">
+        <Link href="/coach/attendance" className="m-qa-tile"><ClipboardCheck /> Mark attendance</Link>
+        <Link href="/coach/timetable" className="m-qa-tile"><CalendarDays /> Schedule</Link>
+        <Link href="/coach/earnings" className="m-qa-tile"><Wallet /> Earnings</Link>
       </section>
 
-      {upcoming && upcoming.length > 0 && (
-        <Card>
-          <CardHeader title="Upcoming sessions" />
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {upcoming.map((s) => {
-              const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
-              return (
-                <li key={s.id} style={{ padding: '12px 18px', borderTop: '1px solid var(--gf-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{p?.full_name ?? 'Member'}</div>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--gf-text-muted)' }}>{fmtDate(s.scheduled_at)} · {new Date(s.scheduled_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}</div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+      <div className="m-sect-t">Upcoming sessions</div>
+      {upcoming && upcoming.length > 0 ? (
+        <div className="m-links">
+          {upcoming.map((s) => {
+            const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+            const t = new Date(s.scheduled_at);
+            return (
+              <div key={s.id} className="m-lc">
+                <span className="m-lc-ic"><CalendarClock size={18} strokeWidth={1.9} /></span>
+                <span className="m-lc-m">
+                  <strong>{p?.full_name ?? 'Member'}</strong>
+                  <small>{fmtDate(s.scheduled_at)} · {t.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}</small>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="m-lc" style={{ color: 'var(--gf-text-muted)' }}>
+          <span className="m-lc-ic"><CalendarClock size={18} strokeWidth={1.9} /></span>
+          <span className="m-lc-m"><small>No sessions in the next 7 days.</small></span>
+        </div>
       )}
+
+      <div className="m-sect-t">More</div>
+      <section className="m-links">
+        <Link href="/coach/clients" className="m-lc">
+          <span className="m-lc-ic"><Users size={18} strokeWidth={1.9} /></span>
+          <span className="m-lc-m"><strong>Clients</strong><small>Your subscribed members</small></span>
+        </Link>
+        <Link href="/coach/profile" className="m-lc">
+          <span className="m-lc-ic"><UserCircle2 size={18} strokeWidth={1.9} /></span>
+          <span className="m-lc-m"><strong>Profile</strong><small>Photo, bio, rate, bank details</small></span>
+        </Link>
+      </section>
     </div>
   );
 }

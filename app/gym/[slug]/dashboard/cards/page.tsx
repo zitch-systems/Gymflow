@@ -4,8 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 import { CardActions } from './card-actions';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader } from '@/components/ui/page-header';
-import { ButtonLink } from '@/components/ui/button';
 import { ArrowLeft, CreditCard } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
@@ -25,38 +23,33 @@ export default async function SavedCardsPage({ params }: PageProps) {
     .order('created_at', { ascending: false });
 
   return (
-    <div className="gf-page">
-      <PageHeader
-        title="Saved cards"
-        subtitle={`Cards we use for auto-renewal at ${gym.name}.`}
-        actions={
-          <ButtonLink href="/dashboard" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
-            Back to dashboard
-          </ButtonLink>
-        }
-      />
+    <div className="member-portal member-app">
+      <header className="member-header">
+        <div>
+          <h1 className="gf-page-title">Saved cards</h1>
+          <p className="gf-page-subtitle">For auto-renewal at {gym.name}.</p>
+        </div>
+        <Link href="/dashboard" className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Back">
+          <ArrowLeft size={16} strokeWidth={1.75} /> Back
+        </Link>
+      </header>
 
       {cards && cards.length > 0 ? (
-        <ul className="gf-list" style={{ background: 'var(--gf-surface)', border: '1px solid var(--gf-border)', borderRadius: 'var(--gf-radius)' }}>
+        <div className="m-links">
           {cards.map((c) => (
-            <li key={c.id} className="gf-list-row" style={{ alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>
+            <div key={c.id} className="m-lc">
+              <span className="m-lc-ic"><CreditCard size={18} strokeWidth={1.9} /></span>
+              <span className="m-lc-m">
+                <strong>
                   {(c.brand ?? 'Card').toUpperCase()} •••• {c.last4 ?? '????'}
-                  {c.is_default && (
-                    <span className="status-pill on" style={{ marginLeft: 8 }}>
-                      Default
-                    </span>
-                  )}
-                </div>
-                <div className="gf-table-meta">
-                  {c.bank ?? c.card_type ?? '—'} · expires {c.exp_month ?? '--'}/{c.exp_year ?? '--'}
-                </div>
-              </div>
+                  {c.is_default && <span className="gf-badge gf-badge-brand" style={{ marginLeft: 8, fontSize: '0.62rem' }}>Default</span>}
+                </strong>
+                <small>{c.bank ?? c.card_type ?? '—'} · exp {c.exp_month ?? '--'}/{c.exp_year ?? '--'}</small>
+              </span>
               <CardActions cardId={c.id} isDefault={!!c.is_default} />
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : (
         <Card>
           <EmptyState

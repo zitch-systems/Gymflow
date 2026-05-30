@@ -247,17 +247,42 @@ describe('verify-pt-pack — Paystack + money guards', () => {
 });
 
 describe('verify-pt-pack — idempotency + happy path', () => {
-  it('returns already=true and does NOT insert when the reference was seen before', async () => {
+  it('returns already=true with NO new inserts when BOTH the credit AND payments mirror already exist', async () => {
     state.perTable.set('pt_packs', [
       { data: { id: 'pack-1', gym_id: 'gym-1', instructor_id: 'coach-1', name: '10x', session_count: 10, price: 50000, is_active: true }, error: null },
     ]);
     state.perTable.set('gym_member_links', [{ data: { user_id: 'user-1' }, error: null }]);
     state.perTable.set('pt_pack_credits', [{ data: { id: 'credit-existing' }, error: null }]);
+    state.perTable.set('payments', [{ data: { id: 'pay-existing' }, error: null }]);
     const res = await POST(req(GOOD));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.already).toBe(true);
     expect(state.inserts).toHaveLength(0);
+  });
+
+  it('partial-failure recovery: credit exists but payments mirror missing → REPAIR by inserting payments, returns already=true', async () => {
+    state.perTable.set('pt_packs', [
+      { data: { id: 'pack-1', gym_id: 'gym-1', instructor_id: 'coach-1', name: '10x', session_count: 10, price: 50000, is_active: true }, error: null },
+    ]);
+    state.perTable.set('gym_member_links', [{ data: { user_id: 'user-1' }, error: null }]);
+    state.perTable.set('pt_pack_credits', [{ data: { id: 'credit-existing' }, error: null }]);
+    state.perTable.set('payments', [{ data: null, error: null }]); // missing
+    const res = await POST(req(GOOD));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.already).toBe(true);
+    // Exactly one repair: the payments insert.
+    const paymentInserts = state.inserts.filter((i) => i.table === 'payments');
+    expect(paymentInserts).toHaveLength(1);
+    expect(paymentInserts[0]!.payload).toMatchObject({
+      gym_id: 'gym-1',
+      member_id: 'user-1',
+      amount: 50000,
+      payment_status: 'successful',
+      paystack_reference: 'GFP-test-ref',
+    });
+    expect(state.inserts.some((i) => i.table === 'pt_pack_credits')).toBe(false);
   });
 
   it('inserts the credit with sessions_total = pack count + source=paystack, AND mirrors a payments row at the SERVER price (not the client)', async () => {

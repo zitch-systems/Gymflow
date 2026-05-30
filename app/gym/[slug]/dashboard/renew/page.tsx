@@ -1,11 +1,10 @@
+import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { PaystackPayButton } from './paystack-pay';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader } from '@/components/ui/page-header';
-import { ButtonLink } from '@/components/ui/button';
 import { ArrowLeft, ClipboardList } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
@@ -23,16 +22,16 @@ export default async function RenewPage({ params }: PageProps) {
     .order('price', { ascending: true });
 
   return (
-    <div className="gf-page">
-      <PageHeader
-        title="Renew membership"
-        subtitle={`Pick a plan to extend your membership at ${gym.name}.`}
-        actions={
-          <ButtonLink href="/dashboard" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
-            Back to dashboard
-          </ButtonLink>
-        }
-      />
+    <div className="member-portal member-app">
+      <header className="member-header">
+        <div>
+          <h1 className="gf-page-title">Renew membership</h1>
+          <p className="gf-page-subtitle">Pick a plan to extend your membership at {gym.name}.</p>
+        </div>
+        <Link href="/dashboard" className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Back">
+          <ArrowLeft size={16} strokeWidth={1.75} /> Back
+        </Link>
+      </header>
 
       {!plans || plans.length === 0 ? (
         <Card>

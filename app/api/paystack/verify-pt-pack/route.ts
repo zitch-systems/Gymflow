@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyTransaction } from '@/lib/paystack';
+import { fulfilPtPackPurchase } from '@/lib/pt-pack-fulfill';
 import { sendReceipt } from '@/lib/email';
 import { waReceipt } from '@/lib/whatsapp';
 import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
@@ -83,50 +84,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Payment amount is less than the pack price' }, { status: 400 });
   }
 
-  // Idempotency on paystack_reference — both pt_pack_credits and payments
-  // have at-most-one row per reference. If we've already provisioned this
-  // reference, return success without re-inserting.
-  const { data: existingCredit } = await supabase
-    .from('pt_pack_credits' as never)
-    .select('id')
-    .eq('paystack_reference' as never, reference)
-    .maybeSingle();
-  if (existingCredit) {
+  // Provision the credit (+ mirror to payments), idempotent on reference.
+  // Shared with the webhook backstop so a closed-tab purchase still settles.
+  const result = await fulfilPtPackPurchase(supabase, {
+    packId: pack.id,
+    memberId: user.id,
+    reference,
+    authorizationCode: txn.authorization?.authorization_code ?? null,
+    // Reuse the pack we already fetched + verified above (no second query).
+    pack: { id: pack.id, gym_id: pack.gym_id, instructor_id: pack.instructor_id, name: pack.name, session_count: pack.session_count, price: pack.price },
+  });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
+  if (result.already) {
     return NextResponse.json({ success: true, already: true });
   }
-
-  const { data: creditRaw, error: creditError } = await supabase
-    .from('pt_pack_credits' as never)
-    .insert({
-      gym_id: pack.gym_id,
-      member_id: user.id,
-      instructor_id: pack.instructor_id,
-      pack_id: pack.id,
-      sessions_total: pack.session_count,
-      sessions_used: 0,
-      source: 'paystack',
-      paystack_reference: reference,
-    } as never)
-    .select('id')
-    .maybeSingle();
-  if (creditError) {
-    return NextResponse.json({ error: `Credit create failed: ${creditError.message}` }, { status: 500 });
-  }
-
-  // Mirror the purchase in the gym wallet so payouts / wallet analytics
-  // see the revenue.
-  await supabase.from('payments').insert({
-    gym_id: pack.gym_id,
-    member_id: user.id,
-    amount: expectedTotal,
-    currency: 'NGN',
-    payment_method: 'card',
-    payment_status: 'successful',
-    paystack_reference: reference,
-    paystack_authorization_code: txn.authorization?.authorization_code ?? null,
-    payment_date: new Date().toISOString(),
-    metadata: { source: 'pt_pack_purchase', pack_id: pack.id, pack_name: pack.name, credit_id: (creditRaw as { id: string } | null)?.id ?? null },
-  });
 
   // Defer receipts so a slow Resend/WhatsApp doesn't extend the response.
   after(async () => {

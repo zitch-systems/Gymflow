@@ -26,14 +26,23 @@ type MemberRow = {
   } | null;
 };
 
+// Tag input: 1-30 chars, letters/digits/space/_/- — same regex as
+// addMemberTag in lib/actions/member-admin.ts so a tampered form can't
+// inject an unsafe filter value into the member_tags query.
+const TAG_RE = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,29}$/;
+
 /**
- * Broadcast an announcement to all active members of a gym. Manager-only.
+ * Broadcast an announcement to active members of a gym. Manager-only.
  *
- * Persists one in-app `notifications` row per member (so the dashboard can
- * surface unread announcements later) and fans out the chosen channel(s) via
- * email / WhatsApp — honouring each member's NDPR opt-out flags. The actual
- * sends run in after() so the admin's request returns immediately rather than
- * blocking on N provider calls.
+ * If `tag` is set in the form, the fan-out is narrowed to members who carry
+ * that tag at this gym (joined via member_tags). Useful for segments like
+ * "VIP", "Trial", "PT" — multiplies the value of the existing tag + broadcast
+ * features without adding new infra.
+ *
+ * Persists one in-app `notifications` row per recipient and fans out the
+ * chosen channel(s) via email / WhatsApp — honouring each member's NDPR
+ * opt-out flags. The actual sends run in after() so the admin's request
+ * returns immediately rather than blocking on N provider calls.
  */
 export async function sendGymAnnouncement(slug: string, formData: FormData): Promise<Result> {
   const { gym } = await requireManager(slug);
@@ -43,6 +52,12 @@ export async function sendGymAnnouncement(slug: string, formData: FormData): Pro
   const message = String(formData.get('message') ?? '').trim();
   const channelRaw = String(formData.get('channel') ?? 'email').trim();
   const channel: Channel = channelRaw === 'whatsapp' || channelRaw === 'both' ? channelRaw : 'email';
+  const tagRaw = String(formData.get('tag') ?? '').trim();
+  // Empty tag = broadcast to everyone. A non-empty tag must pass the regex —
+  // an arbitrary string here would let a manager inject filter values that
+  // address members in ways the UI doesn't show.
+  const tag = tagRaw === '' ? null : tagRaw;
+  if (tag !== null && !TAG_RE.test(tag)) return { ok: false, error: 'Invalid tag filter' };
 
   if (!subject) return { ok: false, error: 'Subject required' };
   if (!message) return { ok: false, error: 'Message required' };
@@ -50,6 +65,24 @@ export async function sendGymAnnouncement(slug: string, formData: FormData): Pro
   if (message.length > 2000) return { ok: false, error: 'Message must be 2000 characters or fewer' };
 
   const admin = createAdminClient();
+
+  // Resolve the recipient set. When `tag` is set, fetch the user_ids that
+  // carry the tag at this gym and intersect with the active members. Two
+  // queries (rather than a single PostgREST inner join) because member_tags
+  // isn't in the generated types yet and Supabase's inner-join shorthand
+  // requires the FK relationship to be exposed in the schema cache.
+  let taggedUserIds: Set<string> | null = null;
+  if (tag) {
+    const { data: tagRows } = await admin
+      .from('member_tags' as never)
+      .select('user_id')
+      .eq('gym_id' as never, gym.id)
+      .eq('tag' as never, tag);
+    taggedUserIds = new Set(((tagRows ?? []) as unknown as Array<{ user_id: string }>).map((r) => r.user_id));
+    if (taggedUserIds.size === 0) {
+      return { ok: false, error: `No members tagged "${tag}" yet` };
+    }
+  }
 
   // All active members of this gym, with the profile fields the fan-out needs.
   const { data: links } = await admin
@@ -60,8 +93,12 @@ export async function sendGymAnnouncement(slug: string, formData: FormData): Pro
     .eq('status', 'active');
 
   const rows = (links ?? []) as unknown as MemberRow[];
-  const members = rows.filter((r) => r.user_id && r.profiles);
-  if (members.length === 0) return { ok: false, error: 'No active members to notify' };
+  const members = rows
+    .filter((r) => r.user_id && r.profiles)
+    .filter((r) => !taggedUserIds || taggedUserIds.has(r.user_id!));
+  if (members.length === 0) {
+    return { ok: false, error: tag ? `No active members tagged "${tag}"` : 'No active members to notify' };
+  }
 
   // Persist an in-app notification per member (best-effort; the send is the
   // primary channel). type='announcement' so a future member inbox can filter.
@@ -81,7 +118,7 @@ export async function sendGymAnnouncement(slug: string, formData: FormData): Pro
     actorId: actor?.id ?? null,
     action: 'admin.announcement_sent',
     table: 'notifications',
-    after: { subject, channel, recipients: members.length },
+    after: { subject, channel, recipients: members.length, tag },
   });
 
   // Fan out the actual sends after the response. Announcements are

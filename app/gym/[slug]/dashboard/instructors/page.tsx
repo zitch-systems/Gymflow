@@ -3,7 +3,8 @@ import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 import { EmptyState } from '@/components/ui/empty-state';
-import { GraduationCap, Award } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { ArrowLeft, GraduationCap, Award, ChevronRight } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -48,28 +49,32 @@ export default async function MemberInstructorsPage({ params }: PageProps) {
   const activeSubByInstructor = new Map<string, { id: string; status: string; end_date: string | null }>();
   (mySubs ?? []).forEach((s) => {
     if (!s.instructor_id) return;
-    if (activeSubByInstructor.has(s.instructor_id)) return; // first/latest wins
+    if (activeSubByInstructor.has(s.instructor_id)) return;
     activeSubByInstructor.set(s.instructor_id, { id: s.id, status: s.status ?? 'inactive', end_date: s.end_date });
   });
 
   return (
-    <div className="member-portal">
+    <div className="member-portal member-app">
       <header className="member-header">
         <div>
-          <h1 className="gf-page-title">Instructors</h1>
+          <h1 className="gf-page-title">Coaches</h1>
           <p className="gf-page-subtitle">Subscribe to a coach for 1-on-1 attention.</p>
         </div>
-        <Link href="/dashboard" className="gf-btn gf-btn-ghost gf-btn-sm">Back</Link>
+        <Link href="/dashboard" className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Back">
+          <ArrowLeft size={16} strokeWidth={1.75} /> Back
+        </Link>
       </header>
 
       {(!staffLinks || staffLinks.length === 0) ? (
-        <EmptyState
-          icon={GraduationCap}
-          title="No instructors at this gym yet"
-          message="Check back soon — your gym is still onboarding coaches."
-        />
+        <Card>
+          <EmptyState
+            icon={GraduationCap}
+            title="No coaches at this gym yet"
+            message="Check back soon — your gym is still onboarding instructors."
+          />
+        </Card>
       ) : (
-        <div className="plan-grid">
+        <div className="m-links">
           {staffLinks.map((s) => {
             const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
             if (!p?.id) return null;
@@ -77,47 +82,33 @@ export default async function MemberInstructorsPage({ params }: PageProps) {
             const sub = activeSubByInstructor.get(p.id);
             const isActive = sub?.status === 'active' && sub.end_date && sub.end_date >= today;
             return (
-              <article key={p.id} className="plan-card" style={{ textAlign: 'left' }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-                  {p.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.photo_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }} />
-                  ) : (
-                    <div className="gf-avatar gf-avatar-lg" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>
-                      {(p.full_name ?? 'C').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div style={{ minWidth: 0 }}>
-                    <h3 className="plan-card-title" style={{ margin: 0 }}>{p.full_name ?? 'Coach'}</h3>
-                    {p.specialisation && <p className="plan-card-meta" style={{ margin: '2px 0 0' }}>{p.specialisation}</p>}
-                  </div>
-                </div>
-                {p.bio && <p style={{ fontSize: '0.875rem', color: 'var(--gf-text-secondary)', margin: '0 0 12px', lineHeight: 1.5 }}>{p.bio}</p>}
-                {p.certifications && (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Award size={13} strokeWidth={1.75} /> {p.certifications}
-                  </p>
-                )}
-
-                {price ? (
-                  <p className="plan-card-price" style={{ marginBottom: 12 }}>{fmtNaira(price)}<span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--gf-text-muted)' }}> / month</span></p>
+              <Link key={p.id} href={`/dashboard/instructors/${p.id}`} className="m-lc m-lc-coach">
+                {p.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.photo_url} alt="" className="m-lc-photo" />
                 ) : (
-                  <p className="plan-card-meta" style={{ marginBottom: 12 }}>Pricing not set</p>
+                  <span className="m-lc-ic m-lc-ic-lg">
+                    {(p.full_name ?? 'C').charAt(0).toUpperCase()}
+                  </span>
                 )}
-
+                <span className="m-lc-m">
+                  <strong>{p.full_name ?? 'Coach'}</strong>
+                  <small>
+                    {p.specialisation ?? 'Instructor'}
+                    {price ? ` · ${fmtNaira(price)}/mo` : ''}
+                  </small>
+                  {p.certifications && (
+                    <small className="m-lc-certs">
+                      <Award size={11} strokeWidth={2} /> {p.certifications}
+                    </small>
+                  )}
+                </span>
                 {isActive && sub ? (
-                  <div style={{ padding: 8, background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderRadius: 8, fontSize: '0.8125rem', fontWeight: 600, textAlign: 'center', marginBottom: 8 }}>
-                    Subscribed · until {sub.end_date ? fmtDate(sub.end_date) : '—'}
-                  </div>
-                ) : null}
-
-                <Link
-                  href={`/dashboard/instructors/${p.id}`}
-                  className={`gf-btn ${isActive ? 'gf-btn-outline' : 'gf-btn-primary'} gf-btn-full`}
-                >
-                  {isActive ? 'Manage' : 'View & subscribe'}
-                </Link>
-              </article>
+                  <span className="gf-badge gf-badge-brand">Active · {sub.end_date ? fmtDate(sub.end_date) : '—'}</span>
+                ) : (
+                  <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
+                )}
+              </Link>
             );
           })}
         </div>

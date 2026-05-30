@@ -28,11 +28,13 @@ type MemberFixture = {
 const { state, requireManagerMock, getSessionMock, auditMock, sendEmailMock, sendWaMock, afterCalls } = vi.hoisted(() => {
   const state: {
     members: MemberFixture[];
+    // (gym_id, user_id, tag) rows in the member_tags table for this gym
+    tagAssignments: Array<{ user_id: string; tag: string }>;
     insertedNotifications: Array<Record<string, unknown>>;
-  } = { members: [], insertedNotifications: [] };
+  } = { members: [], tagAssignments: [], insertedNotifications: [] };
   const requireManagerMock = vi.fn(async (slug: string) => { void slug; return { role: 'owner', gym: { id: 'gym-1', name: 'Iron Temple' } }; });
   const getSessionMock = vi.fn(async () => ({ id: 'actor-1' }));
-  const auditMock = vi.fn(async () => {});
+  const auditMock = vi.fn(async (_payload: Record<string, unknown>) => { void _payload; });
   const sendEmailMock = vi.fn(async () => ({ ok: true }));
   const sendWaMock = vi.fn(async () => ({ ok: true }));
   const afterCalls: Array<() => Promise<void>> = [];
@@ -42,6 +44,8 @@ const { state, requireManagerMock, getSessionMock, auditMock, sendEmailMock, sen
 function makeAdmin() {
   return {
     from(table: string) {
+      // Track .eq() filter values so the member_tags query can filter by tag.
+      const eqs: Record<string, unknown> = {};
       const builder = {
         _selectOpts: undefined as { count?: string; head?: boolean } | undefined,
         select(_cols?: string, opts?: { count?: string; head?: boolean }) {
@@ -49,9 +53,9 @@ function makeAdmin() {
           builder._selectOpts = opts;
           return builder;
         },
-        eq() { return builder; },
-        // member-link query is awaited directly (no maybeSingle); count head
-        // mode returns { count } when select() was called with head:true.
+        eq(col: string, val: unknown) { eqs[col] = val; return builder; },
+        // Awaited directly (no maybeSingle); count head mode returns { count }
+        // when select() was called with head:true.
         then<T>(resolve: (v: { data: unknown; count?: number | null; error: null }) => T): T {
           if (table === 'gym_member_links') {
             if (builder._selectOpts?.head) {
@@ -68,6 +72,13 @@ function makeAdmin() {
                 notification_whatsapp: m.notification_whatsapp,
               },
             }));
+            return resolve({ data: rows, count: null, error: null });
+          }
+          if (table === 'member_tags') {
+            const wantedTag = eqs.tag as string | undefined;
+            const rows = state.tagAssignments
+              .filter((a) => wantedTag == null || a.tag === wantedTag)
+              .map((a) => ({ user_id: a.user_id }));
             return resolve({ data: rows, count: null, error: null });
           }
           return resolve({ data: null, count: null, error: null });
@@ -107,6 +118,7 @@ function fd(o: Record<string, string>): FormData {
 
 beforeEach(() => {
   state.members = [];
+  state.tagAssignments = [];
   state.insertedNotifications = [];
   afterCalls.length = 0;
   requireManagerMock.mockClear();
@@ -238,5 +250,79 @@ describe('sendGymAnnouncement — channel routing + opt-out respect', () => {
     state.members = [{ user_id: 'u1', email: 'a@e.com', phone: '+1', notification_email: true, notification_whatsapp: true }];
     await sendGymAnnouncement('demo', fd({ subject: 'Hello', message: 'm', channel: 'both' }));
     expect(auditMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('sendGymAnnouncement — tag-targeted broadcasts', () => {
+  const THREE_MEMBERS: MemberFixture[] = [
+    { user_id: 'u1', email: 'a@e.com', phone: '+1', notification_email: true, notification_whatsapp: true },
+    { user_id: 'u2', email: 'b@e.com', phone: '+2', notification_email: true, notification_whatsapp: true },
+    { user_id: 'u3', email: 'c@e.com', phone: '+3', notification_email: true, notification_whatsapp: true },
+  ];
+
+  it('narrows the fan-out to members carrying the chosen tag', async () => {
+    state.members = THREE_MEMBERS;
+    state.tagAssignments = [
+      { user_id: 'u1', tag: 'VIP' },
+      { user_id: 'u3', tag: 'VIP' },
+      { user_id: 'u2', tag: 'Trial' },
+    ];
+    const r = await sendGymAnnouncement('demo', fd({ subject: 's', message: 'm', tag: 'VIP' }));
+    expect(r).toMatchObject({ ok: true, recipients: 2 });
+    expect(state.insertedNotifications.map((n) => n.user_id).sort()).toEqual(['u1', 'u3']);
+    for (const fn of afterCalls) await fn();
+    expect(sendEmailMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a tag value that does not match the safe regex (anti-injection)', async () => {
+    state.members = THREE_MEMBERS;
+    state.tagAssignments = [{ user_id: 'u1', tag: 'VIP' }];
+    const r = await sendGymAnnouncement('demo', fd({ subject: 's', message: 'm', tag: "VIP'); drop --" }));
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/Invalid tag/) });
+    expect(state.insertedNotifications).toHaveLength(0);
+  });
+
+  it('errors when no members carry the requested tag', async () => {
+    state.members = THREE_MEMBERS;
+    state.tagAssignments = [{ user_id: 'u2', tag: 'Trial' }];
+    const r = await sendGymAnnouncement('demo', fd({ subject: 's', message: 'm', tag: 'VIP' }));
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/VIP/);
+    expect(state.insertedNotifications).toHaveLength(0);
+  });
+
+  it('records the tag value on the audit payload', async () => {
+    state.members = THREE_MEMBERS;
+    state.tagAssignments = [{ user_id: 'u1', tag: 'VIP' }];
+    await sendGymAnnouncement('demo', fd({ subject: 's', message: 'm', tag: 'VIP' }));
+    expect(auditMock).toHaveBeenCalledTimes(1);
+    const call = auditMock.mock.calls[0]?.[0] as unknown as { after: { tag: string | null; recipients: number } };
+    expect(call.after.tag).toBe('VIP');
+    expect(call.after.recipients).toBe(1);
+  });
+
+  it('excludes a tagged user who is no longer an active member', async () => {
+    // u4 carries the tag but is absent from the active-members result
+    // (member_tags rows survive a member going inactive). The send must
+    // intersect against active members and skip u4.
+    state.members = [
+      { user_id: 'u1', email: 'a@e.com', phone: '+1', notification_email: true, notification_whatsapp: true },
+    ];
+    state.tagAssignments = [
+      { user_id: 'u1', tag: 'VIP' },
+      { user_id: 'u4', tag: 'VIP' },
+    ];
+    const r = await sendGymAnnouncement('demo', fd({ subject: 's', message: 'm', tag: 'VIP' }));
+    expect(r).toMatchObject({ ok: true, recipients: 1 });
+    expect(state.insertedNotifications.map((n) => n.user_id)).toEqual(['u1']);
+  });
+
+  it('treats an empty tag as the default all-members broadcast (tag=null in audit)', async () => {
+    state.members = THREE_MEMBERS;
+    state.tagAssignments = [{ user_id: 'u1', tag: 'VIP' }];
+    const r = await sendGymAnnouncement('demo', fd({ subject: 's', message: 'm', tag: '' }));
+    expect(r).toMatchObject({ ok: true, recipients: 3 });
+    const call = auditMock.mock.calls[0]?.[0] as unknown as { after: { tag: string | null } };
+    expect(call.after.tag).toBeNull();
   });
 });
