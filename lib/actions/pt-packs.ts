@@ -28,6 +28,22 @@ export async function createPtPack(slug: string, formData: FormData): Promise<Re
   if (!Number.isFinite(price) || price < 0) return { ok: false, error: 'Price must be ≥ 0' };
 
   const admin = createAdminClient();
+
+  // Defense in depth: the UI dropdown only lists this gym's coaches, but a
+  // tampered form could submit any instructor_id. Verify the user is an
+  // ACTIVE instructor at THIS gym before creating a pack — otherwise
+  // grants/credits would reference a non-coach and the consume path would
+  // silently never match.
+  const { data: coachLink } = await admin
+    .from('gym_staff_links')
+    .select('user_id')
+    .eq('gym_id', gym.id)
+    .eq('user_id', instructor_id)
+    .eq('role', 'instructor')
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!coachLink) return { ok: false, error: 'That coach is not an active instructor at this gym' };
+
   // pt_packs not in generated types yet.
   const { data, error } = await admin
     .from('pt_packs' as never)

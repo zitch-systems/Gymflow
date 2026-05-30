@@ -9,8 +9,10 @@
  *   - null when dob is missing/unparseable
  *
  * `dob` is taken as a calendar date (YYYY-MM-DD), not a timestamp — only the
- * month/day are used, so a member born in Lagos sees their birthday on the
- * same Nigerian calendar day regardless of viewer timezone.
+ * month/day are used. All comparisons happen in UTC so the result is stable
+ * regardless of which timezone the server function runs in (Vercel regions
+ * vary). Using local-timezone Date(year, month, day) here would cause a
+ * ±1 day offset for users near midnight in non-UTC timezones.
  *
  * `now` is injectable so tests are deterministic.
  */
@@ -21,9 +23,10 @@ export function daysUntilBirthday(dob: string | null | undefined, now: Date = ne
   const month = parseInt(m[2], 10) - 1;
   const day = parseInt(m[3], 10);
   if (month < 0 || month > 11 || day < 1 || day > 31) return null;
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let next = new Date(now.getFullYear(), month, day);
-  if (next < today) next = new Date(now.getFullYear() + 1, month, day);
+  // UTC throughout — getUTCFullYear/getUTCMonth/getUTCDate + Date.UTC().
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  let next = new Date(Date.UTC(now.getUTCFullYear(), month, day));
+  if (next < today) next = new Date(Date.UTC(now.getUTCFullYear() + 1, month, day));
   return Math.round((next.getTime() - today.getTime()) / 86_400_000);
 }
 

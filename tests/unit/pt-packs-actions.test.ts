@@ -28,6 +28,7 @@ const { state, requireStaffMock, getSessionMock, auditMock } = vi.hoisted(() => 
     // and the UPDATE, so the .eq('sessions_used', snapshot) filter misses.
     raceBumpUsed: boolean;
     memberLinks: Array<{ gym_id: string; user_id: string }>;
+    coachLinks: Array<{ gym_id: string; user_id: string; role: string; is_active: boolean }>;
     writeError: { message: string } | null;
   } = {
     packs: [],
@@ -36,6 +37,7 @@ const { state, requireStaffMock, getSessionMock, auditMock } = vi.hoisted(() => 
     updates: [],
     raceBumpUsed: false,
     memberLinks: [],
+    coachLinks: [],
     writeError: null,
   };
   const requireStaffMock = vi.fn(async (slug: string) => { void slug; return { role: 'manager', gym: { id: 'gym-1' } }; });
@@ -105,6 +107,19 @@ function makeAdmin() {
             const gymId = eqs.find((e) => e.col === 'gym_id')?.val as string | undefined;
             const userId = eqs.find((e) => e.col === 'user_id')?.val as string | undefined;
             const found = state.memberLinks.find((l) => l.gym_id === gymId && l.user_id === userId);
+            return Promise.resolve({ data: found ?? null, error: null });
+          }
+          if (table === 'gym_staff_links') {
+            const gymId = eqs.find((e) => e.col === 'gym_id')?.val as string | undefined;
+            const userId = eqs.find((e) => e.col === 'user_id')?.val as string | undefined;
+            const role = eqs.find((e) => e.col === 'role')?.val as string | undefined;
+            const isActive = eqs.find((e) => e.col === 'is_active')?.val;
+            const found = state.coachLinks.find((l) =>
+              (gymId == null || l.gym_id === gymId) &&
+              (userId == null || l.user_id === userId) &&
+              (role == null || l.role === role) &&
+              (isActive == null || l.is_active === isActive),
+            );
             return Promise.resolve({ data: found ?? null, error: null });
           }
           return Promise.resolve({ data: null, error: null });
@@ -179,6 +194,9 @@ beforeEach(() => {
   state.updates = [];
   state.raceBumpUsed = false;
   state.memberLinks = [];
+  // Default: coach-1 IS an active instructor at gym-1 (matches createPtPack
+  // happy-path expectations). Tests for the new validation gate clear this.
+  state.coachLinks = [{ gym_id: 'gym-1', user_id: 'coach-1', role: 'instructor', is_active: true }];
   state.writeError = null;
   requireStaffMock.mockClear();
   auditMock.mockClear();
@@ -202,8 +220,25 @@ describe('createPtPack', () => {
   });
 
   it('rejects negative price (price=0 is allowed for comp packs)', async () => {
-    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: 'i', session_count: '10', price: '-1' }))).ok).toBe(false);
-    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: 'i', session_count: '10', price: '0' }))).ok).toBe(true);
+    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: 'coach-1', session_count: '10', price: '-1' }))).ok).toBe(false);
+    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: 'coach-1', session_count: '10', price: '0' }))).ok).toBe(true);
+  });
+
+  it('REJECTS an instructor_id that is not an active coach at this gym (tampered form)', async () => {
+    // Default fixture: coach-1 is at gym-1. Try to create a pack with coach-2
+    // (no link) — the validation gate must reject it before the insert.
+    state.coachLinks = [{ gym_id: 'gym-1', user_id: 'coach-1', role: 'instructor', is_active: true }];
+    const r = await createPtPack('demo', fd({ name: 'x', instructor_id: 'coach-2', session_count: '10', price: '5000' }));
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/not an active instructor/);
+    expect(state.inserts).toHaveLength(0);
+  });
+
+  it('REJECTS a coach that is inactive at this gym (was a coach, no longer)', async () => {
+    state.coachLinks = [{ gym_id: 'gym-1', user_id: 'coach-1', role: 'instructor', is_active: false }];
+    const r = await createPtPack('demo', fd({ name: 'x', instructor_id: 'coach-1', session_count: '10', price: '5000' }));
+    expect(r.ok).toBe(false);
+    expect(state.inserts).toHaveLength(0);
   });
 
   it('on success inserts with the staff gym_id and audits', async () => {

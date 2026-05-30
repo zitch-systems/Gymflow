@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtNaira } from '@/lib/format';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -19,7 +18,9 @@ export default async function MemberPtPacksPage({ params }: PageProps) {
   const { slug } = await params;
   const { user, gym } = await requireMember(slug);
   const supabase = await createClient();
-  const adminClient = createAdminClient();
+  // The gym row from requireMember already has paystack_subaccount_code
+  // (getGymBySlug selects '*'), so no extra query is needed.
+  const subaccount = (gym as unknown as { paystack_subaccount_code?: string | null }).paystack_subaccount_code ?? null;
 
   // Active packs for this gym are public to members via the RLS policy
   // pt_packs_select_gym_members, so the user client works here.
@@ -47,13 +48,6 @@ export default async function MemberPtPacksPage({ params }: PageProps) {
     .eq('member_id' as never, user.id)
     .order('purchased_at' as never, { ascending: false });
   const credits = (creditsRaw ?? []) as unknown as Credit[];
-
-  // The gym's Paystack subaccount (so the split-payment terms apply).
-  const { data: gymRow } = await adminClient
-    .from('gyms')
-    .select('paystack_subaccount_code')
-    .eq('id', gym.id)
-    .maybeSingle();
 
   return (
     <div className="member-portal">
@@ -115,7 +109,7 @@ export default async function MemberPtPacksPage({ params }: PageProps) {
                   packName={p.name}
                   amount={p.price}
                   email={user.email ?? ''}
-                  subaccount={(gymRow as { paystack_subaccount_code: string | null } | null)?.paystack_subaccount_code ?? null}
+                  subaccount={subaccount}
                 />
               </div>
             ))}

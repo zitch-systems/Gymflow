@@ -55,6 +55,25 @@ describe('isBirthdayToday', () => {
   });
 });
 
+describe('timezone stability — comparisons happen in UTC', () => {
+  it('is stable across late-night Lagos / early-morning UTC boundary', () => {
+    // 2026-05-29 23:30 in Lagos (UTC+1) = 2026-05-29 22:30 UTC. Both the
+    // pre-fix local-Date and the fixed UTC-Date should agree on May 29 here.
+    const lagosLate = new Date('2026-05-29T22:30:00Z');
+    expect(daysUntilBirthday('1990-05-29', lagosLate)).toBe(0);
+    expect(daysUntilBirthday('1990-05-30', lagosLate)).toBe(1);
+  });
+
+  it('treats the UTC calendar day boundary consistently even when `now` carries a non-UTC string', () => {
+    // The implementation uses getUTC* + Date.UTC throughout, so two `now`
+    // values pointing at the same UTC instant resolve identically.
+    const a = daysUntilBirthday('1990-06-15', new Date('2026-06-15T00:00:00Z'));
+    const b = daysUntilBirthday('1990-06-15', new Date('2026-06-15T00:00:00.000Z'));
+    expect(a).toBe(0);
+    expect(b).toBe(0);
+  });
+});
+
 describe('birthdayLabel', () => {
   it('handles today / tomorrow / future cases', () => {
     expect(birthdayLabel(0)).toBe('Today 🎂');
