@@ -77,13 +77,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Payment amount is less than the required price' }, { status: 400 });
   }
 
-  // Idempotency: if we've already recorded this reference, return success.
+  // Idempotency: if we've already recorded this reference, return success —
+  // but first repair the payments mirror if a previous partial failure left
+  // the subscription without one. Without this check, a transient failure
+  // mid-fulfilment would leave the wallet permanently missing the revenue.
   const { data: existing } = await supabase
     .from('instructor_subscriptions')
     .select('id')
     .eq('payment_reference', reference)
     .maybeSingle();
   if (existing) {
+    const { data: existingPayment } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('paystack_reference', reference)
+      .maybeSingle();
+    if (!existingPayment) {
+      await supabase.from('payments').insert({
+        gym_id,
+        member_id: user.id,
+        amount: expectedTotal,
+        currency: 'NGN',
+        payment_method: 'card',
+        payment_status: 'successful',
+        paystack_reference: reference,
+        paystack_authorization_code: txn.authorization?.authorization_code ?? null,
+        payment_date: new Date().toISOString(),
+      });
+    }
     return NextResponse.json({ success: true, subscription: existing, already: true });
   }
 
