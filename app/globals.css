@@ -4686,10 +4686,23 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   background: var(--gf-brand-soft); color: var(--gf-brand);
   display: grid; place-items: center;
 }
-.m-lc-m { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.m-lc-m strong { font-family: var(--gf-font-display); font-size: 0.86rem; font-weight: 600; }
+/* Larger 48×48 chip for the coaches list (avatar fallback) */
+.m-lc-ic-lg {
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.15rem;
+}
+.m-lc-photo {
+  width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+  border: 1px solid var(--gf-border);
+}
+.m-lc-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-lc-m strong { font-family: var(--gf-font-display); font-size: 0.86rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .m-lc-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.m-lc-certs { display: inline-flex; align-items: center; gap: 4px; margin-top: 1px; }
 .m-lc-chev { color: var(--gf-text-muted); flex-shrink: 0; }
+.m-lc-coach { padding: 14px; }
 
 /* Class cards (member classes timetable) — design-system .cls-card pattern:
    time block · class info · capacity badge · book control. */
