@@ -4710,6 +4710,79 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 .m-lc-chev { color: var(--gf-text-muted); flex-shrink: 0; }
 .m-lc-coach { padding: 14px; }
 
+/* Profile hub (member + instructor settings pages). Same DNA as the member
+   dashboard's m-status / m-qa, with three extensions for the OPay-style
+   "hub" layout: a 5-up action ring with optional pill badges, a wide
+   promotional banner, and a 2-up summary-card grid. */
+
+/* 5-up variant of m-qa. Wraps to 2 rows on narrow phones rather than
+   shrinking the tiles to the point labels clip. */
+.m-qa-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 480px) {
+  .m-qa-5 { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 340px) {
+  .m-qa-5 { grid-template-columns: repeat(3, 1fr); }
+}
+/* The m-qa-tile is `display:flex`, so the tile itself isn't a positioning
+   context for absolute badges — give it one without changing layout. */
+.m-qa-tile { position: relative; }
+.m-qa-badge {
+  position: absolute; top: 6px; right: 6px;
+  background: var(--gf-danger, #ef4444); color: #fff;
+  font-family: var(--gf-font-display); font-weight: 700;
+  font-size: 0.6rem; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: var(--gf-radius-pill);
+  line-height: 1.2;
+}
+
+/* Settings/profile entry button styled as an m-qa tile, for the sign-out
+   form-action tile (m-qa-tile is an anchor by default). */
+button.m-qa-tile { background: var(--gf-surface); cursor: pointer; }
+
+/* Wide promo/nudge banner (the OPay "Work Smart, Save Smart" pattern).
+   Used conditionally — surfaces only when there's a real ask (renewal
+   approaching, bank details missing). */
+.profile-banner {
+  position: relative; overflow: hidden;
+  background: linear-gradient(140deg, var(--gf-brand), var(--gf-brand-dark));
+  border-radius: var(--gf-radius-lg);
+  padding: 18px 20px; color: #fff;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.profile-banner::after {
+  content: ''; position: absolute; right: -40px; bottom: -40px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  pointer-events: none;
+}
+.profile-banner-title {
+  position: relative; z-index: 1;
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+.profile-banner-list {
+  position: relative; z-index: 1;
+  margin: 0; padding-left: 18px; font-size: 0.86rem; line-height: 1.55;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.profile-banner-cta { position: relative; z-index: 1; align-self: flex-start; }
+
+/* 2-up summary cards (the OPay "Find a Target" + "SafeBox" pair pattern). */
+.profile-pair { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (max-width: 480px) { .profile-pair { grid-template-columns: 1fr; } }
+.profile-pair-card {
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); padding: 14px;
+  display: flex; flex-direction: column; gap: 6px; min-height: 110px;
+}
+.profile-pair-card h3 {
+  font-family: var(--gf-font-display); font-weight: 700; font-size: 0.9rem;
+  color: var(--gf-brand); letter-spacing: -0.01em;
+}
+.profile-pair-card p { font-size: 0.82rem; color: var(--gf-text-secondary); line-height: 1.4; }
+.profile-pair-card .gf-btn { align-self: flex-start; margin-top: auto; }
+
 /* Class cards (member classes timetable) — design-system .cls-card pattern:
    time block · class info · capacity badge · book control. */
 .cls-card {
