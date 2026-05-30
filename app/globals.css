@@ -4585,6 +4585,144 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   flex-direction: column;
   gap: 20px;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   App-shell treatment for the member dashboard — make it read like a native
+   app, not a web page.
+   ───────────────────────────────────────────────────────────────────────── */
+.app-shell { gap: 18px; }
+
+/* Greeting header with avatar */
+.app-greeting {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.app-greeting-hi {
+  margin: 0; font-size: 0.9rem; color: var(--gf-text-muted); font-weight: 500;
+}
+.app-greeting-name {
+  margin: 2px 0 0;
+  font-family: var(--gf-font-display);
+  font-size: clamp(1.4rem, 5vw, 1.75rem); font-weight: 800; letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.app-avatar {
+  flex-shrink: 0;
+  width: 46px; height: 46px; border-radius: 50%;
+  overflow: hidden;
+  display: inline-grid; place-items: center;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.15rem;
+  border: 2px solid var(--gf-border);
+  text-decoration: none;
+  transition: transform var(--gf-t-fast), border-color var(--gf-t-fast);
+}
+.app-avatar:active { transform: scale(0.94); }
+.app-avatar:hover { border-color: var(--gf-brand); }
+.app-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Membership card — physical-card metaphor */
+.member-card {
+  position: relative; overflow: hidden;
+  border-radius: 20px;
+  padding: 20px;
+  color: #fff;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0b1220 100%);
+  box-shadow: 0 12px 32px rgba(15,23,42,0.28);
+  display: flex; flex-direction: column; gap: 16px;
+  min-height: 184px;
+}
+.member-card.is-active {
+  background: linear-gradient(135deg, var(--gf-brand-dark) 0%, var(--gf-brand) 55%, #0c8f63 100%);
+  box-shadow: 0 12px 36px var(--gf-brand-glow);
+}
+.member-card.is-inactive {
+  background: linear-gradient(135deg, #3a2330 0%, #4a2730 55%, #2a1620 100%);
+}
+.member-card-shine {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(255,255,255,0.18) 0%, transparent 45%),
+    radial-gradient(80% 60% at 100% 100%, rgba(255,255,255,0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+.member-card-top {
+  display: flex; align-items: center; justify-content: space-between;
+  position: relative; z-index: 1;
+}
+.member-card-gym {
+  font-family: var(--gf-font-display); font-weight: 700; font-size: 0.95rem;
+  letter-spacing: 0.01em; opacity: 0.95;
+}
+.member-card-badge {
+  font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 4px 10px; border-radius: 999px;
+  background: rgba(255,255,255,0.18); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.member-card-badge.off { background: rgba(0,0,0,0.25); }
+.member-card-body {
+  position: relative; z-index: 1;
+  display: flex; align-items: baseline; gap: 12px; margin-top: auto;
+}
+.member-card-days { display: flex; align-items: baseline; gap: 8px; }
+.member-card-days-num {
+  font-family: var(--gf-font-display); font-size: 3.2rem; font-weight: 800;
+  line-height: 1; letter-spacing: -0.03em;
+}
+.member-card-days-cap { font-size: 0.9rem; opacity: 0.85; font-weight: 500; }
+.member-card-meta { margin-left: auto; font-size: 0.8rem; opacity: 0.8; }
+.member-card-foot {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.18);
+}
+.member-card-name {
+  font-size: 0.8rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.05em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.member-card-cta {
+  flex-shrink: 0;
+  background: #fff; color: #0f172a;
+  font-size: 0.8rem; font-weight: 700;
+  padding: 7px 14px; border-radius: 999px; text-decoration: none;
+  transition: transform var(--gf-t-fast);
+}
+.member-card-cta:active { transform: scale(0.95); }
+
+/* Primary action — full-width "Check in" pill */
+.app-primary-action {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px; border-radius: 16px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  text-decoration: none; color: var(--gf-text);
+  box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+  transition: transform var(--gf-t-fast), box-shadow var(--gf-t-fast);
+}
+.app-primary-action:active { transform: scale(0.99); }
+.app-primary-action:hover { box-shadow: 0 6px 18px rgba(15,23,42,0.10); }
+.app-primary-action-icon {
+  flex-shrink: 0; width: 48px; height: 48px; border-radius: 14px;
+  display: inline-grid; place-items: center;
+  background: linear-gradient(135deg, var(--gf-brand), var(--gf-brand-dark));
+  color: #fff; box-shadow: 0 4px 14px var(--gf-brand-glow);
+}
+.app-primary-action-text { display: flex; flex-direction: column; gap: 2px; }
+.app-primary-action-text strong { font-size: 1rem; font-weight: 700; }
+.app-primary-action-text small { font-size: 0.8rem; color: var(--gf-text-muted); }
+.app-primary-action-chev { margin-left: auto; color: var(--gf-text-muted); }
+
+/* App tile grid — 3-up like a native home screen */
+.app-tiles {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.app-tiles .gf-quick-action {
+  min-height: 92px;
+  border-radius: 16px;
+  background: var(--gf-surface);
+  border: 1px solid var(--gf-border);
+}
+@media (max-width: 360px) {
+  .app-tiles { grid-template-columns: repeat(2, 1fr); }
+}
 .member-header {
   display: flex;
   align-items: flex-start;

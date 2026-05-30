@@ -2,17 +2,13 @@ import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate, daysLeft } from '@/lib/format';
-import { signOut } from '@/lib/auth/actions';
+import { fmtDate, daysLeft, greeting, firstName } from '@/lib/format';
 import { SubscriptionActions } from './subscription-actions';
 import { QuickAction } from '@/components/ui/quick-action';
 import { Card, CardHeader } from '@/components/ui/card';
-import { StatusPill } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/ui/page-header';
 import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
 import { daysAgoIso } from '@/lib/dates';
-import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, LogOut, Flame, MapPin, Clock, Settings } from 'lucide-react';
+import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, Flame, MapPin, Clock, Settings, ChevronRight, Dumbbell } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -90,36 +86,70 @@ export default async function MemberDashboard({ params }: PageProps) {
   const activity = computeActivity((checkIns ?? []).map((c) => c.checked_in_at));
   const nextClass = findNextClass((schedules ?? []) as unknown as ScheduleRow[]);
 
-  return (
-    <div className="member-portal">
-      <PageHeader
-        title={gym.name}
-        subtitle="Member Portal"
-        actions={
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />}>
-              Sign out
-            </Button>
-          </form>
-        }
-      />
+  const memberName = firstName(profile?.full_name ?? profile?.first_name);
+  const avatarInitial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
 
-      <div className={`status-card ${isActive ? 'is-active' : 'is-inactive'}`}>
-        <div className="status-card-header">
-          <StatusPill tone={isActive ? 'on' : 'off'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
-          <span className="status-card-meta">{slug}.gymflow.ng</span>
+  return (
+    <div className="member-portal app-shell">
+      {/* App-style greeting header with avatar */}
+      <header className="app-greeting">
+        <div>
+          <p className="app-greeting-hi">{greeting()},</p>
+          <h1 className="app-greeting-name">{memberName} 👋</h1>
         </div>
-        <div className="status-card-value">{remaining}</div>
-        <div className="status-card-label">days remaining</div>
-        {subscription && (
-          <div className="status-card-due">Next due: {fmtDate(subscription.end_date)}</div>
-        )}
+        <Link href="/dashboard/profile" className="app-avatar" aria-label="Profile & settings">
+          {profile?.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.photo_url} alt="" />
+          ) : (
+            <span>{avatarInitial}</span>
+          )}
+        </Link>
+      </header>
+
+      {/* Membership card — the hero, styled like a physical gym card */}
+      <div className={`member-card ${isActive ? 'is-active' : 'is-inactive'}`}>
+        <div className="member-card-shine" aria-hidden />
+        <div className="member-card-top">
+          <span className="member-card-gym">{gym.name}</span>
+          <span className={`member-card-badge ${isActive ? 'on' : 'off'}`}>
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+        <div className="member-card-body">
+          <div className="member-card-days">
+            <span className="member-card-days-num">{remaining}</span>
+            <span className="member-card-days-cap">day{remaining === 1 ? '' : 's'} left</span>
+          </div>
+          {subscription ? (
+            <div className="member-card-meta">Renews {fmtDate(subscription.end_date)}</div>
+          ) : (
+            <div className="member-card-meta">No active plan</div>
+          )}
+        </div>
+        <div className="member-card-foot">
+          <span className="member-card-name">{profile?.full_name ?? user.email}</span>
+          {!isActive && (
+            <Link href="/dashboard/renew" className="member-card-cta">Renew now</Link>
+          )}
+        </div>
       </div>
 
-      <section className="member-quick-actions">
-        <QuickAction href="/checkin" icon={ScanLine} label="Check In" />
+      {/* Primary action — big scan button, the #1 member task */}
+      <Link href="/checkin" className="app-primary-action">
+        <span className="app-primary-action-icon"><ScanLine size={22} strokeWidth={2} /></span>
+        <span className="app-primary-action-text">
+          <strong>Check in</strong>
+          <small>Scan the gym QR to log your visit</small>
+        </span>
+        <ChevronRight size={20} strokeWidth={2} className="app-primary-action-chev" />
+      </Link>
+
+      {/* App tile grid */}
+      <section className="app-tiles">
         <QuickAction href="/classes" icon={CalendarDays} label="Classes" />
         <QuickAction href="/dashboard/instructors" icon={GraduationCap} label="Coaches" />
+        <QuickAction href="/dashboard/pt-packs" icon={Dumbbell} label="PT Packs" />
         <QuickAction href="/dashboard/renew" icon={CreditCard} label="Renew" />
         <QuickAction href="/dashboard/cards" icon={Wallet} label="Cards" />
         <QuickAction href="/dashboard/profile" icon={Settings} label="Settings" />
@@ -238,36 +268,6 @@ export default async function MemberDashboard({ params }: PageProps) {
         </Card>
       )}
 
-      <Card>
-        <CardHeader title="Your profile" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '4px 18px 12px' }}>
-          {profile?.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.photo_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gf-border)' }} />
-          ) : (
-            <div style={{ width: 56, height: 56, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>
-              {(profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div style={{ fontSize: 13, color: 'var(--gf-text-muted)' }}>
-            <a href="/dashboard/profile" style={{ color: 'var(--gf-brand)', fontWeight: 600, textDecoration: 'none' }}>Edit profile &amp; photo</a>
-          </div>
-        </div>
-        <dl className="gf-detail-list">
-          <div>
-            <dt>Name</dt>
-            <dd>{profile?.full_name ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Email</dt>
-            <dd>{profile?.email ?? user.email ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Phone</dt>
-            <dd>{profile?.phone ?? '—'}</dd>
-          </div>
-        </dl>
-      </Card>
     </div>
   );
 }
