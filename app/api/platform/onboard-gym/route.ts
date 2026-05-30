@@ -5,6 +5,7 @@ import { sendTempPassword } from '@/lib/email';
 import { waTempPassword } from '@/lib/whatsapp';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
 import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
+import { escapeIlikeEmail } from '@/lib/email-lookup';
 
 // Completes a gym onboarding once the prospective owner has paid the ₦20k
 // platform fee via Paystack. Called from the browser AFTER the inline
@@ -131,7 +132,7 @@ export async function POST(request: Request) {
       const { data: existing } = await admin
         .from('profiles')
         .select('id')
-        .ilike('email', ownerEmail)
+        .ilike('email', escapeIlikeEmail(ownerEmail))
         .maybeSingle();
       userId = existing?.id ?? null;
     } else {

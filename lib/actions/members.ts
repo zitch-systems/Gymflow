@@ -7,6 +7,7 @@ import { requireStaff } from '@/lib/auth/gym';
 import { getSessionUser } from '@/lib/auth/dal';
 import { sendTempPassword } from '@/lib/email';
 import { waTempPassword } from '@/lib/whatsapp';
+import { escapeIlikeEmail } from '@/lib/email-lookup';
 
 function tempPassword(): string {
   return 'gf-' + Math.random().toString(36).slice(2, 8) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -72,7 +73,7 @@ export async function adminOnboardMember(slug: string, formData: FormData): Prom
     const { data: existing } = await admin
       .from('profiles')
       .select('id')
-      .ilike('email', email)
+      .ilike('email', escapeIlikeEmail(email))
       .maybeSingle();
     userId = existing?.id ?? null;
     if (!userId) return { error: 'Email is already taken by another account.' };

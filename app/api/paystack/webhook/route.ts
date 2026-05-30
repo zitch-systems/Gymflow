@@ -7,6 +7,7 @@ import { fulfilPtPackPurchase } from '@/lib/pt-pack-fulfill';
 import { fulfilInstructorSubscription } from '@/lib/instructor-sub-fulfill';
 import { sendPayoutPaid, sendPayoutFailed } from '@/lib/email';
 import { waPayoutPaid, waPayoutFailed } from '@/lib/whatsapp';
+import { escapeIlikeEmail } from '@/lib/email-lookup';
 
 type WebhookData = {
   reference?: string;
@@ -168,7 +169,11 @@ export async function POST(request: Request) {
 
     const metadata = (data.metadata ?? {}) as Record<string, unknown>;
     const planId = typeof metadata.plan_id === 'string' ? metadata.plan_id : null;
-    const customerEmail = data.customer?.email ?? null;
+    // Lowercase the customer email so it can hit idx_profiles_email_lower
+    // (migration 20260529_hot_path_indexes.sql) and so the email comparison
+    // is case-insensitive in a deterministic way.
+    const customerEmail = (data.customer?.email ?? '').toLowerCase() || null;
+    const customerEmailPattern = customerEmail ? escapeIlikeEmail(customerEmail) : null;
 
     // PT-pack purchase backstop: if the member paid but their tab closed
     // before /api/paystack/verify-pt-pack ran, the credit would otherwise be
@@ -177,13 +182,13 @@ export async function POST(request: Request) {
     // Idempotent on reference — no-ops if /verify-pt-pack already ran.
     const purpose = typeof metadata.purpose === 'string' ? metadata.purpose : null;
     const packId = typeof metadata.pack_id === 'string' ? metadata.pack_id : null;
-    if (purpose === 'pt_pack' && packId && customerEmail) {
+    if (purpose === 'pt_pack' && packId && customerEmail && customerEmailPattern) {
       // Resolve the member by the Paystack customer email (the buy flow runs
       // under the member's own session, so the email is theirs).
       const { data: prof } = await supabase
         .from('profiles')
         .select('id')
-        .ilike('email', customerEmail)
+        .ilike('email', customerEmailPattern)
         .maybeSingle();
       const memberId = prof?.id ?? null;
       if (memberId) {
@@ -209,11 +214,11 @@ export async function POST(request: Request) {
     const instructorId = typeof metadata.instructor_id === 'string' ? metadata.instructor_id : null;
     const subGymId = typeof metadata.gym_id === 'string' ? metadata.gym_id : null;
     const monthsRaw = Number(metadata.months);
-    if (!planId && instructorId && subGymId && Number.isFinite(monthsRaw) && monthsRaw >= 1 && monthsRaw <= 24 && customerEmail) {
+    if (!planId && instructorId && subGymId && Number.isFinite(monthsRaw) && monthsRaw >= 1 && monthsRaw <= 24 && customerEmail && customerEmailPattern) {
       const { data: prof } = await supabase
         .from('profiles')
         .select('id')
-        .ilike('email', customerEmail)
+        .ilike('email', customerEmailPattern)
         .maybeSingle();
       const memberId = prof?.id ?? null;
       if (memberId) {
@@ -239,13 +244,13 @@ export async function POST(request: Request) {
     // browser /verify call. If the member paid but their tab closed before
     // /verify ran, fulfilment happens here instead. Idempotent on reference,
     // so it no-ops when /verify already created the membership.
-    if (planId && customerEmail) {
+    if (planId && customerEmail && customerEmailPattern) {
       let memberId = typeof metadata.member_id === 'string' ? metadata.member_id : null;
       if (!memberId) {
         const { data: prof } = await supabase
           .from('profiles')
           .select('id')
-          .ilike('email', customerEmail)
+          .ilike('email', customerEmailPattern)
           .maybeSingle();
         memberId = prof?.id ?? null;
       }
