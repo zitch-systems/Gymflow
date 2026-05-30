@@ -301,6 +301,22 @@ describe('sendGymAnnouncement — tag-targeted broadcasts', () => {
     expect(call.after.recipients).toBe(1);
   });
 
+  it('excludes a tagged user who is no longer an active member', async () => {
+    // u4 carries the tag but is absent from the active-members result
+    // (member_tags rows survive a member going inactive). The send must
+    // intersect against active members and skip u4.
+    state.members = [
+      { user_id: 'u1', email: 'a@e.com', phone: '+1', notification_email: true, notification_whatsapp: true },
+    ];
+    state.tagAssignments = [
+      { user_id: 'u1', tag: 'VIP' },
+      { user_id: 'u4', tag: 'VIP' },
+    ];
+    const r = await sendGymAnnouncement('demo', fd({ subject: 's', message: 'm', tag: 'VIP' }));
+    expect(r).toMatchObject({ ok: true, recipients: 1 });
+    expect(state.insertedNotifications.map((n) => n.user_id)).toEqual(['u1']);
+  });
+
   it('treats an empty tag as the default all-members broadcast (tag=null in audit)', async () => {
     state.members = THREE_MEMBERS;
     state.tagAssignments = [{ user_id: 'u1', tag: 'VIP' }];

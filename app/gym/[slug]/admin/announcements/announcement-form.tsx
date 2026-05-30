@@ -103,7 +103,7 @@ export function AnnouncementForm({
 
       <div className="form-grid-full" style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button type="submit" className="gf-btn gf-btn-primary" disabled={pending || recipientCount === 0}>
-          {pending ? 'Sending…' : `Send to ${recipientCount} ${tag === '' ? 'member' : 'tagged'}${recipientCount === 1 ? '' : 's'}`}
+          {pending ? 'Sending…' : `Send to ${recipientCount} member${recipientCount === 1 ? '' : 's'}`}
         </button>
       </div>
     </form>
