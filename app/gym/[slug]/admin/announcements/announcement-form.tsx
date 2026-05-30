@@ -5,11 +5,26 @@ import { useRouter } from 'next/navigation';
 import { sendGymAnnouncement } from '@/lib/actions/announcements';
 import { useToast } from '@/lib/toast';
 
-export function AnnouncementForm({ slug, memberCount }: { slug: string; memberCount: number }) {
+type TagOption = { tag: string; count: number };
+
+export function AnnouncementForm({
+  slug,
+  memberCount,
+  tagOptions,
+}: {
+  slug: string;
+  memberCount: number;
+  tagOptions: TagOption[];
+}) {
   const [pending, start] = useTransition();
   const router = useRouter();
   const toast = useToast();
   const [message, setMessage] = useState('');
+  const [tag, setTag] = useState('');
+
+  // Effective recipient count for the CTA + confirm prompt.
+  const recipientCount = tag === '' ? memberCount : (tagOptions.find((o) => o.tag === tag)?.count ?? 0);
+  const recipientLabel = tag === '' ? 'all active members' : `members tagged "${tag}"`;
 
   return (
     <form
@@ -19,13 +34,14 @@ export function AnnouncementForm({ slug, memberCount }: { slug: string; memberCo
         e.preventDefault();
         const form = e.currentTarget;
         const fd = new FormData(form);
-        if (!window.confirm(`Send this announcement to all ${memberCount} active member${memberCount === 1 ? '' : 's'}?`)) return;
+        if (!window.confirm(`Send this announcement to ${recipientCount} ${recipientLabel}?`)) return;
         start(async () => {
           const r = await sendGymAnnouncement(slug, fd);
           if (r.ok) {
             toast(`Announcement sent to ${r.recipients} member${r.recipients === 1 ? '' : 's'}`, 'success');
             form.reset();
             setMessage('');
+            setTag('');
             router.refresh();
           } else {
             toast(r.error ?? 'Failed to send', 'error');
@@ -49,6 +65,27 @@ export function AnnouncementForm({ slug, memberCount }: { slug: string; memberCo
       </div>
 
       <div className="gf-form-group form-grid-full">
+        <label className="gf-label" htmlFor="tag">Send to</label>
+        <select
+          id="tag"
+          name="tag"
+          className="gf-input"
+          value={tag}
+          onChange={(e) => setTag(e.target.value)}
+        >
+          <option value="">All active members ({memberCount})</option>
+          {tagOptions.map((o) => (
+            <option key={o.tag} value={o.tag}>Tagged: {o.tag} ({o.count})</option>
+          ))}
+        </select>
+        <p className="gf-form-hint">
+          {tagOptions.length === 0
+            ? 'Add tags from any member\'s profile to enable segmented broadcasts.'
+            : 'Target a specific segment, or leave on All to message everyone.'}
+        </p>
+      </div>
+
+      <div className="gf-form-group form-grid-full">
         <label className="gf-label" htmlFor="message">Message <span className="req">*</span></label>
         <textarea
           id="message"
@@ -65,8 +102,8 @@ export function AnnouncementForm({ slug, memberCount }: { slug: string; memberCo
       </div>
 
       <div className="form-grid-full" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button type="submit" className="gf-btn gf-btn-primary" disabled={pending || memberCount === 0}>
-          {pending ? 'Sending…' : `Send to ${memberCount} member${memberCount === 1 ? '' : 's'}`}
+        <button type="submit" className="gf-btn gf-btn-primary" disabled={pending || recipientCount === 0}>
+          {pending ? 'Sending…' : `Send to ${recipientCount} ${tag === '' ? 'member' : 'tagged'}${recipientCount === 1 ? '' : 's'}`}
         </button>
       </div>
     </form>

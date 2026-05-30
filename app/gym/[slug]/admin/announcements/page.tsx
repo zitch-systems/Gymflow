@@ -27,7 +27,7 @@ export default async function AdminAnnouncementsPage({ params }: PageProps) {
   // Active member count (recipients) + a digest of recent broadcasts. The
   // notifications table holds one row per recipient per send, so we group by
   // (title, sent_at) to show one line per announcement with its reach.
-  const [{ count: memberCount }, { data: notifs }] = await Promise.all([
+  const [{ count: memberCount }, { data: notifs }, { data: tagRowsRaw }] = await Promise.all([
     admin
       .from('gym_member_links')
       .select('id', { count: 'exact', head: true })
@@ -41,7 +41,23 @@ export default async function AdminAnnouncementsPage({ params }: PageProps) {
       .eq('type', 'announcement')
       .order('sent_at', { ascending: false })
       .limit(200),
+    // Distinct tag values at this gym, for the targeting dropdown. The
+    // member_tags table isn't in the generated types yet (migration
+    // 20260530_member_tags_and_notes.sql); cast through never.
+    admin
+      .from('member_tags' as never)
+      .select('tag')
+      .eq('gym_id' as never, gym.id),
   ]);
+
+  // Distinct, sorted tag list with a per-tag member count, so the dropdown
+  // can show "VIP (3)" instead of bare names.
+  const tagRows = (tagRowsRaw ?? []) as unknown as Array<{ tag: string }>;
+  const tagCounts = new Map<string, number>();
+  for (const t of tagRows) tagCounts.set(t.tag, (tagCounts.get(t.tag) ?? 0) + 1);
+  const tagOptions = [...tagCounts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => a.tag.localeCompare(b.tag));
 
   const rows = (notifs ?? []) as SentRow[];
   const sent = new Map<string, { title: string; channel: string | null; sent_at: string | null; count: number }>();
@@ -62,7 +78,7 @@ export default async function AdminAnnouncementsPage({ params }: PageProps) {
 
       <Card>
         <CardHeader title="New announcement" />
-        <AnnouncementForm slug={slug} memberCount={memberCount ?? 0} />
+        <AnnouncementForm slug={slug} memberCount={memberCount ?? 0} tagOptions={tagOptions} />
       </Card>
 
       <Card>
