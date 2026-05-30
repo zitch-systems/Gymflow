@@ -4577,6 +4577,120 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 .status-pill.off { background: var(--gf-danger-soft); color: var(--gf-danger); }
 
 /* ── Member dashboard ────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────
+   Member dashboard — native-app home screen. Structure + tokens mirror the
+   GymFlow Design System's revamp/member.html (the canonical member-PWA spec).
+   ───────────────────────────────────────────────────────────────────────── */
+.member-app { gap: 16px; }
+
+/* Greeting header (.mhead in the spec) */
+.m-head { display: flex; align-items: center; gap: 11px; padding: 2px 2px 6px; }
+.m-head-avatar {
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; overflow: hidden;
+  display: inline-grid; place-items: center;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  border: 1px solid var(--gf-brand-glow);
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.05rem;
+  text-decoration: none; transition: transform var(--gf-t-fast);
+}
+.m-head-avatar:active { transform: scale(0.94); }
+.m-head-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.m-head-text { display: flex; flex-direction: column; min-width: 0; }
+.m-head-text small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.m-head-text strong { font-family: var(--gf-font-display); font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em; }
+.m-head-bell {
+  margin-left: auto; flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: 50%;
+  display: inline-grid; place-items: center;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  color: var(--gf-text-secondary); text-decoration: none;
+  transition: all var(--gf-t-fast);
+}
+.m-head-bell:hover { border-color: var(--gf-brand); color: var(--gf-brand); }
+.m-head-bell:active { transform: scale(0.92); }
+
+/* Status card (.status in the spec): always brand gradient, volt-lime bar */
+.m-status {
+  position: relative; overflow: hidden;
+  background: linear-gradient(150deg, var(--gf-brand), var(--gf-brand-dark));
+  border-radius: var(--gf-radius-lg);
+  padding: 20px; color: #fff;
+}
+.m-status::after {
+  content: ''; position: absolute; right: -30px; top: -30px;
+  width: 140px; height: 140px;
+  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  pointer-events: none;
+}
+.m-status-tag {
+  position: relative; z-index: 1;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--gf-font-display); font-weight: 700; font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: var(--gf-radius-pill);
+}
+.m-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+.m-status-plan {
+  position: relative; z-index: 1;
+  font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 800;
+  margin: 14px 0 2px; letter-spacing: -0.02em;
+}
+.m-status-meta { position: relative; z-index: 1; font-size: 0.82rem; opacity: 0.92; }
+.m-status-barwrap {
+  position: relative; z-index: 1;
+  height: 7px; background: rgba(255,255,255,0.25); border-radius: 99px;
+  margin: 16px 0 8px; overflow: hidden;
+}
+.m-status-bar { height: 100%; background: var(--gf-accent); border-radius: 99px; transition: width var(--gf-t-slow); }
+.m-status-days {
+  position: relative; z-index: 1;
+  font-size: 0.78rem; opacity: 0.92; display: flex; justify-content: space-between;
+}
+.m-status-renew { position: relative; z-index: 1; margin-top: 14px; }
+
+/* White button — for use on coloured surfaces (e.g. the status gradient) */
+.gf-btn-light { background: #fff; color: #0f172a; border: none; }
+.gf-btn-light:hover { background: #f1f5f9; color: #0f172a; }
+
+/* Quick actions (.qa): 3-up, icon-over-label, brand-green icons */
+.m-qa { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.m-qa-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 8px; border-radius: var(--gf-radius);
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  color: var(--gf-text); text-decoration: none;
+  font-family: var(--gf-font-display); font-weight: 600; font-size: 0.76rem;
+  transition: all var(--gf-t-fast);
+}
+.m-qa-tile:hover, .m-qa-tile:active { border-color: var(--gf-brand); color: var(--gf-brand); transform: translateY(-2px); }
+.m-qa-tile svg { width: 20px; height: 20px; color: var(--gf-brand); }
+
+/* Section title (.sect-t) */
+.m-sect-t {
+  font-family: var(--gf-font-display); font-weight: 700; font-size: 0.92rem;
+  margin: 6px 2px 0; display: flex; justify-content: space-between; align-items: center;
+}
+
+/* Compact list cards (.lc) for secondary destinations */
+.m-links { display: flex; flex-direction: column; gap: 8px; }
+.m-lc {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-sm); text-decoration: none; color: var(--gf-text);
+  transition: border-color var(--gf-t-fast), transform var(--gf-t-fast);
+}
+.m-lc:hover { border-color: var(--gf-brand); }
+.m-lc:active { transform: scale(0.99); }
+.m-lc-ic {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+}
+.m-lc-m { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.m-lc-m strong { font-family: var(--gf-font-display); font-size: 0.86rem; font-weight: 600; }
+.m-lc-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.m-lc-chev { color: var(--gf-text-muted); flex-shrink: 0; }
+
 .member-portal {
   max-width: 600px;
   margin: 0 auto;

@@ -2,17 +2,12 @@ import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate, daysLeft } from '@/lib/format';
-import { signOut } from '@/lib/auth/actions';
+import { fmtDate, daysLeft, firstName } from '@/lib/format';
 import { SubscriptionActions } from './subscription-actions';
-import { QuickAction } from '@/components/ui/quick-action';
 import { Card, CardHeader } from '@/components/ui/card';
-import { StatusPill } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/ui/page-header';
 import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
 import { daysAgoIso } from '@/lib/dates';
-import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, LogOut, Flame, MapPin, Clock, Settings } from 'lucide-react';
+import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, Flame, MapPin, Clock, Settings, ChevronRight, Dumbbell } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -90,39 +85,102 @@ export default async function MemberDashboard({ params }: PageProps) {
   const activity = computeActivity((checkIns ?? []).map((c) => c.checked_in_at));
   const nextClass = findNextClass((schedules ?? []) as unknown as ScheduleRow[]);
 
-  return (
-    <div className="member-portal">
-      <PageHeader
-        title={gym.name}
-        subtitle="Member Portal"
-        actions={
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />}>
-              Sign out
-            </Button>
-          </form>
-        }
-      />
+  const memberName = firstName(profile?.full_name ?? profile?.first_name);
+  const avatarInitial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
 
-      <div className={`status-card ${isActive ? 'is-active' : 'is-inactive'}`}>
-        <div className="status-card-header">
-          <StatusPill tone={isActive ? 'on' : 'off'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
-          <span className="status-card-meta">{slug}.gymflow.ng</span>
+  // Progress bar: how much of the current billing period is used. The design
+  // system's status card shows a volt-lime fill of "days used vs left".
+  let pctUsed = 0;
+  let daysUsed = 0;
+  if (subscription?.end_date && subscription?.start_date) {
+    const start = new Date(subscription.start_date).getTime();
+    const end = new Date(subscription.end_date).getTime();
+    // Server component, request-scoped — current time is legitimately
+    // request state, not a purity violation.
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now();
+    if (end > start) {
+      pctUsed = Math.min(100, Math.max(0, Math.round(((now - start) / (end - start)) * 100)));
+      daysUsed = Math.max(0, Math.round((now - start) / 86_400_000));
+    }
+  }
+
+  return (
+    <div className="member-portal member-app">
+      {/* Greeting header — gym name (small) over "Hi, {name} 👋" + avatar.
+          Matches the design-system member.html .mhead pattern. */}
+      <header className="m-head">
+        <Link href="/dashboard/profile" className="m-head-avatar" aria-label="Profile & settings">
+          {profile?.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.photo_url} alt="" />
+          ) : (
+            <span>{avatarInitial}</span>
+          )}
+        </Link>
+        <div className="m-head-text">
+          <small>{gym.name}</small>
+          <strong>Hi, {memberName} 👋</strong>
         </div>
-        <div className="status-card-value">{remaining}</div>
-        <div className="status-card-label">days remaining</div>
+        <Link href="/checkin" className="m-head-bell" aria-label="Check in">
+          <ScanLine size={18} strokeWidth={1.9} />
+        </Link>
+      </header>
+
+      {/* Membership status card — gradient, progress bar (days used / left). */}
+      <div className="m-status">
+        <span className="m-status-tag">
+          <span className="m-status-dot" aria-hidden />
+          {isActive ? 'Active' : subscription ? 'Expired' : 'No plan'}
+        </span>
+        <div className="m-status-plan">{isActive ? `${remaining} day${remaining === 1 ? '' : 's'} left` : subscription ? 'Membership expired' : 'No active membership'}</div>
+        <div className="m-status-meta">
+          {subscription ? `Renews ${fmtDate(subscription.end_date)}` : 'Renew to start training'}
+        </div>
         {subscription && (
-          <div className="status-card-due">Next due: {fmtDate(subscription.end_date)}</div>
+          <>
+            <div className="m-status-barwrap"><div className="m-status-bar" style={{ width: `${pctUsed}%` }} /></div>
+            <div className="m-status-days">
+              <span>{daysUsed} days used</span>
+              <span>{remaining} days left</span>
+            </div>
+          </>
+        )}
+        {!isActive && (
+          <Link href="/dashboard/renew" className="gf-btn gf-btn-light gf-btn-sm m-status-renew">Renew membership</Link>
         )}
       </div>
 
-      <section className="member-quick-actions">
-        <QuickAction href="/checkin" icon={ScanLine} label="Check In" />
-        <QuickAction href="/classes" icon={CalendarDays} label="Classes" />
-        <QuickAction href="/dashboard/instructors" icon={GraduationCap} label="Coaches" />
-        <QuickAction href="/dashboard/renew" icon={CreditCard} label="Renew" />
-        <QuickAction href="/dashboard/cards" icon={Wallet} label="Cards" />
-        <QuickAction href="/dashboard/profile" icon={Settings} label="Settings" />
+      {/* Quick actions — 3-up, icon-over-label (design-system .qa). */}
+      <section className="m-qa">
+        <Link href="/checkin" className="m-qa-tile"><ScanLine /> Check in</Link>
+        <Link href="/classes" className="m-qa-tile"><CalendarDays /> Book class</Link>
+        <Link href="/dashboard/renew" className="m-qa-tile"><CreditCard /> Renew</Link>
+      </section>
+
+      {/* Secondary destinations — compact list cards. */}
+      <div className="m-sect-t">More</div>
+      <section className="m-links">
+        <Link href="/dashboard/instructors" className="m-lc">
+          <span className="m-lc-ic"><GraduationCap size={18} strokeWidth={1.9} /></span>
+          <span className="m-lc-m"><strong>Coaches</strong><small>Browse & subscribe</small></span>
+          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
+        </Link>
+        <Link href="/dashboard/pt-packs" className="m-lc">
+          <span className="m-lc-ic"><Dumbbell size={18} strokeWidth={1.9} /></span>
+          <span className="m-lc-m"><strong>Personal training</strong><small>Buy & track session packs</small></span>
+          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
+        </Link>
+        <Link href="/dashboard/cards" className="m-lc">
+          <span className="m-lc-ic"><Wallet size={18} strokeWidth={1.9} /></span>
+          <span className="m-lc-m"><strong>Saved cards</strong><small>Manage payment methods</small></span>
+          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
+        </Link>
+        <Link href="/dashboard/profile" className="m-lc">
+          <span className="m-lc-ic"><Settings size={18} strokeWidth={1.9} /></span>
+          <span className="m-lc-m"><strong>Settings</strong><small>Profile, notifications, password</small></span>
+          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
+        </Link>
       </section>
 
       <div className="member-cards-row">
@@ -238,36 +296,6 @@ export default async function MemberDashboard({ params }: PageProps) {
         </Card>
       )}
 
-      <Card>
-        <CardHeader title="Your profile" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '4px 18px 12px' }}>
-          {profile?.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.photo_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gf-border)' }} />
-          ) : (
-            <div style={{ width: 56, height: 56, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>
-              {(profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div style={{ fontSize: 13, color: 'var(--gf-text-muted)' }}>
-            <a href="/dashboard/profile" style={{ color: 'var(--gf-brand)', fontWeight: 600, textDecoration: 'none' }}>Edit profile &amp; photo</a>
-          </div>
-        </div>
-        <dl className="gf-detail-list">
-          <div>
-            <dt>Name</dt>
-            <dd>{profile?.full_name ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Email</dt>
-            <dd>{profile?.email ?? user.email ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Phone</dt>
-            <dd>{profile?.phone ?? '—'}</dd>
-          </div>
-        </dl>
-      </Card>
     </div>
   );
 }

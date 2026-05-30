@@ -39,3 +39,23 @@ export function relativeTime(date: string | Date | null | undefined): string {
   if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
   return d.toLocaleDateString();
 }
+
+/**
+ * Time-of-day greeting in West Africa Time (UTC+1) — GymFlow's market is
+ * Nigeria, so the greeting should track the member's local morning/evening
+ * regardless of which region the server function runs in. `now` is injectable
+ * for deterministic tests.
+ */
+export function greeting(now: Date = new Date()): string {
+  // Shift to WAT (UTC+1) then read the hour off the UTC clock.
+  const watHour = new Date(now.getTime() + 60 * 60 * 1000).getUTCHours();
+  if (watHour < 12) return 'Good morning';
+  if (watHour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/** First name from a full name (or a fallback). */
+export function firstName(full: string | null | undefined, fallback = 'there'): string {
+  const f = (full ?? '').trim().split(/\s+/)[0];
+  return f || fallback;
+}

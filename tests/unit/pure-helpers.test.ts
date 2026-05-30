@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { computeActivity, findNextClass, dayKey, type ScheduleRow } from '@/lib/activity';
 import { daysFromNowDate, daysAgoDate, todayDate } from '@/lib/dates';
-import { fmtNaira, daysLeft, relativeTime } from '@/lib/format';
+import { fmtNaira, daysLeft, relativeTime, greeting, firstName } from '@/lib/format';
 
 // Pure helpers — no Supabase, no mocking. activity.ts carries the trickiest
 // logic (streak walk-back, next-class scheduling), so it gets the most cases.
@@ -184,5 +184,25 @@ describe('format helpers', () => {
     expect(relativeTime(new Date('2026-05-27T12:00:00Z'))).toBe('2d ago');
     expect(relativeTime(null)).toBe('');
     vi.useRealTimers();
+  });
+
+  it('greeting tracks West Africa Time (UTC+1), not the server clock', () => {
+    // 06:00 UTC = 07:00 WAT → morning
+    expect(greeting(new Date('2026-05-29T06:00:00Z'))).toBe('Good morning');
+    // 11:30 UTC = 12:30 WAT → afternoon (boundary just past noon WAT)
+    expect(greeting(new Date('2026-05-29T11:30:00Z'))).toBe('Good afternoon');
+    // 16:30 UTC = 17:30 WAT → evening
+    expect(greeting(new Date('2026-05-29T16:30:00Z'))).toBe('Good evening');
+    // 23:30 UTC = 00:30 WAT next day → morning (the WAT-shift wraps the day)
+    expect(greeting(new Date('2026-05-29T23:30:00Z'))).toBe('Good morning');
+  });
+
+  it('firstName takes the first token, with a fallback', () => {
+    expect(firstName('Ada Lovelace')).toBe('Ada');
+    expect(firstName('  Bem  Doe ')).toBe('Bem');
+    expect(firstName('Tunde')).toBe('Tunde');
+    expect(firstName(null)).toBe('there');
+    expect(firstName('', 'Member')).toBe('Member');
+    expect(firstName(undefined, 'Member')).toBe('Member');
   });
 });
