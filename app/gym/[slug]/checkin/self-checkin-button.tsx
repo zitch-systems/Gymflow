@@ -4,7 +4,10 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ScanLine } from 'lucide-react';
 import { selfCheckIn, selfCheckInByQrPayload } from '@/lib/actions/checkin';
+import { enqueueCheckin, flushCheckins } from '@/lib/checkin-queue';
 import { useToast } from '@/lib/toast';
+
+const OFFLINE_SAVED = "You're offline — we'll check you in automatically when you reconnect.";
 
 export function SelfCheckInButton({ slug }: { slug: string }) {
   const [pending, start] = useTransition();
@@ -26,6 +29,44 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
       toast(res.error, 'error');
     }
   }
+
+  // Self check-in with offline fallback. If we're offline (or the request
+  // drops mid-flight) we queue the intent with its arrival time and let the
+  // reconnect flush replay it, rather than failing the member at the door.
+  async function runSelfCheckin(qrPayload?: string) {
+    const occurredAt = new Date().toISOString();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      const saved = await enqueueCheckin(slug, occurredAt);
+      toast(saved ? OFFLINE_SAVED : "You're offline and we couldn't save the check-in. Try again.", saved ? 'success' : 'error');
+      return;
+    }
+    try {
+      const res = qrPayload != null
+        ? await selfCheckInByQrPayload(slug, qrPayload)
+        : await selfCheckIn(slug, occurredAt);
+      handleResult(res);
+    } catch {
+      // Network dropped between offline check and the request — queue it.
+      const saved = await enqueueCheckin(slug, occurredAt);
+      toast(saved ? OFFLINE_SAVED : 'Check-in failed — please try again.', saved ? 'success' : 'error');
+    }
+  }
+
+  // On load and whenever connectivity returns, replay any queued check-ins.
+  useEffect(() => {
+    const flush = () => {
+      void flushCheckins((q) => selfCheckIn(q.slug, q.occurredAt)).then(({ synced }) => {
+        if (synced > 0) {
+          toast(`${synced} offline check-in${synced === 1 ? '' : 's'} synced.`, 'success');
+          router.refresh();
+        }
+      });
+    };
+    flush();
+    window.addEventListener('online', flush);
+    return () => window.removeEventListener('online', flush);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   async function stopScanner() {
     if (scannerRef.current) {
@@ -60,8 +101,7 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
         async (decoded) => {
           await stopScanner();
           start(async () => {
-            const res = await selfCheckInByQrPayload(slug, decoded);
-            handleResult(res);
+            await runSelfCheckin(decoded);
           });
         },
         () => {
@@ -102,7 +142,7 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
             onClick={() => {
               start(async () => {
                 await stopScanner();
-                handleResult(await selfCheckIn(slug));
+                await runSelfCheckin();
               });
             }}
           >
@@ -134,7 +174,7 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
         type="button"
         className="gf-btn gf-btn-ghost gf-btn-full"
         disabled={pending}
-        onClick={() => start(async () => handleResult(await selfCheckIn(slug)))}
+        onClick={() => start(async () => runSelfCheckin())}
       >
         Or check me in without scanning
       </button>

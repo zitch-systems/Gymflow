@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getGymBySlug, getStaffRole } from '@/lib/auth/gym';
 import { getSessionUser } from '@/lib/auth/dal';
+import { sanitizeOccurredAt } from '@/lib/offline-checkin';
 
 export type CheckInResult =
   | {
@@ -19,7 +20,7 @@ const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 export async function checkInBySlug(
   slug: string,
   memberId: string,
-  opts: { method?: 'qr' | 'manual' | 'self'; deviceInfo?: string } = {},
+  opts: { method?: 'qr' | 'manual' | 'self'; deviceInfo?: string; occurredAt?: string } = {},
 ): Promise<CheckInResult> {
   if (!memberId) return { ok: false, error: 'Member ID required' };
 
@@ -56,6 +57,12 @@ export async function checkInBySlug(
   if (link.is_active === false) return { ok: false, error: 'Membership is inactive' };
 
   const todayIso = new Date().toISOString();
+  // Offline replay: an enqueued check-in carries its original arrival time so
+  // the visit log is accurate. The value is client-supplied, so it passes
+  // through the sanitize gate (not future, not older than the max age);
+  // anything unusable falls back to "now".
+  const checkedInAt = sanitizeOccurredAt(opts.occurredAt, Date.now()) ?? todayIso;
+
   const { data: subs } = await supabase
     .from('memberships')
     .select('id, end_date, status')
@@ -88,7 +95,7 @@ export async function checkInBySlug(
   const { error: insertError } = await supabase.from('check_ins').insert({
     member_id: memberId,
     gym_id: gym.id,
-    checked_in_at: todayIso,
+    checked_in_at: checkedInAt,
     check_in_method: method,
     device_info: opts.deviceInfo ?? null,
     status: 'active',
@@ -116,10 +123,10 @@ export async function checkInBySlug(
   return { ok: true, memberName, daysLeft, subscriptionEndDate: sub?.end_date ?? null };
 }
 
-export async function selfCheckIn(slug: string): Promise<CheckInResult> {
+export async function selfCheckIn(slug: string, occurredAt?: string): Promise<CheckInResult> {
   const user = await getSessionUser();
   if (!user) return { ok: false, error: 'Not signed in' };
-  return checkInBySlug(slug, user.id, { method: 'self' });
+  return checkInBySlug(slug, user.id, { method: 'self', occurredAt });
 }
 
 export async function selfCheckInByQrPayload(slug: string, scannedPayload: string): Promise<CheckInResult> {
