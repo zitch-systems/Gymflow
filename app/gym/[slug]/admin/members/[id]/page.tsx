@@ -1,14 +1,17 @@
 import { notFound } from 'next/navigation';
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDate, fmtDateTime, fmtNaira, daysLeft } from '@/lib/format';
 import { MemberAdminActions } from './member-admin-actions';
+import { TagsAndNotesCard } from './tags-notes-card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
 import { ButtonLink } from '@/components/ui/button';
 import { StatusPill } from '@/components/ui/badge';
-import { ArrowLeft, ClipboardList, Banknote, MapPin } from 'lucide-react';
+import { ArrowLeft, ClipboardList, Banknote, MapPin, Cake } from 'lucide-react';
+import { daysUntilBirthday } from '@/lib/birthdays';
 
 type PageProps = { params: Promise<{ slug: string; id: string }> };
 
@@ -17,13 +20,17 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
   const { gym } = await requireStaff(slug);
 
   const supabase = await createClient();
+  // staff_notes ships in 20260530_member_tags_and_notes.sql but isn't in the
+  // generated types yet — cast through never so the select typechecks against
+  // the older union.
   const { data: link } = await supabase
     .from('gym_member_links')
-    .select('joined_at, status, is_active, onboarding_method')
+    .select('joined_at, status, is_active, onboarding_method, staff_notes' as never)
     .eq('gym_id', gym.id)
     .eq('user_id', id)
     .maybeSingle();
   if (!link) notFound();
+  const linkRow = link as unknown as { joined_at: string | null; status: string | null; is_active: boolean | null; onboarding_method: string | null; staff_notes: string | null };
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -31,7 +38,11 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
     .eq('id', id)
     .maybeSingle();
 
-  const [{ data: memberships }, { data: payments }, { data: checkIns }] = await Promise.all([
+  // member_tags reads via the service-role client — the table has no
+  // authenticated-role policies by design (admin-only writes, admin-only
+  // reads from the staff portal). requireStaff above proves authorization.
+  const adminClient = createAdminClient();
+  const [{ data: memberships }, { data: payments }, { data: checkIns }, { data: tagRowsRaw }] = await Promise.all([
     supabase
       .from('memberships')
       .select('id, start_date, end_date, status, plan_id, auto_debit_enabled, auto_renew, membership_plans:plan_id(name, price)')
@@ -53,7 +64,15 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
       .eq('member_id', id)
       .order('checked_in_at', { ascending: false })
       .limit(10),
+    adminClient
+      .from('member_tags' as never)
+      .select('tag')
+      .eq('gym_id' as never, gym.id)
+      .eq('user_id' as never, id)
+      .order('created_at' as never, { ascending: true }),
   ]);
+  const tags = ((tagRowsRaw ?? []) as unknown as Array<{ tag: string }>).map((r) => r.tag);
+  const bday = daysUntilBirthday(profile?.date_of_birth);
 
   const active = memberships?.[0];
   const left = active ? daysLeft(active.end_date) : 0;
@@ -61,10 +80,28 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
   return (
     <div className="gf-page">
       <PageHeader
-        title={profile?.full_name ?? profile?.email ?? 'Member'}
+        title={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            {profile?.full_name ?? profile?.email ?? 'Member'}
+            {bday === 0 && (
+              <span
+                className="status-pill on"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+                title={`Birthday today · ${fmtDate(profile?.date_of_birth ?? null)}`}
+              >
+                <Cake size={12} strokeWidth={2.25} /> Birthday today
+              </span>
+            )}
+            {bday !== null && bday > 0 && bday <= 7 && (
+              <span className="status-pill" style={{ fontSize: 12 }}>
+                🎂 in {bday} day{bday === 1 ? '' : 's'}
+              </span>
+            )}
+          </span>
+        }
         subtitle={
           <>
-            Joined {fmtDate(link.joined_at)} · {link.onboarding_method ?? 'unknown'} ·{' '}
+            Joined {fmtDate(linkRow.joined_at)} · {linkRow.onboarding_method ?? 'unknown'} ·{' '}
             <StatusPill tone={active && left > 0 ? 'on' : 'off'}>
               {active && left > 0 ? `${left} days left` : active?.status ?? 'no plan'}
             </StatusPill>
@@ -125,6 +162,16 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
             <dd>{profile?.waiver_signed_at ? fmtDate(profile.waiver_signed_at) : 'No'}</dd>
           </div>
         </dl>
+      </Card>
+
+      <Card>
+        <CardHeader title="Tags & staff notes" />
+        <TagsAndNotesCard
+          slug={slug}
+          memberId={id}
+          initialTags={tags}
+          initialNotes={linkRow.staff_notes}
+        />
       </Card>
 
       <Card>
