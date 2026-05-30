@@ -7,7 +7,7 @@ import { SubscriptionActions } from './subscription-actions';
 import { Card, CardHeader } from '@/components/ui/card';
 import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
 import { daysAgoIso } from '@/lib/dates';
-import { ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, Flame, MapPin, Clock, Settings, ChevronRight, Dumbbell } from 'lucide-react';
+import { Bell, ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, Flame, MapPin, Clock, Settings, ChevronRight, Dumbbell } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -67,7 +67,7 @@ export default async function MemberDashboard({ params }: PageProps) {
     .eq('is_active' as never, true);
   const ptPacksAvailable = (ptPackOfferCount ?? 0) > 0;
 
-  const [{ data: checkIns }, { data: schedules }] = await Promise.all([
+  const [{ data: checkIns }, { data: schedules }, { count: unreadCountRaw }] = await Promise.all([
     supabase
       .from('check_ins')
       .select('checked_in_at')
@@ -80,7 +80,16 @@ export default async function MemberDashboard({ params }: PageProps) {
       .select('day_of_week, start_time, end_time, room, classes(name, instructor)')
       .eq('gym_id', gym.id)
       .eq('is_active', true),
+    // Inbox bell badge — head:true returns a count without rows so we don't
+    // pay the bytes for an unused list. RLS scopes to the caller's own rows.
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('gym_id', gym.id)
+      .eq('is_read', false),
   ]);
+  const unreadCount = unreadCountRaw ?? 0;
 
   const activity = computeActivity((checkIns ?? []).map((c) => c.checked_in_at));
   const nextClass = findNextClass((schedules ?? []) as unknown as ScheduleRow[]);
@@ -122,8 +131,11 @@ export default async function MemberDashboard({ params }: PageProps) {
           <small>{gym.name}</small>
           <strong>Hi, {memberName} 👋</strong>
         </div>
-        <Link href="/checkin" className="m-head-bell" aria-label="Check in">
-          <ScanLine size={18} strokeWidth={1.9} />
+        <Link href="/dashboard/inbox" className="m-head-bell" aria-label={unreadCount > 0 ? `Inbox · ${unreadCount} unread` : 'Inbox'}>
+          <Bell size={18} strokeWidth={1.9} />
+          {unreadCount > 0 ? (
+            <span className="m-head-bell-badge" aria-hidden>{unreadCount > 99 ? '99+' : unreadCount}</span>
+          ) : null}
         </Link>
       </header>
 
