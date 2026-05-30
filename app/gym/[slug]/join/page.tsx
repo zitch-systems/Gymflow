@@ -10,31 +10,30 @@ type PageProps = {
 export default async function JoinPage({ params }: PageProps) {
   const { slug } = await params;
   const gym = await getGymBySlug(slug);
+  const gymName = gym?.name ?? 'GymFlow';
 
   return (
     <div className="join-wrap">
-      <header className="gf-header">
-        <div className="flex items-center gap-3">
-          <div className="gym-avatar gym-avatar-sm" aria-hidden>
-            {gym?.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={gym.logo_url}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
-              />
-            ) : (
-              (gym?.name?.charAt(0) ?? 'G').toUpperCase()
-            )}
-          </div>
-          <div>
-            <div className="join-header-title">{gym ? gym.name : 'Join GymFlow'}</div>
-            <div className="join-header-subtitle">Member Registration</div>
-          </div>
-        </div>
-        <Link href="/login" className="join-signin-link">
-          Sign In
+      <nav className="join-nav" aria-label="Top">
+        <Link href="/" className="join-back" aria-label={`Back to ${gymName}`}>
+          {gym?.logo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={gym.logo_url} alt="" className="join-nav-logo" />
+          ) : (
+            <span className="join-nav-mark" aria-hidden>{gymName.charAt(0).toUpperCase()}</span>
+          )}
+          <span className="join-nav-label">{gymName}</span>
         </Link>
+        <Link href="/login" className="join-signin-link">
+          Already a member? <strong>Sign in</strong>
+        </Link>
+      </nav>
+
+      <header className="join-hero">
+        <h1 className="join-hero-title">Welcome to {gymName}</h1>
+        <p className="join-hero-sub">
+          Set up your membership in two minutes — we&apos;ll keep you signed in afterwards.
+        </p>
       </header>
 
       <JoinForm gymSlug={slug} />
