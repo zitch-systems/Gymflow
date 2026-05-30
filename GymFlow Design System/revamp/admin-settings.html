@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Settings</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .set-wrap { display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start; }
+  .subnav { position:sticky; top:88px; display:flex; flex-direction:column; gap:2px; }
+  .subnav a { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--gf-radius-sm); color:var(--gf-text-secondary); font-family:var(--gf-font-display); font-weight:600; font-size:0.875rem; text-decoration:none; cursor:pointer; transition:all var(--gf-t); }
+  .subnav a i { width:17px; height:17px; color:var(--gf-text-muted); }
+  .subnav a:hover { background:var(--gf-elevated); color:var(--gf-text); }
+  .subnav a.on { background:var(--gf-brand-soft); color:var(--gf-brand); }
+  .subnav a.on i { color:var(--gf-brand); }
+  .sec { display:none; }
+  .sec.on { display:block; }
+  .sec > .panel { margin-bottom:16px; }
+  .panel-title { font-family:var(--gf-font-display); font-weight:700; font-size:1.05rem; margin:0 0 4px; }
+  .panel-desc { color:var(--gf-text-muted); font-size:0.82rem; margin:0 0 18px; }
+  .frow { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+  .integ { display:flex; align-items:center; gap:14px; padding:14px 0; border-top:1px solid var(--gf-border); }
+  .integ:first-child { border-top:none; }
+  .integ .ig { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; flex-shrink:0; }
+  .integ .ig i { width:20px; height:20px; }
+  .integ .m { flex:1; min-width:0; }
+  .integ .m strong { font-family:var(--gf-font-display); font-size:0.92rem; font-weight:600; display:block; }
+  .integ .m small { color:var(--gf-text-muted); font-size:0.8rem; }
+  .hours { display:flex; flex-direction:column; }
+  .hrow { display:flex; align-items:center; gap:16px; padding:12px 0; border-top:1px solid var(--gf-border); }
+  .hrow:first-child { border-top:none; }
+  .hrow .dn { width:100px; font-family:var(--gf-font-display); font-weight:600; font-size:0.88rem; }
+  .hrow .tt { color:var(--gf-text-secondary); font-size:0.86rem; font-variant-numeric:tabular-nums; }
+  .hrow .tt.closed { color:var(--gf-text-muted); }
+  @media (max-width:900px){ .set-wrap{grid-template-columns:1fr} .subnav{position:static;flex-direction:row;overflow-x:auto} .frow{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="gf-sidebar" id="admSidebar"></aside>
+  <div class="main">
+    <header class="top" id="admTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>Settings</h1><p>Powerhouse Fitness · manage your gym, branding and integrations</p></div></div>
+
+      <div class="set-wrap">
+        <nav class="subnav" id="subnav">
+          <a class="on" data-s="profile"><i data-lucide="building-2"></i> Gym profile</a>
+          <a data-s="branding"><i data-lucide="palette"></i> Branding</a>
+          <a data-s="hours"><i data-lucide="clock"></i> Business hours</a>
+          <a data-s="notif"><i data-lucide="bell"></i> Notifications</a>
+          <a data-s="integ"><i data-lucide="plug"></i> Integrations</a>
+          <a data-s="team"><i data-lucide="users"></i> Team</a>
+        </nav>
+
+        <div>
+          <!-- PROFILE -->
+          <section class="sec on" data-s="profile">
+            <div class="panel">
+              <div class="panel-title">Gym profile</div>
+              <div class="panel-desc">Public details shown to members on your subdomain.</div>
+              <div class="frow"><div class="gf-form-group"><label class="gf-form-label">Gym name</label><input class="gf-input" value="Powerhouse Fitness" /></div><div class="gf-form-group"><label class="gf-form-label">Subdomain</label><input class="gf-input" value="powerhouse.gymflow.ng" /></div></div>
+              <div class="frow"><div class="gf-form-group"><label class="gf-form-label">Phone</label><input class="gf-input" value="0816 693 8327" /></div><div class="gf-form-group"><label class="gf-form-label">Email</label><input class="gf-input" value="hello@powerhouse.ng" /></div></div>
+              <div class="gf-form-group" style="margin-bottom:18px"><label class="gf-form-label">Address</label><input class="gf-input" value="41 Ogudu Road, Lagos" /></div>
+              <button class="gf-btn gf-btn-primary">Save changes</button>
+            </div>
+          </section>
+
+          <!-- BRANDING -->
+          <section class="sec" data-s="branding">
+            <div class="panel">
+              <div class="panel-title">Branding</div>
+              <div class="panel-desc">Your logo and accent colour appear across the member app.</div>
+              <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px"><img src="../assets/logomark-v2.svg" style="width:56px;height:56px" /><button class="gf-btn gf-btn-secondary gf-btn-sm"><i data-lucide="upload" style="width:15px;height:15px"></i> Replace logo</button></div>
+              <label class="gf-form-label" style="display:block;margin-bottom:10px">Accent colour</label>
+              <div style="display:flex;gap:10px">
+                <span style="width:36px;height:36px;border-radius:10px;background:#11d18b;outline:2px solid var(--gf-brand);outline-offset:2px;cursor:pointer"></span>
+                <span style="width:36px;height:36px;border-radius:10px;background:#4080ff;cursor:pointer"></span>
+                <span style="width:36px;height:36px;border-radius:10px;background:#ff4560;cursor:pointer"></span>
+                <span style="width:36px;height:36px;border-radius:10px;background:#c6f24e;cursor:pointer"></span>
+                <span style="width:36px;height:36px;border-radius:10px;background:#b67bf3;cursor:pointer"></span>
+              </div>
+            </div>
+          </section>
+
+          <!-- HOURS -->
+          <section class="sec" data-s="hours">
+            <div class="panel">
+              <div class="panel-title">Business hours</div>
+              <div class="panel-desc">When members can check in and book classes.</div>
+              <div class="hours">
+                <div class="hrow"><span class="dn">Monday</span><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label><span class="tt">05:00 – 22:00</span></div>
+                <div class="hrow"><span class="dn">Tuesday</span><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label><span class="tt">05:00 – 22:00</span></div>
+                <div class="hrow"><span class="dn">Wednesday</span><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label><span class="tt">05:00 – 22:00</span></div>
+                <div class="hrow"><span class="dn">Thursday</span><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label><span class="tt">05:00 – 22:00</span></div>
+                <div class="hrow"><span class="dn">Friday</span><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label><span class="tt">05:00 – 23:00</span></div>
+                <div class="hrow"><span class="dn">Saturday</span><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label><span class="tt">07:00 – 20:00</span></div>
+                <div class="hrow"><span class="dn">Sunday</span><label class="switch"><input type="checkbox" /><span class="track"></span><span class="thumb"></span></label><span class="tt closed">Closed</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- NOTIF -->
+          <section class="sec" data-s="notif">
+            <div class="panel">
+              <div class="panel-title">Notifications</div>
+              <div class="panel-desc">Automated reminders sent to members.</div>
+              <div class="set-row"><div class="m"><strong>Expiry reminders</strong><small>WhatsApp + email, 3 days before a membership lapses</small></div><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label></div>
+              <div class="set-row"><div class="m"><strong>Class reminders</strong><small>Push 1 hour before a booked class</small></div><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label></div>
+              <div class="set-row"><div class="m"><strong>Payment receipts</strong><small>Email receipt after every successful charge</small></div><label class="switch"><input type="checkbox" checked /><span class="track"></span><span class="thumb"></span></label></div>
+              <div class="set-row"><div class="m"><strong>Win-back campaign</strong><small>Re-engage members 14 days after lapsing</small></div><label class="switch"><input type="checkbox" /><span class="track"></span><span class="thumb"></span></label></div>
+            </div>
+          </section>
+
+          <!-- INTEG -->
+          <section class="sec" data-s="integ">
+            <div class="panel">
+              <div class="panel-title">Integrations</div>
+              <div class="panel-desc">Connected services powering payments and messaging.</div>
+              <div class="integ"><div class="ig" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="credit-card"></i></div><div class="m"><strong>Paystack</strong><small>Subscriptions &amp; auto-debit · live keys</small></div><span class="gf-badge gf-badge-success">Connected</span></div>
+              <div class="integ"><div class="ig" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="message-circle"></i></div><div class="m"><strong>WhatsApp (Termii)</strong><small>Reminder &amp; receipt delivery</small></div><span class="gf-badge gf-badge-success">Connected</span></div>
+              <div class="integ"><div class="ig" style="background:var(--gf-info-soft);color:var(--gf-info)"><i data-lucide="mail"></i></div><div class="m"><strong>Email (Resend)</strong><small>Transactional email · verified domain</small></div><span class="gf-badge gf-badge-success">Connected</span></div>
+              <div class="integ"><div class="ig" style="background:var(--gf-elevated);color:var(--gf-text-muted)"><i data-lucide="bar-chart-3"></i></div><div class="m"><strong>PostHog</strong><small>Product analytics</small></div><button class="gf-btn gf-btn-secondary gf-btn-sm">Connect</button></div>
+            </div>
+          </section>
+
+          <!-- TEAM -->
+          <section class="sec" data-s="team">
+            <div class="panel">
+              <div class="panel-title">Team</div>
+              <div class="panel-desc">Staff with access to this gym's dashboard.</div>
+              <div class="set-row"><span class="gf-avatar gf-avatar-sm" style="background:var(--gf-brand-soft);color:var(--gf-brand)">A</span><div class="m"><strong>Adunni O.</strong><small>adunni@powerhouse.ng</small></div><span class="gf-badge gf-badge-brand">Owner</span></div>
+              <div class="set-row"><span class="gf-avatar gf-avatar-sm" style="background:var(--gf-elevated)">B</span><div class="m"><strong>Bola A.</strong><small>bola@powerhouse.ng</small></div><span class="gf-badge gf-badge-neutral">Manager</span></div>
+              <div class="set-row"><span class="gf-avatar gf-avatar-sm" style="background:var(--gf-elevated)">C</span><div class="m"><strong>Chioma N.</strong><small>chioma@powerhouse.ng</small></div><span class="gf-badge gf-badge-neutral">Front desk</span></div>
+              <div class="set-row"><span class="gf-avatar gf-avatar-sm" style="background:var(--gf-elevated)">F</span><div class="m"><strong>Coach Femi</strong><small>femi@powerhouse.ng</small></div><span class="gf-badge gf-badge-info">Instructor</span></div>
+              <button class="gf-btn gf-btn-primary gf-btn-sm" style="margin-top:16px"><i data-lucide="user-plus" style="width:15px;height:15px"></i> Invite staff</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script>
+<script src="admin-shell.js"></script>
+<script>
+  const $$=s=>[...document.querySelectorAll(s)];
+  $$('#subnav a').forEach(a=>a.onclick=e=>{ e.preventDefault();
+    $$('#subnav a').forEach(x=>x.classList.remove('on')); a.classList.add('on');
+    $$('.sec').forEach(s=>s.classList.toggle('on', s.dataset.s===a.dataset.s));
+    lucide.createIcons();
+  });
+  adminShell('settings', { search:'Search settings…' });
+  buildProto('admin'); lucide.createIcons();
+</script>
+</body>
+</html>

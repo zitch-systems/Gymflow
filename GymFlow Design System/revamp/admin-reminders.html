@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Reminders</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .grid2 { display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:start; }
+  .rm { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--gf-border); }
+  .rm:first-child { border-top:none; }
+  .rm .gf-avatar { background:var(--gf-warning-soft); color:var(--gf-warning); border-color:rgba(255,176,32,.25); font-size:0.76rem; }
+  .rm .m { flex:1; min-width:0; }
+  .rm .m strong { font-family:var(--gf-font-display); font-size:0.88rem; font-weight:600; display:block; }
+  .rm .m small { color:var(--gf-text-muted); font-size:0.74rem; }
+  .log { display:flex; align-items:center; gap:11px; padding:10px 0; border-top:1px solid var(--gf-border); }
+  .log:first-child { border-top:none; }
+  .log .ic { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; flex-shrink:0; }
+  .log .ic i { width:14px; height:14px; }
+  .log .m { flex:1; min-width:0; font-size:0.82rem; }
+  .log .m small { color:var(--gf-text-muted); font-size:0.72rem; display:block; }
+  .log .t { font-size:0.72rem; color:var(--gf-text-muted); }
+  @media (max-width:1000px){ .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="gf-sidebar" id="admSidebar"></aside>
+  <div class="main">
+    <header class="top" id="admTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>Reminders</h1><p>18 memberships expiring this week · 142 reminders sent this month</p></div>
+        <button class="gf-btn gf-btn-primary" id="sendAll"><i data-lucide="send" style="width:16px;height:16px"></i> Send all due</button>
+      </div>
+
+      <section class="kpis">
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ffb0201f;color:#ffb020"><i data-lucide="clock"></i></div></div><div class="kpi-val">18</div><div class="kpi-lbl">Expiring this week</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#11d18b1f;color:#11d18b"><i data-lucide="message-circle"></i></div></div><div class="kpi-val">142</div><div class="kpi-lbl">Sent this month</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#4080ff1f;color:#4080ff"><i data-lucide="reply"></i></div></div><div class="kpi-val">61%</div><div class="kpi-lbl">Renewed after nudge</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#c6f24e1f;color:#a8d92e"><i data-lucide="zap"></i></div></div><div class="kpi-val">On</div><div class="kpi-lbl">Auto-reminders</div></div>
+      </section>
+
+      <section class="grid2">
+        <div class="panel">
+          <div class="panel-h"><div><h3>Expiring this week</h3><div class="sub">Nudge before they lapse</div></div></div>
+          <div id="list">
+            <div class="rm" data-n="Ngozi Eze"><span class="gf-avatar gf-avatar-sm">N</span><div class="m"><strong>Ngozi Eze</strong><small>Monthly · expires in 3 days</small></div><button class="gf-btn gf-btn-sm gf-btn-primary send">Remind</button></div>
+            <div class="rm" data-n="Fatima Yusuf"><span class="gf-avatar gf-avatar-sm">F</span><div class="m"><strong>Fatima Yusuf</strong><small>Monthly · expires in 5 days</small></div><button class="gf-btn gf-btn-sm gf-btn-primary send">Remind</button></div>
+            <div class="rm" data-n="David Okon"><span class="gf-avatar gf-avatar-sm">D</span><div class="m"><strong>David Okon</strong><small>Quarterly · expires in 6 days</small></div><button class="gf-btn gf-btn-sm gf-btn-primary send">Remind</button></div>
+            <div class="rm" data-n="Sade Koya"><span class="gf-avatar gf-avatar-sm">S</span><div class="m"><strong>Sade Koya</strong><small>Monthly · expires in 6 days</small></div><button class="gf-btn gf-btn-sm gf-btn-primary send">Remind</button></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div><h3>Recent reminders</h3><div class="sub">Delivery log</div></div></div>
+          <div class="log"><div class="ic" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="message-circle"></i></div><div class="m"><strong>WhatsApp delivered</strong><small>Bola Ade · expiry nudge</small></div><span class="t">12m</span></div>
+          <div class="log"><div class="ic" style="background:var(--gf-info-soft);color:var(--gf-info)"><i data-lucide="mail"></i></div><div class="m"><strong>Email opened</strong><small>Chidi Okeke · receipt</small></div><span class="t">1h</span></div>
+          <div class="log"><div class="ic" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="message-circle"></i></div><div class="m"><strong>WhatsApp delivered</strong><small>Grace Udo · class reminder</small></div><span class="t">2h</span></div>
+          <div class="log"><div class="ic" style="background:var(--gf-success-soft);color:var(--gf-success)"><i data-lucide="reply"></i></div><div class="m"><strong>Renewed after nudge</strong><small>Musa Ibrahim · Monthly</small></div><span class="t">3h</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script>
+<script src="admin-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+function toast(m){ $('#toastMsg').textContent=m; $('#toast').classList.add('show'); setTimeout(()=>$('#toast').classList.remove('show'),2000); }
+function wire(){ $$('#list .send').forEach(b=>b.onclick=()=>{ const row=b.closest('.rm'); b.outerHTML='<span class="gf-badge gf-badge-success" style="padding:6px 11px"><i data-lucide="check" style="width:12px;height:12px"></i> Sent</span>'; lucide.createIcons(); toast('Reminder sent to '+row.dataset.n); }); }
+$('#sendAll').onclick=()=>{ $$('#list .send').forEach(b=>b.click()); toast('All due reminders sent'); };
+adminShell('reminders', { search:'Search members…' });
+buildProto('admin'); wire(); lucide.createIcons();
+</script>
+</body>
+</html>

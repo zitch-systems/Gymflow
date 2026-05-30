@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — End-to-end revamp</title>
+<link rel="stylesheet" href="revamp.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { min-height:100vh; background: radial-gradient(ellipse 70% 50% at 50% -5%, var(--gf-brand-soft), transparent 65%), var(--gf-bg); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 48px clamp(20px,5vw,40px) 120px; }
+  .top-row { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:48px; }
+  .hero-h { text-align:center; margin: 30px auto 44px; max-width: 720px; }
+  .hero-h .eyebrow { display:inline-flex; align-items:center; gap:8px; font-family:var(--gf-font-display); font-weight:700; font-size:0.76rem; letter-spacing:0.02em; color:var(--gf-brand); background:var(--gf-brand-soft); border:1px solid var(--gf-border-glow); padding:7px 14px; border-radius:var(--gf-radius-pill); }
+  .hero-h h1 { font-family:var(--gf-font-display); font-size:clamp(2rem,5vw,3.2rem); font-weight:800; letter-spacing:-0.035em; line-height:1.05; margin:20px 0 12px; }
+  .hero-h h1 span { background:linear-gradient(120deg,var(--gf-brand-light),var(--gf-accent)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .hero-h p { color:var(--gf-text-secondary); font-size:1.05rem; line-height:1.6; margin:0; }
+
+  .logo-show { display:flex; align-items:center; justify-content:center; gap:40px; flex-wrap:wrap; background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius-xl); padding:32px; margin-bottom:44px; }
+  .logo-show .big { display:flex; align-items:center; gap:18px; }
+  .logo-show .big img { width:72px; height:72px; }
+  .logo-show .big .brand-tx { font-size:2.2rem; }
+  .logo-show .swatches { display:flex; gap:10px; }
+  .logo-show .sw { width:44px; height:44px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); }
+  .logo-show .meta { color:var(--gf-text-muted); font-size:0.8rem; max-width:200px; line-height:1.5; }
+
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .card { display:flex; flex-direction:column; background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius-lg); overflow:hidden; text-decoration:none; transition:all var(--gf-t); }
+  .card:hover { transform:translateY(-4px); border-color:var(--gf-brand-glow); box-shadow:var(--gf-shadow); }
+  .card .vis { height:128px; position:relative; overflow:hidden; display:grid; place-items:center; border-bottom:1px solid var(--gf-border); }
+  .card .vis .ic { width:48px; height:48px; border-radius:14px; display:grid; place-items:center; background:rgba(255,255,255,0.06); }
+  .card .vis .ic i { width:24px; height:24px; }
+  .card .body { padding:18px; }
+  .card .role { font-family:var(--gf-font-display); font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--gf-brand); }
+  .card h3 { font-family:var(--gf-font-display); font-size:1.05rem; font-weight:700; margin:6px 0 5px; color:var(--gf-text); }
+  .card p { color:var(--gf-text-secondary); font-size:0.85rem; line-height:1.5; margin:0; }
+  .card .go { display:inline-flex; align-items:center; gap:5px; color:var(--gf-brand); font-family:var(--gf-font-display); font-weight:600; font-size:0.82rem; margin-top:14px; }
+  .card .go i { width:15px; height:15px; }
+  @media (max-width:900px){ .grid{grid-template-columns:1fr 1fr} }
+  @media (max-width:600px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-row">
+      <a class="brand" href="marketing.html"><img class="mark-md" src="../assets/logomark-v2.svg" alt="" /><span class="brand-tx lg">Gym<em>Flow</em></span></a>
+      <a class="gf-btn gf-btn-secondary" href="../GymFlow Admin — Revamp.html"><i data-lucide="external-link" style="width:15px;height:15px"></i> Original admin revamp</a>
+    </div>
+
+    <div class="hero-h">
+      <span class="eyebrow"><i data-lucide="sparkles" style="width:14px;height:14px"></i> New identity · end-to-end revamp</span>
+      <h1>One brand, <span>every surface</span>.</h1>
+      <p>A fresh GymFlow identity carried through the full platform — public site, auth, the member PWA, the gym-owner dashboard, the instructor portal, and the superadmin console. Jump into any role below.</p>
+    </div>
+
+    <div class="logo-show">
+      <div class="big"><img src="../assets/logomark-v2.svg" alt="" /><span class="brand-tx">Gym<em>Flow</em></span></div>
+      <div class="swatches">
+        <div class="sw" style="background:#11d18b"></div>
+        <div class="sw" style="background:#c6f24e"></div>
+        <div class="sw" style="background:#0a0a12"></div>
+        <div class="sw" style="background:#f3f3fa"></div>
+      </div>
+      <div class="meta">"Momentum" mark — ascending bars, forward lean, volt-lime peak. Emerald + volt-lime · Plus Jakarta Sans.</div>
+    </div>
+
+    <div class="grid">
+      <a class="card" href="marketing.html">
+        <div class="vis" style="background:linear-gradient(135deg,#11d18b22,#0a0a12)"><div class="ic" style="color:#11d18b"><i data-lucide="globe"></i></div></div>
+        <div class="body"><div class="role">Public</div><h3>Marketing site</h3><p>Hero, features, pricing and social proof for prospective gym owners.</p><span class="go">Open <i data-lucide="arrow-right"></i></span></div>
+      </a>
+      <a class="card" href="login.html">
+        <div class="vis" style="background:linear-gradient(135deg,#4080ff22,#0a0a12)"><div class="ic" style="color:#4080ff"><i data-lucide="log-in"></i></div></div>
+        <div class="body"><div class="role">Auth</div><h3>Sign in &amp; onboarding</h3><p>Split brand panel with sign-in, create-gym, and role quick-access.</p><span class="go">Open <i data-lucide="arrow-right"></i></span></div>
+      </a>
+      <a class="card" href="member.html">
+        <div class="vis" style="background:linear-gradient(135deg,#11d18b22,#0a0a12)"><div class="ic" style="color:#11d18b"><i data-lucide="smartphone"></i></div></div>
+        <div class="body"><div class="role">Member · PWA</div><h3>Member app</h3><p>Membership status, QR check-in, class booking and profile — phone-first.</p><span class="go">Open <i data-lucide="arrow-right"></i></span></div>
+      </a>
+      <a class="card" href="admin.html">
+        <div class="vis" style="background:linear-gradient(135deg,#c6f24e22,#0a0a12)"><div class="ic" style="color:#a8d92e"><i data-lucide="layout-dashboard"></i></div></div>
+        <div class="body"><div class="role">Gym owner</div><h3>Admin dashboard</h3><p>Nine fully-wired pages — Overview, Members, Check-In, Analytics, Classes, Pricing, Reminders, Wallet &amp; Settings.</p><span class="go">Open <i data-lucide="arrow-right"></i></span></div>
+      </a>
+      <a class="card" href="instructor.html">
+        <div class="vis" style="background:linear-gradient(135deg,#11d18b22,#0a0a12)"><div class="ic" style="color:#11d18b"><i data-lucide="graduation-cap"></i></div></div>
+        <div class="body"><div class="role">Instructor</div><h3>Coach portal</h3><p>Daily schedule, PT clients, earnings trend and upcoming payouts.</p><span class="go">Open <i data-lucide="arrow-right"></i></span></div>
+      </a>
+      <a class="card" href="superadmin.html">
+        <div class="vis" style="background:linear-gradient(135deg,#4080ff22,#0a0a12)"><div class="ic" style="color:#4080ff"><i data-lucide="shield-check"></i></div></div>
+        <div class="body"><div class="role">Platform</div><h3>Superadmin console</h3><p>Every gym, platform MRR, churn and a live activity feed.</p><span class="go">Open <i data-lucide="arrow-right"></i></span></div>
+      </a>
+    </div>
+  </div>
+
+  <nav class="proto" id="proto"></nav>
+  <script src="proto.js"></script>
+  <script src="wire.js"></script>
+  <script>
+    // hub adds itself as the active tab
+    buildProto('');
+    lucide.createIcons();
+  </script>
+</body>
+</html>
