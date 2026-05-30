@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Bell } from 'lucide-react';
 import { InboxList, type InboxRow } from './inbox-list';
+import { PushToggle } from './push-toggle';
 
 export const metadata = { title: 'Inbox' };
 
@@ -39,6 +40,7 @@ export default async function MemberInboxPage({ params }: PageProps) {
             {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'} · {gym.name}
           </p>
         </div>
+        <PushToggle gymId={gym.id} />
       </header>
 
       <Card>

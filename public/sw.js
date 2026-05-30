@@ -1,5 +1,5 @@
-// GymFlow Service Worker v5 — Next.js App Router
-const VERSION = 'gymflow-v5';
+// GymFlow Service Worker v6 — Next.js App Router
+const VERSION = 'gymflow-v6';
 const STATIC_CACHE = VERSION + '-static';
 const RUNTIME_CACHE = VERSION + '-runtime';
 
@@ -110,4 +110,43 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') self.skipWaiting();
+});
+
+// ── Web Push ──────────────────────────────────────────────────────────────
+// Payload shape (set by lib/web-push.ts): { title, body, url, tag }.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: 'GymFlow', body: event.data ? event.data.text() : '' };
+  }
+  const title = data.title || 'GymFlow';
+  const options = {
+    body: data.body || '',
+    tag: data.tag || undefined,
+    // Collapse same-tag notifications but still alert on the newer one.
+    renotify: !!data.tag,
+    icon: '/icon.svg',
+    badge: '/icon.svg',
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Focus an existing tab on the target URL if one is open, else open a new one.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          const url = new URL(client.url);
+          if (url.pathname === target || client.url.endsWith(target)) return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
 });

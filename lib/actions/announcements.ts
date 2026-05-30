@@ -10,6 +10,7 @@ import { sendAnnouncement } from '@/lib/email';
 import { waAnnouncement } from '@/lib/whatsapp';
 import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
 import { runWithConcurrency } from '@/lib/concurrency';
+import { sendPushToUser } from '@/lib/web-push';
 
 // How many announcement sends to keep in flight at once. Tuned to clear a
 // few-hundred-member broadcast inside the after() runtime cap without
@@ -156,6 +157,12 @@ export async function sendGymAnnouncement(slug: string, formData: FormData): Pro
         }
         if ((channel === 'whatsapp' || channel === 'both') && p.phone && respectsWhatsapp(p)) {
           await waAnnouncement(p.phone, { gymName: gym.name, subject, message });
+        }
+        // Web Push is its own opt-in (the member subscribed a device), so it
+        // fires regardless of the email/WhatsApp channel choice. No-ops when
+        // VAPID isn't configured or the member has no subscription.
+        if (m.user_id) {
+          await sendPushToUser(admin, m.user_id, { title: subject, body: message, url: '/dashboard/inbox', tag: 'announcement' });
         }
       } catch (e) {
         // Best-effort: one bad recipient must not abort the rest of the batch.
