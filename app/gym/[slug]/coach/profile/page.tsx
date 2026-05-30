@@ -70,6 +70,14 @@ export default async function CoachProfilePage({ params }: PageProps) {
 
   return (
     <div className="member-portal member-app">
+      <header className="member-header">
+        <div>
+          <h1 className="gf-page-title">Profile</h1>
+          <p className="gf-page-subtitle">{gym.name} · what members see when they browse instructors</p>
+        </div>
+        <Link href="/coach" className="gf-btn gf-btn-ghost gf-btn-sm">Back</Link>
+      </header>
+
       {/* Hero — earnings this month. Same gradient + tag-on-top pattern as the
           member dashboard so the two portals feel like one product. */}
       <section className="m-status" aria-label="Earnings this month">

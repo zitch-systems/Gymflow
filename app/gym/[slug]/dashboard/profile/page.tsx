@@ -38,7 +38,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
       .maybeSingle<ProfileRow>(),
     supabase
       .from('member_subscriptions')
-      .select('start_date, end_date, status, membership_plans(name)')
+      .select('start_date, end_date, status, membership_plans:plan_id(name)')
       .eq('member_id', user.id)
       .eq('gym_id', gym.id)
       .eq('status', 'active')
@@ -62,6 +62,13 @@ export default async function MemberProfilePage({ params }: PageProps) {
 
   return (
     <div className="member-portal member-app">
+      <header className="member-header">
+        <div>
+          <h1 className="gf-page-title">Settings</h1>
+          <p className="gf-page-subtitle">{displayName} · {gym.name}</p>
+        </div>
+      </header>
+
       {/* Hero — current membership status. Mirrors the dashboard hero so the
           two pages feel like the same product, not two flavours of "settings". */}
       <section className="m-status" aria-label="Membership status">
