@@ -18,6 +18,7 @@ const { state, sendAutoDebitSuccess, sendAutoDebitFailure, paystackFetch } = vi.
     updates: Array<{ table: string; payload: unknown }>;
     paystackCalls: Array<{ path: string; body: unknown }>;
     rangeFilters: Array<{ col: string; bound: 'gte' | 'lte'; val: string }>;
+    eqFilters: Array<{ table: string; col: string; val: unknown }>;
   } = {
     dueQueue: [],
     perTableQueue: new Map(),
@@ -26,6 +27,7 @@ const { state, sendAutoDebitSuccess, sendAutoDebitFailure, paystackFetch } = vi.
     updates: [],
     paystackCalls: [],
     rangeFilters: [],
+    eqFilters: [],
   };
   const sendAutoDebitSuccess = vi.fn(async () => ({ ok: true }));
   const sendAutoDebitFailure = vi.fn(async () => ({ ok: true }));
@@ -46,7 +48,7 @@ const adminMock = {
       select: () => typeof builder;
       insert: (p: unknown) => typeof builder;
       update: (p: unknown) => typeof builder;
-      eq: () => typeof builder;
+      eq: (col: string, val: unknown) => typeof builder;
       gte: (col: string, val: string) => typeof builder;
       lte: (col: string, val: string) => typeof builder;
       order: () => typeof builder;
@@ -72,7 +74,7 @@ const adminMock = {
         builder._updatePayload = p;
         return builder;
       },
-      eq() { return builder; },
+      eq(col: string, val: unknown) { state.eqFilters.push({ table, col, val }); return builder; },
       gte(col: string, val: string) {
         state.rangeFilters.push({ col, bound: 'gte', val });
         return builder;
@@ -128,6 +130,7 @@ beforeEach(() => {
   state.updates = [];
   state.paystackCalls = [];
   state.rangeFilters = [];
+  state.eqFilters = [];
   sendAutoDebitSuccess.mockClear();
   sendAutoDebitFailure.mockClear();
   paystackFetch.mockClear();
@@ -189,6 +192,36 @@ describe('GET /api/cron/auto-debit-instructors — retry window + idempotency', 
 
     expect(paystackFetch).not.toHaveBeenCalled();
     expect(state.updates.filter((u) => u.table === 'instructor_subscriptions')).toHaveLength(0);
+  });
+
+  it('scopes the idempotency guard to THIS subscription, not any same-day card charge', async () => {
+    // Regression: the guard must filter by metadata->>instructor_sub_id so a
+    // member who also auto-renews a gym membership (or a second instructor)
+    // the same day doesn't get this subscription silently skipped.
+    state.dueQueue = [{ data: [SUB_NO_SUBACCOUNT], error: null }];
+    state.perTableQueue.set('instructor_pricing', [{ data: { price: 15000 }, error: null }]);
+    state.perTableQueue.set('saved_cards', [{ data: { authorization_code: 'AUTH_1' }, error: null }]);
+    state.perTableQueue.set('payments', [{ data: null, error: null }]);
+
+    await GET(cronRequest('test-cron-secret'));
+
+    const guardFilter = state.eqFilters.find(
+      (f) => f.table === 'payments' && f.col === 'metadata->>instructor_sub_id',
+    );
+    expect(guardFilter).toBeDefined();
+    expect(guardFilter?.val).toBe('sub-1');
+  });
+
+  it('stamps metadata.instructor_sub_id on the payment so the guard can find it next run', async () => {
+    state.dueQueue = [{ data: [SUB_NO_SUBACCOUNT], error: null }];
+    state.perTableQueue.set('instructor_pricing', [{ data: { price: 15000 }, error: null }]);
+    state.perTableQueue.set('saved_cards', [{ data: { authorization_code: 'AUTH_1' }, error: null }]);
+    state.perTableQueue.set('payments', [{ data: null, error: null }]);
+
+    await GET(cronRequest('test-cron-secret'));
+
+    const payIns = state.inserts.find((i) => i.table === 'payments');
+    expect((payIns?.payload as { metadata?: { instructor_sub_id?: string } }).metadata?.instructor_sub_id).toBe('sub-1');
   });
 });
 

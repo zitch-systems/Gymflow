@@ -87,12 +87,19 @@ export async function GET(request: Request) {
       return;
     }
 
+    // Idempotency: only skip if THIS subscription was already charged today.
+    // payments has no instructor_id/subscription_id column, so we scope by the
+    // metadata.instructor_sub_id we stamp on the row below. Without this scope
+    // the guard matches any same-day card charge for the member — so a member
+    // subscribed to two instructors at one gym (or one who also auto-renews a
+    // gym membership) would have the second charge silently skipped, dropping
+    // a subscription the member still wants and the instructor never gets paid.
     const { data: alreadyCharged } = await supabase
       .from('payments')
       .select('id')
       .eq('member_id', sub.member_id)
       .eq('gym_id', sub.gym_id)
-      .eq('payment_method', 'card')
+      .eq('metadata->>instructor_sub_id' as never, sub.id)
       .eq('payment_status', 'successful')
       .gte('payment_date', startOfTodayIso)
       .limit(1)
@@ -136,6 +143,8 @@ export async function GET(request: Request) {
         paystack_reference: result.data.reference ?? null,
         paystack_authorization_code: card.authorization_code,
         payment_date: new Date().toISOString(),
+        // Discriminator for the per-subscription idempotency guard above.
+        metadata: { source: 'instructor_auto_debit', instructor_sub_id: sub.id, instructor_id: sub.instructor_id },
       });
 
       await Promise.allSettled([

@@ -19,6 +19,7 @@ const { state, sendAutoDebitSuccess, sendAutoDebitFailure } = vi.hoisted(() => {
     inserts: Array<{ table: string; payload: unknown }>;
     updates: Array<{ table: string; payload: unknown }>;
     rangeFilters: Array<{ col: string; bound: 'gte' | 'lte'; val: string }>;
+    eqFilters: Array<{ table: string; col: string; val: unknown }>;
   } = {
     dueQueue: [],
     perTableQueue: new Map(),
@@ -26,6 +27,7 @@ const { state, sendAutoDebitSuccess, sendAutoDebitFailure } = vi.hoisted(() => {
     inserts: [],
     updates: [],
     rangeFilters: [],
+    eqFilters: [],
   };
   const sendAutoDebitSuccess = vi.fn(async () => ({ ok: true }));
   const sendAutoDebitFailure = vi.fn(async () => ({ ok: true }));
@@ -39,7 +41,7 @@ const adminMock = {
       select: () => typeof builder;
       insert: (p: unknown) => typeof builder;
       update: (p: unknown) => typeof builder;
-      eq: () => typeof builder;
+      eq: (col: string, val: unknown) => typeof builder;
       gte: (col: string, val: string) => typeof builder;
       lte: (col: string, val: string) => typeof builder;
       order: () => typeof builder;
@@ -65,7 +67,7 @@ const adminMock = {
         builder._updatePayload = p;
         return builder;
       },
-      eq() { return builder; },
+      eq(col: string, val: unknown) { state.eqFilters.push({ table, col, val }); return builder; },
       gte(col: string, val: string) {
         state.rangeFilters.push({ col, bound: 'gte', val });
         return builder;
@@ -127,6 +129,7 @@ beforeEach(() => {
   state.inserts = [];
   state.updates = [];
   state.rangeFilters = [];
+  state.eqFilters = [];
   sendAutoDebitSuccess.mockClear();
   sendAutoDebitFailure.mockClear();
   process.env.CRON_SECRET = 'test-cron-secret';
@@ -191,6 +194,22 @@ describe('GET /api/cron/auto-debit — idempotency', () => {
     expect(state.updates.filter((u) => u.table === 'memberships')).toHaveLength(0);
     expect(state.inserts.filter((i) => i.table === 'payments')).toHaveLength(0);
     expect(sendAutoDebitSuccess).not.toHaveBeenCalled();
+  });
+
+  it('scopes the idempotency guard to this membership plan, not any same-day card charge', async () => {
+    // Regression: without the plan_id scope the guard matched any card charge
+    // for the member that day — so a member who also auto-renews a PT /
+    // instructor subscription (plan_id null, different cron) would have their
+    // membership renewal silently skipped, or vice-versa.
+    state.dueQueue = [{ data: [MEMBER_DUE], error: null }];
+    state.perTableQueue.set('saved_cards', [{ data: [{ authorization_code: 'AUTH_1' }], error: null }]);
+    state.perTableQueue.set('payments', [{ data: null, error: null }]);
+
+    await GET(cronRequest('test-cron-secret'));
+
+    const guardPlanFilter = state.eqFilters.find((f) => f.table === 'payments' && f.col === 'plan_id');
+    expect(guardPlanFilter).toBeDefined();
+    expect(guardPlanFilter?.val).toBe('plan-1');
   });
 });
 
