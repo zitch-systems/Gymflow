@@ -90,19 +90,16 @@ export default async function MemberPtPacksPage({ params }: PageProps) {
             message={`${gym.name} hasn't published any personal training packs yet.`}
           />
         ) : (
-          <div style={{ display: 'grid', gap: 12, padding: 18 }}>
+          <div className="m-links" style={{ padding: 14 }}>
             {packs.map((p) => (
-              <div
-                key={p.id}
-                className="gf-card"
-                style={{ padding: 16, display: 'grid', gap: 12, gridTemplateColumns: '1fr auto', alignItems: 'center', border: '1px solid var(--gf-border)' }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{p.name}</div>
-                  <div className="gf-table-meta" style={{ marginTop: 4 }}>
-                    {p.session_count} session{p.session_count === 1 ? '' : 's'} · with {coachLabel.get(p.instructor_id) ?? 'Coach'}
-                  </div>
-                  <div style={{ marginTop: 6, fontSize: 20, fontWeight: 800, color: 'var(--gf-brand)' }}>{fmtNaira(p.price)}</div>
+              <div key={p.id} className="m-lc">
+                <span className="m-lc-ic" aria-hidden>
+                  <Dumbbell size={18} strokeWidth={1.75} />
+                </span>
+                <div className="m-lc-m">
+                  <strong>{p.name}</strong>
+                  <small>{p.session_count} session{p.session_count === 1 ? '' : 's'} · with {coachLabel.get(p.instructor_id) ?? 'Coach'}</small>
+                  <small style={{ color: 'var(--gf-brand)', fontWeight: 700, fontSize: '0.95rem' }}>{fmtNaira(p.price)}</small>
                 </div>
                 <PtPackBuyButton
                   packId={p.id}

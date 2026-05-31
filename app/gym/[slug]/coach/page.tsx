@@ -3,10 +3,10 @@ import { requireInstructor } from '@/lib/auth/gym';
 import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { signOut } from '@/lib/auth/actions';
-import { fmtDate, firstName } from '@/lib/format';
+import { fmtDate, fmtNaira, firstName } from '@/lib/format';
 import { startOfTodayIso, daysFromNowIso, todayIso, todayDate } from '@/lib/dates';
 import { Stat, StatGrid } from '@/components/ui/stat';
-import { Button } from '@/components/ui/button';
+import { Card, CardHeader } from '@/components/ui/card';
 import {
   Users, BadgeCheck, Banknote, CalendarClock,
   ClipboardCheck, CalendarDays, Wallet, UserCircle2, LogOut,
@@ -81,11 +81,6 @@ export default async function CoachDashboard({ params }: PageProps) {
           <small>{gym.name} · Coach</small>
           <strong>Hi, {coachName} 👋</strong>
         </div>
-        <form action={signOut} className="m-head-bell" style={{ padding: 0 }}>
-          <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />} style={{ minWidth: 0, padding: '4px 8px' }}>
-            <span className="sr-only">Sign out</span>
-          </Button>
-        </form>
       </header>
 
       <StatGrid>
@@ -93,10 +88,10 @@ export default async function CoachDashboard({ params }: PageProps) {
         <Stat label="Active subs" value={activeSubs ?? 0} icon={BadgeCheck} accent="blue" />
         <Stat
           label="This month"
-          value={`₦${monthRevenue.toLocaleString('en-NG')}`}
+          value={fmtNaira(monthRevenue)}
           icon={Banknote}
           accent="purple"
-          hint={`Your share: ₦${myCut.toLocaleString('en-NG')} (${sharePct}%)`}
+          hint={`Your share: ${fmtNaira(myCut)} (${sharePct}%)`}
         />
         <Stat label="Upcoming (7d)" value={upcoming?.length ?? 0} icon={CalendarClock} accent="amber" />
       </StatGrid>
@@ -125,7 +120,7 @@ export default async function CoachDashboard({ params }: PageProps) {
           })}
         </div>
       ) : (
-        <div className="m-lc" style={{ color: 'var(--gf-text-muted)' }}>
+        <div className="m-lc">
           <span className="m-lc-ic"><CalendarClock size={18} strokeWidth={1.9} /></span>
           <span className="m-lc-m"><small>No sessions in the next 7 days.</small></span>
         </div>
@@ -142,6 +137,17 @@ export default async function CoachDashboard({ params }: PageProps) {
           <span className="m-lc-m"><strong>Profile</strong><small>Photo, bio, rate, bank details</small></span>
         </Link>
       </section>
+
+      <Card>
+        <CardHeader title="Account" />
+        <div style={{ padding: 18 }}>
+          <form action={signOut}>
+            <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <LogOut size={16} strokeWidth={1.75} /> Sign out
+            </button>
+          </form>
+        </div>
+      </Card>
     </div>
   );
 }
