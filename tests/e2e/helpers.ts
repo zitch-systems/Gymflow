@@ -34,9 +34,17 @@ export async function signUpMember(page: Page, member: TestMember) {
 
 export async function signIn(page: Page, email: string, password: string) {
   await page.goto('/login');
-  await page.getByLabel('Email address').fill(email);
+  // Target by name, not label: the login form carries a hidden `next` input
+  // which made getByLabel('Email address') ambiguous under strict mode.
+  await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole('button', { name: /sign in/i }).click();
+}
+
+/** Assert that visiting `path` while unauthenticated lands on /login. */
+export async function expectRedirectToLogin(page: Page, path: string) {
+  await page.goto(path);
+  await expect(page).toHaveURL(/\/login/);
 }
 
 export const test = base.extend({});

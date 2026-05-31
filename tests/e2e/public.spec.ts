@@ -11,7 +11,7 @@ test.describe('public pages', () => {
 
   test('login page renders branded form', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByLabel('Email address')).toBeVisible();
+    await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /create account/i })).toBeVisible();

@@ -26,4 +26,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+  // Self-start the production server unless an external base URL is provided
+  // or the caller explicitly opts out. Locally we reuse a server that's
+  // already up; in CI Playwright boots one (`next build` must have run first).
+  webServer: process.env.PLAYWRIGHT_NO_SERVER
+    ? undefined
+    : {
+        command: `npm run start -- -p ${PORT}`,
+        url: BASE_URL,
+        timeout: 120_000,
+        reuseExistingServer: !process.env.CI,
+      },
 });
