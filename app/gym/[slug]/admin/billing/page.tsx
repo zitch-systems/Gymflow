@@ -4,6 +4,8 @@ import { getSessionUser } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PLATFORM_PRICING, isBillingPeriod, formatNaira } from '@/lib/platform-pricing';
 import { fmtDate } from '@/lib/format';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card, CardHeader } from '@/components/ui/card';
 import { BillingPayButton } from './billing-pay';
 
 export const metadata = { title: 'Billing' };
@@ -57,39 +59,37 @@ export default async function BillingPage({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="gf-page">
-      <header className="page-header">
-        <div>
-          <h1 className="gf-page-title">Billing</h1>
-          <p className="gf-page-subtitle">Your GymFlow platform subscription. Member payments settle separately into your Paystack subaccount.</p>
-        </div>
-      </header>
+      <PageHeader
+        title="Billing"
+        subtitle="Your GymFlow platform subscription. Member payments settle separately into your Paystack subaccount."
+      />
 
-      <section className="gf-card" style={{ padding: 18 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 18 }}>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Plan</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{BILLING_PLAN_LABEL[billing] ?? plan.label}</div>
-            <div style={{ fontSize: 13, color: 'var(--gf-text-secondary)' }}>{formatNaira(plan.amount)} / {plan.per}</div>
+      <Card padded>
+        <div className="mini-stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <div className="mini-stat">
+            <div className="mini-stat-label">Plan</div>
+            <div className="mini-stat-value">{BILLING_PLAN_LABEL[billing] ?? plan.label}</div>
+            <div className="mini-stat-sub">{formatNaira(plan.amount)} / {plan.per}</div>
           </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>
+          <div className="mini-stat">
+            <div className="mini-stat-label">Status</div>
+            <div className="mini-stat-value">
               <span className={`status-pill ${gym.subscription_status === 'active' ? 'on' : 'off'}`}>
                 {STATUS_LABEL[gym.subscription_status ?? ''] ?? gym.subscription_status ?? '—'}
               </span>
             </div>
           </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Next charge</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{gym.trial_ends_at ? fmtDate(gym.trial_ends_at) : '—'}</div>
+          <div className="mini-stat">
+            <div className="mini-stat-label">Next charge</div>
+            <div className="mini-stat-value">{gym.trial_ends_at ? fmtDate(gym.trial_ends_at) : '—'}</div>
           </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Card on file</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>
+          <div className="mini-stat">
+            <div className="mini-stat-label">Card on file</div>
+            <div className="mini-stat-value">
               {card ? `${card.brand?.toUpperCase() ?? 'CARD'} ····${card.last4 ?? '????'}` : 'None'}
             </div>
             {card && card.exp_month && card.exp_year ? (
-              <div style={{ fontSize: 13, color: 'var(--gf-text-secondary)' }}>
+              <div className="mini-stat-sub">
                 Exp {String(card.exp_month).padStart(2, '0')}/{String(card.exp_year).slice(-2)}
               </div>
             ) : null}
@@ -103,14 +103,14 @@ export default async function BillingPage({ params }: { params: Promise<{ slug: 
             amountNaira={plan.amount}
             label={card ? 'Renew now / update card' : 'Pay & save card'}
           />
-          <p style={{ marginTop: 10, fontSize: 12, color: 'var(--gf-text-muted)' }}>
+          <p className="gf-form-hint" style={{ marginTop: 10 }}>
             Charges your card today for one {plan.per} of GymFlow and saves it for auto-renew.
           </p>
         </div>
-      </section>
+      </Card>
 
-      <section className="gf-card" style={{ marginTop: 18 }}>
-        <header className="gf-card-header"><h2 className="gf-card-title">Recent platform charges</h2></header>
+      <Card>
+        <CardHeader title="Recent platform charges" />
         <div className="gf-table-wrap">
           <table className="gf-table">
             <thead><tr><th>Date</th><th>Period</th><th>Amount</th><th>Status</th><th>Reference</th></tr></thead>
@@ -134,7 +134,7 @@ export default async function BillingPage({ params }: { params: Promise<{ slug: 
             </tbody>
           </table>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { PrintAnalyticsButton } from './print-button';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Stat, StatGrid } from '@/components/ui/stat';
-import { Users, BadgeCheck, CalendarCheck, BookOpenCheck } from 'lucide-react';
+import { computeChurn, computeAtRisk, computeLtv, computeCohorts, type MembershipLite, type PaymentLite, type JoinLite } from '@/lib/analytics';
+import { Users, BadgeCheck, CalendarCheck, BookOpenCheck, TrendingDown, AlertTriangle, Coins } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -80,6 +81,49 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
       .gte('expense_date', sixMonthsAgo.split('T')[0]),
   ]);
 
+  // ── Analytics v2: churn, at-risk, LTV, cohort retention ──────────────────
+  // Pulled separately (and after) the headline stats so the existing cards
+  // render even if one of these heavier reads is slow. All scoped by gym_id;
+  // the staff client + RLS keep it to this gym.
+  const [
+    { data: allMemberships },
+    { data: paymentsAll },
+    { data: joins },
+    { data: recentCheckInsForRisk },
+    { data: plans },
+  ] = await Promise.all([
+    supabase.from('memberships').select('member_id, status, end_date, plan_id').eq('gym_id', gym.id),
+    supabase.from('payments').select('member_id, amount, plan_id').eq('gym_id', gym.id).eq('payment_status', 'successful'),
+    supabase.from('gym_member_links').select('user_id, joined_at').eq('gym_id', gym.id),
+    // Most recent check-in per member, approximated by pulling the last 60d of
+    // check-ins (enough to classify the 21-day at-risk threshold).
+    supabase.from('check_ins').select('member_id, checked_in_at').eq('gym_id', gym.id)
+      .gte('checked_in_at', new Date(now.getTime() - 60 * DAY_MS).toISOString()),
+    supabase.from('membership_plans').select('id, name').eq('gym_id', gym.id),
+  ]);
+
+  const memberships = (allMemberships ?? []) as MembershipLite[];
+  const planNames = new Map((plans ?? []).map((p) => [p.id, p.name ?? 'Plan'] as const));
+  const nowMs = now.getTime();
+
+  const churn = computeChurn(memberships, nowMs, 30);
+
+  const lastCheckInByMember = new Map<string, number>();
+  for (const c of recentCheckInsForRisk ?? []) {
+    if (!c.member_id || !c.checked_in_at) continue;
+    const t = new Date(c.checked_in_at).getTime();
+    const prev = lastCheckInByMember.get(c.member_id);
+    if (prev == null || t > prev) lastCheckInByMember.set(c.member_id, t);
+  }
+  const atRisk = computeAtRisk(memberships, lastCheckInByMember, nowMs, 21);
+
+  const ltv = computeLtv((paymentsAll ?? []) as PaymentLite[], planNames);
+
+  const activeMemberIds = new Set(
+    memberships.filter((m) => m.member_id && m.end_date && new Date(m.end_date).getTime() >= nowMs).map((m) => m.member_id!),
+  );
+  const cohorts = computeCohorts((joins ?? []) as JoinLite[], activeMemberIds, nowMs, 6);
+
   const revenue30 = (payments30 ?? []).reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
   const revenueMonth = (paymentsMonth ?? []).reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
 
@@ -141,6 +185,13 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
         <Stat label="Bookings (30d)" value={bookingsLast30 ?? 0} icon={BookOpenCheck} accent="purple" />
       </StatGrid>
 
+      <StatGrid>
+        <Stat label="Churn rate (30d)" value={`${churn.churnRatePct}%`} icon={TrendingDown} accent={churn.churnRatePct >= 10 ? 'amber' : 'emerald'} />
+        <Stat label="At-risk members" value={`${atRisk.atRisk} / ${atRisk.activeTotal}`} icon={AlertTriangle} accent={atRisk.atRisk > 0 ? 'amber' : 'emerald'} />
+        <Stat label="Avg lifetime value" value={fmtNaira(ltv.overallLtv)} icon={Coins} accent="emerald" />
+        <Stat label="Lapsed (30d)" value={churn.churnedInWindow} icon={Users} accent="blue" />
+      </StatGrid>
+
       <Card>
         <CardHeader title="Revenue" />
         <dl className="gf-detail-list">
@@ -199,6 +250,64 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
                   <td style={{ textAlign: 'right' }}>{fmtNaira(r.expense)}</td>
                   <td style={{ textAlign: 'right', color: r.net >= 0 ? 'var(--gf-brand)' : 'var(--gf-danger)', fontWeight: 600 }}>
                     {fmtNaira(r.net)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Lifetime value by plan" />
+        {ltv.byPlan.length > 0 ? (
+          <div className="gf-table-wrap">
+            <table className="gf-table">
+              <thead>
+                <tr>
+                  <th>Plan</th>
+                  <th style={{ textAlign: 'right' }}>Members paid</th>
+                  <th style={{ textAlign: 'right' }}>Revenue</th>
+                  <th style={{ textAlign: 'right' }}>Avg LTV</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ltv.byPlan.map((r) => (
+                  <tr key={r.planId}>
+                    <td style={{ fontWeight: 600 }}>{r.planName}</td>
+                    <td style={{ textAlign: 'right' }}>{r.members}</td>
+                    <td style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmtNaira(r.ltv)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="gf-form-hint" style={{ padding: 18 }}>No paid plans yet.</p>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader title="Cohort retention · by join month" />
+        <div className="gf-table-wrap">
+          <table className="gf-table">
+            <thead>
+              <tr>
+                <th>Joined</th>
+                <th style={{ textAlign: 'right' }}>Members</th>
+                <th style={{ textAlign: 'right' }}>Still active</th>
+                <th style={{ textAlign: 'right' }}>Retention</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cohorts.map((r) => (
+                <tr key={r.key}>
+                  <td style={{ fontWeight: 600 }}>{r.label}</td>
+                  <td style={{ textAlign: 'right' }}>{r.joined}</td>
+                  <td style={{ textAlign: 'right' }}>{r.retained}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600, color: r.retentionPct >= 50 ? 'var(--gf-brand)' : 'var(--gf-text)' }}>
+                    {r.joined > 0 ? `${r.retentionPct}%` : '—'}
                   </td>
                 </tr>
               ))}

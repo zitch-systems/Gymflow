@@ -9,6 +9,17 @@ import { audit } from '@/lib/audit';
 import { sendAnnouncement } from '@/lib/email';
 import { waAnnouncement } from '@/lib/whatsapp';
 import { respectsEmail, respectsWhatsapp } from '@/lib/notification-prefs';
+import { runWithConcurrency } from '@/lib/concurrency';
+import { sendPushToUser } from '@/lib/web-push';
+
+// How many announcement sends to keep in flight at once. Tuned to clear a
+// few-hundred-member broadcast inside the after() runtime cap without
+// hammering the email/WhatsApp providers' rate limits.
+const ANNOUNCEMENT_SEND_CONCURRENCY = 8;
+
+// PostgREST returns at most ~1000 rows per request; page the member fan-out
+// in chunks of this size so large gyms aren't silently truncated.
+const MEMBER_PAGE_SIZE = 1000;
 
 type Result = { ok: boolean; error?: string; recipients?: number };
 
@@ -85,14 +96,23 @@ export async function sendGymAnnouncement(slug: string, formData: FormData): Pro
   }
 
   // All active members of this gym, with the profile fields the fan-out needs.
-  const { data: links } = await admin
-    .from('gym_member_links')
-    .select('user_id, profiles:user_id(email, phone, full_name, first_name, notification_email, notification_whatsapp)' as never)
-    .eq('gym_id', gym.id)
-    .eq('is_active', true)
-    .eq('status', 'active');
+  // Paginated: PostgREST caps a single response at ~1000 rows by default, so
+  // a gym with more than that would silently broadcast to only the first
+  // page. Page through with .range() until a short page signals the end.
+  const rows: MemberRow[] = [];
+  for (let from = 0; ; from += MEMBER_PAGE_SIZE) {
+    const { data: page } = await admin
+      .from('gym_member_links')
+      .select('user_id, profiles:user_id(email, phone, full_name, first_name, notification_email, notification_whatsapp)' as never)
+      .eq('gym_id', gym.id)
+      .eq('is_active', true)
+      .eq('status', 'active')
+      .range(from, from + MEMBER_PAGE_SIZE - 1);
+    const pageRows = (page ?? []) as unknown as MemberRow[];
+    rows.push(...pageRows);
+    if (pageRows.length < MEMBER_PAGE_SIZE) break;
+  }
 
-  const rows = (links ?? []) as unknown as MemberRow[];
   const members = rows
     .filter((r) => r.user_id && r.profiles)
     .filter((r) => !taggedUserIds || taggedUserIds.has(r.user_id!));
@@ -122,9 +142,13 @@ export async function sendGymAnnouncement(slug: string, formData: FormData): Pro
   });
 
   // Fan out the actual sends after the response. Announcements are
-  // promotional, so honour the per-member opt-out flags.
+  // promotional, so honour the per-member opt-out flags. Bounded concurrency
+  // (not a serial loop): a gym with a few hundred members on channel='both'
+  // is 2N provider calls — serially that overruns the after() runtime cap and
+  // the tail of the list silently never gets sent. Capped fan-out keeps the
+  // whole batch inside the window without opening N connections at once.
   after(async () => {
-    for (const m of members) {
+    await runWithConcurrency(members, ANNOUNCEMENT_SEND_CONCURRENCY, async (m) => {
       const p = m.profiles!;
       const name = p.first_name ?? p.full_name ?? 'there';
       try {
@@ -134,10 +158,17 @@ export async function sendGymAnnouncement(slug: string, formData: FormData): Pro
         if ((channel === 'whatsapp' || channel === 'both') && p.phone && respectsWhatsapp(p)) {
           await waAnnouncement(p.phone, { gymName: gym.name, subject, message });
         }
+        // Web Push is its own opt-in (the member subscribed a device), so it
+        // fires regardless of the email/WhatsApp channel choice. No-ops when
+        // VAPID isn't configured or the member has no subscription.
+        if (m.user_id) {
+          await sendPushToUser(admin, m.user_id, { title: subject, body: message, url: '/dashboard/inbox', tag: 'announcement' });
+        }
       } catch (e) {
+        // Best-effort: one bad recipient must not abort the rest of the batch.
         console.warn('[GF announcement] send failed for a member:', (e as Error).message);
       }
-    }
+    });
   });
 
   revalidatePath(`/gym/${slug}/admin/announcements`);

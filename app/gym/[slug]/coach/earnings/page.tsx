@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { requireInstructor } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, fmtNaira } from '@/lib/format';
+import { Card, CardHeader } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Wallet, Receipt } from 'lucide-react';
 import { PayoutRequestForm } from './payout-request-form';
 
 type PageProps = { params: Promise<{ slug: string }> };
@@ -64,34 +67,34 @@ export default async function CoachEarningsPage({ params }: PageProps) {
         <Link href="/coach" className="gf-btn gf-btn-ghost gf-btn-sm">Back</Link>
       </header>
 
-      <section className="member-quick-actions" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-        <div className="gf-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>This month</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: 4 }}>₦{monthShare.toLocaleString('en-NG')}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', marginTop: 2 }}>of ₦{month.toLocaleString('en-NG')} gross</div>
+      <section className="mini-stat-grid">
+        <div className="mini-stat">
+          <div className="mini-stat-label">This month</div>
+          <div className="mini-stat-value">{fmtNaira(monthShare)}</div>
+          <div className="mini-stat-sub">of {fmtNaira(month)} gross</div>
         </div>
-        <div className="gf-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lifetime</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: 4 }}>₦{lifetimeShare.toLocaleString('en-NG')}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', marginTop: 2 }}>of ₦{lifetime.toLocaleString('en-NG')} gross</div>
+        <div className="mini-stat">
+          <div className="mini-stat-label">Lifetime</div>
+          <div className="mini-stat-value">{fmtNaira(lifetimeShare)}</div>
+          <div className="mini-stat-sub">of {fmtNaira(lifetime)} gross</div>
         </div>
-        <div className="gf-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: 4, color: 'var(--gf-brand)' }}>₦{available.toLocaleString('en-NG')}</div>
+        <div className="mini-stat">
+          <div className="mini-stat-label">Available</div>
+          <div className="mini-stat-value is-brand">{fmtNaira(available)}</div>
         </div>
-        <div className="gf-card" style={{ padding: 16 }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pending payout</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: 4 }}>₦{pending.toLocaleString('en-NG')}</div>
+        <div className="mini-stat">
+          <div className="mini-stat-label">Pending payout</div>
+          <div className="mini-stat-value">{fmtNaira(pending)}</div>
         </div>
       </section>
 
-      <section className="gf-card">
-        <header className="gf-card-header"><h2 className="gf-card-title">Request a payout</h2></header>
+      <Card>
+        <CardHeader title="Request a payout" />
         <PayoutRequestForm slug={slug} max={available} />
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header"><h2 className="gf-card-title">Payout history</h2></header>
+      <Card>
+        <CardHeader title="Payout history" />
         {payouts && payouts.length > 0 ? (
           <div className="gf-table-wrap">
             <table className="gf-table">
@@ -100,7 +103,7 @@ export default async function CoachEarningsPage({ params }: PageProps) {
                 {payouts.map((p) => (
                   <tr key={p.id}>
                     <td>{fmtDate(p.requested_at)}</td>
-                    <td>₦{Number(p.amount).toLocaleString('en-NG')}</td>
+                    <td>{fmtNaira(Number(p.amount))}</td>
                     <td><span className={`status-pill ${p.status === 'paid' ? 'on' : p.status === 'rejected' ? 'off' : ''}`}>{payoutStatusLabel(p.status)}</span></td>
                     <td>{p.processed_at ? fmtDate(p.processed_at) : '—'}</td>
                   </tr>
@@ -109,31 +112,31 @@ export default async function CoachEarningsPage({ params }: PageProps) {
             </table>
           </div>
         ) : (
-          <div style={{ padding: 18, color: 'var(--gf-text-muted)' }}>No payout requests yet.</div>
+          <EmptyState icon={Wallet} title="No payout requests yet" message="Request a payout once you have available earnings." />
         )}
-      </section>
+      </Card>
 
-      <section className="gf-card">
-        <header className="gf-card-header"><h2 className="gf-card-title">Recent subscription revenue</h2></header>
+      <Card>
+        <CardHeader title="Recent subscription revenue" />
         {allSubs && allSubs.length > 0 ? (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          <div className="m-links" style={{ padding: 14 }}>
             {allSubs.slice(0, 10).map((r, i) => {
               const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
               return (
-                <li key={i} style={{ padding: '10px 18px', borderTop: '1px solid var(--gf-border)', display: 'flex', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>{p?.full_name ?? p?.email ?? 'Member'}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)' }}>{r.created_at ? fmtDate(r.created_at) : '—'}</div>
+                <div key={i} className="m-lc">
+                  <div className="m-lc-m">
+                    <strong>{p?.full_name ?? p?.email ?? 'Member'}</strong>
+                    <small>{r.created_at ? fmtDate(r.created_at) : '—'}</small>
                   </div>
-                  <div style={{ fontWeight: 600 }}>₦{Number(r.amount_paid ?? 0).toLocaleString('en-NG')}</div>
-                </li>
+                  <span className="m-lc-time">{fmtNaira(Number(r.amount_paid ?? 0))}</span>
+                </div>
               );
             })}
-          </ul>
+          </div>
         ) : (
-          <div style={{ padding: 18, color: 'var(--gf-text-muted)' }}>No subscription revenue yet.</div>
+          <EmptyState icon={Receipt} title="No subscription revenue yet" message="Member subscriptions to you will show up here." />
         )}
-      </section>
+      </Card>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { waTempPassword } from '@/lib/whatsapp';
 import { PLATFORM_PRICING, isBillingPeriod } from '@/lib/platform-pricing';
 import { rateLimit, rateLimitResponse, clientIpFromRequest, readJsonBody } from '@/lib/rate-limit';
 import { escapeIlikeEmail } from '@/lib/email-lookup';
+import { addMonths } from '@/lib/dates';
 
 // Completes a gym onboarding once the prospective owner has paid the ₦20k
 // platform fee via Paystack. Called from the browser AFTER the inline
@@ -95,8 +96,7 @@ export async function POST(request: Request) {
 
   // 1. Insert gym row
   const periodStart = new Date();
-  const periodEnd = new Date(periodStart);
-  periodEnd.setMonth(periodEnd.getMonth() + PLATFORM_PRICING[billing].months);
+  const periodEnd = addMonths(periodStart, PLATFORM_PRICING[billing].months);
   const { data: gymRow, error: gymError } = await admin
     .from('gyms')
     .insert({

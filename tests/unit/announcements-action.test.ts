@@ -48,18 +48,26 @@ function makeAdmin() {
       const eqs: Record<string, unknown> = {};
       const builder = {
         _selectOpts: undefined as { count?: string; head?: boolean } | undefined,
+        _rangeFrom: 0,
         select(_cols?: string, opts?: { count?: string; head?: boolean }) {
           void _cols;
           builder._selectOpts = opts;
           return builder;
         },
         eq(col: string, val: unknown) { eqs[col] = val; return builder; },
+        // Paginated member fan-out: page 0 returns the members, later pages
+        // return empty so the caller's range loop terminates.
+        range(from: number, _to: number) { void _to; builder._rangeFrom = from; return builder; },
         // Awaited directly (no maybeSingle); count head mode returns { count }
         // when select() was called with head:true.
         then<T>(resolve: (v: { data: unknown; count?: number | null; error: null }) => T): T {
           if (table === 'gym_member_links') {
             if (builder._selectOpts?.head) {
               return resolve({ data: null, count: state.members.length, error: null });
+            }
+            // Second+ page of the paginated fan-out is always empty.
+            if (builder._rangeFrom > 0) {
+              return resolve({ data: [], count: null, error: null });
             }
             const rows = state.members.map((m) => ({
               user_id: m.user_id,

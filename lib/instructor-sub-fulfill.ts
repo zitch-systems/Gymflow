@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/database.types';
+import { addMonths } from '@/lib/dates';
 
 type DB = SupabaseClient<Database>;
 
@@ -106,9 +107,7 @@ export async function fulfilInstructorSubscription(
   }
 
   const today = new Date().toISOString().split('T')[0];
-  const endDateObj = new Date();
-  endDateObj.setMonth(endDateObj.getMonth() + args.months);
-  const end_date = endDateObj.toISOString().split('T')[0];
+  const end_date = addMonths(new Date(), args.months).toISOString().split('T')[0];
 
   const { data: subscription, error: subError } = await supabase
     .from('instructor_subscriptions')

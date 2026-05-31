@@ -8,6 +8,7 @@ import { getSessionUser } from '@/lib/auth/dal';
 import { sendTempPassword } from '@/lib/email';
 import { waTempPassword } from '@/lib/whatsapp';
 import { escapeIlikeEmail } from '@/lib/email-lookup';
+import { addMonths } from '@/lib/dates';
 
 function tempPassword(): string {
   return 'gf-' + Math.random().toString(36).slice(2, 8) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -97,8 +98,7 @@ export async function adminOnboardMember(slug: string, formData: FormData): Prom
     const { data: plan } = await admin.from('membership_plans').select('duration_months').eq('id', planId).maybeSingle();
     if (plan) {
       const start = new Date();
-      const end = new Date(start);
-      end.setMonth(end.getMonth() + Number(plan.duration_months ?? 1));
+      const end = addMonths(start, Number(plan.duration_months ?? 1));
       const { data: mem } = await admin
         .from('memberships')
         .insert({
