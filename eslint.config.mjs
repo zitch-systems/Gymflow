@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone design-system reference snapshot — not part of the app build.
+    "GymFlow Design System/**",
   ]),
 ]);
 

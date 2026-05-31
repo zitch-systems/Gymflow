@@ -1,68 +1,55 @@
-# Resume the GymFlow port
+# Resume the GymFlow build
 
 Paste this into a new Claude Code session at the start. Read top to bottom.
 
-> **Status update 2026-05-23 PM:** tasks #11 and #13 were closed after Supabase recovered. The test gym landing was a transient outage symptom, not a real bug. Seed data applied for owner/staff/instructor/platform_admin test users. Two upsert bugs in `lib/actions/instructors.ts` and `lib/actions/platform.ts` fixed (`onConflict: 'gym_id,user_id'` → `'gym_id,user_id,role'`).
+> **Status update 2026-05-31:** Project is feature-complete through **v2.5** and
+> green on every local gate (typecheck, 578 unit tests, lint, `next build`).
+> What remains is go-live configuration + ops, not application code. See
+> "Readiness" below. CONTINUE.md was rewritten this session — the previous
+> version was stale (it described the `nextjs-port` branch and listed the
+> baseline-schema dump as open; that's since been committed as
+> `supabase/migrations/20260101000000_baseline.sql`).
 
 ## What this project is
 
-**GymFlow** — multi-tenant gym management SaaS for the Nigerian market. Subdomain-per-gym (`{slug}.gymflow.ng`), member PWA + gym admin desktop + instructor PWA + platform superadmin. Stack: Next.js 16 (App Router) · Supabase · Vercel · Paystack · Resend · Termii.
+**GymFlow** — multi-tenant gym management SaaS for the Nigerian market.
+Subdomain-per-gym (`{slug}.gymflow.ng`), member PWA + gym admin desktop +
+instructor/coach PWA + platform superadmin. Stack: Next.js 16 (App Router) ·
+React 19 · Supabase · Vercel · Paystack · Resend · Termii.
 
-Full spec: `C:\Users\Adeta\Downloads\GymFlow_Master_Project_Document.docx`. Project conventions: `AGENTS.md` at repo root. **Critically: this is Next.js 16, which renamed `middleware.ts` to `proxy.ts`** — don't add a `middleware.ts` file or assume that convention.
+Project conventions: `AGENTS.md` at repo root. **Critically: this is Next.js
+16, which renamed `middleware.ts` to `proxy.ts`** — don't add a `middleware.ts`
+file or assume that convention. Read the bundled guides in
+`node_modules/next/dist/docs/` before writing framework code.
 
-## Where we are
+## Readiness — what's actually left
 
-- Branch: `nextjs-port` (push to `origin/nextjs-port` on `zitch-systems/Gymflow`)
-- Last commit: `b7020ad` — `isPlatformAdmin` helper accepting profile.role OR platform_admins row
-- Working tree should be clean apart from `PENDING_SEED.sql` and this file
+The app itself is done and verified locally. Remaining work is **deployment
+configuration**, tracked in the "Going-live checklist" in `README.md`:
 
-### Recent commits (this session)
+- **Env vars (Vercel):** live Paystack keys, `SUPABASE_SERVICE_ROLE_KEY`,
+  Resend (`RESEND_API_KEY` + verified sending domain), Termii, `CRON_SECRET`,
+  `NEXT_PUBLIC_SITE_URL`; optional Sentry + PostHog DSNs.
+- **Supabase:** apply all migrations in `supabase/migrations/`; enable email
+  signups + **leaked-password protection**; re-enable "Confirm email" for prod;
+  set the Paystack webhook URL to `/api/paystack/webhook`.
+- **DNS:** add the `*.gymflow.ng` wildcard domain and point it at Vercel for
+  real subdomain tenancy.
+- `npm audit` reports 4 moderate advisories — review before launch.
 
-```
-b7020ad  isPlatformAdmin helper: accept profile.role OR platform_admins row
-cc2e9e7  RLS: tighten profiles_select with can_see_profile helper
-7417409  RLS phase 7b: tighten qual:true policies on gym-scoped tables
-d04db04  Coach portal + Paystack subaccounts + landing builder + superadmin MRR & member search
-8bcf210  P&L + equipment / expense CRUD with photo uploads      (pre-session)
-```
-
-## Migrations already applied to remote Supabase
-
-The Supabase project is `kdbbrxqxqewbjoozmfhq` (Gymflow, eu-west-1). These migrations are in `supabase/migrations/` AND have been applied via Supabase MCP `apply_migration`. **Do not re-apply.**
-
-```
-20260523_gyms_landing_fields.sql       (landing builder columns)
-20260523_handle_new_user_full_signup.sql
-20260523_handle_new_user_drop_full_name.sql
-20260523_gym_assets_storage.sql
-20260524_coach_portal.sql              (instructor_sessions, instructor_payouts, member_id on instructor_subscriptions)
-20260524_rls_phase_7a.sql              (policies for 11 zero-policy tables)
-20260524_paystack_subaccount.sql       (gyms.paystack_subaccount_code + bank fields)
-20260524_rls_phase_7b.sql              (tighten memberships/payments/etc.)
-20260524_rls_profiles.sql              (can_see_profile() + profiles_select_scoped)
-```
-
-## Open tasks
-
-### #6 — Schema dump to source control (your turn)
-Base schema isn't in source control. `supabase/migrations/` only has the recent additions. New environments can't be reproduced. Run:
+## Local gates (all green as of 2026-05-31)
 
 ```
-supabase link --project-ref kdbbrxqxqewbjoozmfhq
-supabase db dump --schema public > supabase/migrations/20260101000000_baseline.sql
+npm install            # fresh container has no node_modules — install first
+npx tsc --noEmit       # 0 errors
+npx vitest run         # 578 passed / 58 files
+npx eslint             # 0 errors
+npx next build         # succeeds
 ```
 
-Needs the DB password. Verify clean apply on a fresh local Supabase.
-
-### #9b (deferred) — `profiles_select` PII edge cases
-`can_see_profile()` covers self + same-gym staff/member + platform_admin. If you find a flow that needs a profile read NOT covered (e.g., a member viewing another member's profile through some feature), extend the helper rather than re-opening the policy.
-
-### Schema quirks worth knowing
-- **`profiles.role` is TEXT** with CHECK: `owner | manager | staff | instructor | member | platform_admin`. `'gym_owner'` is NOT allowed here.
-- **`gym_staff_links.role` is the `user_role` ENUM**: `gym_owner | manager | front_desk | accountant | instructor | platform_admin | member`. Uses `'gym_owner'` (not `'owner'`).
-- **`gym_staff_links` UNIQUE constraint is `(gym_id, user_id, role)`** — a user can hold multiple roles at one gym. Code that upserts with `onConflict: 'gym_id,user_id'` will throw. I fixed this in two places already; if you see it elsewhere, fix it the same way.
-- **`platform_admins` requires `name` and `email` NOT NULL** when inserting.
-- `isPlatformAdmin()` in `lib/auth/dal.ts` accepts either `profile.role='platform_admin'` OR a `platform_admins` row.
+> Note: the `GymFlow Design System/` directory is a standalone HTML/CSS/React
+> reference snapshot, not part of the app. It's excluded from `tsconfig.json`
+> and `eslint.config.mjs` so it doesn't pollute CI. Don't import from it.
 
 ## Run it locally
 
@@ -76,31 +63,49 @@ Hit:
 - `http://localhost:3001/login` — login (proxy routes to test gym login)
 - `http://localhost:3001/admin` → 307 → login (auth-gated)
 - `http://localhost:3001/coach` → 307 → login (auth-gated)
-- `http://localhost:3001/gym/gf-test-gym` — public gym landing (currently 404 until `PENDING_SEED.sql` runs)
+- `http://localhost:3001/gym/gf-test-gym` — public gym landing (needs `PENDING_SEED.sql`)
 
-Playwright e2e exists at `tests/e2e/` with `signUpMember` / `signIn` helpers. Member signup creates a real auth.users row and sends a welcome email via Resend — use unique emails.
+Playwright e2e lives at `tests/e2e/` with `signUpMember` / `signIn` helpers.
+Member signup creates a real auth.users row and sends a welcome email via
+Resend — use unique emails. `PENDING_SEED.sql` seeds the test gym + role users
+(idempotent; safe to re-run).
 
-## Conventions I picked up that aren't in AGENTS.md
+## Schema quirks worth knowing
 
-- **Server actions** use `revalidatePath(\`/gym/${slug}/...\`)` with the **rewritten** path, not the user-facing path. `revalidatePath('/')` does NOT revalidate `slug.gymflow.ng/` because proxy.ts rewrites that to `/gym/${slug}/`.
-- **Admin queries that need cross-gym data** use `createAdminClient()` (service_role, bypasses RLS). User-scoped queries use `createClient()` from `lib/supabase/server.ts`.
-- **Role checks**: `requireMember(slug)`, `requireStaff(slug)`, `requireInstructor(slug)` in `lib/auth/gym.ts`. `isPlatformAdmin()` in `lib/auth/dal.ts`. Don't check `profile.role` directly in new code.
-- **RLS is enabled on every table.** Most tables have policies, but a few (classes, class_schedules, membership_plans, gyms, waivers) intentionally have `qual:true` SELECT so the public gym landing page can render without auth. Don't tighten those without thinking about the public-readable case.
-- **Migration workflow**: write the SQL file in `supabase/migrations/YYYYMMDD_name.sql`, then apply via Supabase MCP `apply_migration` with the same body. Mark the file with a comment noting it was applied via MCP if you want to match the existing style.
-- **PowerShell on Windows**: this repo runs on Windows. Use the Bash tool for POSIX scripts but PowerShell when Windows-specific (no `&&` chaining in PS 5.1).
+- **`profiles.role` is TEXT** with CHECK: `owner | manager | staff | instructor
+  | member | platform_admin`. `'gym_owner'` is NOT allowed here.
+- **`gym_staff_links.role` is the `user_role` ENUM**: `gym_owner | manager |
+  front_desk | accountant | instructor | platform_admin | member`. Uses
+  `'gym_owner'` (not `'owner'`).
+- **`gym_staff_links` UNIQUE constraint is `(gym_id, user_id, role)`** — a user
+  can hold multiple roles at one gym. Upserts must use
+  `onConflict: 'gym_id,user_id,role'`, not `'gym_id,user_id'`.
+- **`platform_admins` requires `name` and `email` NOT NULL** when inserting.
+- `isPlatformAdmin()` in `lib/auth/dal.ts` accepts either
+  `profile.role='platform_admin'` OR a `platform_admins` row.
+
+## Conventions not in AGENTS.md
+
+- **Server actions** use `revalidatePath(\`/gym/${slug}/...\`)` with the
+  **rewritten** path, not the user-facing path. `revalidatePath('/')` does NOT
+  revalidate `slug.gymflow.ng/` because proxy.ts rewrites that to `/gym/${slug}/`.
+- **Cross-gym/admin queries** use `createAdminClient()` (service_role, bypasses
+  RLS). User-scoped queries use `createClient()` from `lib/supabase/server.ts`.
+- **Role checks**: `requireMember(slug)`, `requireStaff(slug)`,
+  `requireInstructor(slug)` in `lib/auth/gym.ts`; `isPlatformAdmin()` in
+  `lib/auth/dal.ts`. Don't check `profile.role` directly in new code.
+- **RLS is enabled on every table.** A few (classes, class_schedules,
+  membership_plans, gyms, waivers) intentionally keep a `qual:true` SELECT so
+  the public gym landing renders without auth — don't tighten those without
+  considering the public-readable case.
+- **Migrations**: write `supabase/migrations/YYYYMMDD_name.sql`, then apply via
+  the Supabase MCP `apply_migration` with the same body.
 
 ## Useful commands
 
 ```
-npx tsc --noEmit                                              # typecheck (run this often)
-git log --oneline @{u}..                                      # what's unpushed
-git diff --stat origin/main...HEAD                            # full delta from main
+npx tsc --noEmit                          # typecheck
+npx vitest run                            # unit tests
+git log --oneline @{u}..                  # what's unpushed
+git diff --stat origin/main...HEAD        # full delta from main
 ```
-
-## What I'd do first in a new session
-
-1. `cd C:\Users\Adeta\gymflow && git status` — confirm clean tree
-2. Read this file. Read `AGENTS.md`.
-3. Check Supabase is reachable: `curl -s -o /dev/null -w "%{http_code}" https://kdbbrxqxqewbjoozmfhq.supabase.co/rest/v1/` (401 = up, 522 = down).
-4. `PORT=3001 npm run dev`, hit `http://localhost:3001/gym/gf-test-gym` — expect 200.
-5. Pick a remaining task (#6 schema dump is the obvious next one).
