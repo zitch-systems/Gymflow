@@ -57,25 +57,20 @@ export default async function CoachClientsPage({ params }: PageProps) {
       </header>
 
       {clients.length > 0 ? (
-        <div className="gf-card" style={{ padding: 0 }}>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {clients.map((c) => (
-              <li key={c.memberId} style={{ padding: '14px 16px', borderTop: '1px solid var(--gf-border)' }}>
-                <Link href={`/coach/clients/${c.memberId}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: 'inherit', textDecoration: 'none' }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--gf-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.email ?? c.phone ?? '—'}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span className={`status-pill ${c.status === 'active' ? 'on' : 'off'}`}>{c.status}</span>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--gf-text-muted)', marginTop: 4 }}>
-                      {c.endDate ? `until ${fmtDate(c.endDate)}` : '—'}
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <div className="m-links">
+          {clients.map((c) => (
+            <Link key={c.memberId} href={`/coach/clients/${c.memberId}`} className="m-lc">
+              <span className="m-lc-ic-lg" aria-hidden>{c.name.charAt(0).toUpperCase()}</span>
+              <div className="m-lc-m">
+                <strong>{c.name}</strong>
+                <small>{c.email ?? c.phone ?? '—'}</small>
+              </div>
+              <span className="m-lc-end">
+                <span className={`status-pill ${c.status === 'active' ? 'on' : 'off'}`}>{c.status}</span>
+                <small>{c.endDate ? `until ${fmtDate(c.endDate)}` : '—'}</small>
+              </span>
+            </Link>
+          ))}
         </div>
       ) : (
         <EmptyState icon={Users} title="No clients yet" message="Members who subscribe to you will appear here." />

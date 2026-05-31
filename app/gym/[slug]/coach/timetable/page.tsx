@@ -40,33 +40,29 @@ export default async function CoachTimetablePage({ params }: PageProps) {
       </header>
 
       {schedules && schedules.length > 0 ? (
-        <div className="gf-card" style={{ padding: 0 }}>
-          {Array.from({ length: 7 }, (_, day) => {
-            const rows = byDay.get(day) ?? [];
-            if (rows.length === 0) return null;
-            return (
-              <div key={day} style={{ borderTop: day > 0 ? '1px solid var(--gf-border)' : 'none' }}>
-                <div style={{ padding: '10px 18px', background: 'var(--gf-elevated)', fontWeight: 600, fontSize: '0.875rem' }}>
-                  {DAY_LABELS[day]}
-                </div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {rows.map((s) => {
-                    const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
-                    return (
-                      <li key={s.id} style={{ padding: '12px 18px', borderTop: '1px solid var(--gf-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{cls?.name ?? 'Class'}</div>
-                          {s.room && <div style={{ fontSize: '0.8125rem', color: 'var(--gf-text-muted)' }}>{s.room}</div>}
-                        </div>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--gf-text-secondary)' }}>{s.start_time} – {s.end_time}</div>
-                      </li>
-                    );
-                  })}
-                </ul>
+        Array.from({ length: 7 }, (_, day) => {
+          const rows = byDay.get(day) ?? [];
+          if (rows.length === 0) return null;
+          return (
+            <div key={day}>
+              <div className="m-sect-t">{DAY_LABELS[day]}</div>
+              <div className="m-links">
+                {rows.map((s) => {
+                  const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+                  return (
+                    <div key={s.id} className="m-lc">
+                      <div className="m-lc-m">
+                        <strong>{cls?.name ?? 'Class'}</strong>
+                        {s.room ? <small>{s.room}</small> : null}
+                      </div>
+                      <span className="m-lc-time">{s.start_time} – {s.end_time}</span>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })
       ) : (
         <EmptyState icon={CalendarX} title="No classes assigned" message="A gym admin will assign classes to you." />
       )}

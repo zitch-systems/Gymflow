@@ -4719,6 +4719,23 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 .m-lc-certs { display: inline-flex; align-items: center; gap: 4px; margin-top: 1px; }
 .m-lc-chev { color: var(--gf-text-muted); flex-shrink: 0; }
 .m-lc-coach { padding: 14px; }
+/* Trailing right-aligned block in an m-lc row (status pill + meta line). */
+.m-lc-end { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; text-align: right; }
+.m-lc-end small { color: var(--gf-text-muted); font-size: 0.72rem; }
+/* Compact time label on the right of an m-lc row (coach timetable). */
+.m-lc-time { font-size: 0.85rem; color: var(--gf-text-secondary); white-space: nowrap; flex-shrink: 0; }
+
+/* Compact metric tiles (coach earnings) — label / big value / sub-line.
+   Replaces repeated inline-styled gf-cards with one reusable pattern. */
+.mini-stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.mini-stat {
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); padding: 16px;
+}
+.mini-stat-label { font-size: 0.72rem; color: var(--gf-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.mini-stat-value { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 800; margin-top: 4px; }
+.mini-stat-value.is-brand { color: var(--gf-brand); }
+.mini-stat-sub { font-size: 0.72rem; color: var(--gf-text-muted); margin-top: 2px; }
 
 /* Profile hub (member + instructor settings pages). Same DNA as the member
    dashboard's m-status / m-qa, with three extensions for the OPay-style
