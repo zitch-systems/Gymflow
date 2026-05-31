@@ -161,8 +161,11 @@ export default async function MemberProfilePage({ params }: PageProps) {
         <div className="profile-pair-card">
           <h3>Notifications</h3>
           <p>{p?.notification_email !== false ? 'Email on' : 'Email off'} · {p?.notification_whatsapp !== false ? 'WhatsApp on' : 'WhatsApp off'}</p>
-          <p>{firstName(p?.full_name)}, manage how the gym reaches you.</p>
-          <Link href="#notifications" className="gf-btn gf-btn-ghost gf-btn-sm">Manage</Link>
+          <p>{firstName(p?.full_name)}, read messages or manage channels below.</p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
+            <Link href="/dashboard/inbox" className="gf-btn gf-btn-ghost gf-btn-sm">Inbox</Link>
+            <Link href="#notifications" className="gf-btn gf-btn-ghost gf-btn-sm">Channels</Link>
+          </div>
         </div>
       </section>
 
