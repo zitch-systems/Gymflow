@@ -408,7 +408,7 @@ h1, h2, h3, h4, h5, h6,
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
   height: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  display: flex; justify-content: space-around; align-items: flex-end; padding-top: 8px;
+  display: flex; justify-content: space-around; align-items: center; padding-top: 4px;
   background: rgba(var(--gf-surface-rgb), 0.94);
   -webkit-backdrop-filter: blur(24px) saturate(1.8);
   backdrop-filter: blur(24px) saturate(1.8);
@@ -420,8 +420,8 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .gf-nav-tab {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 6px 12px 10px; min-width: 52px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 4px 12px; min-width: 52px;
   color: var(--gf-text-muted);
   font-family: var(--gf-font-display); font-size: 0.6875rem; font-weight: 600;
   text-decoration: none; background: none; border: none; cursor: pointer;
@@ -430,35 +430,26 @@ h1, h2, h3, h4, h5, h6,
 }
 .gf-nav-tab:active { transform: scale(0.88); }
 .gf-nav-tab.active { color: var(--gf-brand); }
-.gf-nav-tab svg { width: 22px; height: 22px; stroke-width: 1.75; }
-.gf-nav-tab.active svg { stroke-width: 2.25; }
-
-.gf-nav-tab-fab {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  min-width: 52px; margin-top: -18px; padding: 0 12px 10px;
-  color: var(--gf-text-muted);
-  font-family: var(--gf-font-display); font-size: 0.6875rem; font-weight: 600;
-  background: none; border: none; cursor: pointer; letter-spacing: 0.02em;
+/* Every icon lives in a fixed 40px slot so active/inactive tabs share one
+   baseline. Inactive: thin gray glyph on transparent. Active: the slot fills
+   with a green squircle + white icon — the reference app's bottom-bar look. */
+.gf-nav-tab svg {
+  width: 40px; height: 40px; padding: 8px; box-sizing: border-box;
+  border-radius: 13px; stroke-width: 1.85;
+  transition: background var(--gf-t-fast), color var(--gf-t-fast), box-shadow var(--gf-t-fast);
 }
-
-.gf-nav-fab-ring {
-  width: 50px; height: 50px; border-radius: 50%;
+.gf-nav-tab.active svg {
   background: linear-gradient(135deg, var(--gf-brand), var(--gf-brand-dark));
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 20px var(--gf-brand-glow);
-  border: 3px solid var(--gf-bg);
-  transition: transform var(--gf-t), box-shadow var(--gf-t);
+  color: #fff; stroke-width: 2;
+  box-shadow: 0 6px 16px var(--gf-brand-glow);
 }
-.gf-nav-tab-fab:active .gf-nav-fab-ring { transform: scale(0.9); }
-.gf-nav-fab-ring svg { width: 22px; height: 22px; stroke: #fff; stroke-width: 2; }
 
 /* With 6 member tabs the bar gets tight on small phones — trim per-tab
-   padding / min-width and shrink labels slightly so all six fit without
-   wrapping or clipping. The flex `space-around` distributes the remainder. */
+   padding / min-width and shrink the icon slot slightly so all six fit
+   without wrapping. The flex `space-around` distributes the remainder. */
 @media (max-width: 420px) {
-  .gf-nav-tab, .gf-nav-tab-fab { min-width: 0; padding-left: 6px; padding-right: 6px; }
-  .gf-nav-tab { font-size: 0.625rem; }
-  .gf-nav-tab svg { width: 20px; height: 20px; }
+  .gf-nav-tab { min-width: 0; padding-left: 6px; padding-right: 6px; font-size: 0.625rem; }
+  .gf-nav-tab svg { width: 36px; height: 36px; padding: 7px; }
 }
 
 /* ── Page Header ── */
@@ -4681,6 +4672,59 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 .m-qa-tile:hover, .m-qa-tile:active { border-color: var(--gf-brand); color: var(--gf-brand); transform: translateY(-2px); }
 .m-qa-tile svg { width: 20px; height: 20px; color: var(--gf-brand); }
 
+/* Circular quick-action row (the OPay/OWealth pattern): a row of soft-green
+   round icon chips with a label beneath and an optional floating pill badge.
+   5-up by default; on very narrow phones it scrolls horizontally rather than
+   shrinking the chips below a comfortable tap target. */
+.m-circ-row {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 6px; align-items: start;
+}
+@media (max-width: 360px) {
+  .m-circ-row {
+    grid-template-columns: none; grid-auto-flow: column;
+    grid-auto-columns: minmax(64px, 1fr);
+    overflow-x: auto; scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    margin: 0 -2px; padding: 0 2px;
+  }
+  .m-circ-row::-webkit-scrollbar { display: none; }
+  .m-circ { scroll-snap-align: start; }
+}
+.m-circ {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 4px 2px; text-decoration: none;
+  color: var(--gf-text); text-align: center;
+  font-family: var(--gf-font-display); font-weight: 600;
+  font-size: 0.74rem; line-height: 1.2;
+  -webkit-user-select: none; user-select: none;
+}
+.m-circ-ic {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+  transition: transform var(--gf-t-fast), background var(--gf-t-fast), box-shadow var(--gf-t-fast);
+}
+.m-circ-ic svg { width: 24px; height: 24px; stroke-width: 1.9; }
+.m-circ:hover .m-circ-ic {
+  background: var(--gf-brand); color: #fff;
+  box-shadow: 0 6px 18px var(--gf-brand-glow);
+}
+.m-circ:active .m-circ-ic { transform: scale(0.92); }
+.m-circ-label { display: block; max-width: 72px; }
+/* Floating pill badge overlapping the top-right of the chip ("New" / "Hot"). */
+.m-circ-badge {
+  position: absolute; top: -3px; left: 50%; transform: translateX(6px);
+  background: var(--gf-danger, #ef4444); color: #fff;
+  font-family: var(--gf-font-display); font-weight: 700;
+  font-size: 0.58rem; letter-spacing: 0.03em;
+  padding: 2px 7px; border-radius: var(--gf-radius-pill);
+  line-height: 1.25; white-space: nowrap;
+  border: 2px solid var(--gf-bg);
+}
+.m-circ-badge.is-brand { background: var(--gf-brand); }
+
 /* Section title (.sect-t) */
 .m-sect-t {
   font-family: var(--gf-font-display); font-weight: 700; font-size: 0.92rem;
@@ -5499,9 +5543,6 @@ body::before {
 }
 .gf-nav-item.active svg { color: var(--gf-brand); filter: drop-shadow(0 0 6px var(--gf-brand-glow)); }
 
-/* Mobile bottom-nav active: lift the icon with a glow */
-.gf-nav-tab.active svg { filter: drop-shadow(0 0 8px var(--gf-brand-glow)); }
-
 /* Badges: crisper brand badge */
 .gf-badge-brand { box-shadow: inset 0 0 0 1px var(--gf-border-glow); }
 .gf-badge-accent { background: var(--gf-accent-soft); color: var(--gf-accent); border-color: var(--gf-accent-glow); }
@@ -5741,7 +5782,7 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 }
 
 /* Slightly larger, comfortable tap targets for the portal nav. */
-.gf-mobile-nav .gf-nav-tab { min-width: 56px; padding-top: 8px; }
+.gf-mobile-nav .gf-nav-tab { min-width: 56px; }
 .gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
 
 /* ── Member/Coach dashboard quick actions: compact 5-up row ── */
@@ -6016,7 +6057,7 @@ body::after {
 .mk-hero-photo { position: relative; overflow: hidden; background: #0b0f14; }
 .mk-hero-photo-bg {
   position: absolute; inset: 0; background-size: cover; background-position: center;
-  opacity: 0.9; z-index: 0;
+  opacity: 0.8; z-index: 0;
 }
 /* Dark cinematic scrim so the photo reads as a backdrop and the (light) hero
    text stays high-contrast regardless of theme. A diagonal darken on the left
@@ -6025,8 +6066,8 @@ body::after {
 .mk-hero-photo::after {
   content: ''; position: absolute; inset: 0; z-index: 0;
   background:
-    linear-gradient(180deg, rgba(8,12,18,0.45) 0%, rgba(8,12,18,0.40) 45%, rgba(8,12,18,0.78) 80%, var(--gf-bg) 100%),
-    radial-gradient(ellipse 70% 60% at 50% 38%, rgba(8,12,18,0.30) 0%, rgba(8,12,18,0.62) 100%);
+    linear-gradient(180deg, rgba(8,12,18,0.62) 0%, rgba(8,12,18,0.58) 45%, rgba(8,12,18,0.82) 80%, var(--gf-bg) 100%),
+    radial-gradient(ellipse 80% 65% at 50% 40%, rgba(8,12,18,0.34) 0%, rgba(8,12,18,0.72) 100%);
 }
 .mk-hero-photo-inner { position: relative; z-index: 1; text-align: center; }
 .mk-hero-photo-inner .marketing-eyebrow { margin-left: auto; margin-right: auto; }
@@ -6035,8 +6076,8 @@ body::after {
 
 /* Light text treatment for the photo hero (overrides the theme-tinted defaults
    above, which assume a light page background). */
-.mk-hero-photo .marketing-hero-title { color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.35); }
-.mk-hero-photo .marketing-hero-sub { color: rgba(255,255,255,0.82); }
+.mk-hero-photo .marketing-hero-title { color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.45); }
+.mk-hero-photo .marketing-hero-sub { color: rgba(255,255,255,0.92); text-shadow: 0 1px 12px rgba(0,0,0,0.45); }
 .mk-hero-photo .marketing-eyebrow {
   background: rgba(255,255,255,0.12);
   color: #fff;

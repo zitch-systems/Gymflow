@@ -163,26 +163,37 @@ export default async function MemberDashboard({ params }: PageProps) {
         )}
       </div>
 
-      {/* Quick actions — 3-up, icon-over-label (design-system .qa). */}
-      <section className="m-qa">
-        <Link href="/checkin" className="m-qa-tile"><ScanLine /> Check in</Link>
-        <Link href="/classes" className="m-qa-tile"><CalendarDays /> Book class</Link>
-        <Link href="/dashboard/renew" className="m-qa-tile"><CreditCard /> Renew</Link>
+      {/* Quick actions — 5-up circular icon chips (OPay/OWealth pattern):
+          round soft-green icon over a label, with optional floating badges. */}
+      <section className="m-circ-row" aria-label="Quick actions">
+        <Link href="/checkin" className="m-circ">
+          <span className="m-circ-ic"><ScanLine /></span>
+          <span className="m-circ-label">Check in</span>
+        </Link>
+        <Link href="/classes" className="m-circ">
+          <span className="m-circ-ic"><CalendarDays /></span>
+          <span className="m-circ-label">Classes</span>
+          {nextClass?.isToday ? <span className="m-circ-badge is-brand" aria-hidden>Today</span> : null}
+        </Link>
+        <Link href="/dashboard/instructors" className="m-circ">
+          <span className="m-circ-ic"><GraduationCap /></span>
+          <span className="m-circ-label">Coaches</span>
+        </Link>
+        <Link href="/dashboard/pt-packs" className="m-circ">
+          <span className="m-circ-ic"><Dumbbell /></span>
+          <span className="m-circ-label">PT packs</span>
+          {ptPacksAvailable && ptCredits.length === 0 ? <span className="m-circ-badge" aria-hidden>New</span> : null}
+        </Link>
+        <Link href="/dashboard/renew" className="m-circ">
+          <span className="m-circ-ic"><CreditCard /></span>
+          <span className="m-circ-label">Renew</span>
+          {!isActive ? <span className="m-circ-badge" aria-hidden>Due</span> : null}
+        </Link>
       </section>
 
       {/* Secondary destinations — compact list cards. */}
       <div className="m-sect-t">More</div>
       <section className="m-links">
-        <Link href="/dashboard/instructors" className="m-lc">
-          <span className="m-lc-ic"><GraduationCap size={18} strokeWidth={1.9} /></span>
-          <span className="m-lc-m"><strong>Coaches</strong><small>Browse & subscribe</small></span>
-          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
-        </Link>
-        <Link href="/dashboard/pt-packs" className="m-lc">
-          <span className="m-lc-ic"><Dumbbell size={18} strokeWidth={1.9} /></span>
-          <span className="m-lc-m"><strong>Personal training</strong><small>Buy & track session packs</small></span>
-          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
-        </Link>
         <Link href="/dashboard/cards" className="m-lc">
           <span className="m-lc-ic"><Wallet size={18} strokeWidth={1.9} /></span>
           <span className="m-lc-m"><strong>Saved cards</strong><small>Manage payment methods</small></span>
