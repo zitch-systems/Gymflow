@@ -6,6 +6,7 @@ import { fmtDate, daysLeft, firstName } from '@/lib/format';
 import { Card, CardHeader } from '@/components/ui/card';
 import { ProfileForm } from './profile-form';
 import { SubscriptionActions } from '../subscription-actions';
+import { InstallAppButton } from '@/lib/pwa-install';
 import { CreditCard, Wallet, GraduationCap, LogOut, Dumbbell, ChevronRight } from 'lucide-react';
 
 export const metadata = { title: 'Settings' };
@@ -202,6 +203,16 @@ export default async function MemberProfilePage({ params }: PageProps) {
           </div>
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader title="Get the app" />
+        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--gf-text-secondary)' }}>
+            Install {gym.name} on your phone for one-tap check-ins and class booking — straight from your home screen, no app store needed.
+          </p>
+          <InstallAppButton />
+        </div>
+      </Card>
 
       <Card>
         <CardHeader title="Account" />
