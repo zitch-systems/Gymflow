@@ -6016,7 +6016,7 @@ body::after {
 .mk-hero-photo { position: relative; overflow: hidden; background: #0b0f14; }
 .mk-hero-photo-bg {
   position: absolute; inset: 0; background-size: cover; background-position: center;
-  opacity: 0.9; z-index: 0;
+  opacity: 0.8; z-index: 0;
 }
 /* Dark cinematic scrim so the photo reads as a backdrop and the (light) hero
    text stays high-contrast regardless of theme. A diagonal darken on the left
@@ -6025,8 +6025,8 @@ body::after {
 .mk-hero-photo::after {
   content: ''; position: absolute; inset: 0; z-index: 0;
   background:
-    linear-gradient(180deg, rgba(8,12,18,0.45) 0%, rgba(8,12,18,0.40) 45%, rgba(8,12,18,0.78) 80%, var(--gf-bg) 100%),
-    radial-gradient(ellipse 70% 60% at 50% 38%, rgba(8,12,18,0.30) 0%, rgba(8,12,18,0.62) 100%);
+    linear-gradient(180deg, rgba(8,12,18,0.62) 0%, rgba(8,12,18,0.58) 45%, rgba(8,12,18,0.82) 80%, var(--gf-bg) 100%),
+    radial-gradient(ellipse 80% 65% at 50% 40%, rgba(8,12,18,0.34) 0%, rgba(8,12,18,0.72) 100%);
 }
 .mk-hero-photo-inner { position: relative; z-index: 1; text-align: center; }
 .mk-hero-photo-inner .marketing-eyebrow { margin-left: auto; margin-right: auto; }
@@ -6035,8 +6035,8 @@ body::after {
 
 /* Light text treatment for the photo hero (overrides the theme-tinted defaults
    above, which assume a light page background). */
-.mk-hero-photo .marketing-hero-title { color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.35); }
-.mk-hero-photo .marketing-hero-sub { color: rgba(255,255,255,0.82); }
+.mk-hero-photo .marketing-hero-title { color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.45); }
+.mk-hero-photo .marketing-hero-sub { color: rgba(255,255,255,0.92); text-shadow: 0 1px 12px rgba(0,0,0,0.45); }
 .mk-hero-photo .marketing-eyebrow {
   background: rgba(255,255,255,0.12);
   color: #fff;
