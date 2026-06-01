@@ -5,6 +5,7 @@ import { signOut } from '@/lib/auth/actions';
 import { fmtDate, daysLeft, firstName } from '@/lib/format';
 import { Card, CardHeader } from '@/components/ui/card';
 import { ProfileForm } from './profile-form';
+import { SubscriptionActions } from '../subscription-actions';
 import { CreditCard, Wallet, GraduationCap, LogOut, Dumbbell, ChevronRight } from 'lucide-react';
 
 export const metadata = { title: 'Settings' };
@@ -38,7 +39,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
       .maybeSingle<ProfileRow>(),
     supabase
       .from('member_subscriptions')
-      .select('start_date, end_date, status, membership_plans:plan_id(name)')
+      .select('start_date, end_date, status, auto_debit_enabled, membership_plans:plan_id(name)')
       .eq('member_id', user.id)
       .eq('gym_id', gym.id)
       .eq('status', 'active')
@@ -188,6 +189,19 @@ export default async function MemberProfilePage({ params }: PageProps) {
           />
         </div>
       </Card>
+
+      {subscription ? (
+        <Card>
+          <CardHeader title="Manage subscription" />
+          <div style={{ padding: 18 }}>
+            <SubscriptionActions
+              slug={slug}
+              status={subscription.status ?? 'active'}
+              autoRenew={!!subscription.auto_debit_enabled}
+            />
+          </div>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader title="Account" />

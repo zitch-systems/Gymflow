@@ -4574,6 +4574,21 @@ button[disabled] { opacity: 0.7; cursor: wait; }
    ───────────────────────────────────────────────────────────────────────── */
 .member-app { gap: 16px; }
 
+/* Single-screen member dashboard. Tighten vertical rhythm and trim the status
+   hero so header + status + actions + activity + next-class fit a phone
+   viewport without scrolling. Scoped to .m-dash so renew/settings (which also
+   use .member-app) keep their roomier spacing. */
+.m-dash { gap: 12px; padding-top: 16px; padding-bottom: 16px; }
+.m-dash .m-status { padding: 16px; }
+.m-dash .m-status-plan { font-size: 1.3rem; margin: 10px 0 2px; }
+.m-dash .m-status-barwrap { margin: 12px 0 7px; }
+.m-dash .m-sect-t { margin-top: 2px; }
+/* On viewports tall enough this is moot; on typical phones it guarantees the
+   column never needs to scroll past the fixed tab bar. */
+@media (min-height: 720px) {
+  .m-dash { gap: 14px; }
+}
+
 /* Greeting header (.mhead in the spec) */
 .m-head { display: flex; align-items: center; gap: 11px; padding: 2px 2px 6px; }
 .m-head-avatar {
@@ -4724,6 +4739,50 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   border: 2px solid var(--gf-bg);
 }
 .m-circ-badge.is-brand { background: var(--gf-brand); }
+
+/* Compact single-screen dashboard: a 3-up stats strip + an optional slim
+   "next class" row, sized so the member dashboard fits a phone viewport
+   without scrolling. */
+.m-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); overflow: hidden;
+}
+.m-stat { padding: 13px 8px; text-align: center; min-width: 0; }
+.m-stat + .m-stat { border-left: 1px solid var(--gf-border); }
+.m-stat-num {
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem;
+  letter-spacing: -0.02em; display: inline-flex; align-items: center; gap: 4px;
+  line-height: 1.1;
+}
+.m-stat-flame { width: 17px; height: 17px; color: var(--gf-accent); }
+.m-stat-cap {
+  display: block; margin-top: 3px;
+  font-size: 0.68rem; color: var(--gf-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.m-next {
+  display: flex; align-items: center; gap: 11px; padding: 11px 13px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); text-decoration: none; color: var(--gf-text);
+  transition: border-color var(--gf-t-fast);
+}
+.m-next:hover { border-color: var(--gf-brand); }
+.m-next:active { transform: scale(0.99); }
+.m-next-ic {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+}
+.m-next-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.m-next-m strong {
+  font-family: var(--gf-font-display); font-size: 0.86rem; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-next-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.m-next-when { flex-shrink: 0; }
 
 /* Section title (.sect-t) */
 .m-sect-t {
