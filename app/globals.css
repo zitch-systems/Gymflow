@@ -5858,6 +5858,7 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
    normal full-bleed background. */
 @media (min-width: 600px) {
   .gf-has-tabbar {
+    --gf-app-w: 540px;
     max-width: var(--gf-app-w);
     margin-inline: auto;
     border-inline: 1px solid var(--gf-border);
@@ -5874,6 +5875,31 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
     border-left: 1px solid var(--gf-border);
     border-right: 1px solid var(--gf-border);
   }
+}
+
+/* Tablet (portrait and up): widen the app column further so the portal uses a
+   tablet's space instead of showing a phone-width strip. The tab bar tracks
+   the same width via the inherited --gf-app-w. */
+@media (min-width: 820px) {
+  .gf-has-tabbar { --gf-app-w: 640px; }
+}
+
+/* Foldables in book posture (two side-by-side viewport segments): keep the app
+   inside one panel so it doesn't straddle the hinge. env() falls back to the
+   normal frame width where viewport-segment isn't supported, so this is a safe
+   progressive enhancement. */
+@media (horizontal-viewport-segments: 2) {
+  .gf-has-tabbar,
+  .gf-mobile-nav {
+    max-width: env(viewport-segment-width 0 0, var(--gf-app-w));
+    margin-inline: 0;
+  }
+}
+
+/* Admin content: tighten spacing on phones so dense staff pages read like an
+   app rather than a scaled-down desktop layout. */
+@media (max-width: 640px) {
+  .gf-page { gap: 14px; padding: 16px; }
 }
 
 /* Slightly larger, comfortable tap targets for the portal nav. */
