@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { CommandPalette, type CommandItem } from '@/components/ui/command-palette';
 
-type Tab = { href: string; label: string; icon: LucideIcon; fab?: boolean };
+type Tab = { href: string; label: string; icon: LucideIcon };
 
 // ⌘K dataset for the portal — every tab + a couple of secondary destinations
 // the bottom-tab-bar doesn't surface so members/coaches still get there in
@@ -24,7 +24,7 @@ function tabsToCmdItems(tabs: Tab[], extras: CommandItem[] = []): CommandItem[] 
 const MEMBER_TABS: Tab[] = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/classes', label: 'Classes', icon: CalendarDays },
-  { href: '/checkin', label: 'Check In', icon: ScanLine, fab: true },
+  { href: '/checkin', label: 'Check In', icon: ScanLine },
   { href: '/dashboard/instructors', label: 'Coaches', icon: GraduationCap },
   { href: '/dashboard/renew', label: 'Renew', icon: CreditCard },
   { href: '/dashboard/profile', label: 'Settings', icon: Settings },
@@ -33,7 +33,7 @@ const MEMBER_TABS: Tab[] = [
 const COACH_TABS: Tab[] = [
   { href: '/coach', label: 'Home', icon: LayoutGrid },
   { href: '/coach/clients', label: 'Clients', icon: Users },
-  { href: '/coach/attendance', label: 'Attendance', icon: ClipboardCheck, fab: true },
+  { href: '/coach/attendance', label: 'Attendance', icon: ClipboardCheck },
   { href: '/coach/timetable', label: 'Schedule', icon: CalendarDays },
   { href: '/coach/earnings', label: 'Earnings', icon: Wallet },
 ];
@@ -51,16 +51,6 @@ function TabBar({ tabs }: { tabs: Tab[] }) {
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const active = isActive(pathname, tab.href);
-        if (tab.fab) {
-          return (
-            <Link key={tab.href} href={tab.href} className="gf-nav-tab-fab" aria-label={tab.label}>
-              <span className="gf-nav-fab-ring">
-                <Icon />
-              </span>
-              <span>{tab.label}</span>
-            </Link>
-          );
-        }
         return (
           <Link
             key={tab.href}

@@ -408,7 +408,7 @@ h1, h2, h3, h4, h5, h6,
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
   height: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  display: flex; justify-content: space-around; align-items: flex-end; padding-top: 8px;
+  display: flex; justify-content: space-around; align-items: center; padding-top: 4px;
   background: rgba(var(--gf-surface-rgb), 0.94);
   -webkit-backdrop-filter: blur(24px) saturate(1.8);
   backdrop-filter: blur(24px) saturate(1.8);
@@ -420,8 +420,8 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .gf-nav-tab {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 6px 12px 10px; min-width: 52px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 4px 12px; min-width: 52px;
   color: var(--gf-text-muted);
   font-family: var(--gf-font-display); font-size: 0.6875rem; font-weight: 600;
   text-decoration: none; background: none; border: none; cursor: pointer;
@@ -430,35 +430,26 @@ h1, h2, h3, h4, h5, h6,
 }
 .gf-nav-tab:active { transform: scale(0.88); }
 .gf-nav-tab.active { color: var(--gf-brand); }
-.gf-nav-tab svg { width: 22px; height: 22px; stroke-width: 1.75; }
-.gf-nav-tab.active svg { stroke-width: 2.25; }
-
-.gf-nav-tab-fab {
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  min-width: 52px; margin-top: -18px; padding: 0 12px 10px;
-  color: var(--gf-text-muted);
-  font-family: var(--gf-font-display); font-size: 0.6875rem; font-weight: 600;
-  background: none; border: none; cursor: pointer; letter-spacing: 0.02em;
+/* Every icon lives in a fixed 40px slot so active/inactive tabs share one
+   baseline. Inactive: thin gray glyph on transparent. Active: the slot fills
+   with a green squircle + white icon — the reference app's bottom-bar look. */
+.gf-nav-tab svg {
+  width: 40px; height: 40px; padding: 8px; box-sizing: border-box;
+  border-radius: 13px; stroke-width: 1.85;
+  transition: background var(--gf-t-fast), color var(--gf-t-fast), box-shadow var(--gf-t-fast);
 }
-
-.gf-nav-fab-ring {
-  width: 50px; height: 50px; border-radius: 50%;
+.gf-nav-tab.active svg {
   background: linear-gradient(135deg, var(--gf-brand), var(--gf-brand-dark));
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 20px var(--gf-brand-glow);
-  border: 3px solid var(--gf-bg);
-  transition: transform var(--gf-t), box-shadow var(--gf-t);
+  color: #fff; stroke-width: 2;
+  box-shadow: 0 6px 16px var(--gf-brand-glow);
 }
-.gf-nav-tab-fab:active .gf-nav-fab-ring { transform: scale(0.9); }
-.gf-nav-fab-ring svg { width: 22px; height: 22px; stroke: #fff; stroke-width: 2; }
 
 /* With 6 member tabs the bar gets tight on small phones — trim per-tab
-   padding / min-width and shrink labels slightly so all six fit without
-   wrapping or clipping. The flex `space-around` distributes the remainder. */
+   padding / min-width and shrink the icon slot slightly so all six fit
+   without wrapping. The flex `space-around` distributes the remainder. */
 @media (max-width: 420px) {
-  .gf-nav-tab, .gf-nav-tab-fab { min-width: 0; padding-left: 6px; padding-right: 6px; }
-  .gf-nav-tab { font-size: 0.625rem; }
-  .gf-nav-tab svg { width: 20px; height: 20px; }
+  .gf-nav-tab { min-width: 0; padding-left: 6px; padding-right: 6px; font-size: 0.625rem; }
+  .gf-nav-tab svg { width: 36px; height: 36px; padding: 7px; }
 }
 
 /* ── Page Header ── */
@@ -5552,9 +5543,6 @@ body::before {
 }
 .gf-nav-item.active svg { color: var(--gf-brand); filter: drop-shadow(0 0 6px var(--gf-brand-glow)); }
 
-/* Mobile bottom-nav active: lift the icon with a glow */
-.gf-nav-tab.active svg { filter: drop-shadow(0 0 8px var(--gf-brand-glow)); }
-
 /* Badges: crisper brand badge */
 .gf-badge-brand { box-shadow: inset 0 0 0 1px var(--gf-border-glow); }
 .gf-badge-accent { background: var(--gf-accent-soft); color: var(--gf-accent); border-color: var(--gf-accent-glow); }
@@ -5794,7 +5782,7 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 }
 
 /* Slightly larger, comfortable tap targets for the portal nav. */
-.gf-mobile-nav .gf-nav-tab { min-width: 56px; padding-top: 8px; }
+.gf-mobile-nav .gf-nav-tab { min-width: 56px; }
 .gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
 
 /* ── Member/Coach dashboard quick actions: compact 5-up row ── */
