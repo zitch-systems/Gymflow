@@ -5820,23 +5820,48 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 /* ═══════════════════════════════════════════════════════════════════════════
    Member & Coach portal shells (mobile-first) — bottom tab bar integration
    ═══════════════════════════════════════════════════════════════════════════ */
-.gf-has-tabbar { min-height: 100vh; min-height: 100dvh; }
+/* The member/coach portal is a self-contained app surface. Treat it like an
+   installed app shell: edge-to-edge and full-height on phones (clearing the
+   notch via safe-area), native touch feel (no tap-highlight, contained
+   overscroll so pull doesn't reveal browser chrome). */
+.gf-has-tabbar {
+  --gf-app-w: 460px;
+  min-height: 100vh; min-height: 100dvh;
+  background: var(--gf-bg);
+  padding-top: env(safe-area-inset-top, 0px);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
 
-/* Clear the fixed bottom nav so content/FAB never overlaps the last items. */
+/* Clear the fixed bottom nav so content never hides behind the last items. */
 .gf-has-tabbar .member-portal,
 .gf-has-tabbar .gf-page {
   padding-bottom: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
 }
 
-/* On wide screens keep the app feel: center the bar over the content column. */
-@media (min-width: 760px) {
+/* Desktop / tablet: present the portal as a centered phone-frame "app" so it
+   reads like an installed APK, not a web page that happens to be narrow — a
+   fixed-width column with side borders + elevation, the tab bar aligned to the
+   same width, sitting on a dim "desk" backdrop. The backdrop is scoped with
+   :has() so only the member/coach portal gets it; admin & marketing keep their
+   normal full-bleed background. */
+@media (min-width: 600px) {
+  .gf-has-tabbar {
+    max-width: var(--gf-app-w);
+    margin-inline: auto;
+    border-inline: 1px solid var(--gf-border);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  }
+  body:has(.gf-has-tabbar) {
+    background:
+      radial-gradient(120% 70% at 50% -8%, rgba(16, 209, 139, 0.10), transparent 60%),
+      #06060c;
+  }
   .gf-mobile-nav {
-    max-width: 600px;
+    max-width: var(--gf-app-w);
     margin: 0 auto;
     border-left: 1px solid var(--gf-border);
     border-right: 1px solid var(--gf-border);
-    border-top-left-radius: var(--gf-radius);
-    border-top-right-radius: var(--gf-radius);
   }
 }
 
