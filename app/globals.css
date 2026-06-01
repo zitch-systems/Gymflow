@@ -4740,6 +4740,17 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 }
 .m-circ-badge.is-brand { background: var(--gf-brand); }
 
+/* Grouping card — the reference app nests its icon rows inside elevated cards
+   rather than floating them on the page canvas. Wrap an .m-circ-row in this to
+   get the same grouped look and a consistent, tight vertical rhythm. */
+.m-group {
+  background: var(--gf-surface);
+  border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-lg);
+  padding: 16px 12px;
+}
+.m-group + .m-group { margin-top: 0; }
+
 /* Compact single-screen dashboard: a 3-up stats strip + an optional slim
    "next class" row, sized so the member dashboard fits a phone viewport
    without scrolling. */

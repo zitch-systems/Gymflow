@@ -67,7 +67,7 @@ export default async function CoachDashboard({ params }: PageProps) {
   const avatarInitial = (profile?.full_name ?? profile?.email ?? user.email ?? 'C').charAt(0).toUpperCase();
 
   return (
-    <div className="member-portal member-app">
+    <div className="member-portal member-app m-dash">
       <header className="m-head">
         <Link href="/coach/profile" className="m-head-avatar" aria-label="Profile">
           {profile?.photo_url ? (
@@ -101,11 +101,32 @@ export default async function CoachDashboard({ params }: PageProps) {
         <Stat label="Upcoming (7d)" value={upcoming?.length ?? 0} icon={CalendarClock} accent="amber" />
       </StatGrid>
 
-      <section className="m-qa">
-        <Link href="/coach/attendance" className="m-qa-tile"><ClipboardCheck /> Mark attendance</Link>
-        <Link href="/coach/timetable" className="m-qa-tile"><CalendarDays /> Schedule</Link>
-        <Link href="/coach/earnings" className="m-qa-tile"><Wallet /> Earnings</Link>
-      </section>
+      {/* Quick actions — 5-up circular icon chips, grouped in a card (mirrors
+          the member dashboard so every role's home feels like the same app). */}
+      <div className="m-group">
+        <section className="m-circ-row" aria-label="Quick actions">
+          <Link href="/coach/attendance" className="m-circ">
+            <span className="m-circ-ic"><ClipboardCheck /></span>
+            <span className="m-circ-label">Attendance</span>
+          </Link>
+          <Link href="/coach/timetable" className="m-circ">
+            <span className="m-circ-ic"><CalendarDays /></span>
+            <span className="m-circ-label">Schedule</span>
+          </Link>
+          <Link href="/coach/clients" className="m-circ">
+            <span className="m-circ-ic"><Users /></span>
+            <span className="m-circ-label">Clients</span>
+          </Link>
+          <Link href="/coach/earnings" className="m-circ">
+            <span className="m-circ-ic"><Wallet /></span>
+            <span className="m-circ-label">Earnings</span>
+          </Link>
+          <Link href="/coach/profile" className="m-circ">
+            <span className="m-circ-ic"><UserCircle2 /></span>
+            <span className="m-circ-label">Profile</span>
+          </Link>
+        </section>
+      </div>
 
       <div className="m-sect-t">Upcoming sessions</div>
       {upcoming && upcoming.length > 0 ? (
@@ -130,18 +151,6 @@ export default async function CoachDashboard({ params }: PageProps) {
           <span className="m-lc-m"><small>No sessions in the next 7 days.</small></span>
         </div>
       )}
-
-      <div className="m-sect-t">More</div>
-      <section className="m-links">
-        <Link href="/coach/clients" className="m-lc">
-          <span className="m-lc-ic"><Users size={18} strokeWidth={1.9} /></span>
-          <span className="m-lc-m"><strong>Clients</strong><small>Your subscribed members</small></span>
-        </Link>
-        <Link href="/coach/profile" className="m-lc">
-          <span className="m-lc-ic"><UserCircle2 size={18} strokeWidth={1.9} /></span>
-          <span className="m-lc-m"><strong>Profile</strong><small>Photo, bio, rate, bank details</small></span>
-        </Link>
-      </section>
     </div>
   );
 }

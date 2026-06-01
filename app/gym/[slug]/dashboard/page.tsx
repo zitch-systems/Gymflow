@@ -152,32 +152,35 @@ export default async function MemberDashboard({ params }: PageProps) {
       </div>
 
       {/* Quick actions — 5-up circular icon chips (OPay/OWealth pattern):
-          round soft-green icon over a label, with optional floating badges. */}
-      <section className="m-circ-row" aria-label="Quick actions">
-        <Link href="/checkin" className="m-circ">
-          <span className="m-circ-ic"><ScanLine /></span>
-          <span className="m-circ-label">Check in</span>
-        </Link>
-        <Link href="/classes" className="m-circ">
-          <span className="m-circ-ic"><CalendarDays /></span>
-          <span className="m-circ-label">Classes</span>
-          {nextClass?.isToday ? <span className="m-circ-badge is-brand" aria-hidden>Today</span> : null}
-        </Link>
-        <Link href="/dashboard/instructors" className="m-circ">
-          <span className="m-circ-ic"><GraduationCap /></span>
-          <span className="m-circ-label">Coaches</span>
-        </Link>
-        <Link href="/dashboard/pt-packs" className="m-circ">
-          <span className="m-circ-ic"><Dumbbell /></span>
-          <span className="m-circ-label">PT packs</span>
-          {ptPacksAvailable && ptCredits.length === 0 ? <span className="m-circ-badge" aria-hidden>New</span> : null}
-        </Link>
-        <Link href="/dashboard/renew" className="m-circ">
-          <span className="m-circ-ic"><CreditCard /></span>
-          <span className="m-circ-label">Renew</span>
-          {!isActive ? <span className="m-circ-badge" aria-hidden>Due</span> : null}
-        </Link>
-      </section>
+          round soft-green icon over a label, grouped in a card so they read as
+          a tile set rather than floating on the page. Optional float badges. */}
+      <div className="m-group">
+        <section className="m-circ-row" aria-label="Quick actions">
+          <Link href="/checkin" className="m-circ">
+            <span className="m-circ-ic"><ScanLine /></span>
+            <span className="m-circ-label">Check in</span>
+          </Link>
+          <Link href="/classes" className="m-circ">
+            <span className="m-circ-ic"><CalendarDays /></span>
+            <span className="m-circ-label">Classes</span>
+            {nextClass?.isToday ? <span className="m-circ-badge is-brand" aria-hidden>Today</span> : null}
+          </Link>
+          <Link href="/dashboard/instructors" className="m-circ">
+            <span className="m-circ-ic"><GraduationCap /></span>
+            <span className="m-circ-label">Coaches</span>
+          </Link>
+          <Link href="/dashboard/pt-packs" className="m-circ">
+            <span className="m-circ-ic"><Dumbbell /></span>
+            <span className="m-circ-label">PT packs</span>
+            {ptPacksAvailable && ptCredits.length === 0 ? <span className="m-circ-badge" aria-hidden>New</span> : null}
+          </Link>
+          <Link href="/dashboard/renew" className="m-circ">
+            <span className="m-circ-ic"><CreditCard /></span>
+            <span className="m-circ-label">Renew</span>
+            {!isActive ? <span className="m-circ-badge" aria-hidden>Due</span> : null}
+          </Link>
+        </section>
+      </div>
 
       {/* Activity at a glance — 3-up strip (streak / this month / recent). */}
       <section className="m-stats" aria-label="Your activity">
