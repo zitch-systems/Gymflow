@@ -5880,6 +5880,30 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 .gf-mobile-nav .gf-nav-tab { min-width: 56px; }
 .gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
 
+/* ── Admin (owner/manager) mobile bottom tab bar ─────────────────────────────
+   The admin sidebar goes off-canvas at ≤1024px. Give staff the same app-style
+   bottom nav as members/coaches for the top destinations; "More" opens the
+   full sidebar drawer. Full-width (no phone frame) since admin content is
+   full-bleed. Hidden on desktop, where the sidebar returns. */
+.gf-admin-tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  height: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+  padding: 4px 0 env(safe-area-inset-bottom, 0px);
+  display: none;
+  justify-content: space-around; align-items: center;
+  background: rgba(var(--gf-surface-rgb), 0.94);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter: blur(24px) saturate(1.8);
+  border-top: 1px solid var(--gf-border);
+}
+.gf-admin-tabbar .gf-nav-tab { min-width: 56px; }
+@media (max-width: 1024px) {
+  .gf-admin-tabbar { display: flex; }
+  /* Clear the fixed bar so the last content/rows aren't hidden behind it. */
+  .gf-main { padding-bottom: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 16px); }
+}
+@media print { .gf-admin-tabbar { display: none !important; } }
+
 /* ── Member/Coach dashboard quick actions: compact 5-up row ── */
 .member-quick-actions { grid-template-columns: repeat(5, 1fr); gap: 12px; }
 .member-quick-actions .gf-quick-action {

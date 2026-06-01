@@ -182,6 +182,32 @@ export function AdminShell({
         </header>
         {children}
       </div>
+
+      {/* Mobile bottom tab bar — app-style quick nav to the top admin
+          destinations; "More" opens the full sidebar drawer. Visible only at
+          ≤1024px (where the sidebar is off-canvas); hidden on desktop. */}
+      <nav className="gf-admin-tabbar" aria-label="Primary">
+        {([
+          { href: '/admin/dashboard', label: 'Members', icon: Users },
+          { href: '/admin/staff-checkin', label: 'Check-In', icon: ScanLine },
+          { href: '/admin/classes', label: 'Classes', icon: CalendarDays },
+          { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+        ] as const).map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className={`gf-nav-tab${isActive(href) ? ' active' : ''}`}
+            aria-current={isActive(href) ? 'page' : undefined}
+          >
+            <Icon />
+            <span>{label}</span>
+          </Link>
+        ))}
+        <button type="button" className="gf-nav-tab" onClick={() => setOpen(true)} aria-label="More menu">
+          <Menu />
+          <span>More</span>
+        </button>
+      </nav>
     </>
   );
 }
