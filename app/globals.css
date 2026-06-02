@@ -4586,7 +4586,7 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 /* On viewports tall enough this is moot; on typical phones it guarantees the
    column never needs to scroll past the fixed tab bar. */
 @media (min-height: 720px) {
-  .m-dash { gap: 14px; }
+  .m-dash { gap: 18px; }
 }
 
 /* Greeting header (.mhead in the spec) */
@@ -4708,11 +4708,11 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 }
 .m-circ {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
   padding: 4px 2px; text-decoration: none;
   color: var(--gf-text); text-align: center;
   font-family: var(--gf-font-display); font-weight: 600;
-  font-size: 0.74rem; line-height: 1.2;
+  font-size: 0.78rem; line-height: 1.2;
   -webkit-user-select: none; user-select: none;
 }
 .m-circ-ic {
@@ -4721,7 +4721,7 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   display: grid; place-items: center;
   transition: transform var(--gf-t-fast), background var(--gf-t-fast), box-shadow var(--gf-t-fast);
 }
-.m-circ-ic svg { width: 24px; height: 24px; stroke-width: 1.9; }
+.m-circ-ic svg { width: 28px; height: 28px; stroke-width: 2; }
 .m-circ:hover .m-circ-ic {
   background: var(--gf-brand); color: #fff;
   box-shadow: 0 6px 18px var(--gf-brand-glow);
@@ -4751,6 +4751,22 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 }
 .m-group + .m-group { margin-top: 0; }
 
+/* Framed view (foldable / tablet / desktop): the app column is wider, so the
+   5-up chip row looks thin at phone sizes. Scale the chips, glyphs, labels and
+   stats up to fill the extra room and give the home screen real presence.
+   Phones stay at 56px chips because 5 must fit a narrow screen. */
+@media (min-width: 600px) {
+  .m-circ-ic { width: 70px; height: 70px; }
+  .m-circ-ic svg { width: 34px; height: 34px; }
+  .m-circ { gap: 12px; font-size: 0.86rem; }
+  .m-circ-label { max-width: 100px; }
+  .m-circ-row { gap: 10px; }
+  .m-group { padding: 24px 18px; }
+  .m-stat { padding: 22px 10px; }
+  .m-stat-num { font-size: 1.85rem; }
+  .m-stat-flame { width: 22px; height: 22px; }
+}
+
 /* Compact single-screen dashboard: a 3-up stats strip + an optional slim
    "next class" row, sized so the member dashboard fits a phone viewport
    without scrolling. */
@@ -4759,10 +4775,10 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   background: var(--gf-surface); border: 1px solid var(--gf-border);
   border-radius: var(--gf-radius); overflow: hidden;
 }
-.m-stat { padding: 13px 8px; text-align: center; min-width: 0; }
+.m-stat { padding: 16px 8px; text-align: center; min-width: 0; }
 .m-stat + .m-stat { border-left: 1px solid var(--gf-border); }
 .m-stat-num {
-  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem;
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.5rem;
   letter-spacing: -0.02em; display: inline-flex; align-items: center; gap: 4px;
   line-height: 1.1;
 }
