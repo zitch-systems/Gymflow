@@ -81,7 +81,7 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
     setScanning(false);
   }
 
-  async function startScanner() {
+  async function startScanner(silent = false) {
     // Guard the React 19 / StrictMode double-mount and a user racing the
     // click — a second start would try to attach Html5Qrcode to the same
     // #qr-reader div and fight for the camera.
@@ -109,23 +109,24 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
         },
       );
     } catch (err) {
-      // Most common: user denied the camera prompt, or the device has no
-      // camera. Toast it and fall back to the button view so they can still
-      // use "check in without scanning".
-      toast((err as Error).message || 'Could not open camera', 'error');
+      // Most common on auto-open: no camera (desktop), an un-granted
+      // permission, or an insecure origin. When we opened the camera
+      // speculatively (silent) we just fall back to the button view without
+      // alarming the member; only an *explicit* "Scan gym QR" tap surfaces the
+      // error, since then they asked for it.
+      if (!silent) toast((err as Error).message || 'Could not open camera', 'error');
       setScanning(false);
     }
   }
 
   // Auto-open the camera as soon as the page loads — the whole point of the
   // bottom-nav Check In tab is "scan to check in". On denial / no-camera the
-  // catch block above reverts to the button view, which still works. The
-  // setScanning(true) inside startScanner is the legitimate "kick off an
-  // external system" pattern the React Compiler rule documents an exception
-  // for.
+  // catch block above silently reverts to the button view, which still works.
+  // The setScanning(true) inside startScanner is the legitimate "kick off an
+  // external system" pattern the React Compiler rule documents an exception for.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void startScanner();
+    void startScanner(true);
     return () => void stopScanner();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -162,7 +163,7 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
         type="button"
         className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg"
         disabled={pending}
-        onClick={startScanner}
+        onClick={() => startScanner()}
       >
         {pending ? 'Checking in…' : (
           <>
