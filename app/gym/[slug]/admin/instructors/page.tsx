@@ -35,9 +35,9 @@ export default async function AdminInstructorsPage({ params }: PageProps) {
         <CardHeader title="Current instructors" />
         {links && links.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Name</th>
                   <th>Contact</th>
                   <th>Hired</th>
@@ -45,21 +45,21 @@ export default async function AdminInstructorsPage({ params }: PageProps) {
                   <th />
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {links.map((l) => {
                   const p = Array.isArray(l.profiles) ? l.profiles[0] : l.profiles;
                   return (
-                    <tr key={l.user_id ?? ''}>
-                      <td style={{ fontWeight: 600 }}>{p?.full_name ?? '—'}</td>
-                      <td data-label="Contact">
+                    <tr role="row" key={l.user_id ?? ''}>
+                      <td role="cell" style={{ fontWeight: 600 }}>{p?.full_name ?? '—'}</td>
+                      <td role="cell" data-label="Contact">
                         <div>{p?.email ?? '—'}</div>
                         <div className="gf-table-meta">{p?.phone ?? '—'}</div>
                       </td>
-                      <td data-label="Hired">{l.hire_date ? fmtDate(l.hire_date) : l.joined_at ? fmtDate(l.joined_at) : '—'}</td>
-                      <td data-label="Active">
+                      <td role="cell" data-label="Hired">{l.hire_date ? fmtDate(l.hire_date) : l.joined_at ? fmtDate(l.joined_at) : '—'}</td>
+                      <td role="cell" data-label="Active">
                         <span className={`status-pill ${l.is_active ? 'on' : 'off'}`}>{l.is_active ? 'Active' : 'Inactive'}</span>
                       </td>
-                      <td>
+                      <td role="cell">
                         {l.user_id && <InstructorRowActions slug={slug} userId={l.user_id} active={!!l.is_active} />}
                       </td>
                     </tr>

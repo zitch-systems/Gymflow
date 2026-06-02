@@ -95,9 +95,9 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
 
       <Card>
         <div className="gf-table-wrap">
-          <table className="gf-table gf-table-cards">
+          <table role="table" className="gf-table gf-table-cards">
             <thead>
-              <tr>
+              <tr role="row">
                 <th>Member</th>
                 <th>Contact</th>
                 <th>Joined</th>
@@ -105,10 +105,10 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>
+                <tr role="row">
+                  <td role="cell" colSpan={5}>
                     <EmptyState
                       icon={UserPlus}
                       title="No members yet"
@@ -121,17 +121,17 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
                   const left = daysLeft(r.expiry);
                   const active = left > 0 && r.status !== 'cancelled';
                   return (
-                    <tr key={r.userId}>
-                      <td className="gf-td-primary">
+                    <tr role="row" key={r.userId}>
+                      <td role="cell" className="gf-td-primary">
                         <Link href={`/admin/members/${r.userId}`} className="gf-link" style={{ fontWeight: 600 }}>
                           {r.name}
                         </Link>
                         <div className="gf-table-meta">{r.email}</div>
                       </td>
-                      <td data-label="Contact">{r.phone}</td>
-                      <td data-label="Joined">{fmtDate(r.joined)}</td>
-                      <td data-label="Expiry">{fmtDate(r.expiry)}</td>
-                      <td data-label="Status">
+                      <td role="cell" data-label="Contact">{r.phone}</td>
+                      <td role="cell" data-label="Joined">{fmtDate(r.joined)}</td>
+                      <td role="cell" data-label="Expiry">{fmtDate(r.expiry)}</td>
+                      <td role="cell" data-label="Status">
                         <StatusPill tone={active ? 'on' : 'off'}>
                           {active ? `${left}d left` : (r.status ?? 'inactive')}
                         </StatusPill>

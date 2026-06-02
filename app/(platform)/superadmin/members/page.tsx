@@ -98,20 +98,20 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
           <CardHeader title={`${results.length} result${results.length === 1 ? '' : 's'} for "${query}"`} />
           {results.length > 0 ? (
             <div className="gf-table-wrap">
-              <table className="gf-table gf-table-cards">
+              <table role="table" className="gf-table gf-table-cards">
                 <thead>
-                  <tr><th>Name</th><th>Contact</th><th>Role</th><th>Gyms</th><th>Joined</th></tr>
+                  <tr role="row"><th>Name</th><th>Contact</th><th>Role</th><th>Gyms</th><th>Joined</th></tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                   {results.map((r) => (
-                    <tr key={r.id}>
-                      <td style={{ fontWeight: 600 }}>{r.full_name ?? '—'}</td>
-                      <td data-label="Contact">
+                    <tr role="row" key={r.id}>
+                      <td role="cell" style={{ fontWeight: 600 }}>{r.full_name ?? '—'}</td>
+                      <td role="cell" data-label="Contact">
                         <div>{r.email ?? '—'}</div>
                         <div className="gf-table-meta">{r.phone ?? '—'}</div>
                       </td>
-                      <td data-label="Role"><span className="gf-table-meta">{r.role ?? '—'}</span></td>
-                      <td data-label="Gyms">
+                      <td role="cell" data-label="Role"><span className="gf-table-meta">{r.role ?? '—'}</span></td>
+                      <td role="cell" data-label="Gyms">
                         {r.gyms.length === 0 ? (
                           <span className="gf-table-meta">—</span>
                         ) : (
@@ -130,7 +130,7 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
                           ))
                         )}
                       </td>
-                      <td data-label="Joined">{r.created_at ? fmtDate(r.created_at) : '—'}</td>
+                      <td role="cell" data-label="Joined">{r.created_at ? fmtDate(r.created_at) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

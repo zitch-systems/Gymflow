@@ -50,25 +50,25 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
         <CardHeader title="Today's visits" />
         {recent && recent.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Time</th>
                   <th>Member</th>
                   <th>Method</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {recent.map((c) => {
                   const p = c.member_id ? profileById.get(c.member_id) : null;
                   return (
-                    <tr key={c.id}>
-                      <td data-label="Time">{fmtDateTime(c.checked_in_at)}</td>
-                      <td className="gf-td-primary">
+                    <tr role="row" key={c.id}>
+                      <td role="cell" data-label="Time">{fmtDateTime(c.checked_in_at)}</td>
+                      <td role="cell" className="gf-td-primary">
                         <div style={{ fontWeight: 600 }}>{p?.full_name ?? c.member_id?.slice(0, 8) ?? '—'}</div>
                         <div className="gf-table-meta">{p?.email ?? p?.phone ?? '—'}</div>
                       </td>
-                      <td data-label="Method">{c.check_in_method ?? 'manual'}</td>
+                      <td role="cell" data-label="Method">{c.check_in_method ?? 'manual'}</td>
                     </tr>
                   );
                 })}

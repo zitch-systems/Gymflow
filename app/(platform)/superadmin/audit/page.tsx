@@ -145,9 +145,9 @@ export default async function SuperadminAuditPage({ searchParams }: PageProps) {
 
         {rows && rows.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th style={{ whiteSpace: 'nowrap' }}>When</th>
                   <th>Gym</th>
                   <th>Who</th>
@@ -155,24 +155,24 @@ export default async function SuperadminAuditPage({ searchParams }: PageProps) {
                   <th>Details</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {rows.map((r) => {
                   const gym = Array.isArray(r.gyms) ? r.gyms[0] : r.gyms;
                   const actor = r.actor_id ? actorById.get(r.actor_id) : null;
                   const actorName = actor?.full_name ?? actor?.first_name ?? actor?.email ?? 'System';
                   const delta = renderAuditDelta(r.old_values, r.new_values);
                   return (
-                    <tr key={r.id}>
-                      <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
-                      <td style={{ whiteSpace: 'nowrap' }} data-label="Gym">
+                    <tr role="row" key={r.id}>
+                      <td role="cell" style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
+                      <td role="cell" style={{ whiteSpace: 'nowrap' }} data-label="Gym">
                         {gym ? (
                           <Link href={baseHref({ gym: r.gym_id ?? '' })} style={{ color: 'var(--gf-text)' }}>
                             {gym.name ?? gym.slug}
                           </Link>
                         ) : '—'}
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }} data-label="Who">{actorName}</td>
-                      <td style={{ whiteSpace: 'nowrap' }} data-label="What">
+                      <td role="cell" style={{ whiteSpace: 'nowrap' }} data-label="Who">{actorName}</td>
+                      <td role="cell" style={{ whiteSpace: 'nowrap' }} data-label="What">
                         <span style={{ fontWeight: 600 }}>{actionLabel(r.action)}</span>
                         {r.record_id ? (
                           <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--gf-text-muted)', marginLeft: 6 }}>
@@ -180,7 +180,7 @@ export default async function SuperadminAuditPage({ searchParams }: PageProps) {
                           </span>
                         ) : null}
                       </td>
-                      <td style={{ maxWidth: 440 }}>
+                      <td role="cell" style={{ maxWidth: 440 }}>
                         {delta.rows.length > 0 ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
                             {delta.rows.slice(0, 4).map(({ key, from, to }) => (

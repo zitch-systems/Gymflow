@@ -89,23 +89,23 @@ export default async function AdminPtPacksPage({ params }: PageProps) {
           <EmptyState icon={Dumbbell} title="No packs yet" message="Create one above to start selling sessions." />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr><th>Name</th><th>Coach</th><th>Sessions</th><th>Price</th><th>Status</th><th></th></tr>
+                <tr role="row"><th>Name</th><th>Coach</th><th>Sessions</th><th>Price</th><th>Status</th><th></th></tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {packs.map((p) => (
-                  <tr key={p.id} style={{ opacity: p.is_active ? 1 : 0.55 }}>
-                    <td style={{ fontWeight: 600 }}>{p.name}</td>
-                    <td className="gf-table-meta" data-label="Coach">{instructorLabel.get(p.instructor_id) ?? p.instructor_id.slice(0, 8)}</td>
-                    <td data-label="Sessions">{p.session_count}</td>
-                    <td data-label="Price">{fmtNaira(p.price)}</td>
-                    <td data-label="Status">
+                  <tr role="row" key={p.id} style={{ opacity: p.is_active ? 1 : 0.55 }}>
+                    <td role="cell" style={{ fontWeight: 600 }}>{p.name}</td>
+                    <td role="cell" className="gf-table-meta" data-label="Coach">{instructorLabel.get(p.instructor_id) ?? p.instructor_id.slice(0, 8)}</td>
+                    <td role="cell" data-label="Sessions">{p.session_count}</td>
+                    <td role="cell" data-label="Price">{fmtNaira(p.price)}</td>
+                    <td role="cell" data-label="Status">
                       <span className={`status-pill ${p.is_active ? 'on' : 'off'}`}>
                         {p.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td><DeactivateButton slug={slug} packId={p.id} isActive={p.is_active} /></td>
+                    <td role="cell"><DeactivateButton slug={slug} packId={p.id} isActive={p.is_active} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -129,17 +129,17 @@ export default async function AdminPtPacksPage({ params }: PageProps) {
           <EmptyState icon={Dumbbell} title="No purchases yet" message="Granted packs appear here." />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr><th>Member</th><th>Pack</th><th>Used / Total</th><th>Purchased</th></tr>
+                <tr role="row"><th>Member</th><th>Pack</th><th>Used / Total</th><th>Purchased</th></tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {credits.map((c) => (
-                  <tr key={c.id} style={{ opacity: c.sessions_used >= c.sessions_total ? 0.55 : 1 }}>
-                    <td>{memberLabel.get(c.member_id) ?? c.member_id.slice(0, 8)}</td>
-                    <td className="gf-table-meta" data-label="Pack">{c.pack_id ? packLabel.get(c.pack_id) ?? '—' : '—'}</td>
-                    <td data-label="Used / Total">{c.sessions_used} / {c.sessions_total}</td>
-                    <td className="gf-table-meta" data-label="Purchased">{fmtDate(c.purchased_at)}</td>
+                  <tr role="row" key={c.id} style={{ opacity: c.sessions_used >= c.sessions_total ? 0.55 : 1 }}>
+                    <td role="cell">{memberLabel.get(c.member_id) ?? c.member_id.slice(0, 8)}</td>
+                    <td role="cell" className="gf-table-meta" data-label="Pack">{c.pack_id ? packLabel.get(c.pack_id) ?? '—' : '—'}</td>
+                    <td role="cell" data-label="Used / Total">{c.sessions_used} / {c.sessions_total}</td>
+                    <td role="cell" className="gf-table-meta" data-label="Purchased">{fmtDate(c.purchased_at)}</td>
                   </tr>
                 ))}
               </tbody>

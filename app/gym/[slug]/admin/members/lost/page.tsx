@@ -117,27 +117,27 @@ export default async function LostMembersPage({ params, searchParams }: PageProp
           />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Member</th>
                   <th>Email / phone</th>
                   <th>Last visit</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {rows.map((m) => (
-                  <tr key={m.id}>
-                    <td>
+                  <tr role="row" key={m.id}>
+                    <td role="cell">
                       <Link href={`/admin/members/${m.id}`} style={{ fontWeight: 600, color: 'var(--gf-text)', textDecoration: 'none' }}>
                         {m.full_name ?? [m.first_name, m.last_name].filter(Boolean).join(' ') ?? '—'}
                       </Link>
                     </td>
-                    <td className="gf-table-meta" data-label="Contact">
+                    <td role="cell" className="gf-table-meta" data-label="Contact">
                       {m.email ?? '—'}
                       {m.phone ? <><br /><span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11 }}>{m.phone}</span></> : null}
                     </td>
-                    <td data-label="Last visit">{m.lastVisit ? fmtDate(m.lastVisit) : <span style={{ color: 'var(--gf-text-muted)' }}>Never visited</span>}</td>
+                    <td role="cell" data-label="Last visit">{m.lastVisit ? fmtDate(m.lastVisit) : <span style={{ color: 'var(--gf-text-muted)' }}>Never visited</span>}</td>
                   </tr>
                 ))}
               </tbody>

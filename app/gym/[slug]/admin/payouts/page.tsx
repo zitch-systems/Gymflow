@@ -118,9 +118,9 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
           <EmptyState title="No pending payouts" message="When a coach requests a payout, it'll show up here." />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Requested</th>
                   <th>Coach</th>
                   <th>Amount</th>
@@ -128,22 +128,22 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
                   <th>Pay</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {pendingRows.map((p) => {
                   const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
                   // Prefer the coach's saved bank account; fall back to the
                   // last payout's snapshot if they never saved one.
                   const prefill = bankByInstructor.get(p.instructor_id) ?? lastBankByInstructor.get(p.instructor_id);
                   return (
-                    <tr key={p.id}>
-                      <td data-label="Requested">{fmtDateTime(p.requested_at)}</td>
-                      <td className="gf-td-primary">
+                    <tr role="row" key={p.id}>
+                      <td role="cell" data-label="Requested">{fmtDateTime(p.requested_at)}</td>
+                      <td role="cell" className="gf-td-primary">
                         <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                         <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                       </td>
-                      <td data-label="Amount" style={{ fontWeight: 600 }}>{fmtNaira(p.amount)}</td>
-                      <td className="gf-table-meta" data-label="Note">{p.notes ?? '—'}</td>
-                      <td>
+                      <td role="cell" data-label="Amount" style={{ fontWeight: 600 }}>{fmtNaira(p.amount)}</td>
+                      <td role="cell" className="gf-table-meta" data-label="Note">{p.notes ?? '—'}</td>
+                      <td role="cell">
                         <ProcessPayoutForm
                           slug={slug}
                           payoutId={p.id}
@@ -167,9 +167,9 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
           <EmptyState title="No processed payouts yet" message="" />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Requested</th>
                   <th>Coach</th>
                   <th>Amount</th>
@@ -178,18 +178,18 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
                   <th>Processed</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {otherRows.map((p) => {
                   const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
                   return (
-                    <tr key={p.id}>
-                      <td data-label="Requested">{fmtDateTime(p.requested_at)}</td>
-                      <td className="gf-td-primary">
+                    <tr role="row" key={p.id}>
+                      <td role="cell" data-label="Requested">{fmtDateTime(p.requested_at)}</td>
+                      <td role="cell" className="gf-td-primary">
                         <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                         <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                       </td>
-                      <td data-label="Amount">{fmtNaira(p.amount)}</td>
-                      <td className="gf-table-meta" data-label="Bank">
+                      <td role="cell" data-label="Amount">{fmtNaira(p.amount)}</td>
+                      <td role="cell" className="gf-table-meta" data-label="Bank">
                         {p.bank_name ? (
                           <>
                             {p.bank_name}
@@ -200,12 +200,12 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
                           </>
                         ) : '—'}
                       </td>
-                      <td data-label="Status">
+                      <td role="cell" data-label="Status">
                         <span className={`status-pill ${p.status === 'paid' ? 'on' : p.status === 'rejected' ? 'off' : ''}`}>
                           {p.status}
                         </span>
                       </td>
-                      <td data-label="Processed">{p.processed_at ? fmtDateTime(p.processed_at) : '—'}</td>
+                      <td role="cell" data-label="Processed">{p.processed_at ? fmtDateTime(p.processed_at) : '—'}</td>
                     </tr>
                   );
                 })}

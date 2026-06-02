@@ -101,9 +101,9 @@ export default async function SuperadminPage() {
       <Card>
         <CardHeader title="Gyms" />
         <div className="gf-table-wrap">
-          <table className="gf-table gf-table-cards">
+          <table role="table" className="gf-table gf-table-cards">
             <thead>
-              <tr>
+              <tr role="row">
                 <th>Name</th>
                 <th>Slug</th>
                 <th>Plan</th>
@@ -113,25 +113,25 @@ export default async function SuperadminPage() {
                 <th />
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {(gyms ?? []).map((g) => (
-                <tr key={g.id}>
-                  <td>
+                <tr role="row" key={g.id}>
+                  <td role="cell">
                     <a href={`https://${g.slug}.gymflow.ng/admin/dashboard`} className="gf-link" target="_blank" rel="noreferrer">
                       {g.name}
                     </a>
                     <div className="gf-table-meta">{g.email ?? '—'}</div>
                   </td>
-                  <td className="gf-table-meta" data-label="Slug">{g.slug}</td>
-                  <td data-label="Plan">{g.subscription_plan ?? '—'}</td>
-                  <td data-label="Status">
+                  <td role="cell" className="gf-table-meta" data-label="Slug">{g.slug}</td>
+                  <td role="cell" data-label="Plan">{g.subscription_plan ?? '—'}</td>
+                  <td role="cell" data-label="Status">
                     <StatusPill tone={g.subscription_status === 'active' ? 'on' : 'off'}>
                       {g.subscription_status ?? '—'}
                     </StatusPill>
                   </td>
-                  <td data-label="Trial ends">{g.trial_ends_at ? fmtDate(g.trial_ends_at) : '—'}</td>
-                  <td data-label="Created">{fmtDate(g.created_at)}</td>
-                  <td>
+                  <td role="cell" data-label="Trial ends">{g.trial_ends_at ? fmtDate(g.trial_ends_at) : '—'}</td>
+                  <td role="cell" data-label="Created">{fmtDate(g.created_at)}</td>
+                  <td role="cell">
                     <SuperadminGymRowActions
                       gymId={g.id}
                       slug={g.slug}

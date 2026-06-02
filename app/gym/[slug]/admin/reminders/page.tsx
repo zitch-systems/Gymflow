@@ -40,25 +40,25 @@ export default async function AdminRemindersPage({ params }: PageProps) {
         <CardHeader title="Expiring this week" />
         {members && members.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Member</th>
                   <th>Email / Phone</th>
                   <th>Expires</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {members.map((m, i) => {
                   const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
                   return (
-                    <tr key={`${m.member_id ?? 'm'}-${i}`}>
-                      <td style={{ fontWeight: 600 }}>{p?.full_name ?? '—'}</td>
-                      <td data-label="Contact">
+                    <tr role="row" key={`${m.member_id ?? 'm'}-${i}`}>
+                      <td role="cell" style={{ fontWeight: 600 }}>{p?.full_name ?? '—'}</td>
+                      <td role="cell" data-label="Contact">
                         <div>{p?.email ?? '—'}</div>
                         <div className="gf-table-meta">{p?.phone ?? '—'}</div>
                       </td>
-                      <td data-label="Expires">{m.end_date}</td>
+                      <td role="cell" data-label="Expires">{m.end_date}</td>
                     </tr>
                   );
                 })}

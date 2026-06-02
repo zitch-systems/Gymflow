@@ -178,17 +178,17 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
         <CardHeader title="Subscription history" />
         {memberships && memberships.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
-              <thead><tr><th>Plan</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
-              <tbody>
+            <table role="table" className="gf-table gf-table-cards">
+              <thead><tr role="row"><th>Plan</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
+              <tbody role="rowgroup">
                 {memberships.map((m) => {
                   const plan = Array.isArray(m.membership_plans) ? m.membership_plans[0] : m.membership_plans;
                   return (
-                    <tr key={m.id}>
-                      <td>{plan?.name ?? '—'}</td>
-                      <td data-label="Start">{fmtDate(m.start_date)}</td>
-                      <td data-label="End">{fmtDate(m.end_date)}</td>
-                      <td data-label="Status"><span className={`status-pill ${m.status === 'active' ? 'on' : 'off'}`}>{m.status}</span></td>
+                    <tr role="row" key={m.id}>
+                      <td role="cell">{plan?.name ?? '—'}</td>
+                      <td role="cell" data-label="Start">{fmtDate(m.start_date)}</td>
+                      <td role="cell" data-label="End">{fmtDate(m.end_date)}</td>
+                      <td role="cell" data-label="Status"><span className={`status-pill ${m.status === 'active' ? 'on' : 'off'}`}>{m.status}</span></td>
                     </tr>
                   );
                 })}
@@ -204,18 +204,18 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
         <CardHeader title="Payments" />
         {payments && payments.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
-              <thead><tr><th>Date</th><th>Plan</th><th>Method</th><th>Amount</th><th>Status</th></tr></thead>
-              <tbody>
+            <table role="table" className="gf-table gf-table-cards">
+              <thead><tr role="row"><th>Date</th><th>Plan</th><th>Method</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody role="rowgroup">
                 {payments.map((p) => {
                   const plan = Array.isArray(p.membership_plans) ? p.membership_plans[0] : p.membership_plans;
                   return (
-                    <tr key={p.id}>
-                      <td>{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
-                      <td data-label="Plan">{plan?.name ?? '—'}</td>
-                      <td data-label="Method">{p.payment_method ?? '—'}</td>
-                      <td data-label="Amount">{fmtNaira(p.amount)}</td>
-                      <td data-label="Status"><span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>{p.payment_status}</span></td>
+                    <tr role="row" key={p.id}>
+                      <td role="cell">{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
+                      <td role="cell" data-label="Plan">{plan?.name ?? '—'}</td>
+                      <td role="cell" data-label="Method">{p.payment_method ?? '—'}</td>
+                      <td role="cell" data-label="Amount">{fmtNaira(p.amount)}</td>
+                      <td role="cell" data-label="Status"><span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>{p.payment_status}</span></td>
                     </tr>
                   );
                 })}
