@@ -192,9 +192,9 @@ export default async function AdminDashboard({ params }: PageProps) {
                         </Link>
                         <div className="gf-table-meta">{r.email}</div>
                       </td>
-                      <td>{fmtDate(r.joined)}</td>
-                      <td>{fmtDate(r.expiry)}</td>
-                      <td>
+                      <td data-label="Joined">{fmtDate(r.joined)}</td>
+                      <td data-label="Expiry">{fmtDate(r.expiry)}</td>
+                      <td data-label="Status">
                         <StatusPill tone={active ? 'on' : 'off'}>
                           {active ? `${left}d left` : (r.status ?? 'inactive')}
                         </StatusPill>

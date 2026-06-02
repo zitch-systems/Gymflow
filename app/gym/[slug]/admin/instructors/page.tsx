@@ -51,12 +51,12 @@ export default async function AdminInstructorsPage({ params }: PageProps) {
                   return (
                     <tr key={l.user_id ?? ''}>
                       <td style={{ fontWeight: 600 }}>{p?.full_name ?? '—'}</td>
-                      <td>
+                      <td data-label="Contact">
                         <div>{p?.email ?? '—'}</div>
                         <div className="gf-table-meta">{p?.phone ?? '—'}</div>
                       </td>
-                      <td>{l.hire_date ? fmtDate(l.hire_date) : l.joined_at ? fmtDate(l.joined_at) : '—'}</td>
-                      <td>
+                      <td data-label="Hired">{l.hire_date ? fmtDate(l.hire_date) : l.joined_at ? fmtDate(l.joined_at) : '—'}</td>
+                      <td data-label="Active">
                         <span className={`status-pill ${l.is_active ? 'on' : 'off'}`}>{l.is_active ? 'Active' : 'Inactive'}</span>
                       </td>
                       <td>

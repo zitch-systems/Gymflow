@@ -97,10 +97,10 @@ export default async function AdminPtPacksPage({ params }: PageProps) {
                 {packs.map((p) => (
                   <tr key={p.id} style={{ opacity: p.is_active ? 1 : 0.55 }}>
                     <td style={{ fontWeight: 600 }}>{p.name}</td>
-                    <td className="gf-table-meta">{instructorLabel.get(p.instructor_id) ?? p.instructor_id.slice(0, 8)}</td>
-                    <td>{p.session_count}</td>
-                    <td>{fmtNaira(p.price)}</td>
-                    <td>
+                    <td className="gf-table-meta" data-label="Coach">{instructorLabel.get(p.instructor_id) ?? p.instructor_id.slice(0, 8)}</td>
+                    <td data-label="Sessions">{p.session_count}</td>
+                    <td data-label="Price">{fmtNaira(p.price)}</td>
+                    <td data-label="Status">
                       <span className={`status-pill ${p.is_active ? 'on' : 'off'}`}>
                         {p.is_active ? 'Active' : 'Inactive'}
                       </span>
@@ -137,9 +137,9 @@ export default async function AdminPtPacksPage({ params }: PageProps) {
                 {credits.map((c) => (
                   <tr key={c.id} style={{ opacity: c.sessions_used >= c.sessions_total ? 0.55 : 1 }}>
                     <td>{memberLabel.get(c.member_id) ?? c.member_id.slice(0, 8)}</td>
-                    <td className="gf-table-meta">{c.pack_id ? packLabel.get(c.pack_id) ?? '—' : '—'}</td>
-                    <td>{c.sessions_used} / {c.sessions_total}</td>
-                    <td className="gf-table-meta">{fmtDate(c.purchased_at)}</td>
+                    <td className="gf-table-meta" data-label="Pack">{c.pack_id ? packLabel.get(c.pack_id) ?? '—' : '—'}</td>
+                    <td data-label="Used / Total">{c.sessions_used} / {c.sessions_total}</td>
+                    <td className="gf-table-meta" data-label="Purchased">{fmtDate(c.purchased_at)}</td>
                   </tr>
                 ))}
               </tbody>

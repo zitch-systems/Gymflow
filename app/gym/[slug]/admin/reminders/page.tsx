@@ -54,11 +54,11 @@ export default async function AdminRemindersPage({ params }: PageProps) {
                   return (
                     <tr key={`${m.member_id ?? 'm'}-${i}`}>
                       <td style={{ fontWeight: 600 }}>{p?.full_name ?? '—'}</td>
-                      <td>
+                      <td data-label="Contact">
                         <div>{p?.email ?? '—'}</div>
                         <div className="gf-table-meta">{p?.phone ?? '—'}</div>
                       </td>
-                      <td>{m.end_date}</td>
+                      <td data-label="Expires">{m.end_date}</td>
                     </tr>
                   );
                 })}

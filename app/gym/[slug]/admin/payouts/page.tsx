@@ -137,12 +137,12 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
                   return (
                     <tr key={p.id}>
                       <td>{fmtDateTime(p.requested_at)}</td>
-                      <td>
+                      <td data-label="Coach">
                         <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                         <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                       </td>
-                      <td style={{ fontWeight: 600 }}>{fmtNaira(p.amount)}</td>
-                      <td className="gf-table-meta">{p.notes ?? '—'}</td>
+                      <td data-label="Amount" style={{ fontWeight: 600 }}>{fmtNaira(p.amount)}</td>
+                      <td className="gf-table-meta" data-label="Note">{p.notes ?? '—'}</td>
                       <td>
                         <ProcessPayoutForm
                           slug={slug}
@@ -184,12 +184,12 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
                   return (
                     <tr key={p.id}>
                       <td>{fmtDateTime(p.requested_at)}</td>
-                      <td>
+                      <td data-label="Coach">
                         <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                         <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                       </td>
-                      <td>{fmtNaira(p.amount)}</td>
-                      <td className="gf-table-meta">
+                      <td data-label="Amount">{fmtNaira(p.amount)}</td>
+                      <td className="gf-table-meta" data-label="Bank">
                         {p.bank_name ? (
                           <>
                             {p.bank_name}
@@ -200,12 +200,12 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
                           </>
                         ) : '—'}
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`status-pill ${p.status === 'paid' ? 'on' : p.status === 'rejected' ? 'off' : ''}`}>
                           {p.status}
                         </span>
                       </td>
-                      <td>{p.processed_at ? fmtDateTime(p.processed_at) : '—'}</td>
+                      <td data-label="Processed">{p.processed_at ? fmtDateTime(p.processed_at) : '—'}</td>
                     </tr>
                   );
                 })}

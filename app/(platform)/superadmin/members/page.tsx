@@ -106,12 +106,12 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
                   {results.map((r) => (
                     <tr key={r.id}>
                       <td style={{ fontWeight: 600 }}>{r.full_name ?? '—'}</td>
-                      <td>
+                      <td data-label="Contact">
                         <div>{r.email ?? '—'}</div>
                         <div className="gf-table-meta">{r.phone ?? '—'}</div>
                       </td>
-                      <td><span className="gf-table-meta">{r.role ?? '—'}</span></td>
-                      <td>
+                      <td data-label="Role"><span className="gf-table-meta">{r.role ?? '—'}</span></td>
+                      <td data-label="Gyms">
                         {r.gyms.length === 0 ? (
                           <span className="gf-table-meta">—</span>
                         ) : (
@@ -130,7 +130,7 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
                           ))
                         )}
                       </td>
-                      <td>{r.created_at ? fmtDate(r.created_at) : '—'}</td>
+                      <td data-label="Joined">{r.created_at ? fmtDate(r.created_at) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -164,15 +164,15 @@ export default async function SuperadminAuditPage({ searchParams }: PageProps) {
                   return (
                     <tr key={r.id}>
                       <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
+                      <td style={{ whiteSpace: 'nowrap' }} data-label="Gym">
                         {gym ? (
                           <Link href={baseHref({ gym: r.gym_id ?? '' })} style={{ color: 'var(--gf-text)' }}>
                             {gym.name ?? gym.slug}
                           </Link>
                         ) : '—'}
                       </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{actorName}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
+                      <td style={{ whiteSpace: 'nowrap' }} data-label="Who">{actorName}</td>
+                      <td style={{ whiteSpace: 'nowrap' }} data-label="What">
                         <span style={{ fontWeight: 600 }}>{actionLabel(r.action)}</span>
                         {r.record_id ? (
                           <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--gf-text-muted)', marginLeft: 6 }}>

@@ -62,12 +62,12 @@ export default async function AdminClassesPage({ params }: PageProps) {
                           {cls?.category ?? '—'} · {cls?.instructor ?? '—'}
                         </div>
                       </td>
-                      <td>{DAY_LABELS[s.day_of_week] ?? '—'}</td>
-                      <td>
+                      <td data-label="Day">{DAY_LABELS[s.day_of_week] ?? '—'}</td>
+                      <td data-label="Time">
                         {s.start_time} – {s.end_time}
                       </td>
-                      <td>{s.room ?? '—'}</td>
-                      <td>{cls?.max_capacity ?? '—'}</td>
+                      <td data-label="Room">{s.room ?? '—'}</td>
+                      <td data-label="Capacity">{cls?.max_capacity ?? '—'}</td>
                       <td>{s.class_id && <ClassDeleteButton slug={slug} classId={s.class_id} />}</td>
                     </tr>
                   );

@@ -64,11 +64,11 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
                   return (
                     <tr key={c.id}>
                       <td>{fmtDateTime(c.checked_in_at)}</td>
-                      <td>
+                      <td data-label="Member">
                         <div style={{ fontWeight: 600 }}>{p?.full_name ?? c.member_id?.slice(0, 8) ?? '—'}</div>
                         <div className="gf-table-meta">{p?.email ?? p?.phone ?? '—'}</div>
                       </td>
-                      <td>{c.check_in_method ?? 'manual'}</td>
+                      <td data-label="Method">{c.check_in_method ?? 'manual'}</td>
                     </tr>
                   );
                 })}
