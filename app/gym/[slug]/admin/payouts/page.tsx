@@ -136,8 +136,8 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
                   const prefill = bankByInstructor.get(p.instructor_id) ?? lastBankByInstructor.get(p.instructor_id);
                   return (
                     <tr key={p.id}>
-                      <td>{fmtDateTime(p.requested_at)}</td>
-                      <td data-label="Coach">
+                      <td data-label="Requested">{fmtDateTime(p.requested_at)}</td>
+                      <td className="gf-td-primary">
                         <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                         <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                       </td>
@@ -183,8 +183,8 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
                   const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
                   return (
                     <tr key={p.id}>
-                      <td>{fmtDateTime(p.requested_at)}</td>
-                      <td data-label="Coach">
+                      <td data-label="Requested">{fmtDateTime(p.requested_at)}</td>
+                      <td className="gf-td-primary">
                         <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                         <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                       </td>

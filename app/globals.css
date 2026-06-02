@@ -5908,15 +5908,17 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
      so a table reads sensibly the moment it gets `gf-table-cards`, even before
      per-cell labels are added. */
   .gf-table-cards tbody td:not([data-label]) { justify-content: flex-start; text-align: left; }
-  /* Lead cell = card header: full-width, emphasized, divider. Either the
-     explicit .gf-td-primary or, by default, the first cell in the row. */
+  /* Lead cell = card header: full-width, emphasized, divider. Use the explicit
+     .gf-td-primary when a row has one; otherwise fall back to the first cell.
+     The :not(:has()) guard stops a row from getting two headers when an
+     explicit primary isn't the first column (e.g. member-led transaction logs). */
   .gf-table-cards tbody td.gf-td-primary,
-  .gf-table-cards tbody td:first-child {
+  .gf-table-cards tbody tr:not(:has(.gf-td-primary)) td:first-child {
     display: block; text-align: left; padding: 0 0 8px;
     margin-bottom: 4px; border-bottom: 1px solid var(--gf-border); font-weight: 600;
   }
   .gf-table-cards tbody td.gf-td-primary::before,
-  .gf-table-cards tbody td:first-child::before { display: none; }
+  .gf-table-cards tbody tr:not(:has(.gf-td-primary)) td:first-child::before { display: none; }
   /* Full-width cells (e.g. an empty-state row) shouldn't become label rows. */
   .gf-table-cards tbody td[colspan] {
     display: block; text-align: center; font-weight: inherit;

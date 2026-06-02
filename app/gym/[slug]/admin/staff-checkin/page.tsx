@@ -63,8 +63,8 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
                   const p = c.member_id ? profileById.get(c.member_id) : null;
                   return (
                     <tr key={c.id}>
-                      <td>{fmtDateTime(c.checked_in_at)}</td>
-                      <td data-label="Member">
+                      <td data-label="Time">{fmtDateTime(c.checked_in_at)}</td>
+                      <td className="gf-td-primary">
                         <div style={{ fontWeight: 600 }}>{p?.full_name ?? c.member_id?.slice(0, 8) ?? '—'}</div>
                         <div className="gf-table-meta">{p?.email ?? p?.phone ?? '—'}</div>
                       </td>

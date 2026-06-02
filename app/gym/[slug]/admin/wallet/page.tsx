@@ -86,8 +86,8 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
                 const plan = Array.isArray(p.membership_plans) ? p.membership_plans[0] : p.membership_plans;
                 return (
                   <tr key={p.id}>
-                    <td>{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
-                    <td data-label="Member">
+                    <td data-label="Date">{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
+                    <td className="gf-td-primary">
                       <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                       <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                     </td>
