@@ -233,7 +233,7 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
       <Card>
         <CardHeader title="Profit & loss · last 6 months" />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Month</th>
@@ -262,7 +262,7 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
         <CardHeader title="Lifetime value by plan" />
         {ltv.byPlan.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Plan</th>
@@ -291,7 +291,7 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
       <Card>
         <CardHeader title="Cohort retention · by join month" />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Joined</th>

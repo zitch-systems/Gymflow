@@ -118,7 +118,7 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
           <EmptyState title="No pending payouts" message="When a coach requests a payout, it'll show up here." />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Requested</th>
@@ -167,7 +167,7 @@ export default async function AdminPayoutsPage({ params }: PageProps) {
           <EmptyState title="No processed payouts yet" message="" />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Requested</th>

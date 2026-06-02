@@ -98,7 +98,7 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
           <CardHeader title={`${results.length} result${results.length === 1 ? '' : 's'} for "${query}"`} />
           {results.length > 0 ? (
             <div className="gf-table-wrap">
-              <table className="gf-table">
+              <table className="gf-table gf-table-cards">
                 <thead>
                   <tr><th>Name</th><th>Contact</th><th>Role</th><th>Gyms</th><th>Joined</th></tr>
                 </thead>

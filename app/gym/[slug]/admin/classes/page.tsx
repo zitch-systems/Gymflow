@@ -40,7 +40,7 @@ export default async function AdminClassesPage({ params }: PageProps) {
         <CardHeader title="Current schedule" />
         {schedules && schedules.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Class</th>

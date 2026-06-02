@@ -40,7 +40,7 @@ export default async function AdminRemindersPage({ params }: PageProps) {
         <CardHeader title="Expiring this week" />
         {members && members.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Member</th>

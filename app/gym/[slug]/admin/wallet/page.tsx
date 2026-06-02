@@ -68,7 +68,7 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
       <Card>
         <WalletFilters defaultFrom={from} defaultTo={to} defaultMethod={method} defaultStatus={status} />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Date</th>

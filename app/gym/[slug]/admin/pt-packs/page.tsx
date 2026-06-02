@@ -89,7 +89,7 @@ export default async function AdminPtPacksPage({ params }: PageProps) {
           <EmptyState icon={Dumbbell} title="No packs yet" message="Create one above to start selling sessions." />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr><th>Name</th><th>Coach</th><th>Sessions</th><th>Price</th><th>Status</th><th></th></tr>
               </thead>
@@ -129,7 +129,7 @@ export default async function AdminPtPacksPage({ params }: PageProps) {
           <EmptyState icon={Dumbbell} title="No purchases yet" message="Granted packs appear here." />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr><th>Member</th><th>Pack</th><th>Used / Total</th><th>Purchased</th></tr>
               </thead>

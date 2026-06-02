@@ -178,7 +178,7 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
         <CardHeader title="Subscription history" />
         {memberships && memberships.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead><tr><th>Plan</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
               <tbody>
                 {memberships.map((m) => {
@@ -204,7 +204,7 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
         <CardHeader title="Payments" />
         {payments && payments.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead><tr><th>Date</th><th>Plan</th><th>Method</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
                 {payments.map((p) => {

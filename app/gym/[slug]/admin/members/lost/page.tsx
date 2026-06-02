@@ -117,7 +117,7 @@ export default async function LostMembersPage({ params, searchParams }: PageProp
           />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Member</th>

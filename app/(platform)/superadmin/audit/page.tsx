@@ -145,7 +145,7 @@ export default async function SuperadminAuditPage({ searchParams }: PageProps) {
 
         {rows && rows.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th style={{ whiteSpace: 'nowrap' }}>When</th>

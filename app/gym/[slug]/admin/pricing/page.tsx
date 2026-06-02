@@ -33,7 +33,7 @@ export default async function AdminPricingPage({ params }: PageProps) {
         <CardHeader title="Current plans" />
         {plans && plans.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Name</th>

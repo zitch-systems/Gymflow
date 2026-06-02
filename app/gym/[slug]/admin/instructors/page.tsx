@@ -35,7 +35,7 @@ export default async function AdminInstructorsPage({ params }: PageProps) {
         <CardHeader title="Current instructors" />
         {links && links.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Name</th>

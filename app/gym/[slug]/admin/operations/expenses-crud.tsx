@@ -69,7 +69,7 @@ export function ExpensesCrud({ slug, gymId, items }: { slug: string; gymId: stri
         <EmptyState icon={Receipt} title="No expenses recorded yet" />
       ) : (
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Date</th>

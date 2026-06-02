@@ -50,7 +50,7 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
         <CardHeader title="Today's visits" />
         {recent && recent.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Time</th>

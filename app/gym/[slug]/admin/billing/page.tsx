@@ -112,7 +112,7 @@ export default async function BillingPage({ params }: { params: Promise<{ slug: 
       <Card>
         <CardHeader title="Recent platform charges" />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead><tr><th>Date</th><th>Period</th><th>Amount</th><th>Status</th><th>Reference</th></tr></thead>
             <tbody>
               {(payments ?? []).map((p) => (

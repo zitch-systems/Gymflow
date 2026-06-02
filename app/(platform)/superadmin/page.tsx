@@ -101,7 +101,7 @@ export default async function SuperadminPage() {
       <Card>
         <CardHeader title="Gyms" />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Name</th>
