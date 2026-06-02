@@ -5902,6 +5902,42 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
   .gf-page { gap: 14px; padding: 16px; }
 }
 
+/* Opt-in responsive table → cards. Add `gf-table-cards` to a `.gf-table` to
+   have each row collapse into a labelled card on phones (≤640px) instead of
+   scrolling sideways. Each <td> needs a `data-label`; mark the lead cell with
+   `.gf-td-primary` to render it full-width with no label. Desktop is unchanged. */
+@media (max-width: 640px) {
+  .gf-table-cards,
+  .gf-table-cards tbody { display: block; width: 100%; }
+  .gf-table-cards thead { display: none; }
+  .gf-table-cards tr {
+    display: block;
+    background: var(--gf-surface);
+    border: 1px solid var(--gf-border);
+    border-radius: var(--gf-radius);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .gf-table-cards td {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 6px 0; border: none; text-align: right;
+  }
+  .gf-table-cards td::before {
+    content: attr(data-label);
+    font-size: 0.68rem; font-weight: 700; color: var(--gf-text-muted);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    text-align: left; flex-shrink: 0;
+  }
+  .gf-table-cards td.gf-td-primary {
+    display: block; text-align: left; padding: 0 0 8px;
+    margin-bottom: 4px; border-bottom: 1px solid var(--gf-border);
+  }
+  .gf-table-cards td.gf-td-primary::before { display: none; }
+  /* Full-width cells (e.g. an empty-state row) shouldn't become label rows. */
+  .gf-table-cards td[colspan] { display: block; text-align: center; }
+  .gf-table-cards td[colspan]::before { display: none; }
+}
+
 /* Slightly larger, comfortable tap targets for the portal nav. */
 .gf-mobile-nav .gf-nav-tab { min-width: 56px; }
 .gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
