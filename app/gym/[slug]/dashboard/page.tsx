@@ -151,10 +151,10 @@ export default async function MemberDashboard({ params }: PageProps) {
         )}
       </div>
 
-      {/* Quick actions — 5-up circular icon chips. These deliberately surface
-          actions/destinations the bottom tab bar does NOT (PT packs, Saved
-          cards, Inbox) plus the two primary actions (Check in, Renew); Classes
-          and Coaches already live in the tab bar, so they're not duplicated. */}
+      {/* Quick actions — 4-up circular icon chips (fewer = bigger on phones).
+          Surfaces destinations the bottom tab bar does NOT (PT packs, Saved
+          cards) plus the two primary actions (Check in, Renew). Inbox lives in
+          the header bell; Classes and Coaches are tabs — none are duplicated. */}
       <div className="m-group">
         <section className="m-circ-row" aria-label="Quick actions">
           <Link href="/checkin" className="m-circ">
@@ -169,11 +169,6 @@ export default async function MemberDashboard({ params }: PageProps) {
           <Link href="/dashboard/cards" className="m-circ">
             <span className="m-circ-ic"><Wallet /></span>
             <span className="m-circ-label">Cards</span>
-          </Link>
-          <Link href="/dashboard/inbox" className="m-circ">
-            <span className="m-circ-ic"><Bell /></span>
-            <span className="m-circ-label">Inbox</span>
-            {unreadCount > 0 ? <span className="m-circ-badge" aria-hidden>{unreadCount > 9 ? '9+' : unreadCount}</span> : null}
           </Link>
           <Link href="/dashboard/renew" className="m-circ">
             <span className="m-circ-ic"><CreditCard /></span>
