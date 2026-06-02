@@ -69,9 +69,9 @@ export function ExpensesCrud({ slug, gymId, items }: { slug: string; gymId: stri
         <EmptyState icon={Receipt} title="No expenses recorded yet" />
       ) : (
         <div className="gf-table-wrap">
-          <table className="gf-table gf-table-cards">
+          <table role="table" className="gf-table gf-table-cards">
             <thead>
-              <tr>
+              <tr role="row">
                 <th>Date</th>
                 <th>Category</th>
                 <th>Description</th>
@@ -80,24 +80,24 @@ export function ExpensesCrud({ slug, gymId, items }: { slug: string; gymId: stri
                 <th />
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {items.map((x) => (
-                <tr key={x.id}>
-                  <td>{x.expense_date ? fmtDate(x.expense_date) : '—'}</td>
-                  <td data-label="Category">
+                <tr role="row" key={x.id}>
+                  <td role="cell">{x.expense_date ? fmtDate(x.expense_date) : '—'}</td>
+                  <td role="cell" data-label="Category">
                     {x.category}
                     {x.is_recurring && <span className="gf-table-meta"> · recurring</span>}
                   </td>
-                  <td data-label="Description">{x.description ?? '—'}</td>
-                  <td data-label="Amount">{fmtNaira(x.amount)}</td>
-                  <td data-label="Receipt">
+                  <td role="cell" data-label="Description">{x.description ?? '—'}</td>
+                  <td role="cell" data-label="Amount">{fmtNaira(x.amount)}</td>
+                  <td role="cell" data-label="Receipt">
                     {x.receipt_url ? (
                       <a href={x.receipt_url} className="gf-link" target="_blank" rel="noreferrer">View</a>
                     ) : (
                       '—'
                     )}
                   </td>
-                  <td style={{ display: 'flex', gap: 4 }}>
+                  <td role="cell" style={{ display: 'flex', gap: 4 }}>
                     <button type="button" className="gf-btn gf-btn-ghost gf-btn-sm" onClick={() => setEditing(x)}>Edit</button>
                     <button
                       type="button"

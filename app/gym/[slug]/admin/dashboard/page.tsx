@@ -171,30 +171,30 @@ export default async function AdminDashboard({ params }: PageProps) {
           />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Member</th>
                   <th>Joined</th>
                   <th>Expiry</th>
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {recentRows.map((r) => {
                   const left = daysLeft(r.expiry);
                   const active = left > 0 && r.status !== 'cancelled';
                   return (
-                    <tr key={r.id}>
-                      <td>
+                    <tr role="row" key={r.id}>
+                      <td role="cell">
                         <Link href={`/admin/members/${r.id}`} className="gf-link" style={{ fontWeight: 600 }}>
                           {r.name}
                         </Link>
                         <div className="gf-table-meta">{r.email}</div>
                       </td>
-                      <td data-label="Joined">{fmtDate(r.joined)}</td>
-                      <td data-label="Expiry">{fmtDate(r.expiry)}</td>
-                      <td data-label="Status">
+                      <td role="cell" data-label="Joined">{fmtDate(r.joined)}</td>
+                      <td role="cell" data-label="Expiry">{fmtDate(r.expiry)}</td>
+                      <td role="cell" data-label="Status">
                         <StatusPill tone={active ? 'on' : 'off'}>
                           {active ? `${left}d left` : (r.status ?? 'inactive')}
                         </StatusPill>

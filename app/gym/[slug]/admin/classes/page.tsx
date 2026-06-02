@@ -40,9 +40,9 @@ export default async function AdminClassesPage({ params }: PageProps) {
         <CardHeader title="Current schedule" />
         {schedules && schedules.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Class</th>
                   <th>Day</th>
                   <th>Time</th>
@@ -51,24 +51,24 @@ export default async function AdminClassesPage({ params }: PageProps) {
                   <th />
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {schedules.map((s) => {
                   const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
                   return (
-                    <tr key={s.id}>
-                      <td>
+                    <tr role="row" key={s.id}>
+                      <td role="cell">
                         <div style={{ fontWeight: 600 }}>{cls?.name ?? '—'}</div>
                         <div className="gf-table-meta">
                           {cls?.category ?? '—'} · {cls?.instructor ?? '—'}
                         </div>
                       </td>
-                      <td data-label="Day">{DAY_LABELS[s.day_of_week] ?? '—'}</td>
-                      <td data-label="Time">
+                      <td role="cell" data-label="Day">{DAY_LABELS[s.day_of_week] ?? '—'}</td>
+                      <td role="cell" data-label="Time">
                         {s.start_time} – {s.end_time}
                       </td>
-                      <td data-label="Room">{s.room ?? '—'}</td>
-                      <td data-label="Capacity">{cls?.max_capacity ?? '—'}</td>
-                      <td>{s.class_id && <ClassDeleteButton slug={slug} classId={s.class_id} />}</td>
+                      <td role="cell" data-label="Room">{s.room ?? '—'}</td>
+                      <td role="cell" data-label="Capacity">{cls?.max_capacity ?? '—'}</td>
+                      <td role="cell">{s.class_id && <ClassDeleteButton slug={slug} classId={s.class_id} />}</td>
                     </tr>
                   );
                 })}

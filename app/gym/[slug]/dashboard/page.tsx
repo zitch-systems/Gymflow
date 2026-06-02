@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft, firstName } from '@/lib/format';
 import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
 import { daysAgoIso } from '@/lib/dates';
-import { Bell, ScanLine, CalendarDays, GraduationCap, CreditCard, Flame, ChevronRight, Dumbbell } from 'lucide-react';
+import { Bell, ScanLine, CalendarDays, CreditCard, Flame, ChevronRight, Dumbbell, Wallet } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -151,28 +151,29 @@ export default async function MemberDashboard({ params }: PageProps) {
         )}
       </div>
 
-      {/* Quick actions — 5-up circular icon chips (OPay/OWealth pattern):
-          round soft-green icon over a label, grouped in a card so they read as
-          a tile set rather than floating on the page. Optional float badges. */}
+      {/* Quick actions — 5-up circular icon chips. These deliberately surface
+          actions/destinations the bottom tab bar does NOT (PT packs, Saved
+          cards, Inbox) plus the two primary actions (Check in, Renew); Classes
+          and Coaches already live in the tab bar, so they're not duplicated. */}
       <div className="m-group">
         <section className="m-circ-row" aria-label="Quick actions">
           <Link href="/checkin" className="m-circ">
             <span className="m-circ-ic"><ScanLine /></span>
             <span className="m-circ-label">Check in</span>
           </Link>
-          <Link href="/classes" className="m-circ">
-            <span className="m-circ-ic"><CalendarDays /></span>
-            <span className="m-circ-label">Classes</span>
-            {nextClass?.isToday ? <span className="m-circ-badge is-brand" aria-hidden>Today</span> : null}
-          </Link>
-          <Link href="/dashboard/instructors" className="m-circ">
-            <span className="m-circ-ic"><GraduationCap /></span>
-            <span className="m-circ-label">Coaches</span>
-          </Link>
           <Link href="/dashboard/pt-packs" className="m-circ">
             <span className="m-circ-ic"><Dumbbell /></span>
             <span className="m-circ-label">PT packs</span>
             {ptPacksAvailable && ptCredits.length === 0 ? <span className="m-circ-badge" aria-hidden>New</span> : null}
+          </Link>
+          <Link href="/dashboard/cards" className="m-circ">
+            <span className="m-circ-ic"><Wallet /></span>
+            <span className="m-circ-label">Cards</span>
+          </Link>
+          <Link href="/dashboard/inbox" className="m-circ">
+            <span className="m-circ-ic"><Bell /></span>
+            <span className="m-circ-label">Inbox</span>
+            {unreadCount > 0 ? <span className="m-circ-badge" aria-hidden>{unreadCount > 9 ? '9+' : unreadCount}</span> : null}
           </Link>
           <Link href="/dashboard/renew" className="m-circ">
             <span className="m-circ-ic"><CreditCard /></span>

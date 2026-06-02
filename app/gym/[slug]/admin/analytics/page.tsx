@@ -233,22 +233,22 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
       <Card>
         <CardHeader title="Profit & loss · last 6 months" />
         <div className="gf-table-wrap">
-          <table className="gf-table gf-table-cards">
+          <table role="table" className="gf-table gf-table-cards">
             <thead>
-              <tr>
+              <tr role="row">
                 <th>Month</th>
                 <th style={{ textAlign: 'right' }}>Revenue</th>
                 <th style={{ textAlign: 'right' }}>Expenses</th>
                 <th style={{ textAlign: 'right' }}>Net</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {pnlRows.map((r) => (
-                <tr key={r.key}>
-                  <td style={{ fontWeight: 600 }}>{r.label}</td>
-                  <td data-label="Revenue" style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
-                  <td data-label="Expenses" style={{ textAlign: 'right' }}>{fmtNaira(r.expense)}</td>
-                  <td data-label="Net" style={{ textAlign: 'right', color: r.net >= 0 ? 'var(--gf-brand)' : 'var(--gf-danger)', fontWeight: 600 }}>
+                <tr role="row" key={r.key}>
+                  <td role="cell" style={{ fontWeight: 600 }}>{r.label}</td>
+                  <td role="cell" data-label="Revenue" style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
+                  <td role="cell" data-label="Expenses" style={{ textAlign: 'right' }}>{fmtNaira(r.expense)}</td>
+                  <td role="cell" data-label="Net" style={{ textAlign: 'right', color: r.net >= 0 ? 'var(--gf-brand)' : 'var(--gf-danger)', fontWeight: 600 }}>
                     {fmtNaira(r.net)}
                   </td>
                 </tr>
@@ -262,22 +262,22 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
         <CardHeader title="Lifetime value by plan" />
         {ltv.byPlan.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Plan</th>
                   <th style={{ textAlign: 'right' }}>Members paid</th>
                   <th style={{ textAlign: 'right' }}>Revenue</th>
                   <th style={{ textAlign: 'right' }}>Avg LTV</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {ltv.byPlan.map((r) => (
-                  <tr key={r.planId}>
-                    <td style={{ fontWeight: 600 }}>{r.planName}</td>
-                    <td data-label="Members paid" style={{ textAlign: 'right' }}>{r.members}</td>
-                    <td data-label="Revenue" style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
-                    <td data-label="Avg LTV" style={{ textAlign: 'right', fontWeight: 600 }}>{fmtNaira(r.ltv)}</td>
+                  <tr role="row" key={r.planId}>
+                    <td role="cell" style={{ fontWeight: 600 }}>{r.planName}</td>
+                    <td role="cell" data-label="Members paid" style={{ textAlign: 'right' }}>{r.members}</td>
+                    <td role="cell" data-label="Revenue" style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
+                    <td role="cell" data-label="Avg LTV" style={{ textAlign: 'right', fontWeight: 600 }}>{fmtNaira(r.ltv)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -291,22 +291,22 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
       <Card>
         <CardHeader title="Cohort retention · by join month" />
         <div className="gf-table-wrap">
-          <table className="gf-table gf-table-cards">
+          <table role="table" className="gf-table gf-table-cards">
             <thead>
-              <tr>
+              <tr role="row">
                 <th>Joined</th>
                 <th style={{ textAlign: 'right' }}>Members</th>
                 <th style={{ textAlign: 'right' }}>Still active</th>
                 <th style={{ textAlign: 'right' }}>Retention</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {cohorts.map((r) => (
-                <tr key={r.key}>
-                  <td style={{ fontWeight: 600 }}>{r.label}</td>
-                  <td data-label="Members" style={{ textAlign: 'right' }}>{r.joined}</td>
-                  <td data-label="Still active" style={{ textAlign: 'right' }}>{r.retained}</td>
-                  <td data-label="Retention" style={{ textAlign: 'right', fontWeight: 600, color: r.retentionPct >= 50 ? 'var(--gf-brand)' : 'var(--gf-text)' }}>
+                <tr role="row" key={r.key}>
+                  <td role="cell" style={{ fontWeight: 600 }}>{r.label}</td>
+                  <td role="cell" data-label="Members" style={{ textAlign: 'right' }}>{r.joined}</td>
+                  <td role="cell" data-label="Still active" style={{ textAlign: 'right' }}>{r.retained}</td>
+                  <td role="cell" data-label="Retention" style={{ textAlign: 'right', fontWeight: 600, color: r.retentionPct >= 50 ? 'var(--gf-brand)' : 'var(--gf-text)' }}>
                     {r.joined > 0 ? `${r.retentionPct}%` : '—'}
                   </td>
                 </tr>

@@ -33,9 +33,9 @@ export default async function AdminPricingPage({ params }: PageProps) {
         <CardHeader title="Current plans" />
         {plans && plans.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th>Name</th>
                   <th>Duration</th>
                   <th>Price</th>
@@ -43,23 +43,23 @@ export default async function AdminPricingPage({ params }: PageProps) {
                   <th />
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {plans.map((p) => (
-                  <tr key={p.id}>
-                    <td>
+                  <tr role="row" key={p.id}>
+                    <td role="cell">
                       <div style={{ fontWeight: 600 }}>{p.name}</div>
                       <div className="gf-table-meta">{p.description ?? '—'}</div>
                     </td>
-                    <td data-label="Duration">
+                    <td role="cell" data-label="Duration">
                       {p.duration_months} month{p.duration_months === 1 ? '' : 's'}
                     </td>
-                    <td data-label="Price">{fmtNaira(p.price)}</td>
-                    <td data-label="Active">
+                    <td role="cell" data-label="Price">{fmtNaira(p.price)}</td>
+                    <td role="cell" data-label="Active">
                       <span className={`status-pill ${p.is_active ? 'on' : 'off'}`}>
                         {p.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td>
+                    <td role="cell">
                       <PlanDeleteButton slug={slug} planId={p.id} />
                     </td>
                   </tr>

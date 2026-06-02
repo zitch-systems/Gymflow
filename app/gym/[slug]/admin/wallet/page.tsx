@@ -68,9 +68,9 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
       <Card>
         <WalletFilters defaultFrom={from} defaultTo={to} defaultMethod={method} defaultStatus={status} />
         <div className="gf-table-wrap">
-          <table className="gf-table gf-table-cards">
+          <table role="table" className="gf-table gf-table-cards">
             <thead>
-              <tr>
+              <tr role="row">
                 <th>Date</th>
                 <th>Member</th>
                 <th>Plan</th>
@@ -80,24 +80,24 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {(rows ?? []).map((p) => {
                 const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
                 const plan = Array.isArray(p.membership_plans) ? p.membership_plans[0] : p.membership_plans;
                 return (
-                  <tr key={p.id}>
-                    <td>{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
-                    <td data-label="Member">
+                  <tr role="row" key={p.id}>
+                    <td role="cell" data-label="Date">{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
+                    <td role="cell" className="gf-td-primary">
                       <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                       <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                     </td>
-                    <td data-label="Plan">{plan?.name ?? '—'}</td>
-                    <td data-label="Method">{p.payment_method ?? '—'}</td>
-                    <td className="gf-table-meta" data-label="Reference" style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11 }}>
+                    <td role="cell" data-label="Plan">{plan?.name ?? '—'}</td>
+                    <td role="cell" data-label="Method">{p.payment_method ?? '—'}</td>
+                    <td role="cell" className="gf-table-meta" data-label="Reference" style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11 }}>
                       {p.paystack_reference?.slice(0, 14) ?? '—'}
                     </td>
-                    <td data-label="Amount">{fmtNaira(p.amount)}</td>
-                    <td data-label="Status">
+                    <td role="cell" data-label="Amount">{fmtNaira(p.amount)}</td>
+                    <td role="cell" data-label="Status">
                       <span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>
                         {p.payment_status ?? '—'}
                       </span>

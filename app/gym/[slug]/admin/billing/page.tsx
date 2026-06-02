@@ -112,24 +112,24 @@ export default async function BillingPage({ params }: { params: Promise<{ slug: 
       <Card>
         <CardHeader title="Recent platform charges" />
         <div className="gf-table-wrap">
-          <table className="gf-table gf-table-cards">
-            <thead><tr><th>Date</th><th>Period</th><th>Amount</th><th>Status</th><th>Reference</th></tr></thead>
-            <tbody>
+          <table role="table" className="gf-table gf-table-cards">
+            <thead><tr role="row"><th>Date</th><th>Period</th><th>Amount</th><th>Status</th><th>Reference</th></tr></thead>
+            <tbody role="rowgroup">
               {(payments ?? []).map((p) => (
-                <tr key={p.id}>
-                  <td>{p.created_at ? fmtDate(p.created_at) : '—'}</td>
-                  <td data-label="Period">
+                <tr role="row" key={p.id}>
+                  <td role="cell">{p.created_at ? fmtDate(p.created_at) : '—'}</td>
+                  <td role="cell" data-label="Period">
                     {p.billing_period_start ? fmtDate(p.billing_period_start) : '—'}
                     {' → '}
                     {p.billing_period_end ? fmtDate(p.billing_period_end) : '—'}
                   </td>
-                  <td data-label="Amount">{formatNaira(Number(p.amount ?? 0))}</td>
-                  <td data-label="Status"><span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>{p.payment_status}</span></td>
-                  <td data-label="Reference" style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.paystack_reference ?? '—'}</td>
+                  <td role="cell" data-label="Amount">{formatNaira(Number(p.amount ?? 0))}</td>
+                  <td role="cell" data-label="Status"><span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>{p.payment_status}</span></td>
+                  <td role="cell" data-label="Reference" style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.paystack_reference ?? '—'}</td>
                 </tr>
               ))}
               {(payments ?? []).length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--gf-text-muted)' }}>No platform charges yet.</td></tr>
+                <tr role="row"><td role="cell" colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--gf-text-muted)' }}>No platform charges yet.</td></tr>
               )}
             </tbody>
           </table>

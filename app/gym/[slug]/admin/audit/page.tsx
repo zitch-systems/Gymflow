@@ -111,25 +111,25 @@ export default async function AdminAuditPage({ params, searchParams }: PageProps
 
         {rows && rows.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table gf-table-cards">
+            <table role="table" className="gf-table gf-table-cards">
               <thead>
-                <tr>
+                <tr role="row">
                   <th style={{ whiteSpace: 'nowrap' }}>When</th>
                   <th>Who</th>
                   <th>What</th>
                   <th>Details</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {rows.map((r) => {
                   const actor = r.actor_id ? actorById.get(r.actor_id) : null;
                   const actorName = actor?.full_name ?? actor?.first_name ?? actor?.email ?? 'System';
                   const delta = renderAuditDelta(r.old_values, r.new_values);
                   return (
-                    <tr key={r.id}>
-                      <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
-                      <td style={{ whiteSpace: 'nowrap' }} data-label="Who">{actorName}</td>
-                      <td style={{ whiteSpace: 'nowrap' }} data-label="What">
+                    <tr role="row" key={r.id}>
+                      <td role="cell" style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
+                      <td role="cell" style={{ whiteSpace: 'nowrap' }} data-label="Who">{actorName}</td>
+                      <td role="cell" style={{ whiteSpace: 'nowrap' }} data-label="What">
                         <span style={{ fontWeight: 600 }}>{actionLabel(r.action)}</span>
                         {r.record_id ? (
                           <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--gf-text-muted)', marginLeft: 6 }}>
@@ -137,7 +137,7 @@ export default async function AdminAuditPage({ params, searchParams }: PageProps
                           </span>
                         ) : null}
                       </td>
-                      <td style={{ maxWidth: 480 }}>
+                      <td role="cell" style={{ maxWidth: 480 }}>
                         {delta.rows.length > 0 ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
                             {delta.rows.slice(0, 5).map(({ key, from, to }) => (
