@@ -50,7 +50,7 @@ export default async function MemberPtPacksPage({ params }: PageProps) {
   const credits = (creditsRaw ?? []) as unknown as Credit[];
 
   return (
-    <div className="member-portal">
+    <div className="member-portal member-app">
       <PageHeader
         title="Personal training packs"
         subtitle={`Prepay a bundle with one of ${gym.name}'s coaches — sessions deduct as you book.`}

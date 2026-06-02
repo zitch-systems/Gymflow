@@ -97,7 +97,7 @@ export default async function MemberClassesPage({ params }: PageProps) {
   }
 
   return (
-    <div className="gf-page">
+    <div className="member-portal member-app">
       <PageHeader title="Classes" subtitle="Tap a class to book your spot." />
 
       {Object.keys(byDay).length === 0 ? (
