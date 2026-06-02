@@ -5751,35 +5751,7 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
   color: var(--gf-text-muted); letter-spacing: 0.02em;
 }
 
-/* ── Member dashboard: activity + next class ── */
-.member-cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 640px) { .member-cards-row { grid-template-columns: 1fr; } }
-
-.member-activity { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
-.member-activity-stats { display: flex; gap: 18px; }
-.member-activity-stat { display: flex; flex-direction: column; gap: 2px; }
-.member-activity-num {
-  font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 700;
-  color: var(--gf-text); line-height: 1; display: inline-flex; align-items: center; gap: 5px;
-}
-.member-activity-flame { color: var(--gf-accent); }
-.member-activity-cap { font-size: 0.75rem; color: var(--gf-text-muted); font-weight: 500; }
-.member-activity-strip { display: flex; gap: 5px; }
-.member-activity-dot {
-  flex: 1; height: 26px; border-radius: 6px;
-  background: var(--gf-elevated); border: 1px solid var(--gf-border);
-}
-.member-activity-dot.active {
-  background: linear-gradient(160deg, var(--gf-brand-light), var(--gf-brand));
-  border-color: transparent; box-shadow: 0 2px 8px var(--gf-brand-glow);
-}
-.member-activity-hint { font-size: 0.8125rem; color: var(--gf-text-muted); }
-
-.member-nextclass { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
-.member-nextclass-name { font-family: var(--gf-font-display); font-size: 1.125rem; font-weight: 700; color: var(--gf-text); }
-.member-nextclass-when { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.member-nextclass-meta { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8125rem; color: var(--gf-text-secondary); }
-.member-nextclass-coach { font-size: 0.875rem; color: var(--gf-text-muted); }
+/* ── Member dashboard ── */
 
 /* ── Analytics: 6-month revenue/expense trend ── */
 .gf-trend { padding: 16px 18px 18px; }
@@ -5904,13 +5876,16 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 
 /* Opt-in responsive table → cards. Add `gf-table-cards` to a `.gf-table` to
    have each row collapse into a labelled card on phones (≤640px) instead of
-   scrolling sideways. Each <td> needs a `data-label`; mark the lead cell with
-   `.gf-td-primary` to render it full-width with no label. Desktop is unchanged. */
+   scrolling sideways. Each <td> needs a `data-label`; the first cell becomes
+   the card header automatically (or mark one `.gf-td-primary`). Desktop is
+   unchanged. NB: selectors are qualified with `tbody`/`thead` to match the
+   base `.gf-table tbody td` specificity (0,1,2) — otherwise base `padding`
+   and `white-space: nowrap` would win and long values would overflow. */
 @media (max-width: 640px) {
   .gf-table-cards,
   .gf-table-cards tbody { display: block; width: 100%; }
   .gf-table-cards thead { display: none; }
-  .gf-table-cards tr {
+  .gf-table-cards tbody tr {
     display: block;
     background: var(--gf-surface);
     border: 1px solid var(--gf-border);
@@ -5918,35 +5893,36 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
     padding: 12px 14px;
     margin-bottom: 10px;
   }
-  .gf-table-cards td {
+  .gf-table-cards tbody td {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 6px 0; border: none; text-align: right;
+    padding: 6px 0; border: none; text-align: right; white-space: normal;
+    overflow-wrap: anywhere;
   }
-  .gf-table-cards td::before {
+  .gf-table-cards tbody td::before {
     content: attr(data-label);
     font-size: 0.68rem; font-weight: 700; color: var(--gf-text-muted);
     text-transform: uppercase; letter-spacing: 0.04em;
-    text-align: left; flex-shrink: 0;
+    text-align: left; flex-shrink: 0; white-space: nowrap;
   }
   /* Cells without a data-label left-align their value (no awkward right-float)
      so a table reads sensibly the moment it gets `gf-table-cards`, even before
      per-cell labels are added. */
-  .gf-table-cards td:not([data-label]) { justify-content: flex-start; text-align: left; }
+  .gf-table-cards tbody td:not([data-label]) { justify-content: flex-start; text-align: left; }
   /* Lead cell = card header: full-width, emphasized, divider. Either the
      explicit .gf-td-primary or, by default, the first cell in the row. */
-  .gf-table-cards td.gf-td-primary,
-  .gf-table-cards td:first-child {
+  .gf-table-cards tbody td.gf-td-primary,
+  .gf-table-cards tbody td:first-child {
     display: block; text-align: left; padding: 0 0 8px;
     margin-bottom: 4px; border-bottom: 1px solid var(--gf-border); font-weight: 600;
   }
-  .gf-table-cards td.gf-td-primary::before,
-  .gf-table-cards td:first-child::before { display: none; }
+  .gf-table-cards tbody td.gf-td-primary::before,
+  .gf-table-cards tbody td:first-child::before { display: none; }
   /* Full-width cells (e.g. an empty-state row) shouldn't become label rows. */
-  .gf-table-cards td[colspan] {
+  .gf-table-cards tbody td[colspan] {
     display: block; text-align: center; font-weight: inherit;
     border-bottom: none; padding: 6px 0; margin: 0;
   }
-  .gf-table-cards td[colspan]::before { display: none; }
+  .gf-table-cards tbody td[colspan]::before { display: none; }
 }
 
 /* Slightly larger, comfortable tap targets for the portal nav. */
