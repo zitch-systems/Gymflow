@@ -117,7 +117,7 @@ export default async function LostMembersPage({ params, searchParams }: PageProp
           />
         ) : (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Member</th>
@@ -133,11 +133,11 @@ export default async function LostMembersPage({ params, searchParams }: PageProp
                         {m.full_name ?? [m.first_name, m.last_name].filter(Boolean).join(' ') ?? '—'}
                       </Link>
                     </td>
-                    <td className="gf-table-meta">
+                    <td className="gf-table-meta" data-label="Contact">
                       {m.email ?? '—'}
                       {m.phone ? <><br /><span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11 }}>{m.phone}</span></> : null}
                     </td>
-                    <td>{m.lastVisit ? fmtDate(m.lastVisit) : <span style={{ color: 'var(--gf-text-muted)' }}>Never visited</span>}</td>
+                    <td data-label="Last visit">{m.lastVisit ? fmtDate(m.lastVisit) : <span style={{ color: 'var(--gf-text-muted)' }}>Never visited</span>}</td>
                   </tr>
                 ))}
               </tbody>

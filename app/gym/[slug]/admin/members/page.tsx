@@ -95,7 +95,7 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
 
       <Card>
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Member</th>
@@ -122,16 +122,16 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
                   const active = left > 0 && r.status !== 'cancelled';
                   return (
                     <tr key={r.userId}>
-                      <td>
+                      <td className="gf-td-primary">
                         <Link href={`/admin/members/${r.userId}`} className="gf-link" style={{ fontWeight: 600 }}>
                           {r.name}
                         </Link>
                         <div className="gf-table-meta">{r.email}</div>
                       </td>
-                      <td>{r.phone}</td>
-                      <td>{fmtDate(r.joined)}</td>
-                      <td>{fmtDate(r.expiry)}</td>
-                      <td>
+                      <td data-label="Contact">{r.phone}</td>
+                      <td data-label="Joined">{fmtDate(r.joined)}</td>
+                      <td data-label="Expiry">{fmtDate(r.expiry)}</td>
+                      <td data-label="Status">
                         <StatusPill tone={active ? 'on' : 'off'}>
                           {active ? `${left}d left` : (r.status ?? 'inactive')}
                         </StatusPill>

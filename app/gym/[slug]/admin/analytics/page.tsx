@@ -233,7 +233,7 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
       <Card>
         <CardHeader title="Profit & loss · last 6 months" />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Month</th>
@@ -246,9 +246,9 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
               {pnlRows.map((r) => (
                 <tr key={r.key}>
                   <td style={{ fontWeight: 600 }}>{r.label}</td>
-                  <td style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
-                  <td style={{ textAlign: 'right' }}>{fmtNaira(r.expense)}</td>
-                  <td style={{ textAlign: 'right', color: r.net >= 0 ? 'var(--gf-brand)' : 'var(--gf-danger)', fontWeight: 600 }}>
+                  <td data-label="Revenue" style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
+                  <td data-label="Expenses" style={{ textAlign: 'right' }}>{fmtNaira(r.expense)}</td>
+                  <td data-label="Net" style={{ textAlign: 'right', color: r.net >= 0 ? 'var(--gf-brand)' : 'var(--gf-danger)', fontWeight: 600 }}>
                     {fmtNaira(r.net)}
                   </td>
                 </tr>
@@ -262,7 +262,7 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
         <CardHeader title="Lifetime value by plan" />
         {ltv.byPlan.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Plan</th>
@@ -275,9 +275,9 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
                 {ltv.byPlan.map((r) => (
                   <tr key={r.planId}>
                     <td style={{ fontWeight: 600 }}>{r.planName}</td>
-                    <td style={{ textAlign: 'right' }}>{r.members}</td>
-                    <td style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmtNaira(r.ltv)}</td>
+                    <td data-label="Members paid" style={{ textAlign: 'right' }}>{r.members}</td>
+                    <td data-label="Revenue" style={{ textAlign: 'right' }}>{fmtNaira(r.revenue)}</td>
+                    <td data-label="Avg LTV" style={{ textAlign: 'right', fontWeight: 600 }}>{fmtNaira(r.ltv)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -291,7 +291,7 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
       <Card>
         <CardHeader title="Cohort retention · by join month" />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Joined</th>
@@ -304,9 +304,9 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
               {cohorts.map((r) => (
                 <tr key={r.key}>
                   <td style={{ fontWeight: 600 }}>{r.label}</td>
-                  <td style={{ textAlign: 'right' }}>{r.joined}</td>
-                  <td style={{ textAlign: 'right' }}>{r.retained}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, color: r.retentionPct >= 50 ? 'var(--gf-brand)' : 'var(--gf-text)' }}>
+                  <td data-label="Members" style={{ textAlign: 'right' }}>{r.joined}</td>
+                  <td data-label="Still active" style={{ textAlign: 'right' }}>{r.retained}</td>
+                  <td data-label="Retention" style={{ textAlign: 'right', fontWeight: 600, color: r.retentionPct >= 50 ? 'var(--gf-brand)' : 'var(--gf-text)' }}>
                     {r.joined > 0 ? `${r.retentionPct}%` : '—'}
                   </td>
                 </tr>

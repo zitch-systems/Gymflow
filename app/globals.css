@@ -4574,6 +4574,21 @@ button[disabled] { opacity: 0.7; cursor: wait; }
    ───────────────────────────────────────────────────────────────────────── */
 .member-app { gap: 16px; }
 
+/* Single-screen member dashboard. Tighten vertical rhythm and trim the status
+   hero so header + status + actions + activity + next-class fit a phone
+   viewport without scrolling. Scoped to .m-dash so renew/settings (which also
+   use .member-app) keep their roomier spacing. */
+.m-dash { gap: 12px; padding-top: 16px; padding-bottom: 16px; }
+.m-dash .m-status { padding: 16px; }
+.m-dash .m-status-plan { font-size: 1.3rem; margin: 10px 0 2px; }
+.m-dash .m-status-barwrap { margin: 12px 0 7px; }
+.m-dash .m-sect-t { margin-top: 2px; }
+/* On viewports tall enough this is moot; on typical phones it guarantees the
+   column never needs to scroll past the fixed tab bar. */
+@media (min-height: 720px) {
+  .m-dash { gap: 14px; }
+}
+
 /* Greeting header (.mhead in the spec) */
 .m-head { display: flex; align-items: center; gap: 11px; padding: 2px 2px 6px; }
 .m-head-avatar {
@@ -4724,6 +4739,61 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   border: 2px solid var(--gf-bg);
 }
 .m-circ-badge.is-brand { background: var(--gf-brand); }
+
+/* Grouping card — the reference app nests its icon rows inside elevated cards
+   rather than floating them on the page canvas. Wrap an .m-circ-row in this to
+   get the same grouped look and a consistent, tight vertical rhythm. */
+.m-group {
+  background: var(--gf-surface);
+  border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-lg);
+  padding: 16px 12px;
+}
+.m-group + .m-group { margin-top: 0; }
+
+/* Compact single-screen dashboard: a 3-up stats strip + an optional slim
+   "next class" row, sized so the member dashboard fits a phone viewport
+   without scrolling. */
+.m-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); overflow: hidden;
+}
+.m-stat { padding: 13px 8px; text-align: center; min-width: 0; }
+.m-stat + .m-stat { border-left: 1px solid var(--gf-border); }
+.m-stat-num {
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem;
+  letter-spacing: -0.02em; display: inline-flex; align-items: center; gap: 4px;
+  line-height: 1.1;
+}
+.m-stat-flame { width: 17px; height: 17px; color: var(--gf-accent); }
+.m-stat-cap {
+  display: block; margin-top: 3px;
+  font-size: 0.68rem; color: var(--gf-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.m-next {
+  display: flex; align-items: center; gap: 11px; padding: 11px 13px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); text-decoration: none; color: var(--gf-text);
+  transition: border-color var(--gf-t-fast);
+}
+.m-next:hover { border-color: var(--gf-brand); }
+.m-next:active { transform: scale(0.99); }
+.m-next-ic {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+}
+.m-next-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.m-next-m strong {
+  font-family: var(--gf-font-display); font-size: 0.86rem; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-next-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.m-next-when { flex-shrink: 0; }
 
 /* Section title (.sect-t) */
 .m-sect-t {
@@ -5681,35 +5751,7 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
   color: var(--gf-text-muted); letter-spacing: 0.02em;
 }
 
-/* ── Member dashboard: activity + next class ── */
-.member-cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 640px) { .member-cards-row { grid-template-columns: 1fr; } }
-
-.member-activity { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
-.member-activity-stats { display: flex; gap: 18px; }
-.member-activity-stat { display: flex; flex-direction: column; gap: 2px; }
-.member-activity-num {
-  font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 700;
-  color: var(--gf-text); line-height: 1; display: inline-flex; align-items: center; gap: 5px;
-}
-.member-activity-flame { color: var(--gf-accent); }
-.member-activity-cap { font-size: 0.75rem; color: var(--gf-text-muted); font-weight: 500; }
-.member-activity-strip { display: flex; gap: 5px; }
-.member-activity-dot {
-  flex: 1; height: 26px; border-radius: 6px;
-  background: var(--gf-elevated); border: 1px solid var(--gf-border);
-}
-.member-activity-dot.active {
-  background: linear-gradient(160deg, var(--gf-brand-light), var(--gf-brand));
-  border-color: transparent; box-shadow: 0 2px 8px var(--gf-brand-glow);
-}
-.member-activity-hint { font-size: 0.8125rem; color: var(--gf-text-muted); }
-
-.member-nextclass { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
-.member-nextclass-name { font-family: var(--gf-font-display); font-size: 1.125rem; font-weight: 700; color: var(--gf-text); }
-.member-nextclass-when { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.member-nextclass-meta { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8125rem; color: var(--gf-text-secondary); }
-.member-nextclass-coach { font-size: 0.875rem; color: var(--gf-text-muted); }
+/* ── Member dashboard ── */
 
 /* ── Analytics: 6-month revenue/expense trend ── */
 .gf-trend { padding: 16px 18px 18px; }
@@ -5761,29 +5803,155 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 /* ═══════════════════════════════════════════════════════════════════════════
    Member & Coach portal shells (mobile-first) — bottom tab bar integration
    ═══════════════════════════════════════════════════════════════════════════ */
-.gf-has-tabbar { min-height: 100vh; min-height: 100dvh; }
+/* The member/coach portal is a self-contained app surface. Treat it like an
+   installed app shell: edge-to-edge and full-height on phones (clearing the
+   notch via safe-area), native touch feel (no tap-highlight, contained
+   overscroll so pull doesn't reveal browser chrome). */
+.gf-has-tabbar {
+  --gf-app-w: 460px;
+  min-height: 100vh; min-height: 100dvh;
+  background: var(--gf-bg);
+  padding-top: env(safe-area-inset-top, 0px);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
 
-/* Clear the fixed bottom nav so content/FAB never overlaps the last items. */
+/* Clear the fixed bottom nav so content never hides behind the last items. */
 .gf-has-tabbar .member-portal,
 .gf-has-tabbar .gf-page {
   padding-bottom: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
 }
 
-/* On wide screens keep the app feel: center the bar over the content column. */
-@media (min-width: 760px) {
+/* Desktop / tablet: present the portal as a centered phone-frame "app" so it
+   reads like an installed APK, not a web page that happens to be narrow — a
+   fixed-width column with side borders + elevation, the tab bar aligned to the
+   same width, sitting on a dim "desk" backdrop. The backdrop is scoped with
+   :has() so only the member/coach portal gets it; admin & marketing keep their
+   normal full-bleed background. */
+@media (min-width: 600px) {
+  .gf-has-tabbar {
+    --gf-app-w: 540px;
+    max-width: var(--gf-app-w);
+    margin-inline: auto;
+    border-inline: 1px solid var(--gf-border);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  }
+  body:has(.gf-has-tabbar) {
+    background:
+      radial-gradient(120% 70% at 50% -8%, rgba(16, 209, 139, 0.10), transparent 60%),
+      #06060c;
+  }
   .gf-mobile-nav {
-    max-width: 600px;
+    max-width: var(--gf-app-w);
     margin: 0 auto;
     border-left: 1px solid var(--gf-border);
     border-right: 1px solid var(--gf-border);
-    border-top-left-radius: var(--gf-radius);
-    border-top-right-radius: var(--gf-radius);
   }
+}
+
+/* Tablet (portrait and up): widen the app column further so the portal uses a
+   tablet's space instead of showing a phone-width strip. The tab bar tracks
+   the same width via the inherited --gf-app-w. */
+@media (min-width: 820px) {
+  .gf-has-tabbar { --gf-app-w: 640px; }
+}
+
+/* Foldables in book posture (two side-by-side viewport segments): keep the app
+   inside one panel so it doesn't straddle the hinge. env() falls back to the
+   normal frame width where viewport-segment isn't supported, so this is a safe
+   progressive enhancement. */
+@media (horizontal-viewport-segments: 2) {
+  .gf-has-tabbar,
+  .gf-mobile-nav {
+    max-width: env(viewport-segment-width 0 0, var(--gf-app-w));
+    margin-inline: 0;
+  }
+}
+
+/* Admin content: tighten spacing on phones so dense staff pages read like an
+   app rather than a scaled-down desktop layout. */
+@media (max-width: 640px) {
+  .gf-page { gap: 14px; padding: 16px; }
+}
+
+/* Opt-in responsive table → cards. Add `gf-table-cards` to a `.gf-table` to
+   have each row collapse into a labelled card on phones (≤640px) instead of
+   scrolling sideways. Each <td> needs a `data-label`; the first cell becomes
+   the card header automatically (or mark one `.gf-td-primary`). Desktop is
+   unchanged. NB: selectors are qualified with `tbody`/`thead` to match the
+   base `.gf-table tbody td` specificity (0,1,2) — otherwise base `padding`
+   and `white-space: nowrap` would win and long values would overflow. */
+@media (max-width: 640px) {
+  .gf-table-cards,
+  .gf-table-cards tbody { display: block; width: 100%; }
+  .gf-table-cards thead { display: none; }
+  .gf-table-cards tbody tr {
+    display: block;
+    background: var(--gf-surface);
+    border: 1px solid var(--gf-border);
+    border-radius: var(--gf-radius);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .gf-table-cards tbody td {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 6px 0; border: none; text-align: right; white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .gf-table-cards tbody td::before {
+    content: attr(data-label);
+    font-size: 0.68rem; font-weight: 700; color: var(--gf-text-muted);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    text-align: left; flex-shrink: 0; white-space: nowrap;
+  }
+  /* Cells without a data-label left-align their value (no awkward right-float)
+     so a table reads sensibly the moment it gets `gf-table-cards`, even before
+     per-cell labels are added. */
+  .gf-table-cards tbody td:not([data-label]) { justify-content: flex-start; text-align: left; }
+  /* Lead cell = card header: full-width, emphasized, divider. Either the
+     explicit .gf-td-primary or, by default, the first cell in the row. */
+  .gf-table-cards tbody td.gf-td-primary,
+  .gf-table-cards tbody td:first-child {
+    display: block; text-align: left; padding: 0 0 8px;
+    margin-bottom: 4px; border-bottom: 1px solid var(--gf-border); font-weight: 600;
+  }
+  .gf-table-cards tbody td.gf-td-primary::before,
+  .gf-table-cards tbody td:first-child::before { display: none; }
+  /* Full-width cells (e.g. an empty-state row) shouldn't become label rows. */
+  .gf-table-cards tbody td[colspan] {
+    display: block; text-align: center; font-weight: inherit;
+    border-bottom: none; padding: 6px 0; margin: 0;
+  }
+  .gf-table-cards tbody td[colspan]::before { display: none; }
 }
 
 /* Slightly larger, comfortable tap targets for the portal nav. */
 .gf-mobile-nav .gf-nav-tab { min-width: 56px; }
 .gf-mobile-nav .gf-nav-tab span { letter-spacing: 0.01em; }
+
+/* ── Admin (owner/manager) mobile bottom tab bar ─────────────────────────────
+   The admin sidebar goes off-canvas at ≤1024px. Give staff the same app-style
+   bottom nav as members/coaches for the top destinations; "More" opens the
+   full sidebar drawer. Full-width (no phone frame) since admin content is
+   full-bleed. Hidden on desktop, where the sidebar returns. */
+.gf-admin-tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  height: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px));
+  padding: 4px 0 env(safe-area-inset-bottom, 0px);
+  display: none;
+  justify-content: space-around; align-items: center;
+  background: rgba(var(--gf-surface-rgb), 0.94);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter: blur(24px) saturate(1.8);
+  border-top: 1px solid var(--gf-border);
+}
+.gf-admin-tabbar .gf-nav-tab { min-width: 56px; }
+@media (max-width: 1024px) {
+  .gf-admin-tabbar { display: flex; }
+  /* Clear the fixed bar so the last content/rows aren't hidden behind it. */
+  .gf-main { padding-bottom: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 16px); }
+}
+@media print { .gf-admin-tabbar { display: none !important; } }
 
 /* ── Member/Coach dashboard quick actions: compact 5-up row ── */
 .member-quick-actions { grid-template-columns: repeat(5, 1fr); gap: 12px; }

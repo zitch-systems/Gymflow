@@ -68,7 +68,7 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
       <Card>
         <WalletFilters defaultFrom={from} defaultTo={to} defaultMethod={method} defaultStatus={status} />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Date</th>
@@ -87,17 +87,17 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
                 return (
                   <tr key={p.id}>
                     <td>{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
-                    <td>
+                    <td data-label="Member">
                       <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
                       <div className="gf-table-meta">{profile?.email ?? '—'}</div>
                     </td>
-                    <td>{plan?.name ?? '—'}</td>
-                    <td>{p.payment_method ?? '—'}</td>
-                    <td className="gf-table-meta" style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11 }}>
+                    <td data-label="Plan">{plan?.name ?? '—'}</td>
+                    <td data-label="Method">{p.payment_method ?? '—'}</td>
+                    <td className="gf-table-meta" data-label="Reference" style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11 }}>
                       {p.paystack_reference?.slice(0, 14) ?? '—'}
                     </td>
-                    <td>{fmtNaira(p.amount)}</td>
-                    <td>
+                    <td data-label="Amount">{fmtNaira(p.amount)}</td>
+                    <td data-label="Status">
                       <span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>
                         {p.payment_status ?? '—'}
                       </span>

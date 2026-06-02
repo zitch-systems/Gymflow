@@ -3,11 +3,9 @@ import { requireMember } from '@/lib/auth/gym';
 import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft, firstName } from '@/lib/format';
-import { SubscriptionActions } from './subscription-actions';
-import { Card, CardHeader } from '@/components/ui/card';
 import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
 import { daysAgoIso } from '@/lib/dates';
-import { Bell, ScanLine, CalendarDays, GraduationCap, CreditCard, Wallet, Flame, MapPin, Clock, Settings, ChevronRight, Dumbbell } from 'lucide-react';
+import { Bell, ScanLine, CalendarDays, GraduationCap, CreditCard, Flame, ChevronRight, Dumbbell } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -35,31 +33,22 @@ export default async function MemberDashboard({ params }: PageProps) {
   // PT-pack credits the member holds at this gym. RLS on pt_pack_credits
   // restricts SELECT to the row owner, so this read works via the user
   // client without leaking other members' balances.
+  // Does the member hold any unused PT-pack sessions? Only the count matters
+  // here — the dashboard's PT chip shows a "New" badge to non-holders. Full
+  // balances + coaches live on the PT-packs page.
   const { data: ptCreditsRaw } = await supabase
     .from('pt_pack_credits' as never)
-    .select('id, instructor_id, sessions_total, sessions_used, purchased_at')
+    .select('sessions_total, sessions_used')
     .eq('gym_id' as never, gym.id)
-    .eq('member_id' as never, user.id)
-    .order('purchased_at' as never, { ascending: true });
+    .eq('member_id' as never, user.id);
   const ptCredits = ((ptCreditsRaw ?? []) as unknown as Array<{
-    id: string;
-    instructor_id: string;
     sessions_total: number;
     sessions_used: number;
-    purchased_at: string;
   }>).filter((c) => c.sessions_used < c.sessions_total);
-  const ptInstructorIds = [...new Set(ptCredits.map((c) => c.instructor_id))];
-  const { data: ptInstructorProfiles } = ptInstructorIds.length
-    ? await supabase.from('profiles').select('id, full_name, first_name, last_name').in('id', ptInstructorIds)
-    : { data: [] as Array<{ id: string; full_name: string | null; first_name: string | null; last_name: string | null }> };
-  const ptCoachLabel = new Map((ptInstructorProfiles ?? []).map((p) => [
-    p.id,
-    p.full_name ?? [p.first_name, p.last_name].filter(Boolean).join(' ') ?? 'Coach',
-  ] as const));
 
   // Is there at least one active PT pack on offer at this gym? Used to decide
-  // whether to surface a "Browse PT packs" CTA in the dashboard widget — no
-  // point linking to an empty page. head:true returns a count without rows.
+  // whether to surface the "New" badge on the PT chip — no point nudging
+  // toward an empty page. head:true returns a count without rows.
   const { count: ptPackOfferCount } = await supabase
     .from('pt_packs' as never)
     .select('id', { count: 'exact', head: true })
@@ -115,9 +104,8 @@ export default async function MemberDashboard({ params }: PageProps) {
   }
 
   return (
-    <div className="member-portal member-app">
-      {/* Greeting header — gym name (small) over "Hi, {name} 👋" + avatar.
-          Matches the design-system member.html .mhead pattern. */}
+    <div className="member-portal member-app m-dash">
+      {/* Greeting header — gym name (small) over "Hi, {name} 👋" + avatar. */}
       <header className="m-head">
         <Link href="/dashboard/profile" className="m-head-avatar" aria-label="Profile & settings">
           {profile?.photo_url ? (
@@ -164,161 +152,81 @@ export default async function MemberDashboard({ params }: PageProps) {
       </div>
 
       {/* Quick actions — 5-up circular icon chips (OPay/OWealth pattern):
-          round soft-green icon over a label, with optional floating badges. */}
-      <section className="m-circ-row" aria-label="Quick actions">
-        <Link href="/checkin" className="m-circ">
-          <span className="m-circ-ic"><ScanLine /></span>
-          <span className="m-circ-label">Check in</span>
-        </Link>
-        <Link href="/classes" className="m-circ">
-          <span className="m-circ-ic"><CalendarDays /></span>
-          <span className="m-circ-label">Classes</span>
-          {nextClass?.isToday ? <span className="m-circ-badge is-brand" aria-hidden>Today</span> : null}
-        </Link>
-        <Link href="/dashboard/instructors" className="m-circ">
-          <span className="m-circ-ic"><GraduationCap /></span>
-          <span className="m-circ-label">Coaches</span>
-        </Link>
-        <Link href="/dashboard/pt-packs" className="m-circ">
-          <span className="m-circ-ic"><Dumbbell /></span>
-          <span className="m-circ-label">PT packs</span>
-          {ptPacksAvailable && ptCredits.length === 0 ? <span className="m-circ-badge" aria-hidden>New</span> : null}
-        </Link>
-        <Link href="/dashboard/renew" className="m-circ">
-          <span className="m-circ-ic"><CreditCard /></span>
-          <span className="m-circ-label">Renew</span>
-          {!isActive ? <span className="m-circ-badge" aria-hidden>Due</span> : null}
-        </Link>
-      </section>
-
-      {/* Secondary destinations — compact list cards. */}
-      <div className="m-sect-t">More</div>
-      <section className="m-links">
-        <Link href="/dashboard/cards" className="m-lc">
-          <span className="m-lc-ic"><Wallet size={18} strokeWidth={1.9} /></span>
-          <span className="m-lc-m"><strong>Saved cards</strong><small>Manage payment methods</small></span>
-          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
-        </Link>
-        <Link href="/dashboard/profile" className="m-lc">
-          <span className="m-lc-ic"><Settings size={18} strokeWidth={1.9} /></span>
-          <span className="m-lc-m"><strong>Settings</strong><small>Profile, notifications, password</small></span>
-          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
-        </Link>
-      </section>
-
-      <div className="member-cards-row">
-        <Card>
-          <CardHeader title="Your activity" />
-          <div className="member-activity">
-            <div className="member-activity-stats">
-              <div className="member-activity-stat">
-                <span className="member-activity-num">
-                  <Flame size={18} strokeWidth={2} className="member-activity-flame" />
-                  {activity.currentStreak}
-                </span>
-                <span className="member-activity-cap">day streak</span>
-              </div>
-              <div className="member-activity-stat">
-                <span className="member-activity-num">{activity.visitsThisMonth}</span>
-                <span className="member-activity-cap">this month</span>
-              </div>
-              <div className="member-activity-stat">
-                <span className="member-activity-num">{activity.totalVisits}</span>
-                <span className="member-activity-cap">recent visits</span>
-              </div>
-            </div>
-            <div className="member-activity-strip" aria-hidden>
-              {activity.strip.map((d) => (
-                <span
-                  key={d.date}
-                  className={`member-activity-dot${d.active ? ' active' : ''}`}
-                  title={d.date}
-                />
-              ))}
-            </div>
-            <p className="member-activity-hint">
-              {activity.lastVisit
-                ? `Last visit ${fmtDate(activity.lastVisit)}`
-                : 'No check-ins yet — scan the gym QR to log your first visit.'}
-            </p>
-          </div>
-        </Card>
-
-        {nextClass && (
-          <Card>
-            <CardHeader title="Next class" />
-            <div className="member-nextclass">
-              <div className="member-nextclass-name">{nextClass.name}</div>
-              <div className="member-nextclass-when">
-                <span className={`gf-badge ${nextClass.isToday ? 'gf-badge-accent' : 'gf-badge-brand'}`}>
-                  {nextClass.dayLabel}
-                </span>
-                <span className="member-nextclass-meta">
-                  <Clock size={14} strokeWidth={1.75} /> {nextClass.start}–{nextClass.end}
-                </span>
-                {nextClass.room && (
-                  <span className="member-nextclass-meta">
-                    <MapPin size={14} strokeWidth={1.75} /> {nextClass.room}
-                  </span>
-                )}
-              </div>
-              {nextClass.instructor && (
-                <div className="member-nextclass-coach">with {nextClass.instructor}</div>
-              )}
-              <a href="/classes" className="gf-btn gf-btn-secondary gf-btn-sm" style={{ marginTop: 12 }}>
-                View timetable
-              </a>
-            </div>
-          </Card>
-        )}
+          round soft-green icon over a label, grouped in a card so they read as
+          a tile set rather than floating on the page. Optional float badges. */}
+      <div className="m-group">
+        <section className="m-circ-row" aria-label="Quick actions">
+          <Link href="/checkin" className="m-circ">
+            <span className="m-circ-ic"><ScanLine /></span>
+            <span className="m-circ-label">Check in</span>
+          </Link>
+          <Link href="/classes" className="m-circ">
+            <span className="m-circ-ic"><CalendarDays /></span>
+            <span className="m-circ-label">Classes</span>
+            {nextClass?.isToday ? <span className="m-circ-badge is-brand" aria-hidden>Today</span> : null}
+          </Link>
+          <Link href="/dashboard/instructors" className="m-circ">
+            <span className="m-circ-ic"><GraduationCap /></span>
+            <span className="m-circ-label">Coaches</span>
+          </Link>
+          <Link href="/dashboard/pt-packs" className="m-circ">
+            <span className="m-circ-ic"><Dumbbell /></span>
+            <span className="m-circ-label">PT packs</span>
+            {ptPacksAvailable && ptCredits.length === 0 ? <span className="m-circ-badge" aria-hidden>New</span> : null}
+          </Link>
+          <Link href="/dashboard/renew" className="m-circ">
+            <span className="m-circ-ic"><CreditCard /></span>
+            <span className="m-circ-label">Renew</span>
+            {!isActive ? <span className="m-circ-badge" aria-hidden>Due</span> : null}
+          </Link>
+        </section>
       </div>
 
-      {subscription && (
-        <Card>
-          <CardHeader title="Manage subscription" />
-          <div style={{ padding: 18 }}>
-            <SubscriptionActions
-              slug={slug}
-              status={subscription.status ?? 'active'}
-              autoRenew={!!subscription.auto_debit_enabled}
-            />
-          </div>
-        </Card>
-      )}
+      {/* Activity at a glance — 3-up strip (streak / this month / recent). */}
+      <section className="m-stats" aria-label="Your activity">
+        <div className="m-stat">
+          <span className="m-stat-num">
+            <Flame strokeWidth={2} className="m-stat-flame" />
+            {activity.currentStreak}
+          </span>
+          <span className="m-stat-cap">day streak</span>
+        </div>
+        <div className="m-stat">
+          <span className="m-stat-num">{activity.visitsThisMonth}</span>
+          <span className="m-stat-cap">this month</span>
+        </div>
+        <div className="m-stat">
+          <span className="m-stat-num">{activity.totalVisits}</span>
+          <span className="m-stat-cap">recent visits</span>
+        </div>
+      </section>
 
-      {(ptCredits.length > 0 || ptPacksAvailable) && (
-        <Card>
-          <CardHeader
-            title="Personal training credits"
-            action={ptPacksAvailable ? (
-              <Link href="/dashboard/pt-packs" style={{ color: 'var(--gf-brand)', fontWeight: 600, textDecoration: 'none', fontSize: 13 }}>
-                {ptCredits.length > 0 ? 'Browse more packs →' : 'Browse packs →'}
-              </Link>
-            ) : null}
-          />
-          {ptCredits.length > 0 ? (
-            <ul className="gf-list">
-              {ptCredits.map((c) => {
-                const remaining = c.sessions_total - c.sessions_used;
-                return (
-                  <li key={c.id} className="gf-list-row">
-                    <span>
-                      <strong>{remaining}</strong> session{remaining === 1 ? '' : 's'} left
-                      <span className="gf-table-meta"> · with {ptCoachLabel.get(c.instructor_id) ?? 'Coach'}</span>
-                    </span>
-                    <span className="gf-table-meta">{c.sessions_used} of {c.sessions_total} used</span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div style={{ padding: 18, fontSize: 14, color: 'var(--gf-text-secondary)' }}>
-              Train one-on-one with a coach — buy a session pack and book whenever you&apos;re ready.
-            </div>
-          )}
-        </Card>
+      {/* Next class — one slim row that deep-links to the timetable. */}
+      {nextClass ? (
+        <Link href="/classes" className="m-next">
+          <span className="m-next-ic"><CalendarDays size={18} strokeWidth={1.9} /></span>
+          <span className="m-next-m">
+            <strong>{nextClass.name}</strong>
+            <small>
+              {nextClass.start}–{nextClass.end}
+              {nextClass.room ? ` · ${nextClass.room}` : ''}
+              {nextClass.instructor ? ` · ${nextClass.instructor}` : ''}
+            </small>
+          </span>
+          <span className={`gf-badge ${nextClass.isToday ? 'gf-badge-accent' : 'gf-badge-brand'} m-next-when`}>
+            {nextClass.dayLabel}
+          </span>
+        </Link>
+      ) : (
+        <Link href="/checkin" className="m-next">
+          <span className="m-next-ic"><ScanLine size={18} strokeWidth={1.9} /></span>
+          <span className="m-next-m">
+            <strong>{activity.lastVisit ? `Last visit ${fmtDate(activity.lastVisit)}` : 'No check-ins yet'}</strong>
+            <small>Scan the gym QR to log a visit</small>
+          </span>
+          <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
+        </Link>
       )}
-
     </div>
   );
 }

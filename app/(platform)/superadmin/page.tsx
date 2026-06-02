@@ -101,7 +101,7 @@ export default async function SuperadminPage() {
       <Card>
         <CardHeader title="Gyms" />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Name</th>
@@ -122,15 +122,15 @@ export default async function SuperadminPage() {
                     </a>
                     <div className="gf-table-meta">{g.email ?? '—'}</div>
                   </td>
-                  <td className="gf-table-meta">{g.slug}</td>
-                  <td>{g.subscription_plan ?? '—'}</td>
-                  <td>
+                  <td className="gf-table-meta" data-label="Slug">{g.slug}</td>
+                  <td data-label="Plan">{g.subscription_plan ?? '—'}</td>
+                  <td data-label="Status">
                     <StatusPill tone={g.subscription_status === 'active' ? 'on' : 'off'}>
                       {g.subscription_status ?? '—'}
                     </StatusPill>
                   </td>
-                  <td>{g.trial_ends_at ? fmtDate(g.trial_ends_at) : '—'}</td>
-                  <td>{fmtDate(g.created_at)}</td>
+                  <td data-label="Trial ends">{g.trial_ends_at ? fmtDate(g.trial_ends_at) : '—'}</td>
+                  <td data-label="Created">{fmtDate(g.created_at)}</td>
                   <td>
                     <SuperadminGymRowActions
                       gymId={g.id}

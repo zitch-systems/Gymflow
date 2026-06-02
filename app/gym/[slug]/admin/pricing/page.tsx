@@ -33,7 +33,7 @@ export default async function AdminPricingPage({ params }: PageProps) {
         <CardHeader title="Current plans" />
         {plans && plans.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -50,11 +50,11 @@ export default async function AdminPricingPage({ params }: PageProps) {
                       <div style={{ fontWeight: 600 }}>{p.name}</div>
                       <div className="gf-table-meta">{p.description ?? '—'}</div>
                     </td>
-                    <td>
+                    <td data-label="Duration">
                       {p.duration_months} month{p.duration_months === 1 ? '' : 's'}
                     </td>
-                    <td>{fmtNaira(p.price)}</td>
-                    <td>
+                    <td data-label="Price">{fmtNaira(p.price)}</td>
+                    <td data-label="Active">
                       <span className={`status-pill ${p.is_active ? 'on' : 'off'}`}>
                         {p.is_active ? 'Active' : 'Inactive'}
                       </span>

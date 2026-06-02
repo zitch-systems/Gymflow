@@ -69,7 +69,7 @@ export function ExpensesCrud({ slug, gymId, items }: { slug: string; gymId: stri
         <EmptyState icon={Receipt} title="No expenses recorded yet" />
       ) : (
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead>
               <tr>
                 <th>Date</th>
@@ -84,13 +84,13 @@ export function ExpensesCrud({ slug, gymId, items }: { slug: string; gymId: stri
               {items.map((x) => (
                 <tr key={x.id}>
                   <td>{x.expense_date ? fmtDate(x.expense_date) : '—'}</td>
-                  <td>
+                  <td data-label="Category">
                     {x.category}
                     {x.is_recurring && <span className="gf-table-meta"> · recurring</span>}
                   </td>
-                  <td>{x.description ?? '—'}</td>
-                  <td>{fmtNaira(x.amount)}</td>
-                  <td>
+                  <td data-label="Description">{x.description ?? '—'}</td>
+                  <td data-label="Amount">{fmtNaira(x.amount)}</td>
+                  <td data-label="Receipt">
                     {x.receipt_url ? (
                       <a href={x.receipt_url} className="gf-link" target="_blank" rel="noreferrer">View</a>
                     ) : (

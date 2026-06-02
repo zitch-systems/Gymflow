@@ -111,7 +111,7 @@ export default async function AdminAuditPage({ params, searchParams }: PageProps
 
         {rows && rows.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead>
                 <tr>
                   <th style={{ whiteSpace: 'nowrap' }}>When</th>
@@ -128,8 +128,8 @@ export default async function AdminAuditPage({ params, searchParams }: PageProps
                   return (
                     <tr key={r.id}>
                       <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{actorName}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
+                      <td style={{ whiteSpace: 'nowrap' }} data-label="Who">{actorName}</td>
+                      <td style={{ whiteSpace: 'nowrap' }} data-label="What">
                         <span style={{ fontWeight: 600 }}>{actionLabel(r.action)}</span>
                         {r.record_id ? (
                           <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--gf-text-muted)', marginLeft: 6 }}>

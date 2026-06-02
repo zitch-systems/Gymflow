@@ -112,20 +112,20 @@ export default async function BillingPage({ params }: { params: Promise<{ slug: 
       <Card>
         <CardHeader title="Recent platform charges" />
         <div className="gf-table-wrap">
-          <table className="gf-table">
+          <table className="gf-table gf-table-cards">
             <thead><tr><th>Date</th><th>Period</th><th>Amount</th><th>Status</th><th>Reference</th></tr></thead>
             <tbody>
               {(payments ?? []).map((p) => (
                 <tr key={p.id}>
                   <td>{p.created_at ? fmtDate(p.created_at) : '—'}</td>
-                  <td>
+                  <td data-label="Period">
                     {p.billing_period_start ? fmtDate(p.billing_period_start) : '—'}
                     {' → '}
                     {p.billing_period_end ? fmtDate(p.billing_period_end) : '—'}
                   </td>
-                  <td>{formatNaira(Number(p.amount ?? 0))}</td>
-                  <td><span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>{p.payment_status}</span></td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.paystack_reference ?? '—'}</td>
+                  <td data-label="Amount">{formatNaira(Number(p.amount ?? 0))}</td>
+                  <td data-label="Status"><span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>{p.payment_status}</span></td>
+                  <td data-label="Reference" style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.paystack_reference ?? '—'}</td>
                 </tr>
               ))}
               {(payments ?? []).length === 0 && (

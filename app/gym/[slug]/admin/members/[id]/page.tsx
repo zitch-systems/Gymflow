@@ -178,7 +178,7 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
         <CardHeader title="Subscription history" />
         {memberships && memberships.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead><tr><th>Plan</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
               <tbody>
                 {memberships.map((m) => {
@@ -186,9 +186,9 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
                   return (
                     <tr key={m.id}>
                       <td>{plan?.name ?? '—'}</td>
-                      <td>{fmtDate(m.start_date)}</td>
-                      <td>{fmtDate(m.end_date)}</td>
-                      <td><span className={`status-pill ${m.status === 'active' ? 'on' : 'off'}`}>{m.status}</span></td>
+                      <td data-label="Start">{fmtDate(m.start_date)}</td>
+                      <td data-label="End">{fmtDate(m.end_date)}</td>
+                      <td data-label="Status"><span className={`status-pill ${m.status === 'active' ? 'on' : 'off'}`}>{m.status}</span></td>
                     </tr>
                   );
                 })}
@@ -204,7 +204,7 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
         <CardHeader title="Payments" />
         {payments && payments.length > 0 ? (
           <div className="gf-table-wrap">
-            <table className="gf-table">
+            <table className="gf-table gf-table-cards">
               <thead><tr><th>Date</th><th>Plan</th><th>Method</th><th>Amount</th><th>Status</th></tr></thead>
               <tbody>
                 {payments.map((p) => {
@@ -212,10 +212,10 @@ export default async function AdminMemberDetailPage({ params }: PageProps) {
                   return (
                     <tr key={p.id}>
                       <td>{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
-                      <td>{plan?.name ?? '—'}</td>
-                      <td>{p.payment_method ?? '—'}</td>
-                      <td>{fmtNaira(p.amount)}</td>
-                      <td><span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>{p.payment_status}</span></td>
+                      <td data-label="Plan">{plan?.name ?? '—'}</td>
+                      <td data-label="Method">{p.payment_method ?? '—'}</td>
+                      <td data-label="Amount">{fmtNaira(p.amount)}</td>
+                      <td data-label="Status"><span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>{p.payment_status}</span></td>
                     </tr>
                   );
                 })}
