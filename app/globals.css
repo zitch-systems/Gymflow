@@ -4759,6 +4759,76 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 }
 .m-group + .m-group { margin-top: 0; }
 
+/* ── Settings list (fintech "Me"/Settings pattern) ───────────────────────────
+   A profile header card + grouped rounded lists of tappable rows
+   (icon chip · label/sub · trailing value or chevron). */
+.gf-slist { display: flex; flex-direction: column; gap: 18px; }
+.gf-slist-sec { display: flex; flex-direction: column; gap: 7px; }
+.gf-slist-title {
+  font-family: var(--gf-font-display); font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--gf-text-muted);
+  margin: 0 6px;
+}
+.gf-slist-group {
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-lg); overflow: hidden;
+}
+.gf-srow {
+  display: flex; align-items: center; gap: 13px;
+  padding: 14px 15px; width: 100%;
+  text-decoration: none; color: var(--gf-text);
+  background: none; border: 0; cursor: pointer; text-align: left;
+  font-family: inherit; font-size: 1rem;
+  transition: background var(--gf-t-fast);
+}
+.gf-srow + .gf-srow { border-top: 1px solid var(--gf-border); }
+.gf-srow:hover { background: var(--gf-elevated); }
+.gf-srow:active { background: var(--gf-border); }
+.gf-srow-ic {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+}
+.gf-srow-ic svg { width: 19px; height: 19px; }
+.gf-srow-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gf-srow-m strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.92rem; }
+.gf-srow-m small { font-size: 0.76rem; color: var(--gf-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gf-srow-val { font-size: 0.82rem; color: var(--gf-text-muted); flex-shrink: 0; white-space: nowrap; }
+.gf-srow-chev { color: var(--gf-text-muted); flex-shrink: 0; }
+.gf-srow-pill {
+  flex-shrink: 0; font-family: var(--gf-font-display); font-weight: 700;
+  font-size: 0.66rem; letter-spacing: 0.03em; text-transform: uppercase;
+  background: var(--gf-danger, #ef4444); color: #fff;
+  padding: 3px 9px; border-radius: var(--gf-radius-pill);
+}
+.gf-srow.is-danger .gf-srow-ic { background: rgba(239, 68, 68, 0.12); color: var(--gf-danger); }
+.gf-srow.is-danger .gf-srow-m strong { color: var(--gf-danger); }
+
+/* Profile header card at the top of Settings. */
+.gf-profile-card {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-lg); padding: 16px;
+  text-decoration: none; color: var(--gf-text);
+  transition: border-color var(--gf-t-fast);
+}
+.gf-profile-card:hover { border-color: var(--gf-brand); }
+.gf-profile-av {
+  width: 58px; height: 58px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.45rem;
+}
+.gf-profile-av img { width: 100%; height: 100%; object-fit: cover; }
+.gf-profile-m { flex: 1; min-width: 0; }
+.gf-profile-m strong { display: block; font-family: var(--gf-font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; }
+.gf-profile-m small { display: block; color: var(--gf-text-muted); font-size: 0.8rem; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 600px) {
+  .gf-srow { padding: 16px 18px; }
+  .gf-srow-ic { width: 42px; height: 42px; }
+  .gf-srow-ic svg { width: 21px; height: 21px; }
+}
+
 /* Framed view (foldable / tablet / desktop): the app column is wider, so the
    chip row looks thin at phone sizes. Scale the chips, glyphs, labels and stats
    up to fill the extra room and give the home screen real presence. (Phones
