@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, LineChart, Users, ShieldCheck, Building2, LogOut, Menu } from 'lucide-react';
+import { LayoutDashboard, LineChart, Users, ShieldCheck, Building2, Settings, LogOut, Menu } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
-// Only routes that exist today. Support / Settings are added here as those
-// pages land — keeping the nav free of dead links.
+// Only routes that exist today. Support is added here once it lands (it needs
+// a tickets table that doesn't exist yet) — keeping the nav free of dead links.
 const NAV: NavItem[] = [
   { href: '/superadmin', label: 'Overview', icon: LayoutDashboard },
   { href: '/superadmin/gyms', label: 'Gyms', icon: Building2 },
@@ -19,6 +19,7 @@ const NAV: NavItem[] = [
   { href: '/superadmin/members', label: 'Members', icon: Users },
   { href: '/superadmin/audit', label: 'Audit', icon: ShieldCheck },
   { href: '/superadmin/gyms/new', label: 'Onboard gym', icon: Building2 },
+  { href: '/superadmin/settings', label: 'Settings', icon: Settings },
 ];
 
 export function SuperadminShell({
