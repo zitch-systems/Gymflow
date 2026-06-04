@@ -43,6 +43,9 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
     { data: recentLinks },
     { data: payments14 },
     { data: feedCheckins },
+    { data: checkins7 },
+    { data: expiring7 },
+    { data: joins7 },
   ] = await Promise.all([
     supabase
       .from('gym_member_links')
@@ -83,6 +86,23 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
       .eq('gym_id', gym.id)
       .order('checked_in_at', { ascending: false })
       .limit(8),
+    // 7-day daily series for the KPI sparklines
+    supabase
+      .from('check_ins')
+      .select('checked_in_at')
+      .eq('gym_id', gym.id)
+      .gte('checked_in_at', daysAgoIso(7)),
+    supabase
+      .from('memberships')
+      .select('end_date')
+      .eq('gym_id', gym.id)
+      .gte('end_date', todayIso())
+      .lte('end_date', daysFromNowIso(7)),
+    supabase
+      .from('gym_member_links')
+      .select('joined_at')
+      .eq('gym_id', gym.id)
+      .gte('joined_at', daysAgoIso(7)),
   ]);
 
   const revenueToday = (revenueRows ?? []).reduce((acc, p) => acc + Number(p.amount ?? 0), 0);
@@ -158,6 +178,32 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
   const revMax = Math.max(1, ...revSeries.map((d) => d.amount));
   const revTotal = revSeries.reduce((a, d) => a + d.amount, 0);
 
+  // KPI sparklines — real 7-day series, UTC day buckets (oldest → newest).
+  const last7Keys = Array.from({ length: 7 }, (_, i) => new Date(nowMs - (6 - i) * DAY_MS).toISOString().split('T')[0]);
+  const next7Keys = Array.from({ length: 7 }, (_, i) => new Date(nowMs + i * DAY_MS).toISOString().split('T')[0]);
+  const countByDay = <T,>(rows: T[], pick: (r: T) => string | null | undefined, keys: string[]) => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const v = pick(r);
+      if (!v) continue;
+      const k = new Date(v).toISOString().split('T')[0];
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return keys.map((k) => m.get(k) ?? 0);
+  };
+  const checkinSpark = countByDay(checkins7 ?? [], (r) => r.checked_in_at, last7Keys);
+  const expiringSpark = countByDay(expiring7 ?? [], (r) => r.end_date, next7Keys);
+  const revSpark = revSeries.slice(-7).map((d) => d.amount);
+  // Members: cumulative total across the last 7 days, back-calculated from today's
+  // total minus the joins that landed after each day.
+  const joinsByDay = countByDay(joins7 ?? [], (r) => r.joined_at, last7Keys);
+  let runningMembers = memberCount ?? 0;
+  const membersSpark: number[] = [];
+  for (let i = last7Keys.length - 1; i >= 0; i--) {
+    membersSpark[i] = runningMembers;
+    runningMembers -= joinsByDay[i];
+  }
+
   // Live check-in feed — recent check-ins joined to member names.
   const feedIds = [...new Set((feedCheckins ?? []).map((c) => c.member_id).filter(Boolean) as string[])];
   const { data: feedProfiles } = feedIds.length
@@ -205,10 +251,10 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
       </nav>
 
       <StatGrid>
-        <Stat label="Total members" value={memberCount ?? 0} accent="emerald" icon={Users} />
-        <Stat label={`Check-ins · ${rangeLabel}`} value={activeToday ?? 0} accent="blue" icon={CalendarCheck} />
-        <Stat label="Expiring this week" value={expiringSoon ?? 0} accent="amber" icon={Clock4} />
-        <Stat label={`Revenue · ${rangeLabel}`} value={fmtNaira(revenueToday)} accent="purple" icon={Banknote} />
+        <Stat label="Total members" value={memberCount ?? 0} accent="emerald" icon={Users} spark={membersSpark} />
+        <Stat label={`Check-ins · ${rangeLabel}`} value={activeToday ?? 0} accent="blue" icon={CalendarCheck} spark={checkinSpark} />
+        <Stat label="Expiring this week" value={expiringSoon ?? 0} accent="amber" icon={Clock4} spark={expiringSpark} />
+        <Stat label={`Revenue · ${rangeLabel}`} value={fmtNaira(revenueToday)} accent="purple" icon={Banknote} spark={revSpark} />
       </StatGrid>
 
       <QuickActions>
