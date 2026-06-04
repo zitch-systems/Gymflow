@@ -6615,3 +6615,14 @@ body::after {
 .adm-feed-m strong { font-family: var(--gf-font-display); font-size: 0.875rem; font-weight: 600; color: var(--gf-text); }
 .adm-feed-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
 .adm-feed-t { font-size: 0.74rem; color: var(--gf-text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+/* Analytics — revenue-mix donut */
+.adm-donut-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; padding: 10px 4px; }
+.adm-donut { width: 150px; height: 150px; flex-shrink: 0; }
+.adm-donut-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; flex: 1; min-width: 200px; }
+.adm-donut-legend li { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+.adm-donut-total-row { padding-bottom: 8px; border-bottom: 1px solid var(--gf-border); margin-bottom: 2px; }
+.adm-donut-total-row .adm-donut-name { font-family: var(--gf-font-display); }
+.adm-donut-key { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.adm-donut-name { color: var(--gf-text); font-weight: 600; }
+.adm-donut-val { margin-left: auto; color: var(--gf-text-muted); font-variant-numeric: tabular-nums; }

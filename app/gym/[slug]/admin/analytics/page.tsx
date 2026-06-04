@@ -119,6 +119,27 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
 
   const ltv = computeLtv((paymentsAll ?? []) as PaymentLite[], planNames);
 
+  // Revenue-mix donut segments — reuses the per-plan LTV breakdown (no new query).
+  // pct doubles as the stroke-dash length on a r=15.9155 circle (circumference ≈ 100),
+  // and `start` is the cumulative offset so segments stack around the ring.
+  const PLAN_COLORS = ['#11d18b', '#c6f24e', '#4080ff', '#ffb020', '#a855f7', '#ff4560', '#00c896'];
+  const planMixTotal = ltv.byPlan.reduce((a, r) => a + r.revenue, 0);
+  const planMixRaw = ltv.byPlan
+    .filter((r) => r.revenue > 0)
+    .map((r, i) => ({
+      name: r.planName,
+      revenue: r.revenue,
+      pct: planMixTotal > 0 ? (r.revenue / planMixTotal) * 100 : 0,
+      color: PLAN_COLORS[i % PLAN_COLORS.length],
+    }));
+  // Cumulative start offset per segment, derived without mutating across the map
+  // closure (keeps the React-compiler immutability rule happy). Plan counts are
+  // tiny, so the slice/reduce per item is immaterial.
+  const planMix = planMixRaw.map((s, i) => ({
+    ...s,
+    start: planMixRaw.slice(0, i).reduce((a, p) => a + p.pct, 0),
+  }));
+
   const activeMemberIds = new Set(
     memberships.filter((m) => m.member_id && m.end_date && new Date(m.end_date).getTime() >= nowMs).map((m) => m.member_id!),
   );
@@ -228,6 +249,45 @@ export default async function AdminAnalyticsPage({ params }: PageProps) {
             })()}
           </div>
         </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="Revenue mix by plan" />
+        {planMix.length > 0 ? (
+          <div className="adm-donut-wrap">
+            <svg viewBox="0 0 42 42" className="adm-donut" role="img" aria-label="Revenue share by plan">
+              <circle cx="21" cy="21" r="15.9155" fill="none" stroke="var(--gf-border)" strokeWidth="5" />
+              {planMix.map((s) => (
+                <circle
+                  key={s.name}
+                  cx="21"
+                  cy="21"
+                  r="15.9155"
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth="5"
+                  strokeDasharray={`${s.pct} ${100 - s.pct}`}
+                  strokeDashoffset={25 - s.start}
+                />
+              ))}
+            </svg>
+            <ul className="adm-donut-legend">
+              <li className="adm-donut-total-row">
+                <span className="adm-donut-name">Total</span>
+                <span className="adm-donut-val">{fmtNaira(planMixTotal)}</span>
+              </li>
+              {planMix.map((s) => (
+                <li key={s.name}>
+                  <span className="adm-donut-key" style={{ background: s.color }} />
+                  <span className="adm-donut-name">{s.name}</span>
+                  <span className="adm-donut-val">{fmtNaira(s.revenue)} · {Math.round(s.pct)}%</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="gf-form-hint" style={{ padding: 18 }}>No plan revenue yet.</p>
+        )}
       </Card>
 
       <Card>
