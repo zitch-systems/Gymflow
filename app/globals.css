@@ -6574,3 +6574,20 @@ body::after {
 .m-ci-fallback { margin-top: 6px; width: 100%; max-width: 340px; }
 .m-ci-fallback summary { cursor: pointer; font-size: 0.82rem; color: var(--gf-text-muted); }
 .m-ci-code { display: block; margin-top: 6px; font-family: var(--gf-font-mono, ui-monospace, monospace); font-size: 0.76rem; color: var(--gf-text-secondary); word-break: break-all; background: var(--gf-elevated); padding: 8px 10px; border-radius: 8px; }
+
+/* Member renew — radio plan picker */
+.m-renew { display: flex; flex-direction: column; gap: 18px; }
+.m-renew-plans { display: flex; flex-direction: column; gap: 10px; }
+.m-rplan { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--gf-surface); border: 1.5px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 14px 16px; cursor: pointer; transition: border-color var(--gf-t), background var(--gf-t); }
+.m-rplan.on { border-color: var(--gf-brand); background: var(--gf-brand-soft); }
+.m-rplan-radio { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--gf-border); display: grid; place-items: center; color: #fff; }
+.m-rplan.on .m-rplan-radio { background: var(--gf-brand); border-color: var(--gf-brand); }
+.m-rplan-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.m-rplan-name { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.95rem; color: var(--gf-text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.m-rplan-badge { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--gf-brand); background: var(--gf-brand-soft); border: 1px solid var(--gf-brand-glow); padding: 2px 7px; border-radius: var(--gf-radius-pill); }
+.m-rplan-meta { font-size: 0.78rem; color: var(--gf-text-muted); }
+.m-rplan-price { font-family: var(--gf-font-display); font-weight: 700; font-size: 1.05rem; color: var(--gf-text); flex-shrink: 0; }
+.m-renew-pay { display: flex; flex-direction: column; gap: 10px; }
+.m-renew-total { display: flex; align-items: center; justify-content: space-between; font-size: 0.95rem; color: var(--gf-text-secondary); }
+.m-renew-total strong { font-family: var(--gf-font-display); font-size: 1.25rem; color: var(--gf-text); }
+.m-renew-secure { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.76rem; color: var(--gf-text-muted); margin: 0; }
