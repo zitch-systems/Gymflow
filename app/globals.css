@@ -6597,3 +6597,21 @@ body::after {
 .m-pstat { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 14px 8px; text-align: center; }
 .m-pstat b { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.4rem; color: var(--gf-text); line-height: 1; }
 .m-pstat small { display: block; margin-top: 4px; font-size: 0.72rem; color: var(--gf-text-muted); }
+
+/* Admin dashboard — revenue bar chart + live check-in feed */
+.adm-dash-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .adm-dash-row { grid-template-columns: 1fr; } }
+.adm-revbars { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
+.adm-revbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.adm-revbar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }
+.adm-revbar-fill { width: 100%; min-height: 3px; background: linear-gradient(180deg, var(--gf-brand-light), var(--gf-brand-dark)); border-radius: 6px 6px 0 0; transition: height var(--gf-t); }
+.adm-revbar-x { font-size: 0.68rem; color: var(--gf-text-muted); }
+.adm-chart-foot { margin-top: 10px; font-size: 0.8rem; color: var(--gf-text-muted); text-align: right; }
+.adm-feed { display: flex; flex-direction: column; }
+.adm-feed-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--gf-border); }
+.adm-feed-row:last-child { border-bottom: 0; }
+.adm-feed-av { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--gf-brand-soft); color: var(--gf-brand); display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.8rem; }
+.adm-feed-m { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.adm-feed-m strong { font-family: var(--gf-font-display); font-size: 0.875rem; font-weight: 600; color: var(--gf-text); }
+.adm-feed-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.adm-feed-t { font-size: 0.74rem; color: var(--gf-text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
