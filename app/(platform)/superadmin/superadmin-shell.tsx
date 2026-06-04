@@ -10,10 +10,11 @@ import { LogoMark } from '@/components/ui/logo';
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
-// Only routes that exist today. Support / Settings / a Gyms list are added here
-// as those pages land — keeping the nav free of dead links.
+// Only routes that exist today. Support / Settings are added here as those
+// pages land — keeping the nav free of dead links.
 const NAV: NavItem[] = [
   { href: '/superadmin', label: 'Overview', icon: LayoutDashboard },
+  { href: '/superadmin/gyms', label: 'Gyms', icon: Building2 },
   { href: '/superadmin/revenue', label: 'Revenue', icon: LineChart },
   { href: '/superadmin/members', label: 'Members', icon: Users },
   { href: '/superadmin/audit', label: 'Audit', icon: ShieldCheck },
@@ -37,6 +38,12 @@ export function SuperadminShell({
       ? pathname === '/superadmin' || pathname.endsWith('/superadmin')
       : pathname.includes(href);
 
+  // /superadmin/gyms is a prefix of /superadmin/gyms/new, so several items can
+  // match at once — only the most specific (longest) one should light up.
+  const activeHref = [...NAV]
+    .filter((n) => isActive(n.href))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <>
       <div className={`gf-sidebar-overlay${open ? ' open' : ''}`} onClick={() => setOpen(false)} />
@@ -58,7 +65,7 @@ export function SuperadminShell({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`gf-nav-item${isActive(item.href) ? ' active' : ''}`}
+                className={`gf-nav-item${item.href === activeHref ? ' active' : ''}`}
                 onClick={() => setOpen(false)}
               >
                 <Icon size={17} strokeWidth={1.75} />
@@ -112,8 +119,8 @@ export function SuperadminShell({
           <Link
             key={href}
             href={href}
-            className={`gf-nav-tab${isActive(href) ? ' active' : ''}`}
-            aria-current={isActive(href) ? 'page' : undefined}
+            className={`gf-nav-tab${href === activeHref ? ' active' : ''}`}
+            aria-current={href === activeHref ? 'page' : undefined}
           >
             <Icon />
             <span>{label}</span>
