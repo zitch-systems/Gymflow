@@ -6530,3 +6530,15 @@ body::after {
 .mk-callout { display: flex; gap: 12px; padding: 16px 18px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-left: 3px solid var(--gf-brand); border-radius: var(--gf-radius); margin: 16px 0; }
 .mk-callout svg { flex-shrink: 0; color: var(--gf-brand-light); margin-top: 2px; }
 .mk-callout p { margin: 0; color: var(--gf-text-secondary); font-size: 0.9rem; line-height: 1.6; }
+
+/* Narrow centered auth (forgot-password / reset-password) */
+.mk-auth-narrow { max-width: 440px; margin-inline: auto; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 48px 0; }
+.mk-auth-narrow .gf-logo { justify-content: center; }
+.pw-meter { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 8px; }
+.pw-meter > span { height: 4px; flex: 1; min-width: 0; border-radius: 999px; background: var(--gf-border); transition: background var(--gf-t); }
+.pw-meter > small { flex-basis: 100%; font-size: 0.75rem; color: var(--gf-text-muted); margin-top: 2px; }
+.pw-meter[data-score="1"] > span:nth-child(1) { background: var(--gf-danger); }
+.pw-meter[data-score="2"] > span:nth-child(-n+2) { background: var(--gf-warning); }
+.pw-meter[data-score="3"] > span:nth-child(-n+3) { background: var(--gf-accent); }
+.pw-meter[data-score="4"] > span:nth-child(-n+4) { background: var(--gf-brand); }
+.pw-mismatch { color: var(--gf-danger); font-size: 0.78rem; margin-top: 4px; }
