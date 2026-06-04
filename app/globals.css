@@ -6591,3 +6591,9 @@ body::after {
 .m-renew-total { display: flex; align-items: center; justify-content: space-between; font-size: 0.95rem; color: var(--gf-text-secondary); }
 .m-renew-total strong { font-family: var(--gf-font-display); font-size: 1.25rem; color: var(--gf-text); }
 .m-renew-secure { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.76rem; color: var(--gf-text-muted); margin: 0; }
+
+/* Member profile — activity stat header */
+.m-pstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.m-pstat { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 14px 8px; text-align: center; }
+.m-pstat b { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.4rem; color: var(--gf-text); line-height: 1; }
+.m-pstat small { display: block; margin-top: 4px; font-size: 0.72rem; color: var(--gf-text-muted); }
