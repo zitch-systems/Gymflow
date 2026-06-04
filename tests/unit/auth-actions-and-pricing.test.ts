@@ -73,19 +73,19 @@ describe('requestPasswordReset — rate limit + validation', () => {
 describe('requestPasswordReset — redirectTo allowlist (anti open-redirect)', () => {
   it('keeps a *.gymflow.ng subdomain origin (legitimate gym subdomain)', async () => {
     await requestPasswordReset('m@e.com', 'https://iron.gymflow.ng/login');
-    expect(state.capturedRedirectTo).toBe('https://iron.gymflow.ng/login?reset=1');
+    expect(state.capturedRedirectTo).toBe('https://iron.gymflow.ng/auth/callback?next=/reset-password');
   });
 
   it('keeps the apex gymflow.ng host', async () => {
     await requestPasswordReset('m@e.com', 'https://gymflow.ng/login');
-    expect(state.capturedRedirectTo).toBe('https://gymflow.ng/login?reset=1');
+    expect(state.capturedRedirectTo).toBe('https://gymflow.ng/auth/callback?next=/reset-password');
   });
 
   it('REJECTS a foreign host and falls back to the site URL (phishing defence)', async () => {
     // The attack: a crafted form submission with originUrl pointing at a
     // phishing site. The function must not honour it.
     await requestPasswordReset('m@e.com', 'https://evil.com/login');
-    expect(state.capturedRedirectTo).toBe('https://gymflow.ng/login?reset=1');
+    expect(state.capturedRedirectTo).toBe('https://gymflow.ng/auth/callback?next=/reset-password');
     expect(state.capturedRedirectTo).not.toContain('evil.com');
   });
 
@@ -94,19 +94,19 @@ describe('requestPasswordReset — redirectTo allowlist (anti open-redirect)', (
     // The code uses URL.host comparison + endsWith('.gymflow.ng'), so this
     // must NOT be honoured.
     await requestPasswordReset('m@e.com', 'https://gymflow.ng.evil.com/login');
-    expect(state.capturedRedirectTo).toBe('https://gymflow.ng/login?reset=1');
+    expect(state.capturedRedirectTo).toBe('https://gymflow.ng/auth/callback?next=/reset-password');
     expect(state.capturedRedirectTo).not.toContain('evil.com');
   });
 
   it('REJECTS a malformed origin URL and falls back to the site URL', async () => {
     await requestPasswordReset('m@e.com', 'not-a-url');
-    expect(state.capturedRedirectTo).toBe('https://gymflow.ng/login?reset=1');
+    expect(state.capturedRedirectTo).toBe('https://gymflow.ng/auth/callback?next=/reset-password');
   });
 
   it('preserves the scheme of a legitimate origin (http vs https)', async () => {
     // Local dev: http://iron.gymflow.ng is allowed (host check, not scheme).
     await requestPasswordReset('m@e.com', 'http://iron.gymflow.ng/login');
-    expect(state.capturedRedirectTo).toBe('http://iron.gymflow.ng/login?reset=1');
+    expect(state.capturedRedirectTo).toBe('http://iron.gymflow.ng/auth/callback?next=/reset-password');
   });
 });
 
