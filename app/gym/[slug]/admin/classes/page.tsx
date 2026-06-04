@@ -5,7 +5,8 @@ import { ExportAttendanceCsvButton } from './export-csv-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
-import { CalendarX } from 'lucide-react';
+import { Stat, StatGrid } from '@/components/ui/stat';
+import { CalendarX, CalendarDays, LayoutGrid, Users, CalendarCheck } from 'lucide-react';
 
 const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -23,6 +24,12 @@ export default async function AdminClassesPage({ params }: PageProps) {
     .order('day_of_week', { ascending: true })
     .order('start_time', { ascending: true });
 
+  const slots = schedules ?? [];
+  const classOf = (s: (typeof slots)[number]) => (Array.isArray(s.classes) ? s.classes[0] : s.classes);
+  const weeklySpots = slots.reduce((a, s) => a + (classOf(s)?.max_capacity ?? 0), 0);
+  const classCount = new Set(slots.map((s) => classOf(s)?.name).filter(Boolean)).size;
+  const dayCount = new Set(slots.map((s) => s.day_of_week)).size;
+
   return (
     <div className="gf-page">
       <PageHeader
@@ -30,6 +37,13 @@ export default async function AdminClassesPage({ params }: PageProps) {
         subtitle={`${schedules?.length ?? 0} scheduled slot(s)`}
         actions={<ExportAttendanceCsvButton slug={slug} />}
       />
+
+      <StatGrid>
+        <Stat label="Scheduled slots" value={slots.length} accent="emerald" icon={CalendarDays} />
+        <Stat label="Classes" value={classCount} accent="blue" icon={LayoutGrid} />
+        <Stat label="Weekly spots" value={weeklySpots} accent="purple" icon={Users} />
+        <Stat label="Days / week" value={dayCount} accent="amber" icon={CalendarCheck} />
+      </StatGrid>
 
       <Card>
         <CardHeader title="Add a class" />
