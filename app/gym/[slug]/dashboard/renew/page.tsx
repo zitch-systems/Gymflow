@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira } from '@/lib/format';
-import { PaystackPayButton } from './paystack-pay';
+import { RenewPlanPicker } from './renew-plan-picker';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ArrowLeft, ClipboardList } from 'lucide-react';
@@ -38,26 +37,18 @@ export default async function RenewPage({ params }: PageProps) {
           <EmptyState icon={ClipboardList} title="No plans available" message="The gym hasn't published any active plans yet." />
         </Card>
       ) : (
-        <div className="plan-grid">
-          {plans.map((p) => (
-            <article key={p.id} className="plan-card">
-              <h3 className="plan-card-title">{p.name}</h3>
-              <p className="plan-card-meta">
-                {p.duration_months} month{p.duration_months === 1 ? '' : 's'}
-              </p>
-              <p className="plan-card-price">{fmtNaira(p.price)}</p>
-              {p.description && <p className="plan-card-desc">{p.description}</p>}
-              <PaystackPayButton
-                gymId={gym.id}
-                planId={p.id}
-                amount={p.price}
-                durationMonths={p.duration_months}
-                email={user.email ?? ''}
-                subaccount={gym.paystack_subaccount_code}
-              />
-            </article>
-          ))}
-        </div>
+        <RenewPlanPicker
+          plans={plans.map((p) => ({
+            id: p.id,
+            name: p.name,
+            duration_months: p.duration_months,
+            price: p.price,
+            description: p.description,
+          }))}
+          gymId={gym.id}
+          email={user.email ?? ''}
+          subaccount={gym.paystack_subaccount_code}
+        />
       )}
     </div>
   );

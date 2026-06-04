@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft, fmtDateTime } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
-import { daysFromNowIso, startOfTodayIso, todayIso } from '@/lib/dates';
+import { daysFromNowIso, startOfTodayIso, todayIso, daysAgoIso } from '@/lib/dates';
 import { daysUntilBirthday, birthdayLabel } from '@/lib/birthdays';
 import { Stat, StatGrid } from '@/components/ui/stat';
 import { QuickAction, QuickActions } from '@/components/ui/quick-action';
@@ -19,14 +19,21 @@ import {
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ range?: string }>;
 };
 
-export default async function AdminDashboard({ params }: PageProps) {
+export default async function AdminDashboard({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { role, gym } = await requireStaff(slug);
 
+  // Today / Week / Month re-scopes the flow KPIs (check-ins + revenue). Stock
+  // KPIs (members, expiring) stay as-is. Range lives in the URL — no client state.
+  const sp = await searchParams;
+  const range = sp.range === 'week' || sp.range === 'month' ? sp.range : 'today';
+  const rangeStart = range === 'month' ? daysAgoIso(30) : range === 'week' ? daysAgoIso(7) : startOfTodayIso();
+  const rangeLabel = range === 'month' ? 'last 30 days' : range === 'week' ? 'last 7 days' : 'today';
+
   const supabase = await createClient();
-  const startOfToday = startOfTodayIso();
 
   const [
     { count: memberCount },
@@ -34,6 +41,8 @@ export default async function AdminDashboard({ params }: PageProps) {
     { count: expiringSoon },
     { data: revenueRows },
     { data: recentLinks },
+    { data: payments14 },
+    { data: feedCheckins },
   ] = await Promise.all([
     supabase
       .from('gym_member_links')
@@ -43,7 +52,7 @@ export default async function AdminDashboard({ params }: PageProps) {
       .from('check_ins')
       .select('*', { count: 'exact', head: true })
       .eq('gym_id', gym.id)
-      .gte('checked_in_at', startOfToday),
+      .gte('checked_in_at', rangeStart),
     supabase
       .from('memberships')
       .select('*', { count: 'exact', head: true })
@@ -55,13 +64,25 @@ export default async function AdminDashboard({ params }: PageProps) {
       .select('amount')
       .eq('gym_id', gym.id)
       .eq('payment_status', 'successful')
-      .gte('payment_date', startOfToday),
+      .gte('payment_date', rangeStart),
     supabase
       .from('gym_member_links')
       .select('user_id, joined_at, status')
       .eq('gym_id', gym.id)
       .order('joined_at', { ascending: false })
       .limit(5),
+    supabase
+      .from('payments')
+      .select('amount, payment_date')
+      .eq('gym_id', gym.id)
+      .eq('payment_status', 'successful')
+      .gte('payment_date', daysAgoIso(14)),
+    supabase
+      .from('check_ins')
+      .select('checked_in_at, member_id, check_in_method')
+      .eq('gym_id', gym.id)
+      .order('checked_in_at', { ascending: false })
+      .limit(8),
   ]);
 
   const revenueToday = (revenueRows ?? []).reduce((acc, p) => acc + Number(p.amount ?? 0), 0);
@@ -120,6 +141,42 @@ export default async function AdminDashboard({ params }: PageProps) {
     };
   });
 
+  // Revenue (last 14 days), bucketed by UTC day, for the bar chart.
+  const DAY_MS = 86_400_000;
+  const revByDay = new Map<string, number>();
+  for (const pay of payments14 ?? []) {
+    if (!pay.payment_date) continue;
+    const k = new Date(pay.payment_date).toISOString().split('T')[0];
+    revByDay.set(k, (revByDay.get(k) ?? 0) + Number(pay.amount ?? 0));
+  }
+  const nowMs = new Date().getTime();
+  const revSeries = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(nowMs - (13 - i) * DAY_MS);
+    const k = d.toISOString().split('T')[0];
+    return { date: k, amount: revByDay.get(k) ?? 0, dow: ['S', 'M', 'T', 'W', 'T', 'F', 'S'][d.getUTCDay()] };
+  });
+  const revMax = Math.max(1, ...revSeries.map((d) => d.amount));
+  const revTotal = revSeries.reduce((a, d) => a + d.amount, 0);
+
+  // Live check-in feed — recent check-ins joined to member names.
+  const feedIds = [...new Set((feedCheckins ?? []).map((c) => c.member_id).filter(Boolean) as string[])];
+  const { data: feedProfiles } = feedIds.length
+    ? await supabase.from('profiles').select('id, full_name, first_name, last_name').in('id', feedIds)
+    : { data: [] as Array<{ id: string; full_name: string | null; first_name: string | null; last_name: string | null }> };
+  const feedNameById = new Map(
+    (feedProfiles ?? []).map((fp) => [fp.id, fp.full_name ?? ([fp.first_name, fp.last_name].filter(Boolean).join(' ') || 'Member')] as const),
+  );
+  const feed = (feedCheckins ?? []).map((c, i) => {
+    const name = (c.member_id ? feedNameById.get(c.member_id) : null) || 'Member';
+    return {
+      id: `${c.checked_in_at ?? i}-${c.member_id ?? i}`,
+      name,
+      initial: name.charAt(0).toUpperCase(),
+      method: c.check_in_method === 'self' ? 'QR self check-in' : c.check_in_method === 'staff' ? 'Front desk' : 'Check-in',
+      time: c.checked_in_at ? fmtDateTime(c.checked_in_at) : '',
+    };
+  });
+
   return (
     <div className="gf-page">
       <PageHeader
@@ -134,11 +191,24 @@ export default async function AdminDashboard({ params }: PageProps) {
         }
       />
 
+      <nav className="adm-seg" aria-label="Date range">
+        {(['today', 'week', 'month'] as const).map((r) => (
+          <Link
+            key={r}
+            href={r === 'today' ? '/admin/dashboard' : `/admin/dashboard?range=${r}`}
+            className={`adm-seg-btn${range === r ? ' on' : ''}`}
+            aria-current={range === r ? 'page' : undefined}
+          >
+            {r === 'today' ? 'Today' : r === 'week' ? 'This week' : 'This month'}
+          </Link>
+        ))}
+      </nav>
+
       <StatGrid>
         <Stat label="Total members" value={memberCount ?? 0} accent="emerald" icon={Users} />
-        <Stat label="Active today" value={activeToday ?? 0} accent="blue" icon={CalendarCheck} />
+        <Stat label={`Check-ins · ${rangeLabel}`} value={activeToday ?? 0} accent="blue" icon={CalendarCheck} />
         <Stat label="Expiring this week" value={expiringSoon ?? 0} accent="amber" icon={Clock4} />
-        <Stat label="Revenue today" value={fmtNaira(revenueToday)} accent="purple" icon={Banknote} />
+        <Stat label={`Revenue · ${rangeLabel}`} value={fmtNaira(revenueToday)} accent="purple" icon={Banknote} />
       </StatGrid>
 
       <QuickActions>
@@ -148,6 +218,39 @@ export default async function AdminDashboard({ params }: PageProps) {
         <QuickAction href="/admin/analytics" icon={BarChart3} label="Analytics" />
         <QuickAction href="/admin/operations" icon={Settings} label="Operations" />
       </QuickActions>
+
+      <div className="adm-dash-row">
+        <Card>
+          <CardHeader title="Revenue · last 14 days" />
+          <div className="adm-revbars" role="img" aria-label={`Daily revenue, ${fmtNaira(revTotal)} collected over 14 days`}>
+            {revSeries.map((d, i) => (
+              <div key={i} className="adm-revbar" title={`${fmtNaira(d.amount)}`}>
+                <div className="adm-revbar-track">
+                  <div className="adm-revbar-fill" style={{ height: `${Math.round((d.amount / revMax) * 100)}%` }} />
+                </div>
+                <span className="adm-revbar-x">{d.dow}</span>
+              </div>
+            ))}
+          </div>
+          <div className="adm-chart-foot">{fmtNaira(revTotal)} collected · last 14 days</div>
+        </Card>
+        <Card>
+          <CardHeader title="Live check-ins" />
+          {feed.length > 0 ? (
+            <div className="adm-feed">
+              {feed.map((f) => (
+                <div key={f.id} className="adm-feed-row">
+                  <span className="adm-feed-av" aria-hidden>{f.initial}</span>
+                  <span className="adm-feed-m"><strong>{f.name}</strong><small>{f.method}</small></span>
+                  <span className="adm-feed-t">{f.time}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState icon={CalendarCheck} title="No check-ins yet" message="Check-ins appear here as members arrive." />
+          )}
+        </Card>
+      </div>
 
       <Card>
         <CardHeader

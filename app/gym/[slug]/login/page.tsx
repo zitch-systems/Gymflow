@@ -8,7 +8,7 @@ import { ScanLine, CalendarDays, CreditCard } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ welcome?: string; redirect?: string; reset?: string; suspended?: string }>;
+  searchParams: Promise<{ welcome?: string; redirect?: string; reset?: string; suspended?: string; updated?: string }>;
 };
 
 const MEMBER_POINTS = [
@@ -85,6 +85,12 @@ export default async function LoginPage({ params, searchParams }: PageProps) {
             <div className="success-msg show" style={{ margin: '14px 0 0' }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
               Reset link sent — check your email.
+            </div>
+          )}
+          {sp.updated === '1' && (
+            <div className="success-msg show" style={{ margin: '14px 0 0' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+              Password updated — sign in with your new password.
             </div>
           )}
           {sp.suspended === '1' && (

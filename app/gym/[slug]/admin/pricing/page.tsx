@@ -1,11 +1,13 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
+import { todayIso } from '@/lib/dates';
 import { PlanCreateForm, PlanDeleteButton } from './pricing-forms';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
-import { Tag } from 'lucide-react';
+import { Stat, StatGrid } from '@/components/ui/stat';
+import { Tag, Coins, Users, BadgeCheck } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -14,15 +16,43 @@ export default async function AdminPricingPage({ params }: PageProps) {
   const { gym } = await requireStaff(slug);
 
   const supabase = await createClient();
-  const { data: plans } = await supabase
-    .from('membership_plans')
-    .select('*')
-    .eq('gym_id', gym.id)
-    .order('price', { ascending: true });
+  const [{ data: plans }, { data: activeMembs }] = await Promise.all([
+    supabase
+      .from('membership_plans')
+      .select('*')
+      .eq('gym_id', gym.id)
+      .order('price', { ascending: true }),
+    supabase
+      .from('memberships')
+      .select('plan_id')
+      .eq('gym_id', gym.id)
+      .eq('status', 'active')
+      .gte('end_date', todayIso()),
+  ]);
+
+  // MRR normalises each active subscription to a monthly figure (price / term);
+  // ARPU divides that by active subscribers. Prices come from the plan list above.
+  const planById = new Map((plans ?? []).map((p) => [p.id, p] as const));
+  const activeSubs = (activeMembs ?? []).filter((m) => m.plan_id && planById.has(m.plan_id));
+  const mrr = activeSubs.reduce((sum, m) => {
+    const p = planById.get(m.plan_id as string)!;
+    const months = p.duration_months || 1;
+    return sum + Number(p.price ?? 0) / months;
+  }, 0);
+  const subscribers = activeSubs.length;
+  const arpu = subscribers > 0 ? mrr / subscribers : 0;
+  const activePlans = (plans ?? []).filter((p) => p.is_active).length;
 
   return (
     <div className="gf-page">
       <PageHeader title="Pricing plans" subtitle={`${plans?.length ?? 0} plan(s)`} />
+
+      <StatGrid>
+        <Stat label="MRR" value={fmtNaira(Math.round(mrr))} accent="emerald" icon={Coins} />
+        <Stat label="ARPU" value={fmtNaira(Math.round(arpu))} accent="blue" icon={Users} />
+        <Stat label="Active subscribers" value={subscribers} accent="purple" icon={BadgeCheck} />
+        <Stat label="Active plans" value={activePlans} accent="amber" icon={Tag} />
+      </StatGrid>
 
       <Card>
         <CardHeader title="Create a plan" />

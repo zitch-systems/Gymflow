@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft, firstName } from '@/lib/format';
 import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
 import { daysAgoIso } from '@/lib/dates';
-import { Bell, ScanLine, CalendarDays, CreditCard, Flame, ChevronRight, Dumbbell, Wallet } from 'lucide-react';
+import { Bell, ScanLine, CalendarDays, CreditCard, Flame, ChevronRight, Dumbbell, Wallet, Check } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -103,6 +103,30 @@ export default async function MemberDashboard({ params }: PageProps) {
     }
   }
 
+  // ── Member home: this-week training strip + recent check-ins (from data
+  // already fetched above — no extra queries).
+  const todayDate = new Date();
+  const todayK = todayDate.toISOString().split('T')[0];
+  const yesterdayK = new Date(todayDate.getTime() - 86_400_000).toISOString().split('T')[0];
+  const activeDays = new Set(activity.strip.filter((d) => d.active).map((d) => d.date));
+  const monDow = (todayDate.getUTCDay() + 6) % 7; // 0 = Monday … 6 = Sunday
+  const mondayMs = Date.UTC(todayDate.getUTCFullYear(), todayDate.getUTCMonth(), todayDate.getUTCDate() - monDow);
+  const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const weekDays = WEEK_LABELS.map((label, i) => {
+    const key = new Date(mondayMs + i * 86_400_000).toISOString().split('T')[0];
+    return { label, active: activeDays.has(key), isToday: key === todayK, isFuture: key > todayK, isWeekend: i >= 5 };
+  });
+  const visitsThisWeek = weekDays.filter((d) => d.active).length;
+  const recentCheckIns = (checkIns ?? [])
+    .filter((c): c is { checked_in_at: string } => Boolean(c.checked_in_at))
+    .slice(0, 4);
+  const checkInDay = (iso: string) => {
+    const k = new Date(iso).toISOString().split('T')[0];
+    if (k === todayK) return 'Today';
+    if (k === yesterdayK) return 'Yesterday';
+    return fmtDate(iso);
+  };
+
   return (
     <div className="member-portal member-app m-dash">
       {/* Greeting header — gym name (small) over "Hi, {name} 👋" + avatar. */}
@@ -178,6 +202,22 @@ export default async function MemberDashboard({ params }: PageProps) {
         </section>
       </div>
 
+      {/* This week — training days pulled from check-in history (active = trained). */}
+      <section className="m-week" aria-label="This week">
+        <div className="m-week-h">
+          <span>This week</span>
+          <span className="m-week-count">{visitsThisWeek} {visitsThisWeek === 1 ? 'day' : 'days'} trained</span>
+        </div>
+        <div className="m-week-days">
+          {weekDays.map((d, i) => (
+            <div key={i} className={`m-wd${d.active ? ' done' : ''}${d.isToday ? ' today' : ''}${d.isFuture ? ' future' : ''}${d.isWeekend ? ' weekend' : ''}`}>
+              <span>{d.label}</span>
+              <span className="m-wd-dot" aria-hidden>{d.active ? <Check size={12} strokeWidth={3} /> : null}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Activity at a glance — 3-up strip (streak / this month / recent). */}
       <section className="m-stats" aria-label="Your activity">
         <div className="m-stat">
@@ -222,6 +262,19 @@ export default async function MemberDashboard({ params }: PageProps) {
           </span>
           <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
         </Link>
+      )}
+
+      {recentCheckIns.length > 0 && (
+        <section className="m-recent" aria-label="Recent check-ins">
+          <div className="m-recent-h">Recent check-ins</div>
+          {recentCheckIns.map((c, i) => (
+            <div key={i} className="m-recent-row">
+              <span className="m-recent-ic" aria-hidden><Check size={15} strokeWidth={2.5} /></span>
+              <span className="m-recent-m"><strong>Checked in</strong><small>QR scan</small></span>
+              <span className="m-recent-t">{checkInDay(c.checked_in_at)}</span>
+            </div>
+          ))}
+        </section>
       )}
     </div>
   );

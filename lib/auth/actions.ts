@@ -188,7 +188,36 @@ export async function requestPasswordReset(email: string, originUrl: string): Pr
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${safeOrigin}/login?reset=1`,
+    redirectTo: `${safeOrigin}/auth/callback?next=/reset-password`,
   });
   return { error: error?.message ?? null };
+}
+
+export type UpdatePasswordState = { error: string } | undefined;
+
+// Set a new password. Reached only after /auth/callback has exchanged the
+// recovery code for a session, so getUser() must return the recovering user.
+export async function updatePassword(_prev: UpdatePasswordState, formData: FormData): Promise<UpdatePasswordState> {
+  const password = String(formData.get('password') ?? '');
+  const confirm = String(formData.get('confirm') ?? '');
+
+  if (password.length < 8) return { error: 'Password must be at least 8 characters.' };
+  if (password !== confirm) return { error: 'Passwords do not match.' };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Your reset link has expired. Please request a new one.' };
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes('different from the old')) {
+      return { error: 'Your new password must be different from your current one.' };
+    }
+    return { error: error.message };
+  }
+
+  // Sign the recovery session out so the user re-authenticates with the new password.
+  await supabase.auth.signOut();
+  redirect('/login?updated=1');
 }

@@ -3,6 +3,8 @@ import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { signOut } from '@/lib/auth/actions';
 import { daysLeft } from '@/lib/format';
+import { daysAgoIso } from '@/lib/dates';
+import { computeActivity } from '@/lib/activity';
 import { SubscriptionActions } from '../subscription-actions';
 import { InstallAppButton } from '@/lib/pwa-install';
 import {
@@ -31,7 +33,7 @@ export default async function MemberSettingsPage({ params }: PageProps) {
   const { user, gym } = await requireMember(slug);
 
   const supabase = await createClient();
-  const [{ data: p }, { data: subscription }] = await Promise.all([
+  const [{ data: p }, { data: subscription }, { data: checkIns }] = await Promise.all([
     supabase
       .from('profiles')
       .select('full_name, first_name, last_name, email, photo_url, notification_email, notification_whatsapp')
@@ -46,7 +48,15 @@ export default async function MemberSettingsPage({ params }: PageProps) {
       .order('end_date', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('check_ins')
+      .select('checked_in_at')
+      .eq('member_id', user.id)
+      .eq('gym_id', gym.id)
+      .gte('checked_in_at', daysAgoIso(45))
+      .order('checked_in_at', { ascending: false }),
   ]);
+  const activity = computeActivity((checkIns ?? []).map((c) => c.checked_in_at));
 
   const displayName = p?.full_name ?? [p?.first_name, p?.last_name].filter(Boolean).join(' ') ?? p?.email ?? 'Member';
   const avatarInitial = (p?.full_name ?? p?.email ?? 'M').charAt(0).toUpperCase();
@@ -76,6 +86,12 @@ export default async function MemberSettingsPage({ params }: PageProps) {
         </span>
         <Pencil size={18} strokeWidth={1.75} className="gf-srow-chev" />
       </Link>
+
+      <div className="m-pstats" aria-label="Your activity">
+        <div className="m-pstat"><b>{activity.totalVisits}</b><small>Visits</small></div>
+        <div className="m-pstat"><b>{activity.currentStreak}</b><small>Day streak</small></div>
+        <div className="m-pstat"><b>{activity.visitsThisMonth}</b><small>This month</small></div>
+      </div>
 
       <div className="gf-slist">
         <section className="gf-slist-sec" aria-label="Membership">
