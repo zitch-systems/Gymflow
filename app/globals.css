@@ -6542,3 +6542,26 @@ body::after {
 .pw-meter[data-score="3"] > span:nth-child(-n+3) { background: var(--gf-accent); }
 .pw-meter[data-score="4"] > span:nth-child(-n+4) { background: var(--gf-brand); }
 .pw-mismatch { color: var(--gf-danger); font-size: 0.78rem; margin-top: 4px; }
+
+/* Member home — this-week training strip */
+.m-week { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 14px 16px; }
+.m-week-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.9rem; color: var(--gf-text); }
+.m-week-count { font-weight: 500; font-size: 0.76rem; color: var(--gf-text-muted); }
+.m-week-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.m-wd { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--gf-text-muted); }
+.m-wd-dot { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--gf-border); display: grid; place-items: center; color: transparent; }
+.m-wd.done .m-wd-dot { background: var(--gf-brand); border-color: var(--gf-brand); color: #fff; }
+.m-wd.today { color: var(--gf-text); font-weight: 700; }
+.m-wd.today .m-wd-dot { box-shadow: 0 0 0 3px var(--gf-brand-glow); }
+.m-wd.future { opacity: 0.45; }
+.m-wd.weekend:not(.done) .m-wd-dot { border-style: dashed; }
+
+/* Member home — recent check-ins */
+.m-recent { display: flex; flex-direction: column; gap: 8px; }
+.m-recent-h { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.9rem; color: var(--gf-text); margin-bottom: 2px; }
+.m-recent-row { display: flex; align-items: center; gap: 12px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 12px 14px; }
+.m-recent-ic { flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; background: var(--gf-brand-soft); color: var(--gf-brand); display: grid; place-items: center; }
+.m-recent-m { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.m-recent-m strong { font-size: 0.88rem; color: var(--gf-text); font-weight: 600; }
+.m-recent-m small { font-size: 0.74rem; color: var(--gf-text-muted); }
+.m-recent-t { font-size: 0.74rem; color: var(--gf-text-muted); flex-shrink: 0; }
