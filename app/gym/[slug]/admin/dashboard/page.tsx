@@ -19,14 +19,21 @@ import {
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ range?: string }>;
 };
 
-export default async function AdminDashboard({ params }: PageProps) {
+export default async function AdminDashboard({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { role, gym } = await requireStaff(slug);
 
+  // Today / Week / Month re-scopes the flow KPIs (check-ins + revenue). Stock
+  // KPIs (members, expiring) stay as-is. Range lives in the URL — no client state.
+  const sp = await searchParams;
+  const range = sp.range === 'week' || sp.range === 'month' ? sp.range : 'today';
+  const rangeStart = range === 'month' ? daysAgoIso(30) : range === 'week' ? daysAgoIso(7) : startOfTodayIso();
+  const rangeLabel = range === 'month' ? 'last 30 days' : range === 'week' ? 'last 7 days' : 'today';
+
   const supabase = await createClient();
-  const startOfToday = startOfTodayIso();
 
   const [
     { count: memberCount },
@@ -45,7 +52,7 @@ export default async function AdminDashboard({ params }: PageProps) {
       .from('check_ins')
       .select('*', { count: 'exact', head: true })
       .eq('gym_id', gym.id)
-      .gte('checked_in_at', startOfToday),
+      .gte('checked_in_at', rangeStart),
     supabase
       .from('memberships')
       .select('*', { count: 'exact', head: true })
@@ -57,7 +64,7 @@ export default async function AdminDashboard({ params }: PageProps) {
       .select('amount')
       .eq('gym_id', gym.id)
       .eq('payment_status', 'successful')
-      .gte('payment_date', startOfToday),
+      .gte('payment_date', rangeStart),
     supabase
       .from('gym_member_links')
       .select('user_id, joined_at, status')
@@ -184,11 +191,24 @@ export default async function AdminDashboard({ params }: PageProps) {
         }
       />
 
+      <nav className="adm-seg" aria-label="Date range">
+        {(['today', 'week', 'month'] as const).map((r) => (
+          <Link
+            key={r}
+            href={r === 'today' ? '/admin/dashboard' : `/admin/dashboard?range=${r}`}
+            className={`adm-seg-btn${range === r ? ' on' : ''}`}
+            aria-current={range === r ? 'page' : undefined}
+          >
+            {r === 'today' ? 'Today' : r === 'week' ? 'This week' : 'This month'}
+          </Link>
+        ))}
+      </nav>
+
       <StatGrid>
         <Stat label="Total members" value={memberCount ?? 0} accent="emerald" icon={Users} />
-        <Stat label="Active today" value={activeToday ?? 0} accent="blue" icon={CalendarCheck} />
+        <Stat label={`Check-ins · ${rangeLabel}`} value={activeToday ?? 0} accent="blue" icon={CalendarCheck} />
         <Stat label="Expiring this week" value={expiringSoon ?? 0} accent="amber" icon={Clock4} />
-        <Stat label="Revenue today" value={fmtNaira(revenueToday)} accent="purple" icon={Banknote} />
+        <Stat label={`Revenue · ${rangeLabel}`} value={fmtNaira(revenueToday)} accent="purple" icon={Banknote} />
       </StatGrid>
 
       <QuickActions>

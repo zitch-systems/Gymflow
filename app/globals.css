@@ -6626,3 +6626,9 @@ body::after {
 .adm-donut-key { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
 .adm-donut-name { color: var(--gf-text); font-weight: 600; }
 .adm-donut-val { margin-left: auto; color: var(--gf-text-muted); font-variant-numeric: tabular-nums; }
+
+/* Admin segmented control — dashboard range toggle, status filters */
+.adm-seg { display: inline-flex; gap: 6px; flex-wrap: wrap; padding: 4px; background: var(--gf-elevated); border-radius: 999px; border: 1px solid var(--gf-border); }
+.adm-seg-btn { padding: 6px 14px; border-radius: 999px; color: var(--gf-text-muted); font-size: 0.84rem; font-weight: 600; text-decoration: none; transition: all var(--gf-t); }
+.adm-seg-btn:hover { color: var(--gf-text); }
+.adm-seg-btn.on { background: var(--gf-brand); color: #04140d; }
