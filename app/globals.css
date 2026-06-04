@@ -6565,3 +6565,12 @@ body::after {
 .m-recent-m strong { font-size: 0.88rem; color: var(--gf-text); font-weight: 600; }
 .m-recent-m small { font-size: 0.74rem; color: var(--gf-text-muted); }
 .m-recent-t { font-size: 0.74rem; color: var(--gf-text-muted); flex-shrink: 0; }
+
+/* Member check-in — centered scannable QR */
+.m-ci { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 24px 20px; }
+.m-ci-title { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem; color: var(--gf-text); margin: 0; }
+.m-ci-sub { color: var(--gf-text-secondary); font-size: 0.9rem; margin: 0 0 4px; max-width: 32ch; }
+.m-ci-qr { background: #fff; padding: 14px; border-radius: 16px; border: 1px solid var(--gf-border); line-height: 0; }
+.m-ci-fallback { margin-top: 6px; width: 100%; max-width: 340px; }
+.m-ci-fallback summary { cursor: pointer; font-size: 0.82rem; color: var(--gf-text-muted); }
+.m-ci-code { display: block; margin-top: 6px; font-family: var(--gf-font-mono, ui-monospace, monospace); font-size: 0.76rem; color: var(--gf-text-secondary); word-break: break-all; background: var(--gf-elevated); padding: 8px 10px; border-radius: 8px; }

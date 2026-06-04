@@ -2,6 +2,7 @@ import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDateTime } from '@/lib/format';
 import { SelfCheckInButton } from './self-checkin-button';
+import { CheckinQr } from './checkin-qr';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
@@ -29,19 +30,16 @@ export default async function CheckInPage({ params }: PageProps) {
     <div className="gf-page">
       <PageHeader title="Check in" subtitle={gym.name} />
 
-      <div className="gf-card checkin-card">
-        <p className="checkin-help">
-          Point your camera at the gym&apos;s QR code, or show this code to the front desk.
-        </p>
-        <div className="checkin-code">
-          <div className="checkin-code-label">Your member code</div>
-          <div className="checkin-code-value">{user.id}</div>
-          <noscript>
-            <p className="gf-form-hint">If JavaScript is disabled, the front desk can enter this ID manually.</p>
-          </noscript>
-          <p className="gf-form-hint">{memberCodeUrl}</p>
-        </div>
+      <div className="m-ci">
+        <h2 className="m-ci-title">Scan at the door</h2>
+        <p className="m-ci-sub">Show this code at the entrance, or tap to self check-in.</p>
+        <CheckinQr value={memberCodeUrl} />
         <SelfCheckInButton slug={slug} />
+        <details className="m-ci-fallback">
+          <summary>Can&apos;t scan? Enter the code manually</summary>
+          <p className="gf-form-hint" style={{ marginTop: 8 }}>Show this member code to the front desk:</p>
+          <code className="m-ci-code">{user.id}</code>
+        </details>
       </div>
 
       <div className="m-sect-t" style={{ marginTop: 4 }}>Recent check-ins</div>
