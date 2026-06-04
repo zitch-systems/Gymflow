@@ -7,9 +7,10 @@ import { ExportMembersCsvButton } from './export-csv-button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card } from '@/components/ui/card';
+import { Stat, StatGrid } from '@/components/ui/stat';
 import { ButtonLink } from '@/components/ui/button';
 import { StatusPill } from '@/components/ui/badge';
-import { Plus, UserPlus } from 'lucide-react';
+import { Plus, UserPlus, Users, Clock4, UserX } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -77,6 +78,22 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
       return r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.phone.toLowerCase().includes(q);
     });
 
+  // Status KPIs computed from the loaded members — no extra queries.
+  const DAY_MS = 86_400_000;
+  const nowMs = new Date().getTime();
+  const stats = { active: 0, expiring: 0, lapsed: 0, fresh: 0 };
+  for (const r of rows) {
+    const left = daysLeft(r.expiry);
+    const active = left > 0 && r.status !== 'cancelled';
+    if (active) {
+      stats.active++;
+      if (left <= 7) stats.expiring++;
+    } else {
+      stats.lapsed++;
+    }
+    if (r.joined && nowMs - new Date(r.joined).getTime() <= 30 * DAY_MS) stats.fresh++;
+  }
+
   return (
     <div className="gf-page">
       <PageHeader
@@ -92,6 +109,13 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
           </>
         }
       />
+
+      <StatGrid>
+        <Stat label="Active members" value={stats.active} accent="emerald" icon={Users} />
+        <Stat label="Expiring soon" value={stats.expiring} accent="amber" icon={Clock4} />
+        <Stat label="Lapsed" value={stats.lapsed} accent="blue" icon={UserX} />
+        <Stat label="New (30d)" value={stats.fresh} accent="purple" icon={UserPlus} />
+      </StatGrid>
 
       <Card>
         <div className="gf-table-wrap">
