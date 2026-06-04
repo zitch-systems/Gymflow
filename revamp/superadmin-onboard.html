@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Onboard gym</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .wrap { max-width:720px; }
+  .steps { display:flex; gap:10px; margin-bottom:22px; }
+  .step { flex:1; display:flex; align-items:center; gap:10px; padding:12px 14px; border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); background:var(--gf-surface); }
+  .step.on { border-color:var(--gf-brand); background:var(--gf-brand-soft); }
+  .step .n { width:26px; height:26px; border-radius:50%; background:var(--gf-elevated); color:var(--gf-text-muted); display:grid; place-items:center; font-family:var(--gf-font-display); font-weight:800; font-size:0.8rem; flex-shrink:0; }
+  .step.on .n { background:var(--gf-brand); color:#fff; }
+  .step.done .n { background:var(--gf-success); color:#fff; }
+  .step span { font-family:var(--gf-font-display); font-weight:600; font-size:0.84rem; }
+  .step.on span { color:var(--gf-brand); }
+  .fg { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .fg label { font-family:var(--gf-font-display); font-size:0.8rem; font-weight:600; color:var(--gf-text-secondary); }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .plan-pick { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .pp { border:1.5px solid var(--gf-border); border-radius:var(--gf-radius); padding:16px; cursor:pointer; transition:all var(--gf-t); background:var(--gf-surface); }
+  .pp.on { border-color:var(--gf-brand); background:var(--gf-brand-soft); }
+  .pp strong { font-family:var(--gf-font-display); font-weight:700; display:block; }
+  .pp .pr { font-family:var(--gf-font-display); font-weight:800; font-size:1.3rem; margin-top:6px; }
+  .pp .pr small { font-size:0.7rem; color:var(--gf-text-muted); font-weight:500; }
+  @media (max-width:700px){ .two,.plan-pick{grid-template-columns:1fr} }
+</style>
+</head>
+<body data-gf-mobile="superadmin-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="saSidebar"></aside>
+  <div class="main">
+    <header class="top" id="saTop"></header>
+    <main class="content">
+      <div class="page-h2"><div><span class="pill-plat">Operations</span><h1>Onboard a gym</h1><p>Provision a new tenant with a branded subdomain in minutes</p></div></div>
+      <div class="wrap">
+        <div class="steps">
+          <div class="step on"><span class="n">1</span><span>Gym details</span></div>
+          <div class="step"><span class="n">2</span><span>Owner &amp; plan</span></div>
+          <div class="step"><span class="n">3</span><span>Review</span></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div><h3>Gym details</h3><div class="sub">Step 1 of 3</div></div></div>
+          <div class="fg"><label>Gym name</label><input class="gf-input" placeholder="e.g. Summit Fitness" /></div>
+          <div class="two">
+            <div class="fg"><label>Subdomain</label><div class="gf-input-group"><input class="gf-input" value="summit" /><span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gf-text-muted);font-size:0.82rem">.gymflow.ng</span></div></div>
+            <div class="fg"><label>City</label><input class="gf-input" placeholder="Lagos" /></div>
+          </div>
+          <div class="fg"><label>Choose plan</label>
+            <div class="plan-pick" id="plans">
+              <div class="pp" data-p="Starter"><strong>Starter</strong><div class="pr">₦13,999<small>/mo</small></div></div>
+              <div class="pp on" data-p="Growth"><strong>Growth</strong><div class="pr">₦37,999<small>/mo</small></div></div>
+              <div class="pp" data-p="Scale"><strong>Scale</strong><div class="pr">₦119,999<small>/mo</small></div></div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px"><button class="gf-btn gf-btn-ghost">Cancel</button><button class="gf-btn gf-btn-primary" id="next">Continue <i data-lucide="arrow-right" style="width:16px;height:16px"></i></button></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="superadmin-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+$$('#plans .pp').forEach(p=>p.onclick=()=>{ $$('#plans .pp').forEach(x=>x.classList.remove('on')); p.classList.add('on'); });
+$('#next').onclick=()=>gfToast('Step 1 saved — prototype');
+saShell('onboard',{search:'Search…'}); buildProto('superadmin'); lucide.createIcons();
+</script>
+</body>
+</html>

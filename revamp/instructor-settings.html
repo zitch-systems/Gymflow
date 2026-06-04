@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Coach Settings</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+  .fg { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .fg label { font-family:var(--gf-font-display); font-size:0.8rem; font-weight:600; color:var(--gf-text-secondary); }
+  .av { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .av .chip { padding:7px 13px; border:1px solid var(--gf-border); border-radius:var(--gf-radius-pill); font-family:var(--gf-font-display); font-weight:600; font-size:0.8rem; cursor:pointer; background:var(--gf-elevated); transition:all var(--gf-t); }
+  .av .chip.on { background:var(--gf-brand-soft); border-color:var(--gf-brand); color:var(--gf-brand); }
+  .tog { display:flex; align-items:center; justify-content:space-between; padding:13px 0; border-top:1px solid var(--gf-border); }
+  .tog:first-child { border-top:none; }
+  .tog .m strong { font-family:var(--gf-font-display); font-size:0.88rem; display:block; }
+  .tog .m small { color:var(--gf-text-muted); font-size:0.74rem; }
+  .sw { width:42px; height:24px; border-radius:99px; background:var(--gf-border); position:relative; cursor:pointer; transition:background var(--gf-t); flex-shrink:0; }
+  .sw.on { background:var(--gf-brand); }
+  .sw::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:transform var(--gf-t); }
+  .sw.on::after { transform:translateX(18px); }
+  @media (max-width:1000px){ .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body data-gf-mobile="instructor-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="coachSidebar"></aside>
+  <div class="main">
+    <header class="top" id="coachTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>Settings</h1><p>Manage your coach profile and availability</p></div></div>
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-h"><div><h3>Profile</h3></div></div>
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px"><span class="gf-avatar gf-avatar-xl" style="background:var(--gf-brand-soft);color:var(--gf-brand);border-color:var(--gf-brand-glow)">F</span><button class="gf-btn gf-btn-secondary gf-btn-sm">Change photo</button></div>
+          <div class="fg"><label>Display name</label><input class="gf-input" value="Coach Femi Adewale" /></div>
+          <div class="fg"><label>Specialties</label><input class="gf-input" value="Strength · HIIT · Powerlifting" /></div>
+          <div class="fg"><label>Bio</label><textarea class="gf-input" rows="3">NSCA-certified strength coach. 8 years training athletes and everyday lifters.</textarea></div>
+          <button class="gf-btn gf-btn-primary">Save profile</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="panel">
+            <div class="panel-h"><div><h3>Availability</h3><div class="sub">Days you're open to teach</div></div></div>
+            <div class="av" id="avDays"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><div><h3>Notifications</h3></div></div>
+            <div class="tog"><div class="m"><strong>New booking alerts</strong><small>When a member books your class</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="tog"><div class="m"><strong>Cancellations</strong><small>When someone cancels</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="tog"><div class="m"><strong>Payout confirmations</strong><small>When a payout lands</small></div><div class="sw on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="tog"><div class="m"><strong>Weekly summary</strong><small>Monday morning recap</small></div><div class="sw" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="instructor-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; const open=['Mon','Tue','Wed','Thu','Fri','Sat'];
+$('#avDays').innerHTML=DAYS.map(d=>`<span class="chip ${open.includes(d)?'on':''}">${d}</span>`).join('');
+$$('#avDays .chip').forEach(c=>c.onclick=()=>c.classList.toggle('on'));
+coachShell('settings',{search:'Search settings…'}); buildProto('instructor'); lucide.createIcons();
+</script>
+</body>
+</html>

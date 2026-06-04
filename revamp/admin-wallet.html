@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Wallet</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .wtop { display:grid; grid-template-columns:1.1fr 1fr; gap:16px; margin-bottom:16px; align-items:stretch; }
+  .balance { background:linear-gradient(150deg,var(--gf-brand),var(--gf-brand-dark)); border-radius:var(--gf-radius-lg); padding:26px; color:#fff; position:relative; overflow:hidden; }
+  .balance::after { content:''; position:absolute; right:-40px; top:-40px; width:180px; height:180px; background:radial-gradient(circle,rgba(255,255,255,0.16),transparent 70%); }
+  .balance small { font-size:0.78rem; opacity:0.9; text-transform:uppercase; letter-spacing:0.06em; font-weight:600; }
+  .balance .amt { font-family:var(--gf-font-display); font-size:2.8rem; font-weight:800; letter-spacing:-0.03em; margin:8px 0 4px; }
+  .balance .sub { font-size:0.84rem; opacity:0.92; }
+  .balance .acts { display:flex; gap:10px; margin-top:22px; }
+  .balance .acts .gf-btn { background:rgba(255,255,255,0.16); color:#fff; border:none; }
+  .balance .acts .gf-btn.solid { background:#fff; color:var(--gf-brand-dark); }
+  .wstats { display:grid; grid-template-rows:1fr 1fr; gap:16px; }
+  .ws { background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius); padding:18px; display:flex; align-items:center; gap:14px; }
+  .ws .ic { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; flex-shrink:0; }
+  .ws .v { font-family:var(--gf-font-display); font-size:1.5rem; font-weight:800; letter-spacing:-0.02em; }
+  .ws .l { color:var(--gf-text-muted); font-size:0.8rem; }
+  .tx-amt.in { color:var(--gf-success); }
+  .tx-amt.out { color:var(--gf-text); }
+  @media (max-width:1000px){ .wtop{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="gf-sidebar" id="admSidebar"></aside>
+  <div class="main">
+    <header class="top" id="admTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>Wallet</h1><p>Powerhouse Fitness · settlements via Paystack</p></div></div>
+
+      <div class="wtop">
+        <div class="balance">
+          <small>Available balance</small>
+          <div class="amt">₦1,284,500</div>
+          <div class="sub">₦184,000 pending settlement · next payout 2 Jun</div>
+          <div class="acts"><button class="gf-btn solid" id="payout"><i data-lucide="banknote" style="width:16px;height:16px"></i> Withdraw</button><button class="gf-btn" id="acct"><i data-lucide="building-2" style="width:16px;height:16px"></i> Bank account</button></div>
+        </div>
+        <div class="wstats">
+          <div class="ws"><div class="ic" style="background:var(--gf-success-soft);color:var(--gf-success)"><i data-lucide="arrow-down-left"></i></div><div><div class="v">₦5.8M</div><div class="l">Collected this month</div></div></div>
+          <div class="ws"><div class="ic" style="background:var(--gf-info-soft);color:var(--gf-info)"><i data-lucide="arrow-up-right"></i></div><div><div class="v">₦4.2M</div><div class="l">Withdrawn this month</div></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><div><h3>Transactions</h3><div class="sub">All settlements &amp; payments</div></div>
+          <div style="display:flex;gap:8px"><span class="gf-chip active">All</span><span class="gf-chip">In</span><span class="gf-chip">Out</span></div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Description</th><th>Type</th><th>Date</th><th>Status</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td><div class="who"><span class="gf-avatar gf-avatar-sm" style="background:var(--gf-success-soft);color:var(--gf-success);border:none"><i data-lucide="credit-card" style="width:15px;height:15px"></i></span><div><strong>Subscription · Tunde A.</strong><small>Annual renewal</small></div></div></td><td>Inflow</td><td style="color:var(--gf-text-secondary)">Today</td><td><span class="gf-badge gf-badge-success"><span class="gf-dot"></span>Settled</span></td><td style="text-align:right" class="naira tx-amt in">+₦119,999</td></tr>
+            <tr><td><div class="who"><span class="gf-avatar gf-avatar-sm" style="background:var(--gf-info-soft);color:var(--gf-info);border:none"><i data-lucide="banknote" style="width:15px;height:15px"></i></span><div><strong>Payout to GTBank</strong><small>•••• 8842</small></div></div></td><td>Withdrawal</td><td style="color:var(--gf-text-secondary)">Yesterday</td><td><span class="gf-badge gf-badge-info"><span class="gf-dot"></span>Processing</span></td><td style="text-align:right" class="naira tx-amt out">−₦800,000</td></tr>
+            <tr><td><div class="who"><span class="gf-avatar gf-avatar-sm" style="background:var(--gf-success-soft);color:var(--gf-success);border:none"><i data-lucide="credit-card" style="width:15px;height:15px"></i></span><div><strong>Subscription · Grace U.</strong><small>Annual renewal</small></div></div></td><td>Inflow</td><td style="color:var(--gf-text-secondary)">28 May</td><td><span class="gf-badge gf-badge-success"><span class="gf-dot"></span>Settled</span></td><td style="text-align:right" class="naira tx-amt in">+₦119,999</td></tr>
+            <tr><td><div class="who"><span class="gf-avatar gf-avatar-sm" style="background:var(--gf-success-soft);color:var(--gf-success);border:none"><i data-lucide="credit-card" style="width:15px;height:15px"></i></span><div><strong>Subscription · Kelechi O.</strong><small>Quarterly renewal</small></div></div></td><td>Inflow</td><td style="color:var(--gf-text-secondary)">27 May</td><td><span class="gf-badge gf-badge-success"><span class="gf-dot"></span>Settled</span></td><td style="text-align:right" class="naira tx-amt in">+₦37,999</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script>
+<script src="admin-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+function toast(m){ $('#toastMsg').textContent=m; $('#toast').classList.add('show'); setTimeout(()=>$('#toast').classList.remove('show'),2000); }
+$('#payout').onclick=()=>toast('Withdrawal of ₦1,284,500 initiated');
+$('#acct').onclick=()=>toast('Bank account · GTBank •••• 8842');
+$$('.gf-chip').forEach(c=>c.onclick=()=>{ $$('.gf-chip').forEach(x=>x.classList.remove('active')); c.classList.add('active'); });
+adminShell('wallet', { search:'Search transactions…' });
+buildProto('admin'); lucide.createIcons();
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Coach (mobile)</title>
+<link rel="stylesheet" href="revamp.css" />
+<link rel="stylesheet" href="mobile.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="" data-gf-desktop="instructor.html">
+  <div class="controls">
+    <span class="lbl"><img src="../assets/logomark-v2.svg" alt="" /> Coach</span>
+    <div class="ctrl-div"></div>
+    <button class="theme-btn" id="themeBtn" title="Toggle theme"><i data-lucide="moon"></i></button>
+  </div>
+
+  <div class="fitbox" id="fitbox">
+  <div class="device" id="device">
+    <div class="island"></div>
+    <div class="statusbar"><span>9:41</span><span class="sb-r"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+
+    <div class="scr">
+      <!-- HOME / TODAY -->
+      <section class="view on" data-v="home">
+        <div class="mhead">
+          <span class="gf-avatar gf-avatar-md">F</span>
+          <div><small>Instructor · Powerhouse</small><strong>Hi, Coach Femi 👋</strong></div>
+          <button class="icon-btn bell" style="width:38px;height:38px"><i data-lucide="bell"></i></button>
+        </div>
+
+        <div class="hero-card">
+          <span class="tag"><i data-lucide="banknote" style="width:13px;height:13px"></i> Next payout · 2 Jun</span>
+          <div class="big">₦42,000</div>
+          <div class="meta">From 3 classes + 1 PT session this week</div>
+          <div class="split">
+            <div><dt>Today</dt><dd>4 sessions</dd></div>
+            <div><dt>This month</dt><dd>₦168K</dd></div>
+            <div><dt>Clients</dt><dd>5 active</dd></div>
+          </div>
+        </div>
+
+        <div class="qa">
+          <a onclick="gfGo('schedule')"><span class="tile"><i data-lucide="calendar-clock"></i></span><span>Schedule</span></a>
+          <a onclick="gfGo('clients')"><span class="tile"><i data-lucide="dumbbell"></i></span><span>Clients</span></a>
+          <a onclick="gfGo('home')"><span class="tile"><i data-lucide="clipboard-check"></i></span><span>Attendance</span></a>
+          <a onclick="gfGo('more')"><span class="tile"><i data-lucide="wallet"></i></span><span>Earnings</span></a>
+        </div>
+
+        <div class="sect-t">Up next</div>
+        <div class="lc" style="border-color:var(--gf-brand);box-shadow:inset 3px 0 0 var(--gf-brand)"><div class="ic"><i data-lucide="dumbbell"></i></div><div class="m"><strong>Power Lifting · 09:00</strong><small>Weights floor · 12 booked</small></div><button class="gf-btn gf-btn-sm gf-btn-primary" onclick="gfGo('schedule')">Start</button></div>
+
+        <div class="sect-t">Today's sessions <a onclick="gfGo('schedule')">All</a></div>
+        <div class="lc"><div class="ic" style="background:var(--gf-elevated);color:var(--gf-text-muted)"><i data-lucide="check"></i></div><div class="m"><strong>Sunrise HIIT · 06:30</strong><small>Studio A · 20 attended</small></div><span class="gf-badge gf-badge-neutral">Done</span></div>
+        <div class="lc"><div class="ic"><i data-lucide="user"></i></div><div class="m"><strong>PT — Chidi Okeke · 13:00</strong><small>1-on-1 · pack 4 of 10</small></div><span class="gf-badge gf-badge-brand">PT</span></div>
+        <div class="lc"><div class="ic"><i data-lucide="flame"></i></div><div class="m"><strong>Conditioning · 17:30</strong><small>Studio B · 15 booked</small></div><span class="gf-badge gf-badge-info">Upcoming</span></div>
+      </section>
+
+      <!-- SCHEDULE -->
+      <section class="view" data-v="schedule">
+        <div class="mhead" style="padding-bottom:8px"><strong class="htitle">Schedule</strong><button class="icon-btn bell" style="width:38px;height:38px"><i data-lucide="calendar"></i></button></div>
+        <div class="segtabs"><button class="on">Today</button><button>Tomorrow</button><button>Week</button></div>
+        <div class="lc"><div class="tm" style="text-align:center;width:50px;flex-shrink:0"><b style="font-family:var(--gf-font-display);color:var(--gf-brand);display:block">06:30</b><span style="font-size:0.66rem;color:var(--gf-text-muted)">done</span></div><div class="m"><strong>Sunrise HIIT</strong><small>Studio A · 20 attended</small></div><span class="gf-badge gf-badge-neutral">Done</span></div>
+        <div class="lc" style="border-color:var(--gf-brand);box-shadow:inset 3px 0 0 var(--gf-brand)"><div class="tm" style="text-align:center;width:50px;flex-shrink:0"><b style="font-family:var(--gf-font-display);color:var(--gf-brand);display:block">09:00</b><span style="font-size:0.66rem;color:var(--gf-text-muted)">now</span></div><div class="m"><strong>Power Lifting</strong><small>Weights floor · 12 booked</small></div><button class="gf-btn gf-btn-sm gf-btn-primary">Roster</button></div>
+        <div class="lc"><div class="tm" style="text-align:center;width:50px;flex-shrink:0"><b style="font-family:var(--gf-font-display);color:var(--gf-brand);display:block">13:00</b><span style="font-size:0.66rem;color:var(--gf-text-muted)">PT</span></div><div class="m"><strong>PT — Chidi Okeke</strong><small>1-on-1 · pack 4 of 10</small></div><span class="gf-badge gf-badge-brand">PT</span></div>
+        <div class="lc"><div class="tm" style="text-align:center;width:50px;flex-shrink:0"><b style="font-family:var(--gf-font-display);color:var(--gf-brand);display:block">17:30</b><span style="font-size:0.66rem;color:var(--gf-text-muted)">soon</span></div><div class="m"><strong>Conditioning</strong><small>Studio B · 15 booked</small></div><button class="gf-btn gf-btn-sm gf-btn-secondary">Roster</button></div>
+      </section>
+
+      <!-- CLIENTS -->
+      <section class="view" data-v="clients">
+        <div class="mhead" style="padding-bottom:8px"><strong class="htitle">PT clients</strong><span class="gf-badge gf-badge-neutral" style="margin-left:auto">5 active</span></div>
+        <div class="group">
+          <a class="row"><span class="gf-avatar gf-avatar-md av">C</span><div class="m"><strong>Chidi Okeke</strong><small>Pack 4/10 · today 13:00</small></div><span class="gf-badge gf-badge-success">Active</span></a>
+          <a class="row"><span class="gf-avatar gf-avatar-md av">G</span><div class="m"><strong>Grace Udo</strong><small>Pack 7/12 · Fri 10:00</small></div><span class="gf-badge gf-badge-success">Active</span></a>
+          <a class="row"><span class="gf-avatar gf-avatar-md av">M</span><div class="m"><strong>Musa Ibrahim</strong><small>Pack 9/10 · expiring</small></div><span class="gf-badge gf-badge-warning">1 left</span></a>
+          <a class="row"><span class="gf-avatar gf-avatar-md av">B</span><div class="m"><strong>Bola Ade</strong><small>Pack 2/8 · Mon 07:00</small></div><span class="gf-badge gf-badge-success">Active</span></a>
+          <a class="row"><span class="gf-avatar gf-avatar-md av">S</span><div class="m"><strong>Sade Koya</strong><small>Pack 5/6 · Thu 18:00</small></div><span class="gf-badge gf-badge-success">Active</span></a>
+        </div>
+      </section>
+
+      <!-- MORE / EARNINGS -->
+      <section class="view" data-v="more">
+        <div class="pagetitle">Earnings</div>
+        <div class="hero-card" style="margin-bottom:14px">
+          <span class="tag"><i data-lucide="trending-up" style="width:13px;height:13px"></i> This month</span>
+          <div class="big">₦168,000</div>
+          <div class="meta">+9% vs last month · next payout 2 Jun</div>
+        </div>
+        <div class="sect-t">Last 6 weeks</div>
+        <div class="lc" style="display:block;padding:16px">
+          <div class="bars">
+            <div class="col"><div class="bar" style="height:50%"></div><div class="lbl">W1</div></div>
+            <div class="col"><div class="bar" style="height:64%"></div><div class="lbl">W2</div></div>
+            <div class="col"><div class="bar" style="height:58%"></div><div class="lbl">W3</div></div>
+            <div class="col"><div class="bar" style="height:78%"></div><div class="lbl">W4</div></div>
+            <div class="col"><div class="bar" style="height:70%"></div><div class="lbl">W5</div></div>
+            <div class="col"><div class="bar" style="height:92%"></div><div class="lbl">W6</div></div>
+          </div>
+        </div>
+        <div class="group">
+          <a class="row"><span class="ic"><i data-lucide="banknote"></i></span><div class="m"><strong>Payouts</strong><small>GTBank •••• 8842</small></div><i data-lucide="chevron-right" class="chev"></i></a>
+          <a class="row"><span class="ic"><i data-lucide="settings"></i></span><div class="m"><strong>Settings</strong></div><i data-lucide="chevron-right" class="chev"></i></a>
+          <a class="row" href="login.html" style="color:var(--gf-danger)"><span class="ic" style="background:var(--gf-danger-soft);color:var(--gf-danger)"><i data-lucide="log-out"></i></span><div class="m"><strong style="color:var(--gf-danger)">Sign out</strong></div><i data-lucide="chevron-right" class="chev"></i></a>
+        </div>
+      </section>
+    </div>
+
+    <nav class="tabbar">
+      <button class="on" data-tab="home" onclick="gfGo('home')"><i data-lucide="home"></i>Today</button>
+      <button data-tab="schedule" onclick="gfGo('schedule')"><i data-lucide="calendar-clock"></i>Schedule</button>
+      <button data-tab="clients" onclick="gfGo('clients')"><i data-lucide="dumbbell"></i>Clients</button>
+      <button data-tab="more" onclick="gfGo('more')"><i data-lucide="wallet"></i>Earnings</button>
+    </nav>
+  </div>
+  </div>
+
+  <nav class="proto" id="proto"></nav>
+  <script src="proto.js"></script>
+  <script src="wire.js"></script>
+  <script src="mobile.js"></script>
+  <script>buildProto('instructor'); lucide.createIcons();</script>
+</body>
+</html>

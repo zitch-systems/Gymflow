@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Platform (mobile)</title>
+<link rel="stylesheet" href="revamp.css" />
+<link rel="stylesheet" href="mobile.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="" data-gf-desktop="superadmin.html">
+  <div class="controls">
+    <span class="lbl"><img src="../assets/logomark-v2.svg" alt="" /> Platform</span>
+    <div class="ctrl-div"></div>
+    <button class="theme-btn" id="themeBtn" title="Toggle theme"><i data-lucide="moon"></i></button>
+  </div>
+
+  <div class="fitbox" id="fitbox">
+  <div class="device" id="device">
+    <div class="island"></div>
+    <div class="statusbar"><span>9:41</span><span class="sb-r"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span></div>
+
+    <div class="scr">
+      <!-- HOME -->
+      <section class="view on" data-v="home">
+        <div class="mhead">
+          <span class="gf-avatar gf-avatar-md" style="background:var(--gf-info-soft);color:var(--gf-info);border-color:rgba(64,128,255,.25)">S</span>
+          <div><small>Platform admin</small><strong>Hi, Samuel 👋</strong></div>
+          <button class="icon-btn bell" style="width:38px;height:38px"><i data-lucide="bell"></i></button>
+        </div>
+
+        <div class="hero-card">
+          <span class="tag"><i data-lucide="repeat" style="width:13px;height:13px"></i> Platform MRR</span>
+          <div class="big">₦18.7M</div>
+          <div class="meta">+12% MoM · ₦96.4M processed in May</div>
+          <div class="split">
+            <div><dt>Gyms</dt><dd>1,204</dd></div>
+            <div><dt>Members</dt><dd>486K</dd></div>
+            <div><dt>Uptime</dt><dd>99.96%</dd></div>
+          </div>
+        </div>
+
+        <div class="mini">
+          <div class="m"><div class="ic" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="building-2"></i></div><div class="v">1,204</div><div class="l">Active gyms <span class="d up">+41</span></div></div>
+          <div class="m"><div class="ic" style="background:#4080ff1f;color:#4080ff"><i data-lucide="user-plus"></i></div><div class="v">41</div><div class="l">New this month</div></div>
+          <div class="m"><div class="ic" style="background:#ff45601f;color:#ff4560"><i data-lucide="trending-down"></i></div><div class="v">2.1%</div><div class="l">Monthly churn <span class="d up">-1.8%</span></div></div>
+          <div class="m"><div class="ic" style="background:#ffb0201f;color:#ffb020"><i data-lucide="alert-triangle"></i></div><div class="v">6</div><div class="l">Past due</div></div>
+        </div>
+
+        <div class="qa">
+          <a onclick="gfGo('gyms')"><span class="tile"><i data-lucide="building-2"></i></span><span>Gyms</span></a>
+          <a onclick="gfGo('home')"><span class="tile"><i data-lucide="user-plus"></i></span><span>Onboard</span></a>
+          <a onclick="gfGo('activity')"><span class="tile"><i data-lucide="line-chart"></i></span><span>Revenue</span></a>
+          <a onclick="gfGo('more')"><span class="tile"><i data-lucide="shield-check"></i></span><span>Audit</span></a>
+        </div>
+
+        <div class="sect-t">MRR · trailing 6 months</div>
+        <div class="lc" style="display:block;padding:16px">
+          <div class="bars">
+            <div class="col"><div class="bar" style="height:55%"></div><div class="lbl">Dec</div></div>
+            <div class="col"><div class="bar" style="height:64%"></div><div class="lbl">Jan</div></div>
+            <div class="col"><div class="bar" style="height:70%"></div><div class="lbl">Feb</div></div>
+            <div class="col"><div class="bar" style="height:78%"></div><div class="lbl">Mar</div></div>
+            <div class="col"><div class="bar" style="height:88%"></div><div class="lbl">Apr</div></div>
+            <div class="col"><div class="bar" style="height:96%"></div><div class="lbl">May</div></div>
+          </div>
+        </div>
+
+        <div class="sect-t">Recent activity <a onclick="gfGo('activity')">All</a></div>
+        <div class="lc"><div class="ic"><i data-lucide="building-2"></i></div><div class="m"><strong>New gym onboarded</strong><small>FlexZone Yaba · Growth</small></div><span class="t">8m</span></div>
+        <div class="lc"><div class="ic" style="background:var(--gf-success-soft);color:var(--gf-success)"><i data-lucide="banknote"></i></div><div class="m"><strong>₦119,999 paid</strong><small>IronWorks · Scale</small></div><span class="t">22m</span></div>
+        <div class="lc"><div class="ic" style="background:var(--gf-warning-soft);color:var(--gf-warning)"><i data-lucide="alert-triangle"></i></div><div class="m"><strong>Payment past due</strong><small>FitHub Enugu</small></div><span class="t">1h</span></div>
+      </section>
+
+      <!-- GYMS -->
+      <section class="view" data-v="gyms">
+        <div class="mhead" style="padding-bottom:8px"><strong class="htitle">Gyms</strong><button class="icon-btn bell" style="width:38px;height:38px"><i data-lucide="user-plus"></i></button></div>
+        <div class="search" style="margin-bottom:14px"><i data-lucide="search"></i><input id="gq" placeholder="Search gyms…" autocomplete="off" /></div>
+        <div class="segtabs"><button class="on" data-f="all" onclick="gfilt(this)">All</button><button data-f="active" onclick="gfilt(this)">Active</button><button data-f="trial" onclick="gfilt(this)">Trial</button><button data-f="past" onclick="gfilt(this)">Past due</button></div>
+        <div class="group" id="glist"></div>
+      </section>
+
+      <!-- ACTIVITY -->
+      <section class="view" data-v="activity">
+        <div class="pagetitle">Activity</div>
+        <div class="group">
+          <div class="row" style="cursor:default"><span class="ic"><i data-lucide="building-2"></i></span><div class="m"><strong>New gym onboarded</strong><small>FlexZone Yaba · Growth plan</small></div><span class="t">8m</span></div>
+          <div class="row" style="cursor:default"><span class="ic" style="background:var(--gf-success-soft);color:var(--gf-success)"><i data-lucide="banknote"></i></span><div class="m"><strong>₦119,999 subscription paid</strong><small>IronWorks Gym · Scale</small></div><span class="t">22m</span></div>
+          <div class="row" style="cursor:default"><span class="ic" style="background:var(--gf-warning-soft);color:var(--gf-warning)"><i data-lucide="alert-triangle"></i></span><div class="m"><strong>Payment past due</strong><small>FitHub Enugu · retry 24h</small></div><span class="t">1h</span></div>
+          <div class="row" style="cursor:default"><span class="ic" style="background:var(--gf-info-soft);color:var(--gf-info)"><i data-lucide="arrow-up-circle"></i></span><div class="m"><strong>Plan upgraded</strong><small>Powerhouse · Growth → Scale</small></div><span class="t">3h</span></div>
+          <div class="row" style="cursor:default"><span class="ic"><i data-lucide="building-2"></i></span><div class="m"><strong>New gym onboarded</strong><small>Peak Fitness Kaduna · Starter</small></div><span class="t">5h</span></div>
+        </div>
+      </section>
+
+      <!-- MORE -->
+      <section class="view" data-v="more">
+        <div class="pagetitle">Platform</div>
+        <div class="group">
+          <a class="row" onclick="gfGo('gyms')"><span class="ic"><i data-lucide="building-2"></i></span><div class="m"><strong>All gyms</strong><small>1,204 total</small></div><i data-lucide="chevron-right" class="chev"></i></a>
+          <a class="row"><span class="ic"><i data-lucide="users"></i></span><div class="m"><strong>All members</strong><small>486K platform-wide</small></div><i data-lucide="chevron-right" class="chev"></i></a>
+          <a class="row"><span class="ic"><i data-lucide="line-chart"></i></span><div class="m"><strong>Revenue</strong><small>MRR, churn, cohorts</small></div><i data-lucide="chevron-right" class="chev"></i></a>
+        </div>
+        <div class="group">
+          <a class="row"><span class="ic"><i data-lucide="user-plus"></i></span><div class="m"><strong>Onboard a gym</strong></div><i data-lucide="chevron-right" class="chev"></i></a>
+          <a class="row"><span class="ic"><i data-lucide="shield-check"></i></span><div class="m"><strong>Audit log</strong></div><i data-lucide="chevron-right" class="chev"></i></a>
+          <a class="row"><span class="ic"><i data-lucide="life-buoy"></i></span><div class="m"><strong>Support</strong></div><i data-lucide="chevron-right" class="chev"></i></a>
+        </div>
+        <div class="group">
+          <a class="row" href="login.html" style="color:var(--gf-danger)"><span class="ic" style="background:var(--gf-danger-soft);color:var(--gf-danger)"><i data-lucide="log-out"></i></span><div class="m"><strong style="color:var(--gf-danger)">Sign out</strong></div><i data-lucide="chevron-right" class="chev"></i></a>
+        </div>
+      </section>
+    </div>
+
+    <nav class="tabbar">
+      <button class="on" data-tab="home" onclick="gfGo('home')"><i data-lucide="layout-dashboard"></i>Home</button>
+      <button data-tab="gyms" onclick="gfGo('gyms')"><i data-lucide="building-2"></i>Gyms</button>
+      <button data-tab="activity" onclick="gfGo('activity')"><i data-lucide="activity"></i>Activity</button>
+      <button data-tab="more" onclick="gfGo('more')"><i data-lucide="menu"></i>More</button>
+    </nav>
+  </div>
+  </div>
+
+  <nav class="proto" id="proto"></nav>
+  <script src="proto.js"></script>
+  <script src="wire.js"></script>
+  <script src="mobile.js"></script>
+  <script>
+    const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+    const GYMS=[
+      ['Powerhouse Fitness','P','Scale','active','Lagos · 482','#11d18b,#07a86c'],
+      ['FlexZone','F','Growth','active','Abuja · 318','#4080ff,#2a5cc0'],
+      ['IronWorks Gym','I','Scale','active','PH · 540','#a8d92e,#6a9c00'],
+      ['FitHub Enugu','F','Growth','past','Enugu · 206','#ffb020,#cc8a10'],
+      ['Peak Fitness','P','Starter','trial','Kaduna · 74','#b67bf3,#7c45c0'],
+      ['Apex Studio','A','Growth','active','Ibadan · 158','#11d18b,#07a86c'],
+    ];
+    const GST={active:['gf-badge-success','Active'],trial:['gf-badge-warning','Trial'],past:['gf-badge-danger','Past due']};
+    let gf='all', gq='';
+    function renderG(){
+      const rows=GYMS.filter(g=>(gf==='all'||g[3]===gf)&&g[0].toLowerCase().includes(gq));
+      $('#glist').innerHTML=rows.map(g=>`<a class="row"><span class="gf-avatar gf-avatar-md av" style="background:linear-gradient(135deg,${g[5]});color:#fff;border:none">${g[1]}</span><div class="m"><strong>${g[0]}</strong><small>${g[2]} · ${g[4]} members</small></div><span class="gf-badge ${GST[g[3]][0]}">${GST[g[3]][1]}</span></a>`).join('')
+        || `<div style="text-align:center;color:var(--gf-text-muted);padding:26px 0;font-size:0.88rem">No gyms match.</div>`;
+      lucide.createIcons();
+    }
+    window.gfilt=el=>{ $$('.segtabs button').forEach(x=>x.classList.remove('on')); el.classList.add('on'); gf=el.dataset.f; renderG(); };
+    $('#gq').oninput=e=>{ gq=e.target.value.toLowerCase().trim(); renderG(); };
+    renderG(); buildProto('superadmin'); lucide.createIcons();
+  </script>
+</body>
+</html>

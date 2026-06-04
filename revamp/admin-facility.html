@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Facility</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .grid2 { display:grid; grid-template-columns:1fr 340px; gap:16px; align-items:start; }
+  /* zones */
+  .zones { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .zone { background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius); padding:16px; }
+  .zone .zt { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+  .zone .zt .ic { width:34px; height:34px; border-radius:10px; background:var(--gf-brand-soft); color:var(--gf-brand); display:grid; place-items:center; }
+  .zone .zt .ic i { width:17px; height:17px; }
+  .zone .zt strong { font-family:var(--gf-font-display); font-weight:700; font-size:0.95rem; }
+  .zone .zt small { color:var(--gf-text-muted); font-size:0.72rem; display:block; }
+  .cap-bar { height:8px; border-radius:99px; background:var(--gf-elevated); overflow:hidden; margin:8px 0 6px; }
+  .cap-bar div { height:100%; border-radius:99px; }
+  .cap-meta { display:flex; justify-content:space-between; font-size:0.74rem; color:var(--gf-text-muted); font-weight:600; }
+  /* equipment table reuse .tbl */
+  .eq-name { display:flex; align-items:center; gap:11px; }
+  .eq-name .ic { width:34px; height:34px; border-radius:9px; background:var(--gf-elevated); display:grid; place-items:center; flex-shrink:0; }
+  .eq-name .ic i { width:17px; height:17px; color:var(--gf-text-secondary); }
+  .eq-name strong { font-family:var(--gf-font-display); font-weight:600; font-size:0.86rem; display:block; }
+  .eq-name small { color:var(--gf-text-muted); font-size:0.72rem; }
+  /* maintenance */
+  .mt { display:flex; gap:12px; padding:12px 0; border-top:1px solid var(--gf-border); }
+  .mt:first-child { border-top:none; }
+  .mt .ic { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; flex-shrink:0; }
+  .mt .ic i { width:16px; height:16px; }
+  .mt .m { flex:1; min-width:0; }
+  .mt .m strong { font-family:var(--gf-font-display); font-size:0.84rem; font-weight:600; display:block; }
+  .mt .m small { color:var(--gf-text-muted); font-size:0.72rem; }
+  .mt .t { font-size:0.72rem; color:var(--gf-text-muted); white-space:nowrap; }
+  @media (max-width:1000px){ .grid2{grid-template-columns:1fr} .zones{grid-template-columns:1fr} }
+</style>
+</head>
+<body data-gf-mobile="admin-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="admSidebar"></aside>
+  <div class="main">
+    <header class="top" id="admTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>Facility</h1><p>Powerhouse Fitness · Lekki · 1,240 m² · 4 zones · 86 equipment units</p></div></div>
+
+      <section class="kpis">
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#11d18b1f;color:#11d18b"><i data-lucide="layout-grid"></i></div></div><div class="kpi-val">4</div><div class="kpi-lbl">Active zones</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#4080ff1f;color:#4080ff"><i data-lucide="dumbbell"></i></div></div><div class="kpi-val">86</div><div class="kpi-lbl">Equipment units</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ffb0201f;color:#ffb020"><i data-lucide="wrench"></i></div></div><div class="kpi-val">3</div><div class="kpi-lbl">Need maintenance</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#c6f24e1f;color:#a8d92e"><i data-lucide="activity"></i></div></div><div class="kpi-val">68%</div><div class="kpi-lbl">Current occupancy</div></div>
+      </section>
+
+      <div class="grid2">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="panel">
+            <div class="panel-h"><div><h3>Zones &amp; capacity</h3><div class="sub">Live occupancy across the floor</div></div></div>
+            <div class="zones">
+              <div class="zone"><div class="zt"><div class="ic"><i data-lucide="dumbbell"></i></div><div><strong>Weights floor</strong><small>Cap 60</small></div></div><div class="cap-bar"><div style="width:72%;background:var(--gf-warning)"></div></div><div class="cap-meta"><span>43 in now</span><span>72%</span></div></div>
+              <div class="zone"><div class="zt"><div class="ic"><i data-lucide="bike"></i></div><div><strong>Cardio zone</strong><small>Cap 40</small></div></div><div class="cap-bar"><div style="width:55%;background:var(--gf-brand)"></div></div><div class="cap-meta"><span>22 in now</span><span>55%</span></div></div>
+              <div class="zone"><div class="zt"><div class="ic"><i data-lucide="users"></i></div><div><strong>Studio A</strong><small>Cap 24</small></div></div><div class="cap-bar"><div style="width:92%;background:var(--gf-danger)"></div></div><div class="cap-meta"><span>22 in now</span><span>92%</span></div></div>
+              <div class="zone"><div class="zt"><div class="ic"><i data-lucide="waves"></i></div><div><strong>Studio B / Yoga</strong><small>Cap 16</small></div></div><div class="cap-bar"><div style="width:31%;background:var(--gf-brand)"></div></div><div class="cap-meta"><span>5 in now</span><span>31%</span></div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-h"><div><h3>Equipment</h3><div class="sub">86 units · 3 flagged</div></div>
+              <div style="display:flex;gap:8px"><span class="gf-chip active" data-s="all">All</span><span class="gf-chip" data-s="ok">Operational</span><span class="gf-chip" data-s="bad">Needs service</span></div>
+            </div>
+            <table class="tbl"><thead><tr><th>Equipment</th><th>Zone</th><th>Units</th><th>Last serviced</th><th>Status</th></tr></thead><tbody id="ebody"></tbody></table>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="panel">
+            <div class="panel-h"><div><h3>Maintenance</h3><div class="sub">Open tickets</div></div><a class="link">Log issue <i data-lucide="plus"></i></a></div>
+            <div class="mt"><div class="ic" style="background:var(--gf-danger-soft);color:var(--gf-danger)"><i data-lucide="alert-triangle"></i></div><div class="m"><strong>Treadmill #4 — belt slipping</strong><small>Cardio zone · reported by Femi</small></div><span class="t">2h</span></div>
+            <div class="mt"><div class="ic" style="background:var(--gf-warning-soft);color:var(--gf-warning)"><i data-lucide="wrench"></i></div><div class="m"><strong>Cable machine — frayed cable</strong><small>Weights floor · scheduled</small></div><span class="t">1d</span></div>
+            <div class="mt"><div class="ic" style="background:var(--gf-warning-soft);color:var(--gf-warning)"><i data-lucide="droplet"></i></div><div class="m"><strong>Shower 2 — low pressure</strong><small>Locker room · vendor booked</small></div><span class="t">2d</span></div>
+            <div class="mt"><div class="ic" style="background:var(--gf-success-soft);color:var(--gf-success)"><i data-lucide="check"></i></div><div class="m"><strong>AC unit — serviced</strong><small>Studio A · completed</small></div><span class="t">3d</span></div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><div><h3>Today's bookings</h3><div class="sub">Room schedule</div></div></div>
+            <div class="mt"><div class="ic" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="users"></i></div><div class="m"><strong>Studio A · Spin</strong><small>Coach Tobi</small></div><span class="t">17:30</span></div>
+            <div class="mt"><div class="ic" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="waves"></i></div><div class="m"><strong>Studio B · Yoga</strong><small>Coach Ada</small></div><span class="t">19:00</span></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script>
+<script src="admin-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const EQ=[
+  ['Treadmills','activity','Cardio zone','12','12 May','ok','Operational'],
+  ['Treadmill #4','activity','Cardio zone','1','12 May','bad','Belt slipping'],
+  ['Spin bikes','bike','Cardio zone','24','02 May','ok','Operational'],
+  ['Power racks','dumbbell','Weights floor','6','28 Apr','ok','Operational'],
+  ['Cable machine','dumbbell','Weights floor','1','—','bad','Frayed cable'],
+  ['Benches','armchair','Weights floor','14','28 Apr','ok','Operational'],
+  ['Kettlebell set','dumbbell','Weights floor','1','15 Apr','ok','Operational'],
+  ['Showers','droplet','Locker room','8','—','bad','Low pressure'],
+];
+const EST={ok:'gf-badge-success',bad:'gf-badge-danger'};
+let ef='all';
+function renderE(){
+  const rows=EQ.filter(e=> ef==='all' || e[5]===ef);
+  $('#ebody').innerHTML=rows.map(e=>`<tr>
+    <td><div class="eq-name"><span class="ic"><i data-lucide="${e[1]}"></i></span><div><strong>${e[0]}</strong><small>Unit group</small></div></div></td>
+    <td style="color:var(--gf-text-secondary)">${e[2]}</td>
+    <td>${e[3]}</td>
+    <td style="color:var(--gf-text-secondary)">${e[4]}</td>
+    <td><span class="gf-badge ${EST[e[5]]}"><span class="gf-dot"></span>${e[6]}</span></td>
+  </tr>`).join('');
+  lucide.createIcons();
+}
+$$('.gf-chip').forEach(c=>c.onclick=()=>{ $$('.gf-chip').forEach(x=>x.classList.remove('active')); c.classList.add('active'); ef=c.dataset.s; renderE(); });
+adminShell('facility', { search:'Search equipment…', action:{label:'Log issue', icon:'plus', href:'#'} });
+buildProto('admin'); renderE(); lucide.createIcons();
+</script>
+</body>
+</html>

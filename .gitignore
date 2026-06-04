@@ -61,3 +61,6 @@ Thumbs.db
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Local uploads / scratch (never commit personal screenshots, payment receipts, etc.)
+/uploads/

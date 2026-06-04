@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Revenue</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .grid2 { display:grid; grid-template-columns:1.5fr 1fr; gap:16px; align-items:start; margin-bottom:16px; }
+  .area { width:100%; height:210px; }
+  .plan-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--gf-border); }
+  .plan-row:first-child { border-top:none; }
+  .plan-row .dot { width:12px; height:12px; border-radius:4px; flex-shrink:0; }
+  .plan-row .m { flex:1; min-width:0; }
+  .plan-row .m strong { font-family:var(--gf-font-display); font-size:0.88rem; display:block; }
+  .plan-row .m small { color:var(--gf-text-muted); font-size:0.74rem; }
+  .plan-row .v { font-family:var(--gf-font-display); font-weight:800; }
+</style>
+</head>
+<body data-gf-mobile="superadmin-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="saSidebar"></aside>
+  <div class="main">
+    <header class="top" id="saTop"></header>
+    <main class="content">
+      <div class="page-h2"><div><span class="pill-plat">Platform</span><h1>Revenue</h1><p>₦18.7M MRR · +12% MoM · ₦96.4M processed in May · 2.1% churn</p></div></div>
+      <section class="kpis">
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#c6f24e1f;color:#a8d92e"><i data-lucide="repeat"></i></div><span style="font-size:0.75rem;font-weight:700;color:var(--gf-success);font-family:var(--gf-font-display)">+12%</span></div><div class="kpi-val">₦18.7M</div><div class="kpi-lbl">MRR</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#11d18b1f;color:#11d18b"><i data-lucide="banknote"></i></div></div><div class="kpi-val">₦96.4M</div><div class="kpi-lbl">Processed (May)</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#4080ff1f;color:#4080ff"><i data-lucide="trending-up"></i></div></div><div class="kpi-val">₦224M</div><div class="kpi-lbl">ARR</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ff45601f;color:#ff4560"><i data-lucide="trending-down"></i></div></div><div class="kpi-val">2.1%</div><div class="kpi-lbl">Revenue churn</div></div>
+      </section>
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-h"><div><h3>MRR growth</h3><div class="sub">Trailing 12 months</div></div></div>
+          <svg class="area" viewBox="0 0 600 210" preserveAspectRatio="none">
+            <defs><linearGradient id="ar" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#11d18b" stop-opacity="0.32"/><stop offset="1" stop-color="#11d18b" stop-opacity="0"/></linearGradient></defs>
+            <polyline points="0,170 50,160 100,164 150,146 200,136 250,140 300,118 350,108 400,96 450,84 500,68 550,52 600,40" fill="none" stroke="#11d18b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <polygon points="0,210 0,170 50,160 100,164 150,146 200,136 250,140 300,118 350,108 400,96 450,84 500,68 550,52 600,40 600,210" fill="url(#ar)"/>
+          </svg>
+          <div style="display:flex;justify-content:space-between;color:var(--gf-text-muted);font-size:0.68rem;font-weight:600;margin-top:8px"><span>Jun</span><span>Sep</span><span>Dec</span><span>Mar</span><span>May</span></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div><h3>Revenue by plan</h3><div class="sub">Share of MRR</div></div></div>
+          <div class="plan-row"><span class="dot" style="background:#11d18b"></span><div class="m"><strong>Scale</strong><small>312 gyms</small></div><span class="v">₦9.4M</span></div>
+          <div class="plan-row"><span class="dot" style="background:#4080ff"></span><div class="m"><strong>Growth</strong><small>548 gyms</small></div><span class="v">₦6.8M</span></div>
+          <div class="plan-row"><span class="dot" style="background:#c6f24e"></span><div class="m"><strong>Starter</strong><small>344 gyms</small></div><span class="v">₦2.5M</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div><h3>Recent settlements</h3><div class="sub">Platform-wide</div></div></div>
+        <table class="tbl"><thead><tr><th>Gym</th><th>Plan</th><th>Date</th><th>Status</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td><div class="who"><span class="gf-avatar gf-avatar-sm" style="background:#11d18b1f;color:#11d18b;border:none"><i data-lucide="building-2" style="width:15px;height:15px"></i></span><div><strong>IronWorks Gym</strong></div></div></td><td>Scale</td><td style="color:var(--gf-text-secondary)">Today</td><td><span class="gf-badge gf-badge-success"><span class="gf-dot"></span>Settled</span></td><td style="text-align:right" class="naira">₦119,999</td></tr>
+            <tr><td><div class="who"><span class="gf-avatar gf-avatar-sm" style="background:#4080ff1f;color:#4080ff;border:none"><i data-lucide="building-2" style="width:15px;height:15px"></i></span><div><strong>FlexZone</strong></div></div></td><td>Growth</td><td style="color:var(--gf-text-secondary)">Today</td><td><span class="gf-badge gf-badge-success"><span class="gf-dot"></span>Settled</span></td><td style="text-align:right" class="naira">₦37,999</td></tr>
+            <tr><td><div class="who"><span class="gf-avatar gf-avatar-sm" style="background:#ffb0201f;color:#ffb020;border:none"><i data-lucide="building-2" style="width:15px;height:15px"></i></span><div><strong>FitHub Enugu</strong></div></div></td><td>Growth</td><td style="color:var(--gf-text-secondary)">Yesterday</td><td><span class="gf-badge gf-badge-danger"><span class="gf-dot"></span>Failed</span></td><td style="text-align:right" class="naira">₦37,999</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="superadmin-shell.js"></script>
+<script>saShell('revenue',{search:'Search transactions…',action:{label:'Export',icon:'download',href:'#'}}); buildProto('superadmin'); lucide.createIcons();</script>
+</body>
+</html>
