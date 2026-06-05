@@ -53,14 +53,12 @@ export default async function ReceiptPage({ params }: PageProps) {
 
   return (
     <div className="member-portal member-app">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">Receipt</h1>
-          <p className="gf-page-subtitle">{planLabel}</p>
-        </div>
-        <Link href="/dashboard/wallet" className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Back to wallet">
-          <ArrowLeft size={16} strokeWidth={1.75} /> Back
+      <header className="m-head" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+        <Link href="/dashboard/wallet" className="m-head-bell" aria-label="Back to wallet">
+          <ArrowLeft size={18} strokeWidth={1.9} />
         </Link>
+        <strong className="htitle">Receipt</strong>
+        <span style={{ width: 38, height: 38 }} aria-hidden />
       </header>
 
       <div className="m-receipt">
