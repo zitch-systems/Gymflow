@@ -6736,6 +6736,59 @@ body::after {
   color: var(--gf-brand);
 }
 .adm-checkin-ring svg { width: 44px; height: 44px; }
+
+/* Admin classes — day strip + class-row list with capacity progress bars.
+   Mirrors revamp/admin-classes.html. */
+.adm-classes-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+@media (max-width: 1100px) { .adm-classes-kpis { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .adm-classes-kpis { grid-template-columns: 1fr; } }
+
+.adm-day-strip {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+  margin-bottom: 16px;
+}
+.adm-day {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 4px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-sm);
+  text-decoration: none; color: inherit;
+  transition: border-color var(--gf-t-fast);
+}
+.adm-day:hover { border-color: var(--gf-border-light); }
+.adm-day.on { border-color: var(--gf-brand); box-shadow: 0 0 0 3px var(--gf-brand-soft); }
+.adm-day-name { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.72rem; color: var(--gf-text-muted); }
+.adm-day.on .adm-day-name { color: var(--gf-brand); }
+.adm-day-num { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.15rem; line-height: 1; min-height: 1.15rem; }
+.adm-day-count { font-size: 0.66rem; color: var(--gf-text-muted); }
+
+.adm-cls-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.adm-clx {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); transition: border-color var(--gf-t);
+}
+.adm-clx:hover { border-color: var(--gf-border-light); }
+.adm-clx-tm { text-align: center; width: 64px; flex-shrink: 0; }
+.adm-clx-tm b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1rem; display: block; color: var(--gf-brand); }
+.adm-clx-tm span { font-size: 0.66rem; color: var(--gf-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.adm-clx-info { flex: 1; min-width: 0; }
+.adm-clx-info strong { font-family: var(--gf-font-display); font-size: 1rem; font-weight: 700; display: block; }
+.adm-clx-info small { color: var(--gf-text-muted); font-size: 0.8rem; }
+.adm-clx-cap { width: 180px; flex-shrink: 0; }
+.adm-clx-cap-lbl { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--gf-text-muted); margin-bottom: 6px; }
+.adm-clx-cap-track { height: 7px; background: var(--gf-elevated); border-radius: 99px; overflow: hidden; }
+.adm-clx-cap-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, var(--gf-brand-light), var(--gf-brand));
+}
+.adm-clx-cap-fill.warn { background: linear-gradient(90deg, var(--gf-warning), #e09000); }
+.adm-clx-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+@media (max-width: 900px) {
+  .adm-clx { flex-wrap: wrap; }
+  .adm-clx-cap { width: 100%; }
+}
 .adm-revbars { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
 .adm-revbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
 .adm-revbar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }
