@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import Link from 'next/link';
-import { Mail, ArrowLeft, Check } from 'lucide-react';
+import { Mail, KeyRound, MailCheck } from 'lucide-react';
 import { requestPasswordReset } from '@/lib/auth/actions';
 
 export function ForgotPasswordForm() {
@@ -13,22 +12,24 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div className="login-card">
-        <div className="mk-cform-done">
-          <div className="mk-cform-check" aria-hidden><Check size={32} strokeWidth={2.5} /></div>
-          <h2>Check your email</h2>
-          <p>If an account exists for <strong>{email}</strong>, we’ve sent a link to reset your password. It expires in an hour.</p>
-        </div>
-        <Link href="/login" className="gf-btn gf-btn-secondary gf-btn-full" style={{ marginTop: 16 }}>
-          <ArrowLeft size={16} strokeWidth={2} /> Back to sign in
-        </Link>
+      <div className="auth-done">
+        <div className="ring" aria-hidden><MailCheck strokeWidth={1.9} /></div>
+        <h1>Check your email</h1>
+        <p className="lede">
+          If an account exists for <span className="em">{email}</span>, we&rsquo;ve sent a link to reset your password. It expires in an hour.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="login-card">
+    <>
+      <span className="lock-badge"><KeyRound strokeWidth={1.9} /></span>
+      <h1>Forgot your password?</h1>
+      <p className="lede">No worries — enter the email on your GymFlow account and we&rsquo;ll send a link to reset it.</p>
+
       {error && <div className="error-msg show" role="alert" style={{ marginBottom: 14 }}><span>{error}</span></div>}
+
       <form
         className="form-stack"
         noValidate
@@ -51,7 +52,7 @@ export function ForgotPasswordForm() {
               id="email"
               type="email"
               className="gf-input"
-              placeholder="you@example.com"
+              placeholder="you@yourgym.ng"
               autoComplete="email"
               required
               value={email}
@@ -60,9 +61,16 @@ export function ForgotPasswordForm() {
           </div>
         </div>
         <button type="submit" disabled={pending} className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg">
-          {pending ? 'Sending…' : 'Send reset link'}
+          {pending ? 'Sending…' : (
+            <>
+              <span>Send reset link</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+              </svg>
+            </>
+          )}
         </button>
       </form>
-    </div>
+    </>
   );
 }

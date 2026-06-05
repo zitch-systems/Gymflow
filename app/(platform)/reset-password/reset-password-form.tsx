@@ -24,7 +24,7 @@ export function ResetPasswordForm() {
   const mismatch = confirm.length > 0 && confirm !== pw;
 
   return (
-    <div className="login-card">
+    <>
       {state?.error && <div className="error-msg show" role="alert" style={{ marginBottom: 14 }}><span>{state.error}</span></div>}
       <form action={action} className="form-stack">
         <div className="gf-form-group">
@@ -79,6 +79,6 @@ export function ResetPasswordForm() {
           {pending ? 'Updating…' : 'Update password'}
         </button>
       </form>
-    </div>
+    </>
   );
 }
