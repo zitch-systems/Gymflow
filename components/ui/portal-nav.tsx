@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
   Home, CalendarDays, ScanLine, GraduationCap, CreditCard,
-  LayoutGrid, Users, ClipboardCheck, Wallet, UserCircle2, Settings, Bell,
+  LayoutGrid, Users, ClipboardCheck, Wallet, UserCircle2, Bell,
 } from 'lucide-react';
 import { CommandPalette, type CommandItem } from '@/components/ui/command-palette';
 
@@ -23,11 +23,10 @@ function tabsToCmdItems(tabs: Tab[], extras: CommandItem[] = []): CommandItem[] 
 
 const MEMBER_TABS: Tab[] = [
   { href: '/dashboard', label: 'Home', icon: Home },
-  { href: '/classes', label: 'Classes', icon: CalendarDays },
-  { href: '/checkin', label: 'Check In', icon: ScanLine },
-  { href: '/dashboard/instructors', label: 'Coaches', icon: GraduationCap },
+  { href: '/classes', label: 'Schedule', icon: CalendarDays },
+  { href: '/checkin', label: 'Check in', icon: ScanLine },
   { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/dashboard/profile', label: 'Settings', icon: Settings },
+  { href: '/dashboard/profile', label: 'Profile', icon: UserCircle2 },
 ];
 
 const COACH_TABS: Tab[] = [
@@ -68,8 +67,9 @@ function TabBar({ tabs }: { tabs: Tab[] }) {
 }
 
 const MEMBER_EXTRAS: CommandItem[] = [
-  // Settings/profile and Wallet are primary tabs now; Renew lives under Wallet
-  // but stays reachable here for keyboard users.
+  // Coaches, Renew, cards and inbox aren't primary tabs in the new IA, so they
+  // stay reachable here (and from the relevant screens).
+  { href: '/dashboard/instructors', label: 'Coaches', icon: GraduationCap, hint: 'Page' },
   { href: '/dashboard/renew', label: 'Renew membership', icon: CreditCard, hint: 'Page' },
   { href: '/dashboard/cards', label: 'Saved cards', icon: CreditCard, hint: 'Page' },
   { href: '/dashboard/inbox', label: 'Inbox', icon: Bell, hint: 'Page' },

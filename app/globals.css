@@ -6746,3 +6746,32 @@ body::after {
 .gf-auth .auth-done .em { font-family: var(--gf-font-display); font-weight: 700; color: var(--gf-text); }
 .gf-auth .resend { text-align: center; color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 20px; }
 .gf-auth .resend a { color: var(--gf-brand); text-decoration: none; font-weight: 600; }
+
+/* ── Member home — streak card · weekly grid · stat trio (design-system home) ── */
+.member-app .m-sect-t { font-family: var(--gf-font-display); font-weight: 800; font-size: 1rem; margin: 22px 0 12px; display: flex; justify-content: space-between; align-items: center; }
+.member-app .m-sect-t a { font-size: 0.78rem; color: var(--gf-brand); text-decoration: none; font-weight: 600; }
+.member-app .m-streakcard { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 18px; margin: 16px 0 2px; }
+.member-app .m-streak-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.member-app .m-streak { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.member-app .m-streak-flame { width: 42px; height: 42px; border-radius: 13px; background: linear-gradient(150deg, var(--gf-accent), var(--gf-accent-dark)); display: grid; place-items: center; flex-shrink: 0; box-shadow: 0 4px 14px -4px var(--gf-accent-glow); }
+.member-app .m-streak-flame svg { width: 22px; height: 22px; color: #14121f; }
+.member-app .m-streak b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.35rem; letter-spacing: -0.02em; display: block; line-height: 1; }
+.member-app .m-streak small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.member-app .m-streak-goal { margin-left: auto; text-align: right; flex-shrink: 0; }
+.member-app .m-streak-goal b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1rem; }
+.member-app .m-streak-goal small { display: block; color: var(--gf-text-muted); font-size: 0.7rem; }
+.member-app .m-wkdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.member-app .m-wkd { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.member-app .m-wkd span { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.64rem; color: var(--gf-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.member-app .m-wkd-dot { width: 100%; aspect-ratio: 1; max-width: 34px; border-radius: 11px; background: var(--gf-elevated); border: 1px solid var(--gf-border); display: grid; place-items: center; color: #fff; }
+.member-app .m-wkd-dot svg { opacity: 0; }
+.member-app .m-wkd.done .m-wkd-dot { background: linear-gradient(150deg, var(--gf-brand-light), var(--gf-brand-dark)); border-color: transparent; box-shadow: 0 3px 10px -3px var(--gf-brand-glow); }
+.member-app .m-wkd.done .m-wkd-dot svg { opacity: 1; }
+.member-app .m-wkd.today .m-wkd-dot { border-color: var(--gf-brand); border-width: 2px; }
+.member-app .m-wkd.today span { color: var(--gf-brand); }
+.member-app .m-wkd.weekend .m-wkd-dot { background: repeating-linear-gradient(45deg, var(--gf-elevated), var(--gf-elevated) 4px, transparent 4px, transparent 8px); }
+.member-app .m-stat3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 14px 0 2px; }
+.member-app .m-stat3 .s { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 13px; }
+.member-app .m-stat3 .s svg { width: 18px; height: 18px; color: var(--gf-brand); }
+.member-app .m-stat3 .s b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.45rem; letter-spacing: -0.03em; display: block; margin-top: 7px; line-height: 1; }
+.member-app .m-stat3 .s small { color: var(--gf-text-muted); font-size: 0.7rem; display: block; margin-top: 4px; }
