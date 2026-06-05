@@ -1,16 +1,12 @@
 import Link from 'next/link';
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate, daysLeft } from '@/lib/format';
+import { fmtDate, daysLeft, fmtNaira } from '@/lib/format';
 import { MembersSearch } from './members-search';
 import { ExportMembersCsvButton } from './export-csv-button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card } from '@/components/ui/card';
-import { Stat, StatGrid } from '@/components/ui/stat';
 import { ButtonLink } from '@/components/ui/button';
-import { StatusPill } from '@/components/ui/badge';
-import { Plus, UserPlus, Users, Clock4, UserX } from 'lucide-react';
+import { Plus, UserPlus, Users, Clock, UserX, TrendingUp } from 'lucide-react';
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired';
 const STATUS_FILTERS: StatusFilter[] = ['all', 'active', 'expiring', 'expired'];
@@ -59,7 +55,7 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
           .order('end_date', { ascending: false })
       : Promise.resolve({ data: [] as Array<{ member_id: string | null; end_date: string; status: string | null; plan_id: string | null }> });
 
-  const plansPromise = supabase.from('membership_plans').select('id, name').eq('gym_id', gym.id);
+  const plansPromise = supabase.from('membership_plans').select('id, name, price').eq('gym_id', gym.id);
 
   const [{ data: profiles }, { data: memberships }, { data: plans }] = await Promise.all([
     profilesPromise,
@@ -68,7 +64,7 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
   ]);
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
-  const planNameById = new Map((plans ?? []).map((p) => [p.id, p.name]));
+  const planById = new Map((plans ?? []).map((p) => [p.id, p]));
   const activeByMember = new Map<string, { end_date: string; status: string | null; plan_id: string | null }>();
   for (const m of memberships ?? []) {
     if (!m.member_id) continue;
@@ -78,6 +74,7 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
   const baseRows = (links ?? []).map((l) => {
     const p = l.user_id ? profileById.get(l.user_id) : null;
     const m = l.user_id ? activeByMember.get(l.user_id) : null;
+    const plan = m?.plan_id ? planById.get(m.plan_id) : null;
     const composed = [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim();
     const name = p?.full_name || composed || p?.email || '—';
     return {
@@ -89,7 +86,8 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
       photoUrl: p?.photo_url ?? null,
       joined: l.joined_at ?? null,
       expiry: m?.end_date ?? null,
-      planName: m?.plan_id ? (planNameById.get(m.plan_id) ?? '—') : '—',
+      planName: plan?.name ?? '—',
+      planValue: plan?.price ?? null,
       status: m?.status ?? l.status ?? null,
     };
   });
@@ -108,8 +106,6 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
     return 'active';
   };
 
-  // KPI counts read off the full member set (independent of the filter) so the
-  // numbers are stable as you switch tabs.
   const stats = { active: 0, expiring: 0, lapsed: 0, fresh: 0 };
   const DAY_MS = 86_400_000;
   const nowMs = new Date().getTime();
@@ -127,125 +123,159 @@ export default async function AdminMembersPage({ params, searchParams }: PagePro
     return statusOf(r) === statusFilter;
   });
 
-  const STATUS_TONE: Record<'active' | 'expiring' | 'expired', 'on' | 'off'> = {
-    active: 'on',
-    expiring: 'on',
-    expired: 'off',
-  };
-  const STATUS_LABEL: Record<'active' | 'expiring' | 'expired', string> = {
-    active: 'Active',
-    expiring: 'Expiring',
-    expired: 'Expired',
+  const STATUS_BADGE: Record<'active' | 'expiring' | 'expired', { cls: string; label: string }> = {
+    active: { cls: 'gf-badge-success', label: 'Active' },
+    expiring: { cls: 'gf-badge-warning', label: 'Expiring' },
+    expired: { cls: 'gf-badge-danger', label: 'Expired' },
   };
 
   const filterHref = (f: StatusFilter) => {
-    const sp = new URLSearchParams();
-    if (f !== 'all') sp.set('st', f);
-    if (query) sp.set('q', query);
-    const s = sp.toString();
+    const params = new URLSearchParams();
+    if (f !== 'all') params.set('st', f);
+    if (query) params.set('q', query);
+    const s = params.toString();
     return s ? `/admin/members?${s}` : '/admin/members';
+  };
+
+  const renewsLabel = (expiry: string | null) => {
+    if (!expiry) return '—';
+    const left = daysLeft(expiry);
+    if (left <= 0) return `${fmtDate(expiry)} (lapsed)`;
+    if (left <= 14) return `in ${left} day${left === 1 ? '' : 's'}`;
+    return fmtDate(expiry);
   };
 
   return (
     <div className="gf-page">
-      <PageHeader
-        title="Members"
-        subtitle={`${stats.active} active · ${stats.expiring} expiring this week · ${stats.lapsed} lapsed`}
-        actions={
-          <>
-            <MembersSearch defaultValue={query} />
-            <ExportMembersCsvButton slug={slug} />
-            <ButtonLink href="/admin/members/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
-              Add member
-            </ButtonLink>
-          </>
-        }
-      />
+      <div className="page-h">
+        <div>
+          <h1>Members</h1>
+          <p>
+            {stats.active} active · {stats.expiring} expiring this week · {stats.lapsed} lapsed
+          </p>
+        </div>
+        <nav className="seg" aria-label="Filter members">
+          {STATUS_FILTERS.map((f) => (
+            <Link
+              key={f}
+              href={filterHref(f)}
+              className={statusFilter === f ? 'on' : ''}
+              aria-current={statusFilter === f ? 'page' : undefined}
+            >
+              {FILTER_LABEL[f]}
+            </Link>
+          ))}
+        </nav>
+      </div>
 
-      <nav className="adm-seg" aria-label="Filter members">
-        {STATUS_FILTERS.map((f) => (
-          <Link
-            key={f}
-            href={filterHref(f)}
-            className={`adm-seg-btn${statusFilter === f ? ' on' : ''}`}
-            aria-current={statusFilter === f ? 'page' : undefined}
-          >
-            {FILTER_LABEL[f]}
-          </Link>
-        ))}
-      </nav>
+      <section className="kpis">
+        <div className="kpi">
+          <div className="kpi-top">
+            <div className="kpi-ic" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>
+              <Users strokeWidth={1.75} />
+            </div>
+          </div>
+          <div className="kpi-val">{stats.active}</div>
+          <div className="kpi-lbl">Active members</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-top">
+            <div className="kpi-ic" style={{ background: 'var(--gf-warning-soft)', color: 'var(--gf-warning)' }}>
+              <Clock strokeWidth={1.75} />
+            </div>
+          </div>
+          <div className="kpi-val">{stats.expiring}</div>
+          <div className="kpi-lbl">Expiring this week</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-top">
+            <div className="kpi-ic" style={{ background: 'var(--gf-danger-soft)', color: 'var(--gf-danger)' }}>
+              <UserX strokeWidth={1.75} />
+            </div>
+          </div>
+          <div className="kpi-val">{stats.lapsed}</div>
+          <div className="kpi-lbl">Lapsed</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-top">
+            <div className="kpi-ic" style={{ background: 'var(--gf-info-soft)', color: 'var(--gf-info)' }}>
+              <TrendingUp strokeWidth={1.75} />
+            </div>
+          </div>
+          <div className="kpi-val">{stats.fresh}</div>
+          <div className="kpi-lbl">New this month</div>
+        </div>
+      </section>
 
-      <StatGrid>
-        <Stat label="Active members" value={stats.active} accent="emerald" icon={Users} />
-        <Stat label="Expiring this week" value={stats.expiring} accent="amber" icon={Clock4} />
-        <Stat label="Lapsed" value={stats.lapsed} accent="rose" icon={UserX} />
-        <Stat label="New (30d)" value={stats.fresh} accent="blue" icon={UserPlus} />
-      </StatGrid>
+      <div className="panel">
+        <div className="toolbar">
+          <MembersSearch defaultValue={query} />
+          <div style={{ flex: 1 }} />
+          <ExportMembersCsvButton slug={slug} />
+          <ButtonLink href="/admin/members/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
+            Add member
+          </ButtonLink>
+        </div>
 
-      <Card>
-        <div className="gf-table-wrap">
-          <table role="table" className="gf-table gf-table-cards">
-            <thead>
-              <tr role="row">
-                <th>Member</th>
-                <th>Plan</th>
-                <th>Status</th>
-                <th>Joined</th>
-                <th>Renews</th>
-              </tr>
-            </thead>
-            <tbody role="rowgroup">
-              {rows.length === 0 ? (
-                <tr role="row">
-                  <td role="cell" colSpan={5}>
-                    <EmptyState
-                      icon={UserPlus}
-                      title={query || statusFilter !== 'all' ? 'No members match' : 'No members yet'}
-                      message={query || statusFilter !== 'all'
-                        ? 'Try a different filter or search.'
-                        : 'Members appear here after they sign up on the join page or are added by staff.'}
-                    />
-                  </td>
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={UserPlus}
+            title={query || statusFilter !== 'all' ? 'No members match' : 'No members yet'}
+            message={query || statusFilter !== 'all'
+              ? 'Try a different filter or search.'
+              : 'Members appear here after they sign up on the join page or are added by staff.'}
+          />
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Plan</th>
+                  <th>Status</th>
+                  <th>Joined</th>
+                  <th>Renews</th>
+                  <th style={{ textAlign: 'right' }}>Value</th>
                 </tr>
-              ) : (
-                rows.map((r) => {
-                  const left = daysLeft(r.expiry);
+              </thead>
+              <tbody>
+                {rows.map((r) => {
                   const s = statusOf(r);
+                  const badge = STATUS_BADGE[s];
                   return (
-                    <tr role="row" key={r.userId}>
-                      <td role="cell" className="gf-td-primary">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <span
-                            className="gf-avatar gf-avatar-sm"
-                            style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderColor: 'var(--gf-brand-glow)' }}
-                          >
+                    <tr key={r.userId} onClick={undefined}>
+                      <td>
+                        <Link href={`/admin/members/${r.userId}`} className="who" style={{ textDecoration: 'none', color: 'inherit' }}>
+                          <span className="gf-avatar gf-avatar-sm">
                             {r.photoUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={r.photoUrl} alt="" />
                             ) : r.initial}
                           </span>
-                          <div style={{ minWidth: 0 }}>
-                            <Link href={`/admin/members/${r.userId}`} className="gf-link" style={{ fontWeight: 600 }}>
-                              {r.name}
-                            </Link>
-                            <div className="gf-table-meta">{r.email}</div>
+                          <div>
+                            <strong>{r.name}</strong>
+                            <small>{r.email}</small>
                           </div>
-                        </div>
+                        </Link>
                       </td>
-                      <td role="cell" data-label="Plan">{r.planName}</td>
-                      <td role="cell" data-label="Status">
-                        <StatusPill tone={STATUS_TONE[s]}>{STATUS_LABEL[s]}{s === 'active' || s === 'expiring' ? ` · ${left}d` : ''}</StatusPill>
+                      <td>{r.planName}</td>
+                      <td>
+                        <span className={`gf-badge ${badge.cls}`}>
+                          <span className="gf-dot" />
+                          {badge.label}
+                        </span>
                       </td>
-                      <td role="cell" data-label="Joined">{fmtDate(r.joined)}</td>
-                      <td role="cell" data-label="Renews">{fmtDate(r.expiry)}</td>
+                      <td style={{ color: 'var(--gf-text-secondary)' }}>{fmtDate(r.joined)}</td>
+                      <td style={{ color: 'var(--gf-text-secondary)' }}>{renewsLabel(r.expiry)}</td>
+                      <td style={{ textAlign: 'right' }} className="naira">{r.planValue != null ? fmtNaira(r.planValue) : '—'}</td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
