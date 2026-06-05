@@ -1,5 +1,5 @@
-// GymFlow Service Worker v6 — Next.js App Router
-const VERSION = 'gymflow-v6';
+// GymFlow Service Worker v7 — Next.js App Router
+const VERSION = 'gymflow-v7';
 const STATIC_CACHE = VERSION + '-static';
 const RUNTIME_CACHE = VERSION + '-runtime';
 
