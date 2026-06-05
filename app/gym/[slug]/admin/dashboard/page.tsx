@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { requireStaff } from '@/lib/auth/gym';
+import { getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, daysLeft, fmtDateTime } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft, fmtDateTime, greeting, firstName } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
 import { daysFromNowIso, startOfTodayIso, todayIso, daysAgoIso } from '@/lib/dates';
 import { daysUntilBirthday, birthdayLabel } from '@/lib/birthdays';
@@ -25,6 +26,7 @@ type PageProps = {
 export default async function AdminDashboard({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { role, gym } = await requireStaff(slug);
+  const profile = await getProfile();
 
   // Today / Week / Month re-scopes the flow KPIs (check-ins + revenue). Stock
   // KPIs (members, expiring) stay as-is. Range lives in the URL — no client state.
@@ -225,9 +227,26 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
 
   return (
     <div className="gf-page">
+      {/* Greeting header — gym name (small) + "Good morning, {first name}" with a
+          contextual subtitle (date · check-ins this range · members needing attention).
+          Matches revamp/admin.html voice while keeping the design-system PageHeader. */}
       <PageHeader
-        title={gym.name}
-        subtitle={`Admin Dashboard · ${role}`}
+        title={
+          <>
+            <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--gf-text-muted)', fontWeight: 600, marginBottom: 2 }}>
+              {gym.name}
+            </span>
+            {greeting()}, <span style={{ color: 'var(--gf-brand)' }}>{firstName(profile?.full_name ?? profile?.first_name, role === 'owner' ? 'owner' : 'team')}</span>
+          </>
+        }
+        subtitle={
+          <>
+            {new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {' · '}
+            {(activeToday ?? 0)} check-in{(activeToday ?? 0) === 1 ? '' : 's'} {range === 'today' ? 'today' : `· ${rangeLabel}`}
+            {(expiringSoon ?? 0) > 0 ? ` · ${expiringSoon} membership${(expiringSoon ?? 0) === 1 ? '' : 's'} need${(expiringSoon ?? 0) === 1 ? 's' : ''} attention` : ''}
+          </>
+        }
         actions={
           <form action={signOut}>
             <Button type="submit" variant="ghost" size="sm" leadingIcon={<LogOut size={16} strokeWidth={1.75} />}>
