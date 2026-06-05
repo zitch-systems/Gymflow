@@ -1,13 +1,11 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDateTime, fmtDate } from '@/lib/format';
+import { fmtNaira, fmtDate, fmtDateTime } from '@/lib/format';
 import { daysAgoDate, todayDate } from '@/lib/dates';
 import { WalletFilters } from './wallet-filters';
 import { ExportPaymentsCsvButton } from './export-csv-button';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card } from '@/components/ui/card';
-import { Stat, StatGrid } from '@/components/ui/stat';
-import { BanknoteArrowUp, Hourglass, BanknoteX } from 'lucide-react';
+import { Stat } from '@/components/ui/stat';
+import { CreditCard, BanknoteArrowUp, Hourglass, BanknoteX } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -43,72 +41,98 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
 
   const totals = (rows ?? []).reduce(
     (acc, p) => {
-      if (p.payment_status === 'successful') acc.success += Number(p.amount);
-      else if (p.payment_status === 'failed') acc.failed += Number(p.amount);
-      else acc.pending += Number(p.amount);
+      const amt = Number(p.amount ?? 0);
+      if (p.payment_status === 'successful') acc.success += amt;
+      else if (p.payment_status === 'failed') acc.failed += amt;
+      else acc.pending += amt;
+      acc.count += 1;
       return acc;
     },
-    { success: 0, failed: 0, pending: 0 },
+    { success: 0, failed: 0, pending: 0, count: 0 },
   );
 
   return (
     <div className="gf-page">
-      <PageHeader
-        title="Wallet & payments"
-        subtitle={`${fmtDate(from)} → ${fmtDate(to)} · ${rows?.length ?? 0} transaction(s)`}
-        actions={<ExportPaymentsCsvButton slug={slug} from={from} to={to} method={method || undefined} status={status || undefined} />}
-      />
+      <div className="page-h">
+        <div>
+          <h1>Wallet</h1>
+          <p>{gym.name} · settlements via Paystack · {fmtDate(from)} → {fmtDate(to)}</p>
+        </div>
+        <ExportPaymentsCsvButton slug={slug} from={from} to={to} method={method || undefined} status={status || undefined} />
+      </div>
 
-      <StatGrid>
-        <Stat label="Settled" value={fmtNaira(totals.success)} icon={BanknoteArrowUp} accent="emerald" />
+      <section className="kpis" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <Stat label="Collected" value={fmtNaira(totals.success)} icon={BanknoteArrowUp} accent="emerald" />
         <Stat label="Pending" value={fmtNaira(totals.pending)} icon={Hourglass} accent="amber" />
         <Stat label="Failed" value={fmtNaira(totals.failed)} icon={BanknoteX} accent="rose" />
-      </StatGrid>
+      </section>
 
-      <Card>
-        <WalletFilters defaultFrom={from} defaultTo={to} defaultMethod={method} defaultStatus={status} />
-        <div className="gf-table-wrap">
-          <table role="table" className="gf-table gf-table-cards">
-            <thead>
-              <tr role="row">
-                <th>Date</th>
-                <th>Member</th>
-                <th>Plan</th>
-                <th>Method</th>
-                <th>Reference</th>
-                <th>Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody role="rowgroup">
-              {(rows ?? []).map((p) => {
-                const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
-                const plan = Array.isArray(p.membership_plans) ? p.membership_plans[0] : p.membership_plans;
-                return (
-                  <tr role="row" key={p.id}>
-                    <td role="cell" data-label="Date">{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
-                    <td role="cell" className="gf-td-primary">
-                      <div style={{ fontWeight: 600 }}>{profile?.full_name ?? '—'}</div>
-                      <div className="gf-table-meta">{profile?.email ?? '—'}</div>
-                    </td>
-                    <td role="cell" data-label="Plan">{plan?.name ?? '—'}</td>
-                    <td role="cell" data-label="Method">{p.payment_method ?? '—'}</td>
-                    <td role="cell" className="gf-table-meta" data-label="Reference" style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11 }}>
-                      {p.paystack_reference?.slice(0, 14) ?? '—'}
-                    </td>
-                    <td role="cell" data-label="Amount">{fmtNaira(p.amount)}</td>
-                    <td role="cell" data-label="Status">
-                      <span className={`status-pill ${p.payment_status === 'successful' ? 'on' : 'off'}`}>
-                        {p.payment_status ?? '—'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <div className="panel">
+        <div className="panel-h">
+          <div>
+            <h3>Transactions</h3>
+            <div className="sub">{totals.count} payment{totals.count === 1 ? '' : 's'} · {fmtNaira(totals.success + totals.pending + totals.failed)} gross</div>
+          </div>
         </div>
-      </Card>
+        <WalletFilters defaultFrom={from} defaultTo={to} defaultMethod={method} defaultStatus={status} />
+
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Method</th>
+              <th>Date</th>
+              <th>Reference</th>
+              <th>Status</th>
+              <th style={{ textAlign: 'right' }}>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(rows ?? []).map((p) => {
+              const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+              const plan = Array.isArray(p.membership_plans) ? p.membership_plans[0] : p.membership_plans;
+              const memberName = profile?.full_name ?? '—';
+              const initial = (memberName === '—' ? '?' : memberName.charAt(0)).toUpperCase();
+              const success = p.payment_status === 'successful';
+              const pending = p.payment_status === 'pending';
+              const badge = success
+                ? { cls: 'gf-badge-success', label: 'Settled' }
+                : pending
+                  ? { cls: 'gf-badge-warning', label: 'Pending' }
+                  : { cls: 'gf-badge-danger', label: p.payment_status ?? 'Failed' };
+              return (
+                <tr key={p.id}>
+                  <td>
+                    <div className="who">
+                      <span className="gf-avatar gf-avatar-sm" style={{ background: success ? 'var(--gf-success-soft)' : pending ? 'var(--gf-warning-soft)' : 'var(--gf-danger-soft)', color: success ? 'var(--gf-success)' : pending ? 'var(--gf-warning)' : 'var(--gf-danger)', borderColor: 'transparent' }}>
+                        <CreditCard size={14} strokeWidth={2} />
+                      </span>
+                      <div>
+                        <strong>{plan?.name ?? 'Payment'} · {memberName}</strong>
+                        <small>{profile?.email ?? `Member ${initial}`}</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td style={{ color: 'var(--gf-text-secondary)' }}>{p.payment_method ?? 'Paystack'}</td>
+                  <td style={{ color: 'var(--gf-text-secondary)' }}>{p.payment_date ? fmtDateTime(p.payment_date) : '—'}</td>
+                  <td style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--gf-text-muted)' }}>
+                    {p.paystack_reference?.slice(0, 14) ?? '—'}
+                  </td>
+                  <td>
+                    <span className={`gf-badge ${badge.cls}`}>
+                      <span className="gf-dot" />
+                      {badge.label}
+                    </span>
+                  </td>
+                  <td className="naira" style={{ textAlign: 'right', color: success ? 'var(--gf-success)' : 'var(--gf-text)' }}>
+                    {success ? '+' : ''}{fmtNaira(p.amount)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
