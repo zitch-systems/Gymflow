@@ -172,15 +172,9 @@ export default async function SuperadminGymsPage({ searchParams }: PageProps) {
                   return (
                     <tr role="row" key={g.id}>
                       <td role="cell">
-                        <a
-                          href={`https://${g.slug}.gymflow.ng/admin/dashboard`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="gf-link"
-                          style={{ fontWeight: 600 }}
-                        >
+                        <Link href={`/superadmin/gyms/${g.id}`} className="gf-link" style={{ fontWeight: 600 }}>
                           {g.name}
-                        </a>
+                        </Link>
                         <div className="gf-table-meta">{g.slug}.gymflow.ng{place ? ` · ${place}` : ''}</div>
                       </td>
                       <td role="cell" data-label="Plan" style={{ textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
