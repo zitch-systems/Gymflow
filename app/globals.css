@@ -6775,3 +6775,28 @@ body::after {
 .member-app .m-stat3 .s svg { width: 18px; height: 18px; color: var(--gf-brand); }
 .member-app .m-stat3 .s b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.45rem; letter-spacing: -0.03em; display: block; margin-top: 7px; line-height: 1; }
 .member-app .m-stat3 .s small { color: var(--gf-text-muted); font-size: 0.7rem; display: block; margin-top: 4px; }
+
+/* ── Member schedule — segmented tabs · week calendar strip · day list ── */
+.member-app .segtabs { display: flex; gap: 22px; border-bottom: 1px solid var(--gf-border); margin-bottom: 16px; }
+.member-app .segtabs a { border: none; background: none; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.95rem; color: var(--gf-text-muted); padding: 0 0 12px; cursor: pointer; position: relative; text-decoration: none; }
+.member-app .segtabs a.on { color: var(--gf-text); }
+.member-app .segtabs a.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px; background: var(--gf-brand); }
+.member-app .calstrip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 18px; }
+.member-app .cday { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 9px 0 8px; border-radius: var(--gf-radius-sm); border: 1px solid transparent; background: var(--gf-surface); transition: all var(--gf-t-fast); position: relative; text-decoration: none; color: inherit; }
+.member-app .cday:hover { border-color: var(--gf-border-light); }
+.member-app .cday span { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.64rem; color: var(--gf-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.member-app .cday b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.05rem; color: var(--gf-text); line-height: 1; }
+.member-app .cday .mk { width: 5px; height: 5px; border-radius: 50%; background: var(--gf-brand); }
+.member-app .cday .mk.ghost { background: transparent; }
+.member-app .cday.on { background: linear-gradient(155deg, var(--gf-brand-light), var(--gf-brand-dark)); border-color: transparent; box-shadow: 0 6px 16px -6px var(--gf-brand-glow); }
+.member-app .cday.on span, .member-app .cday.on b { color: #fff; }
+.member-app .cday.on .mk { background: rgba(255,255,255,0.9); }
+.member-app .day-label { font-family: var(--gf-font-display); font-weight: 800; font-size: 0.92rem; margin: 4px 0 11px; color: var(--gf-text-secondary); }
+.member-app .cls-list { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.member-app .bkg { display: flex; align-items: center; gap: 13px; padding: 14px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); margin-bottom: 9px; }
+.member-app .bkg .date { width: 52px; flex-shrink: 0; text-align: center; border-right: 1px solid var(--gf-border); padding-right: 12px; }
+.member-app .bkg .date b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem; display: block; line-height: 1; color: var(--gf-text); }
+.member-app .bkg .date span { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.62rem; color: var(--gf-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.member-app .bkg .m { flex: 1; min-width: 0; }
+.member-app .bkg .m strong { font-family: var(--gf-font-display); font-size: 0.9rem; font-weight: 600; display: block; }
+.member-app .bkg .m small { color: var(--gf-text-muted); font-size: 0.76rem; }

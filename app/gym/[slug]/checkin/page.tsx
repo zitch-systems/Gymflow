@@ -27,7 +27,7 @@ export default async function CheckInPage({ params }: PageProps) {
   const memberCodeUrl = `${origin}/admin/staff-checkin?member=${encodeURIComponent(user.id)}`;
 
   return (
-    <div className="gf-page">
+    <div className="member-portal member-app">
       <PageHeader title="Check in" subtitle={gym.name} />
 
       <div className="m-ci">
