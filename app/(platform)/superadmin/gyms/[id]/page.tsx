@@ -5,21 +5,28 @@ import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 import { daysAgoIso } from '@/lib/dates';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card, CardHeader } from '@/components/ui/card';
-import { Stat, StatGrid } from '@/components/ui/stat';
+import { Stat } from '@/components/ui/stat';
 import { ButtonLink } from '@/components/ui/button';
-import { StatusPill } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SuperadminGymRowActions } from '../../gym-row-actions';
 import { ArrowLeft, Users, UserCheck, Banknote, Wallet, Receipt } from 'lucide-react';
 
+const GRADS = [
+  'linear-gradient(135deg, #11d18b, #07a86c)',
+  'linear-gradient(135deg, #4080ff, #2a5cc0)',
+  'linear-gradient(135deg, #a8d92e, #6a9c00)',
+  'linear-gradient(135deg, #ffb020, #cc8a10)',
+  'linear-gradient(135deg, #b67bf3, #7c45c0)',
+  'linear-gradient(135deg, #ff4560, #cc2a40)',
+];
+const gradFor = (s: string) => GRADS[s.charCodeAt(0) % GRADS.length];
+
 // gyms.subscription_status ∈ trial|active|past_due|cancelled (lib/actions/platform.ts).
-const STATUS_META: Record<string, { label: string; tone: 'on' | 'warn' | 'off' | 'neutral' }> = {
-  active: { label: 'Active', tone: 'on' },
-  trial: { label: 'Trial', tone: 'warn' },
-  past_due: { label: 'Past due', tone: 'off' },
-  cancelled: { label: 'Cancelled', tone: 'off' },
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  active: { label: 'Active', cls: 'gf-badge-success' },
+  trial: { label: 'Trial', cls: 'gf-badge-warning' },
+  past_due: { label: 'Past due', cls: 'gf-badge-danger' },
+  cancelled: { label: 'Cancelled', cls: 'gf-badge-neutral' },
 };
 const SETTLE_LABEL: Record<string, string> = {
   successful: 'Settled',
@@ -72,12 +79,20 @@ export default async function SuperadminGymDetailPage({ params }: PageProps) {
   }
   const recent = (payments ?? []).slice(0, 10);
 
-  const meta = STATUS_META[gym.subscription_status ?? ''] ?? { label: gym.subscription_status ?? '—', tone: 'neutral' as const };
+  const meta = STATUS_META[gym.subscription_status ?? ''] ?? { label: gym.subscription_status ?? '—', cls: 'gf-badge-neutral' };
   const place = [gym.city, gym.state].filter(Boolean).join(', ') || '—';
 
   const details: { label: string; value: ReactNode }[] = [
     { label: 'Plan', value: <span style={{ textTransform: 'capitalize' }}>{gym.subscription_plan ?? '—'}</span> },
-    { label: 'Status', value: <StatusPill tone={meta.tone}>{meta.label}</StatusPill> },
+    {
+      label: 'Status',
+      value: (
+        <span className={`gf-badge ${meta.cls}`}>
+          <span className="gf-dot" />
+          {meta.label}
+        </span>
+      ),
+    },
     { label: 'Subdomain', value: `${gym.slug}.gymflow.ng` },
     { label: 'Location', value: place },
     { label: 'Owner email', value: gym.email ?? '—' },
@@ -89,87 +104,124 @@ export default async function SuperadminGymDetailPage({ params }: PageProps) {
 
   return (
     <div className="gf-page">
-      <PageHeader
-        title={gym.name}
-        subtitle={`${gym.slug}.gymflow.ng · ${place}`}
-        actions={
-          <>
-            <ButtonLink href="/superadmin/gyms" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
-              Back
-            </ButtonLink>
-            <SuperadminGymRowActions
-              gymId={gym.id}
-              slug={gym.slug}
-              ownerEmail={gym.email ?? ''}
-              status={gym.subscription_status ?? 'unknown'}
-            />
-          </>
-        }
-      />
+      <div className="page-h">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 48, height: 48, borderRadius: 12,
+              display: 'grid', placeItems: 'center',
+              background: gradFor(gym.name ?? gym.slug ?? 'G'),
+              color: '#fff', fontFamily: 'var(--gf-font-display)', fontWeight: 800, fontSize: '1.2rem',
+            }}
+          >
+            {(gym.name ?? gym.slug ?? 'G').charAt(0).toUpperCase()}
+          </span>
+          <div>
+            <h1>{gym.name}</h1>
+            <p>{gym.slug}.gymflow.ng · {place}</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <ButtonLink href="/superadmin/gyms" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}>
+            All gyms
+          </ButtonLink>
+          <SuperadminGymRowActions
+            gymId={gym.id}
+            slug={gym.slug}
+            ownerEmail={gym.email ?? ''}
+            status={gym.subscription_status ?? 'unknown'}
+          />
+        </div>
+      </div>
 
-      <StatGrid>
-        <Stat label="Members" value={memberCount ?? 0} icon={Users} accent="emerald" />
-        <Stat label="Active" value={activeCount ?? 0} icon={UserCheck} accent="blue" />
-        <Stat label="MRR · 30d" value={fmtNaira(mrr30)} icon={Banknote} accent="purple" />
-        <Stat label="Lifetime paid" value={fmtNaira(lifetime)} icon={Wallet} accent="amber" />
-      </StatGrid>
+      <section className="kpis">
+        <Stat label="Members" value={memberCount ?? 0} accent="emerald" icon={Users} />
+        <Stat label="Active" value={activeCount ?? 0} accent="blue" icon={UserCheck} />
+        <Stat label="MRR · 30d" value={fmtNaira(mrr30)} accent="lime" icon={Banknote} />
+        <Stat label="Lifetime paid" value={fmtNaira(lifetime)} accent="amber" icon={Wallet} />
+      </section>
 
-      <div className="adm-dash-row">
-        <Card>
-          <CardHeader title="Details" />
-          <ul className="gf-list">
-            {details.map((d) => (
-              <li key={d.label} className="gf-list-row">
-                <span className="gf-table-meta">{d.label}</span>
-                <span style={{ fontWeight: 600, textAlign: 'right' }}>{d.value}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+      <section className="adm-grid">
+        <div>
+          <div className="panel">
+            <div className="panel-h">
+              <div>
+                <h3>Details</h3>
+                <div className="sub">Tenant configuration</div>
+              </div>
+            </div>
+            <div>
+              {details.map((d) => (
+                <div key={d.label} className="set-row">
+                  <div className="m">
+                    <strong>{d.label}</strong>
+                    <small>&nbsp;</small>
+                  </div>
+                  <span style={{ fontFamily: 'var(--gf-font-display)', fontWeight: 600, fontSize: '0.88rem', color: 'var(--gf-text)', textAlign: 'right' }}>{d.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader title="Recent settlements" subtitle="Platform fees for this gym" />
-          {recent.length > 0 ? (
-            <div className="gf-table-wrap">
-              <table role="table" className="gf-table gf-table-cards">
+        <div>
+          <div className="panel">
+            <div className="panel-h">
+              <div>
+                <h3>Recent settlements</h3>
+                <div className="sub">Platform fees for this gym</div>
+              </div>
+            </div>
+            {recent.length > 0 ? (
+              <table className="tbl">
                 <thead>
-                  <tr role="row">
+                  <tr>
                     <th>Date</th>
                     <th>Plan</th>
                     <th>Status</th>
                     <th style={{ textAlign: 'right' }}>Amount</th>
                   </tr>
                 </thead>
-                <tbody role="rowgroup">
+                <tbody>
                   {recent.map((p, i) => {
                     const st = (p.payment_status as string | null) ?? 'pending';
+                    const success = st === 'successful';
+                    const badge = success
+                      ? { cls: 'gf-badge-success', label: 'Settled' }
+                      : st === 'pending'
+                        ? { cls: 'gf-badge-warning', label: 'Pending' }
+                        : { cls: 'gf-badge-danger', label: SETTLE_LABEL[st] ?? st };
                     return (
-                      <tr role="row" key={`${p.created_at ?? i}-${i}`}>
-                        <td role="cell" data-label="Date">{fmtDate(p.created_at)}</td>
-                        <td role="cell" data-label="Plan" style={{ textTransform: 'capitalize' }}>{p.plan ?? '—'}</td>
-                        <td role="cell" data-label="Status">
-                          <StatusPill tone={st === 'successful' ? 'on' : 'off'}>{SETTLE_LABEL[st] ?? st}</StatusPill>
+                      <tr key={`${p.created_at ?? i}-${i}`}>
+                        <td style={{ color: 'var(--gf-text-secondary)' }}>{fmtDate(p.created_at)}</td>
+                        <td style={{ textTransform: 'capitalize', color: 'var(--gf-text-secondary)' }}>{p.plan ?? '—'}</td>
+                        <td>
+                          <span className={`gf-badge ${badge.cls}`}>
+                            <span className="gf-dot" />
+                            {badge.label}
+                          </span>
                         </td>
-                        <td role="cell" data-label="Amount" className="naira" style={{ textAlign: 'right' }}>
-                          {fmtNaira(Number(p.amount ?? 0))}
+                        <td className="naira" style={{ textAlign: 'right', color: success ? 'var(--gf-success)' : 'var(--gf-text)' }}>
+                          {success ? '+' : ''}{fmtNaira(Number(p.amount ?? 0))}
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
-          ) : (
-            <EmptyState icon={Receipt} title="No settlements yet" message="Platform fees for this gym appear here as they settle." />
-          )}
-        </Card>
-      </div>
+            ) : (
+              <EmptyState icon={Receipt} title="No settlements yet" message="Platform fees for this gym appear here as they settle." />
+            )}
+          </div>
+        </div>
+      </section>
 
-      <Card padded>
+      <div className="panel" style={{ marginTop: 16 }}>
         <Link href={`https://${gym.slug}.gymflow.ng/admin/dashboard`} target="_blank" rel="noreferrer" className="gf-link" style={{ fontWeight: 600 }}>
           Open {gym.name}&rsquo;s admin dashboard ↗
         </Link>
-      </Card>
+      </div>
     </div>
   );
 }

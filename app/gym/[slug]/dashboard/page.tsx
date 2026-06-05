@@ -218,7 +218,7 @@ export default async function MemberDashboard({ params }: PageProps) {
           <div className="m-recent-h">Recent check-ins</div>
           {recentCheckIns.map((c, i) => (
             <div key={i} className="m-recent-row">
-              <span className="m-recent-ic" aria-hidden><Check size={15} strokeWidth={2.5} /></span>
+              <span className="m-recent-ic" aria-hidden><Check size={19} strokeWidth={2.2} /></span>
               <span className="m-recent-m"><strong>Checked in</strong><small>QR scan</small></span>
               <span className="m-recent-t">{checkInDay(c.checked_in_at)}</span>
             </div>

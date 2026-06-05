@@ -133,7 +133,7 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
 
   if (scanning) {
     return (
-      <div>
+      <div className="m-ci-actions">
         <div id="qr-reader" style={{ width: '100%', maxWidth: 360, margin: '0 auto', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--gf-border)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
           <button
@@ -158,7 +158,7 @@ export function SelfCheckInButton({ slug }: { slug: string }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="m-ci-actions">
       <button
         type="button"
         className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg"

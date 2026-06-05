@@ -64,7 +64,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
     : null;
 
   return (
-    <div className="member-portal member-app">
+    <div className="member-portal member-app m-profile">
       <div className="m-prof-top">
         <span className="gf-avatar gf-avatar-xl">{avatarInitial}</span>
         <h2>{displayName}</h2>

@@ -1,9 +1,10 @@
-import Link from 'next/link';
 import { requireInstructor } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { ClassAttendanceRow } from './class-attendance-row';
 import { SessionAttendanceRow } from './session-attendance-row';
 import { ScheduleSessionForm } from './schedule-session-form';
+import { Stat } from '@/components/ui/stat';
+import { CalendarCheck, Users, ClipboardCheck, UserPlus } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -71,30 +72,46 @@ export default async function CoachAttendancePage({ params }: PageProps) {
     eligible.set(s.member_id, p?.full_name ?? p?.email ?? 'Member');
   });
 
-  return (
-    <div className="member-portal member-app">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">Attendance</h1>
-          <p className="gf-page-subtitle">Today · {now.toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-        </div>
-        <Link href="/coach" className="gf-btn gf-btn-ghost gf-btn-sm">Back</Link>
-      </header>
+  const totalClassesToday = schedules?.length ?? 0;
+  const totalBookings = (bookings ?? []).length;
+  const totalSessions = sessions?.length ?? 0;
+  const eligibleCount = eligible.size;
 
-      <section className="gf-card">
-        <header className="gf-card-header"><h2 className="gf-card-title">Group classes today</h2></header>
+  return (
+    <div className="gf-page">
+      <div className="page-h">
+        <div>
+          <h1>Attendance</h1>
+          <p>{now.toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })} · {totalClassesToday} class{totalClassesToday === 1 ? '' : 'es'} · {totalSessions} PT session{totalSessions === 1 ? '' : 's'}</p>
+        </div>
+      </div>
+
+      <section className="kpis">
+        <Stat label="Group classes today" value={totalClassesToday} accent="emerald" icon={CalendarCheck} />
+        <Stat label="Bookings (group)" value={totalBookings} accent="blue" icon={Users} />
+        <Stat label="PT sessions today" value={totalSessions} accent="lime" icon={ClipboardCheck} />
+        <Stat label="Eligible clients" value={eligibleCount} accent="amber" icon={UserPlus} />
+      </section>
+
+      <div className="panel">
+        <div className="panel-h">
+          <div>
+            <h3>Group classes today</h3>
+            <div className="sub">Mark attendance for each booked member</div>
+          </div>
+        </div>
         {schedules && schedules.length > 0 ? (
           schedules.map((s) => {
             const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
             const rows = bookingsBySchedule.get(s.id) ?? [];
             return (
               <div key={s.id} style={{ borderTop: '1px solid var(--gf-border)' }}>
-                <div style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--gf-elevated)' }}>
+                <div style={{ padding: '12px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontWeight: 600 }}>{cls?.name ?? 'Class'}</div>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--gf-text-muted)' }}>{s.start_time} – {s.end_time}{s.room ? ` · ${s.room}` : ''}</div>
+                    <div style={{ fontFamily: 'var(--gf-font-display)', fontWeight: 700, fontSize: '0.95rem' }}>{cls?.name ?? 'Class'}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--gf-text-muted)' }}>{s.start_time} – {s.end_time}{s.room ? ` · ${s.room}` : ''}</div>
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--gf-text-muted)' }}>{rows.length} booked</div>
+                  <span className="gf-badge gf-badge-neutral">{rows.length} booked</span>
                 </div>
                 {rows.length > 0 ? (
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
@@ -112,18 +129,23 @@ export default async function CoachAttendancePage({ params }: PageProps) {
                     })}
                   </ul>
                 ) : (
-                  <div style={{ padding: 18, color: 'var(--gf-text-muted)', fontSize: '0.875rem' }}>No bookings.</div>
+                  <div className="sub" style={{ padding: '8px 0' }}>No bookings.</div>
                 )}
               </div>
             );
           })
         ) : (
-          <div style={{ padding: 18, color: 'var(--gf-text-muted)' }}>No classes scheduled today.</div>
+          <div className="sub" style={{ padding: '4px 0' }}>No classes scheduled today.</div>
         )}
-      </section>
+      </div>
 
-      <section className="gf-card">
-        <header className="gf-card-header"><h2 className="gf-card-title">1-on-1 sessions today</h2></header>
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-h">
+          <div>
+            <h3>1-on-1 sessions today</h3>
+            <div className="sub">Mark completed, no-show, or cancelled</div>
+          </div>
+        </div>
         {sessions && sessions.length > 0 ? (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {sessions.map((s) => {
@@ -142,14 +164,19 @@ export default async function CoachAttendancePage({ params }: PageProps) {
             })}
           </ul>
         ) : (
-          <div style={{ padding: 18, color: 'var(--gf-text-muted)' }}>No 1-on-1 sessions today.</div>
+          <div className="sub" style={{ padding: '4px 0' }}>No 1-on-1 sessions today.</div>
         )}
-      </section>
+      </div>
 
-      <section className="gf-card">
-        <header className="gf-card-header"><h2 className="gf-card-title">Schedule a 1-on-1</h2></header>
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-h">
+          <div>
+            <h3>Schedule a 1-on-1</h3>
+            <div className="sub">Pick an active subscriber and set the slot</div>
+          </div>
+        </div>
         <ScheduleSessionForm slug={slug} eligible={Array.from(eligible.entries()).map(([id, name]) => ({ id, name }))} />
-      </section>
+      </div>
     </div>
   );
 }

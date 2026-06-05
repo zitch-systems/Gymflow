@@ -1,10 +1,11 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate } from '@/lib/format';
+import { fmtNaira } from '@/lib/format';
+import { daysAgoDate } from '@/lib/dates';
 import { EquipmentCrud } from './equipment-crud';
 import { ExpensesCrud } from './expenses-crud';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card, CardHeader } from '@/components/ui/card';
+import { Stat } from '@/components/ui/stat';
+import { LayoutGrid, Dumbbell, Wrench, Receipt } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -28,28 +29,55 @@ export default async function AdminOperationsPage({ params }: PageProps) {
       .limit(100),
   ]);
 
+  const totalEquipment = (equipment ?? []).length;
+  const zones = new Set((equipment ?? []).map((e) => e.location).filter((x): x is string => Boolean(x))).size;
+  const todayIso = new Date().toISOString().split('T')[0];
+  const needsMaintenance = (equipment ?? []).filter((e) => {
+    if (e.status === 'maintenance' || e.status === 'broken') return true;
+    if (e.next_maintenance_date && e.next_maintenance_date <= todayIso) return true;
+    return false;
+  }).length;
+
+  // Expenses (last 30 days) — total spend for the headline KPI.
+  const thirtyAgo = daysAgoDate(30);
+  const recent30Expenses = (expenses ?? []).filter((e) => e.expense_date && e.expense_date >= thirtyAgo);
+  const spend30 = recent30Expenses.reduce((s, e) => s + Number(e.amount ?? 0), 0);
+
   return (
     <div className="gf-page">
-      <PageHeader title="Operations" subtitle={`${gym.name} · equipment & expenses`} />
+      <div className="page-h">
+        <div>
+          <h1>Operations</h1>
+          <p>{gym.name} · {zones} zone{zones === 1 ? '' : 's'} · {totalEquipment} equipment unit{totalEquipment === 1 ? '' : 's'}</p>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader title={`Equipment (${equipment?.length ?? 0})`} />
+      <section className="kpis">
+        <Stat label="Active zones" value={zones} accent="emerald" icon={LayoutGrid} />
+        <Stat label="Equipment units" value={totalEquipment} accent="blue" icon={Dumbbell} />
+        <Stat label="Need maintenance" value={needsMaintenance} accent="amber" icon={Wrench} />
+        <Stat label="Spend (30d)" value={fmtNaira(spend30)} accent="lime" icon={Receipt} />
+      </section>
+
+      <div className="panel">
+        <div className="panel-h">
+          <div>
+            <h3>Equipment</h3>
+            <div className="sub">{totalEquipment} unit{totalEquipment === 1 ? '' : 's'} across {zones} zone{zones === 1 ? '' : 's'}</div>
+          </div>
+        </div>
         <EquipmentCrud slug={slug} gymId={gym.id} items={equipment ?? []} />
-      </Card>
+      </div>
 
-      <Card>
-        <CardHeader title="Expenses (last 100)" />
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-h">
+          <div>
+            <h3>Expenses</h3>
+            <div className="sub">Last 100 entries · {fmtNaira(spend30)} in the last 30 days</div>
+          </div>
+        </div>
         <ExpensesCrud slug={slug} gymId={gym.id} items={expenses ?? []} />
-      </Card>
-
-      <p className="gf-form-hint" style={{ textAlign: 'center', marginTop: 12 }}>
-        Totals & P&amp;L live on{' '}
-        <a href="/admin/analytics" className="gf-link">analytics</a>; transactions on{' '}
-        <a href="/admin/wallet" className="gf-link">wallet</a>.{' '}
-        Last refresh: {fmtDate(new Date())}{' '}
-        {/* sample formatter usage so linter knows fmtNaira is in scope */}
-        <span style={{ display: 'none' }}>{fmtNaira(0)}</span>
-      </p>
+      </div>
     </div>
   );
 }

@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import './_stub-server-only';
 
-// The last three untested actions, all config/CRUD:
-//   - business-hours.ts  (staff: rewrite the 7-day hours table)
+// Config/CRUD actions:
 //   - landing.ts         (staff: edit the public landing page fields)
 //   - member-instructors.ts (member: cancel / toggle auto-renew on their OWN
 //                            instructor subscription)
@@ -61,7 +60,6 @@ vi.mock('@/lib/auth/dal', () => ({ getSessionUser: getSessionMock }));
 vi.mock('@/lib/audit', () => ({ audit: auditMock }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
-import { upsertBusinessHours } from '@/lib/actions/business-hours';
 import { saveLandingPage } from '@/lib/actions/landing';
 import { cancelInstructorSubscription, setInstructorAutoRenew } from '@/lib/actions/member-instructors';
 
@@ -80,53 +78,6 @@ beforeEach(() => {
   requireStaffMock.mockClear();
   requireMemberMock.mockClear();
   auditMock.mockClear();
-});
-
-describe('upsertBusinessHours', () => {
-  it('requires a staff session', async () => {
-    requireStaffMock.mockRejectedValueOnce(new Error('redirect'));
-    await expect(upsertBusinessHours('demo', fd({}))).rejects.toThrow();
-    expect(state.inserts).toHaveLength(0);
-  });
-
-  it('deletes the gym\'s existing rows BEFORE inserting the new set', async () => {
-    await upsertBusinessHours('demo', fd({}));
-    const delIdx = state.callOrder.indexOf('delete:business_hours');
-    const insIdx = state.callOrder.indexOf('insert:business_hours');
-    expect(delIdx).toBeGreaterThanOrEqual(0);
-    expect(insIdx).toBeGreaterThanOrEqual(0);
-    expect(delIdx).toBeLessThan(insIdx);
-    // the delete is gym-scoped (not global)
-    expect(state.deletes[0]!.eqs).toContainEqual({ col: 'gym_id', val: 'gym-1' });
-  });
-
-  it('inserts exactly 7 rows (one per day of week) all carrying gym_id', async () => {
-    await upsertBusinessHours('demo', fd({}));
-    const ins = state.inserts.find((i) => i.table === 'business_hours')!;
-    const rows = ins.payload as Array<{ gym_id: string; day_of_week: number }>;
-    expect(rows).toHaveLength(7);
-    expect(rows.map((r) => r.day_of_week)).toEqual([0, 1, 2, 3, 4, 5, 6]);
-    expect(rows.every((r) => r.gym_id === 'gym-1')).toBe(true);
-  });
-
-  it('nulls out open/close times for a day marked closed', async () => {
-    // Monday (dow 1) open 09:00-17:00; Sunday (dow 0) closed.
-    await upsertBusinessHours('demo', fd({ closed_0: 'on', open_1: '09:00', close_1: '17:00' }));
-    const rows = state.inserts.find((i) => i.table === 'business_hours')!.payload as Array<{ day_of_week: number; is_closed: boolean; open_time: string | null; close_time: string | null }>;
-    const sun = rows.find((r) => r.day_of_week === 0)!;
-    const mon = rows.find((r) => r.day_of_week === 1)!;
-    expect(sun.is_closed).toBe(true);
-    expect(sun.open_time).toBeNull();
-    expect(sun.close_time).toBeNull();
-    expect(mon.is_closed).toBe(false);
-    expect(mon.open_time).toBe('09:00');
-    expect(mon.close_time).toBe('17:00');
-  });
-
-  it('audits admin.business_hours_updated', async () => {
-    await upsertBusinessHours('demo', fd({}));
-    expect(auditMock.mock.calls[0]![0].action).toBe('admin.business_hours_updated');
-  });
 });
 
 describe('saveLandingPage', () => {

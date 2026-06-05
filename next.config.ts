@@ -39,11 +39,10 @@ const SECURITY_HEADERS = [
 
 // A per-deploy build id, baked into the client bundle (NEXT_PUBLIC_BUILD_ID) and
 // echoed by /api/version, so a long-lived PWA session can detect a new release
-// and reload itself onto the latest UI. Git SHA on Vercel/Cloudflare; a build
-// timestamp otherwise — either way it changes every deploy.
+// and reload itself onto the latest UI. Git SHA on Vercel; a build timestamp
+// otherwise — either way it changes every deploy.
 const BUILD_ID =
   process.env.VERCEL_GIT_COMMIT_SHA ||
-  process.env.CF_PAGES_COMMIT_SHA ||
   process.env.GIT_COMMIT_SHA ||
   String(Date.now());
 
