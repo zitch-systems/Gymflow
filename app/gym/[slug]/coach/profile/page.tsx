@@ -2,8 +2,7 @@ import Link from 'next/link';
 import { requireInstructor } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { signOut } from '@/lib/auth/actions';
-import { InstallAppButton } from '@/lib/pwa-install';
-import { Wallet, Banknote, BarChart3, UserCircle2, Smartphone, LogOut, ChevronRight, Pencil } from 'lucide-react';
+import { Wallet, Banknote, BarChart3, UserCircle2, LogOut, Pencil } from 'lucide-react';
 
 export const metadata = { title: 'Profile' };
 
@@ -46,100 +45,109 @@ export default async function CoachProfilePage({ params }: PageProps) {
       .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
   ]);
 
-  const bank = (bankRaw ?? null) as unknown as BankRow | null;
-  const hasBank = !!bank?.account_number;
-  const hasRate = pricing?.price != null;
-  const rate = hasRate ? Number(pricing!.price) : 0;
-  const monthGross = (monthSubs ?? []).reduce((s, r) => s + (Number(r.amount_paid) || 0), 0);
-  const monthShare = Math.round((monthGross * sharePct) / 100);
+  const rate = Number((pricing as { price?: number } | null)?.price ?? 0);
+  const hasRate = rate > 0;
+  const bank = bankRaw as BankRow | null;
+  const hasBank = Boolean(bank?.bank_name && bank?.account_number);
+  const monthRevenue = (monthSubs ?? []).reduce((s, m) => s + Number(m.amount_paid ?? 0), 0);
+  const monthShare = Math.round((monthRevenue * sharePct) / 100);
 
   const displayName = profile?.full_name ?? profile?.email ?? 'Coach';
   const avatarInitial = (profile?.full_name ?? profile?.email ?? 'C').charAt(0).toUpperCase();
 
   return (
-    <div className="member-portal member-app">
-      <header className="member-header">
-        <div><h1 className="gf-page-title">Profile</h1></div>
-      </header>
+    <div className="gf-page">
+      <div className="page-h">
+        <div>
+          <h1>Profile</h1>
+          <p>{displayName} · {sharePct}% revenue share with {gym.name}</p>
+        </div>
+        <form action={signOut}>
+          <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm">
+            <LogOut size={14} strokeWidth={1.9} /> Sign out
+          </button>
+        </form>
+      </div>
 
-      {/* Profile header → public profile editor */}
-      <Link href="/coach/profile/edit" className="gf-profile-card">
-        <span className="gf-profile-av">
-          {profile?.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.photo_url} alt="" />
-          ) : avatarInitial}
-        </span>
-        <span className="gf-profile-m">
-          <strong>{displayName}</strong>
-          <small>{profile?.specialisation ?? `${gym.name} · Coach`}</small>
-        </span>
-        <Pencil size={18} strokeWidth={1.75} className="gf-srow-chev" />
-      </Link>
-
-      <div className="gf-slist">
-        <section className="gf-slist-sec" aria-label="Get paid">
-          <div className="gf-slist-title">Get paid</div>
-          <div className="gf-slist-group">
-            <Link href="/coach/profile/rate" className="gf-srow">
-              <span className="gf-srow-ic"><Wallet /></span>
-              <span className="gf-srow-m">
-                <strong>Session rate</strong>
-                <small>{hasRate ? `You keep ${NGN(Math.round((rate * sharePct) / 100))} per subscriber` : 'Members can’t subscribe until this is set'}</small>
-              </span>
-              {hasRate ? <span className="gf-srow-val">{NGN(rate)}</span> : <span className="gf-srow-pill">Set</span>}
-              <ChevronRight size={18} strokeWidth={1.9} className="gf-srow-chev" />
-            </Link>
-            <Link href="/coach/profile/bank" className="gf-srow">
-              <span className="gf-srow-ic"><Banknote /></span>
-              <span className="gf-srow-m">
-                <strong>Payout bank</strong>
-                <small>{hasBank ? `${bank!.bank_name ?? 'Bank'} ····${(bank!.account_number ?? '').slice(-4)}` : 'Where the gym sends your share'}</small>
-              </span>
-              {hasBank ? null : <span className="gf-srow-pill">Set</span>}
-              <ChevronRight size={18} strokeWidth={1.9} className="gf-srow-chev" />
-            </Link>
-            <Link href="/coach/earnings" className="gf-srow">
-              <span className="gf-srow-ic"><BarChart3 /></span>
-              <span className="gf-srow-m">
-                <strong>Earnings</strong>
-                <small>{sharePct}% share this month</small>
-              </span>
-              <span className="gf-srow-val">{NGN(monthShare)}</span>
-              <ChevronRight size={18} strokeWidth={1.9} className="gf-srow-chev" />
-            </Link>
+      <div className="panel">
+        <div className="panel-title">Public profile</div>
+        <div className="panel-desc">Members see this when they browse coaches at {gym.name}.</div>
+        <div className="set-row">
+          <span className="gf-avatar gf-avatar-lg" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderColor: 'var(--gf-brand-glow)' }}>
+            {profile?.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.photo_url} alt="" />
+            ) : avatarInitial}
+          </span>
+          <div className="m">
+            <strong>{displayName}</strong>
+            <small>{profile?.specialisation ?? 'Coach'}</small>
           </div>
-        </section>
+          <Link href="/coach/profile/edit" className="gf-btn gf-btn-primary gf-btn-sm">
+            <Pencil size={14} strokeWidth={1.9} /> Edit
+          </Link>
+        </div>
+      </div>
 
-        <section className="gf-slist-sec" aria-label="Profile">
-          <div className="gf-slist-title">Profile</div>
-          <div className="gf-slist-group">
-            <Link href="/coach/profile/edit" className="gf-srow">
-              <span className="gf-srow-ic"><UserCircle2 /></span>
-              <span className="gf-srow-m"><strong>Public profile</strong><small>Photo, bio, specialisation, certifications</small></span>
-              <ChevronRight size={18} strokeWidth={1.9} className="gf-srow-chev" />
-            </Link>
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-title">Get paid</div>
+        <div className="panel-desc">Your session rate and where the gym sends your share.</div>
+
+        <div className="set-row">
+          <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderColor: 'transparent' }}>
+            <Wallet size={16} strokeWidth={1.9} />
+          </span>
+          <div className="m">
+            <strong>Session rate</strong>
+            <small>{hasRate ? `You keep ${NGN(Math.round((rate * sharePct) / 100))} per subscriber` : 'Members can’t subscribe until this is set'}</small>
           </div>
-        </section>
+          {hasRate ? (
+            <span className="naira" style={{ fontSize: '0.95rem', marginRight: 12 }}>{NGN(rate)}</span>
+          ) : null}
+          <Link href="/coach/profile/rate" className={`gf-btn gf-btn-sm ${hasRate ? 'gf-btn-secondary' : 'gf-btn-primary'}`}>
+            {hasRate ? 'Edit' : 'Set rate'}
+          </Link>
+        </div>
 
-        <section className="gf-slist-sec" aria-label="App">
-          <div className="gf-slist-title">App</div>
-          <div className="gf-slist-group" style={{ padding: 15, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-              <span className="gf-srow-ic"><Smartphone /></span>
-              <span className="gf-srow-m"><strong>Install app</strong><small>Add {gym.name} to your home screen</small></span>
-            </div>
-            <InstallAppButton />
+        <div className="set-row">
+          <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderColor: 'transparent' }}>
+            <Banknote size={16} strokeWidth={1.9} />
+          </span>
+          <div className="m">
+            <strong>Payout bank</strong>
+            <small>{hasBank ? `${bank!.bank_name ?? 'Bank'} ····${(bank!.account_number ?? '').slice(-4)}` : 'Where the gym sends your share'}</small>
           </div>
-        </section>
+          <Link href="/coach/profile/bank" className={`gf-btn gf-btn-sm ${hasBank ? 'gf-btn-secondary' : 'gf-btn-primary'}`}>
+            {hasBank ? 'Update' : 'Add bank'}
+          </Link>
+        </div>
 
-        <div className="gf-slist-group">
-          <form action={signOut}>
-            <button type="submit" className="gf-srow is-danger">
-              <span className="gf-srow-ic"><LogOut /></span>
-              <span className="gf-srow-m"><strong>Sign out</strong></span>
-            </button>
-          </form>
+        <div className="set-row">
+          <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderColor: 'transparent' }}>
+            <BarChart3 size={16} strokeWidth={1.9} />
+          </span>
+          <div className="m">
+            <strong>Earnings</strong>
+            <small>{sharePct}% share this month</small>
+          </div>
+          <span className="naira" style={{ fontSize: '0.95rem', marginRight: 12 }}>{NGN(monthShare)}</span>
+          <Link href="/coach/earnings" className="gf-btn gf-btn-secondary gf-btn-sm">
+            Open
+          </Link>
+        </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-title">Account</div>
+        <div className="set-row">
+          <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderColor: 'transparent' }}>
+            <UserCircle2 size={16} strokeWidth={1.9} />
+          </span>
+          <div className="m">
+            <strong>Public profile</strong>
+            <small>Photo, bio, specialisation, certifications</small>
+          </div>
+          <Link href="/coach/profile/edit" className="gf-btn gf-btn-secondary gf-btn-sm">Edit</Link>
         </div>
       </div>
     </div>
