@@ -45,9 +45,6 @@ next-env.d.ts
 # Local Netlify folder
 .netlify
 
-# Cloudflare Wrangler / Pages build output
-.wrangler/
-
 # Editor / OS
 .idea/
 .vscode/
