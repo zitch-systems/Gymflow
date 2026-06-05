@@ -1,12 +1,11 @@
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
+import { markAllNotificationsRead } from '@/lib/actions/notifications';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Card, CardHeader } from '@/components/ui/card';
-import { Bell } from 'lucide-react';
+import { Bell, CheckCheck } from 'lucide-react';
 import { InboxList, type InboxRow } from './inbox-list';
-import { PushToggle } from './push-toggle';
 
-export const metadata = { title: 'Inbox' };
+export const metadata = { title: 'Notifications' };
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -24,7 +23,6 @@ export default async function MemberInboxPage({ params }: PageProps) {
     .select('id, title, body, type, sent_at, is_read')
     .eq('user_id', user.id)
     .eq('gym_id', gym.id)
-    .order('is_read', { ascending: true })   // unread first
     .order('sent_at', { ascending: false })
     .limit(100);
 
@@ -33,30 +31,33 @@ export default async function MemberInboxPage({ params }: PageProps) {
 
   return (
     <div className="member-portal member-app">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">Inbox</h1>
-          <p className="gf-page-subtitle">
-            {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'} · {gym.name}
-          </p>
-        </div>
-        <PushToggle gymId={gym.id} />
+      <header className="m-head" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+        <strong className="htitle">Notifications</strong>
+        {unreadCount > 0 ? (
+          <form action={markAllNotificationsRead.bind(null, slug)}>
+            <button
+              type="submit"
+              className="m-head-bell"
+              aria-label={`Mark all ${unreadCount} as read`}
+              title="Mark all read"
+            >
+              <CheckCheck size={18} strokeWidth={1.9} />
+            </button>
+          </form>
+        ) : (
+          <span style={{ width: 38, height: 38 }} aria-hidden />
+        )}
       </header>
 
-      <Card>
-        <CardHeader title="Messages" />
-        <div style={{ padding: 14 }}>
-          {rows.length > 0 ? (
-            <InboxList slug={slug} rows={rows} />
-          ) : (
-            <EmptyState
-              icon={Bell}
-              title="No messages yet"
-              message="Announcements, payment receipts, and gym alerts will appear here."
-            />
-          )}
-        </div>
-      </Card>
+      {rows.length > 0 ? (
+        <InboxList slug={slug} rows={rows} />
+      ) : (
+        <EmptyState
+          icon={Bell}
+          title="No messages yet"
+          message={`Announcements, payment receipts, and gym alerts from ${gym.name} will appear here.`}
+        />
+      )}
     </div>
   );
 }
