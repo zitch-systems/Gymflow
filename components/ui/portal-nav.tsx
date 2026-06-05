@@ -26,7 +26,7 @@ const MEMBER_TABS: Tab[] = [
   { href: '/classes', label: 'Classes', icon: CalendarDays },
   { href: '/checkin', label: 'Check In', icon: ScanLine },
   { href: '/dashboard/instructors', label: 'Coaches', icon: GraduationCap },
-  { href: '/dashboard/renew', label: 'Renew', icon: CreditCard },
+  { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
   { href: '/dashboard/profile', label: 'Settings', icon: Settings },
 ];
 
@@ -68,7 +68,9 @@ function TabBar({ tabs }: { tabs: Tab[] }) {
 }
 
 const MEMBER_EXTRAS: CommandItem[] = [
-  // Settings/profile is now a primary tab, so it's not duplicated here.
+  // Settings/profile and Wallet are primary tabs now; Renew lives under Wallet
+  // but stays reachable here for keyboard users.
+  { href: '/dashboard/renew', label: 'Renew membership', icon: CreditCard, hint: 'Page' },
   { href: '/dashboard/cards', label: 'Saved cards', icon: CreditCard, hint: 'Page' },
   { href: '/dashboard/inbox', label: 'Inbox', icon: Bell, hint: 'Page' },
 ];
