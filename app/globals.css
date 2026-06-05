@@ -6734,3 +6734,15 @@ body::after {
 .gf-auth .foot-note a { color: var(--gf-brand); text-decoration: none; font-weight: 600; }
 .gf-auth .auth-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
 @media (max-width: 860px) { .gf-auth { grid-template-columns: 1fr; } .gf-auth .brandside { display: none; } .gf-auth .formside { padding: 32px 20px; } }
+/* recovery flow — lock badge, success ring, back link (forgot / reset password) */
+.gf-auth .lock-badge { width: 56px; height: 56px; border-radius: 16px; background: var(--gf-brand-soft); border: 1px solid var(--gf-brand-glow); display: grid; place-items: center; color: var(--gf-brand); margin-bottom: 4px; }
+.gf-auth .lock-badge svg { width: 26px; height: 26px; }
+.gf-auth .back-link { display: inline-flex; align-items: center; gap: 7px; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.84rem; text-decoration: none; margin-top: 22px; transition: color var(--gf-t); }
+.gf-auth .back-link:hover { color: var(--gf-text); }
+.gf-auth .back-link svg { width: 15px; height: 15px; }
+.gf-auth .auth-done { text-align: center; }
+.gf-auth .auth-done .ring { width: 78px; height: 78px; border-radius: 50%; background: var(--gf-brand-soft); border: 2px solid var(--gf-brand-glow); display: grid; place-items: center; margin: 0 auto 18px; color: var(--gf-brand); }
+.gf-auth .auth-done .ring svg { width: 38px; height: 38px; }
+.gf-auth .auth-done .em { font-family: var(--gf-font-display); font-weight: 700; color: var(--gf-text); }
+.gf-auth .resend { text-align: center; color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 20px; }
+.gf-auth .resend a { color: var(--gf-brand); text-decoration: none; font-weight: 600; }
