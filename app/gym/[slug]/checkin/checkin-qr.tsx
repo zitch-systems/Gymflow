@@ -8,7 +8,7 @@ import { QRCodeSVG } from 'qrcode.react';
 export function CheckinQr({ value }: { value: string }) {
   return (
     <div className="m-ci-qr" aria-label="Your check-in QR code">
-      <QRCodeSVG value={value} size={196} level="M" includeMargin={false} />
+      <QRCodeSVG value={value} size={200} level="M" includeMargin={false} />
     </div>
   );
 }
