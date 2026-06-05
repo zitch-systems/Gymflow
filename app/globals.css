@@ -6696,3 +6696,41 @@ body::after {
 .m-receipt-row:first-child { border-top: none; }
 .m-receipt-row span { color: var(--gf-text-muted); }
 .m-receipt-row b { font-family: var(--gf-font-display); font-weight: 600; color: var(--gf-text); text-align: right; word-break: break-word; }
+
+/* ── Auth — brand-split sign-in, ported from the design system (revamp/auth.css). Scoped under .gf-auth so the generic names never leak. ── */
+.gf-auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; }
+.gf-auth .brandside { position: relative; overflow: hidden; padding: 44px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--gf-border); }
+.gf-auth .brandside-bg { position: absolute; inset: 0; background: url(/images/gym-studio.jpg) center/cover; opacity: 0.28; }
+.gf-auth .brandside-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, var(--gf-brand-soft), transparent 40%), linear-gradient(0deg, var(--gf-bg) 5%, transparent 60%); }
+.gf-auth .brandside > * { position: relative; }
+.gf-auth .bs-quote { max-width: 440px; }
+.gf-auth .bs-quote .stars { display: flex; gap: 3px; color: var(--gf-accent); margin-bottom: 16px; }
+.gf-auth .bs-quote .stars svg { width: 18px; height: 18px; fill: var(--gf-accent); }
+.gf-auth .bs-quote p { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.02em; margin: 0 0 18px; }
+.gf-auth .bs-quote .by { display: flex; align-items: center; gap: 12px; }
+.gf-auth .bs-quote .by .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); }
+.gf-auth .bs-quote .by strong { font-family: var(--gf-font-display); display: block; }
+.gf-auth .bs-quote .by small { color: var(--gf-text-secondary); }
+.gf-auth .bs-stats { display: flex; gap: 36px; margin-top: 30px; }
+.gf-auth .bs-stats dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gf-text-muted); font-weight: 600; }
+.gf-auth .bs-stats dd { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 800; margin: 4px 0 0; color: var(--gf-brand); }
+.gf-auth .formside { display: flex; align-items: center; justify-content: center; padding: 44px; }
+.gf-auth .formcard { width: 100%; max-width: 380px; }
+.gf-auth .formcard h1 { font-family: var(--gf-font-display); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin: 24px 0 6px; }
+.gf-auth .formcard .lede { color: var(--gf-text-secondary); font-size: 0.92rem; margin: 0 0 24px; line-height: 1.5; }
+.gf-auth .auth-tabs { display: flex; gap: 4px; background: var(--gf-elevated); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-pill); padding: 4px; margin-bottom: 22px; }
+.gf-auth .auth-tabs a { flex: 1; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.875rem; padding: 9px; border-radius: var(--gf-radius-pill); transition: all var(--gf-t); text-align: center; text-decoration: none; }
+.gf-auth .auth-tabs a.on { background: var(--gf-brand); color: #fff; box-shadow: 0 2px 10px var(--gf-brand-glow); }
+.gf-auth .auth-tabs a:not(.on):hover { color: var(--gf-text); }
+.gf-auth .auth-row { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 20px; }
+.gf-auth .auth-row label { display: flex; align-items: center; gap: 7px; color: var(--gf-text-secondary); font-size: 0.84rem; cursor: pointer; }
+.gf-auth .auth-divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; color: var(--gf-text-muted); font-size: 0.78rem; }
+.gf-auth .auth-divider::before, .gf-auth .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--gf-border); }
+.gf-auth .auth-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gf-auth .role-btn { display: flex; align-items: center; gap: 9px; padding: 11px 13px; border-radius: var(--gf-radius-sm); background: var(--gf-elevated); border: 1px solid var(--gf-border); color: var(--gf-text); text-decoration: none; font-family: var(--gf-font-display); font-weight: 600; font-size: 0.82rem; transition: all var(--gf-t); }
+.gf-auth .role-btn:hover { border-color: var(--gf-brand); color: var(--gf-brand); transform: translateY(-1px); }
+.gf-auth .role-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.gf-auth .foot-note { text-align: center; color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 24px; }
+.gf-auth .foot-note a { color: var(--gf-brand); text-decoration: none; font-weight: 600; }
+.gf-auth .auth-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
+@media (max-width: 860px) { .gf-auth { grid-template-columns: 1fr; } .gf-auth .brandside { display: none; } .gf-auth .formside { padding: 32px 20px; } }

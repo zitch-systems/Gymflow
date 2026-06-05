@@ -29,9 +29,7 @@ export function LoginForm({ redirectTo, slug }: { redirectTo: string; slug: stri
         <input type="hidden" name="slug" value={slug} />
 
         <div className="gf-form-group">
-          <label className="gf-form-label" htmlFor="email">
-            Email address
-          </label>
+          <label className="gf-form-label" htmlFor="email">Email</label>
           <div className="gf-input-group">
             <svg className="gf-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -42,7 +40,7 @@ export function LoginForm({ redirectTo, slug }: { redirectTo: string; slug: stri
               id="email"
               name="email"
               className="gf-input"
-              placeholder="you@example.com"
+              placeholder="you@gym.com"
               autoComplete="email"
               required
               value={email}
@@ -52,16 +50,14 @@ export function LoginForm({ redirectTo, slug }: { redirectTo: string; slug: stri
         </div>
 
         <div className="gf-form-group">
-          <label className="gf-form-label" htmlFor="password">
-            Password
-          </label>
+          <label className="gf-form-label" htmlFor="password">Password</label>
           <div className="pw-wrap">
             <input
               type={showPassword ? 'text' : 'password'}
               id="password"
               name="password"
               className="gf-input"
-              placeholder="Your password"
+              placeholder="••••••••"
               autoComplete="current-password"
               required
             />
@@ -88,7 +84,11 @@ export function LoginForm({ redirectTo, slug }: { redirectTo: string; slug: stri
           </div>
         </div>
 
-        <div className="forgot-row">
+        <div className="auth-row">
+          <label>
+            <input type="checkbox" name="remember" defaultChecked style={{ accentColor: 'var(--gf-brand)' }} />
+            Remember me
+          </label>
           <button
             type="button"
             className="forgot-link"
@@ -113,13 +113,15 @@ export function LoginForm({ redirectTo, slug }: { redirectTo: string; slug: stri
           {pending ? (
             <>
               <span>Signing in…</span>
-              <span
-                className="gf-spinner"
-                style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }}
-              />
+              <span className="gf-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
             </>
           ) : (
-            <span>Sign In</span>
+            <>
+              <span>Sign in</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+              </svg>
+            </>
           )}
         </button>
       </form>
