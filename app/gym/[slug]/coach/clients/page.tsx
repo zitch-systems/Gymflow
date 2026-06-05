@@ -43,7 +43,7 @@ export default async function CoachClientsPage({ params }: PageProps) {
     const t = new Date(s.scheduled_at);
     const acc = sessionsByMember.get(s.member_id) ?? { upcoming: null, doneThisMonth: 0 };
     if (s.status === 'completed') acc.doneThisMonth += 1;
-    if (t.getTime() >= Date.now() && (!acc.upcoming || t < acc.upcoming)) acc.upcoming = t;
+    if (t.getTime() >= new Date().getTime() && (!acc.upcoming || t < acc.upcoming)) acc.upcoming = t;
     sessionsByMember.set(s.member_id, acc);
   }
 

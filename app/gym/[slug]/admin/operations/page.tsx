@@ -1,6 +1,7 @@
 import { requireStaff } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
+import { daysAgoDate } from '@/lib/dates';
 import { EquipmentCrud } from './equipment-crud';
 import { ExpensesCrud } from './expenses-crud';
 import { Stat } from '@/components/ui/stat';
@@ -38,8 +39,7 @@ export default async function AdminOperationsPage({ params }: PageProps) {
   }).length;
 
   // Expenses (last 30 days) — total spend for the headline KPI.
-  const DAY_MS = 86_400_000;
-  const thirtyAgo = new Date(Date.now() - 30 * DAY_MS).toISOString().split('T')[0];
+  const thirtyAgo = daysAgoDate(30);
   const recent30Expenses = (expenses ?? []).filter((e) => e.expense_date && e.expense_date >= thirtyAgo);
   const spend30 = recent30Expenses.reduce((s, e) => s + Number(e.amount ?? 0), 0);
 

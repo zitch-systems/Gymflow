@@ -1,15 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import './_stub-server-only';
 
-// PT-packs lifecycle: createPtPack, setPtPackActive, grantPtPackToMember,
-// and the credit-decrement on session scheduling (consumePtCredit). The
-// load-bearing invariants:
-//   - createPtPack validates name + instructor + 1..100 sessions + price>=0
-//   - grantPtPackToMember refuses an inactive/foreign pack AND requires the
-//     member to belong to this gym (anti-IDOR — can't grant to other gyms'
-//     members)
-//   - the grant snapshots session_count + instructor_id AT GRANT TIME so a
-//     later pack edit doesn't change historical balances
+// consumePtCredit — the credit-decrement on coach session scheduling. (The
+// admin PT-packs surface — createPtPack / setPtPackActive / grantPtPackToMember
+// — was cut with the other non-prototype admin routes; only this coach-side
+// helper remains.) The load-bearing invariants:
 //   - consumePtCredit picks the oldest credit with balance (FIFO), only
 //     decrements when sessions_used is still where we read it (concurrent-
 //     booking guard), and returns consumed:false (not an error) when the
@@ -179,7 +174,7 @@ vi.mock('@/lib/auth/dal', () => ({ getSessionUser: getSessionMock }));
 vi.mock('@/lib/audit', () => ({ audit: auditMock }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 
-import { createPtPack, grantPtPackToMember, consumePtCredit, setPtPackActive } from '@/lib/actions/pt-packs';
+import { consumePtCredit } from '@/lib/actions/pt-packs';
 
 function fd(o: Record<string, string>): FormData {
   const f = new FormData();
@@ -200,101 +195,6 @@ beforeEach(() => {
   state.writeError = null;
   requireStaffMock.mockClear();
   auditMock.mockClear();
-});
-
-describe('createPtPack', () => {
-  it('requires staff auth', async () => {
-    requireStaffMock.mockRejectedValueOnce(new Error('redirect'));
-    await expect(createPtPack('demo', fd({ name: 'x', instructor_id: 'i', session_count: '10', price: '5000' }))).rejects.toThrow();
-    expect(state.inserts).toHaveLength(0);
-  });
-
-  it('rejects missing name / instructor', async () => {
-    expect((await createPtPack('demo', fd({ name: '', instructor_id: 'i', session_count: '10', price: '5000' }))).ok).toBe(false);
-    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: '', session_count: '10', price: '5000' }))).ok).toBe(false);
-  });
-
-  it('rejects session_count out of [1,100]', async () => {
-    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: 'i', session_count: '0', price: '0' }))).ok).toBe(false);
-    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: 'i', session_count: '101', price: '0' }))).ok).toBe(false);
-  });
-
-  it('rejects negative price (price=0 is allowed for comp packs)', async () => {
-    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: 'coach-1', session_count: '10', price: '-1' }))).ok).toBe(false);
-    expect((await createPtPack('demo', fd({ name: 'x', instructor_id: 'coach-1', session_count: '10', price: '0' }))).ok).toBe(true);
-  });
-
-  it('REJECTS an instructor_id that is not an active coach at this gym (tampered form)', async () => {
-    // Default fixture: coach-1 is at gym-1. Try to create a pack with coach-2
-    // (no link) — the validation gate must reject it before the insert.
-    state.coachLinks = [{ gym_id: 'gym-1', user_id: 'coach-1', role: 'instructor', is_active: true }];
-    const r = await createPtPack('demo', fd({ name: 'x', instructor_id: 'coach-2', session_count: '10', price: '5000' }));
-    expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/not an active instructor/);
-    expect(state.inserts).toHaveLength(0);
-  });
-
-  it('REJECTS a coach that is inactive at this gym (was a coach, no longer)', async () => {
-    state.coachLinks = [{ gym_id: 'gym-1', user_id: 'coach-1', role: 'instructor', is_active: false }];
-    const r = await createPtPack('demo', fd({ name: 'x', instructor_id: 'coach-1', session_count: '10', price: '5000' }));
-    expect(r.ok).toBe(false);
-    expect(state.inserts).toHaveLength(0);
-  });
-
-  it('on success inserts with the staff gym_id and audits', async () => {
-    const r = await createPtPack('demo', fd({ name: '10x Ada', instructor_id: 'coach-1', session_count: '10', price: '50000' }));
-    expect(r.ok).toBe(true);
-    expect(state.inserts[0]!.payload).toMatchObject({ gym_id: 'gym-1', instructor_id: 'coach-1', session_count: 10, price: 50000, currency: 'NGN' });
-    expect(auditMock).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('setPtPackActive', () => {
-  it('UPDATE scoped to id AND gym_id (no IDOR)', async () => {
-    await setPtPackActive('demo', 'foreign-pack', false);
-    const u = state.updates.find((u) => u.table === 'pt_packs')!;
-    expect(u.eqs).toContainEqual({ col: 'id', val: 'foreign-pack' });
-    expect(u.eqs).toContainEqual({ col: 'gym_id', val: 'gym-1' });
-    expect(u.payload).toMatchObject({ is_active: false });
-  });
-});
-
-describe('grantPtPackToMember', () => {
-  beforeEach(() => {
-    state.packs = [{ id: 'pack-1', gym_id: 'gym-1', instructor_id: 'coach-1', name: '10x', session_count: 10, is_active: true }];
-    state.memberLinks = [{ gym_id: 'gym-1', user_id: 'member-1' }];
-  });
-
-  it('rejects when the pack id is unknown / inactive', async () => {
-    state.packs = [{ id: 'pack-1', gym_id: 'gym-1', instructor_id: 'coach-1', name: '10x', session_count: 10, is_active: false }];
-    const r = await grantPtPackToMember('demo', fd({ pack_id: 'pack-1', member_id: 'member-1' }));
-    expect(r.ok).toBe(false);
-    expect(state.inserts).toHaveLength(0);
-  });
-
-  it("rejects when the member doesn't belong to this gym (cross-gym IDOR)", async () => {
-    state.memberLinks = []; // no link
-    const r = await grantPtPackToMember('demo', fd({ pack_id: 'pack-1', member_id: 'member-1' }));
-    expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/not part of this gym/);
-    expect(state.inserts).toHaveLength(0);
-  });
-
-  it('grants and snapshots session_count + instructor AT GRANT TIME (immune to later pack edits)', async () => {
-    const r = await grantPtPackToMember('demo', fd({ pack_id: 'pack-1', member_id: 'member-1' }));
-    expect(r.ok).toBe(true);
-    const ins = state.inserts.find((i) => i.table === 'pt_pack_credits')!;
-    expect(ins.payload).toMatchObject({
-      gym_id: 'gym-1',
-      member_id: 'member-1',
-      instructor_id: 'coach-1', // copied from pack
-      pack_id: 'pack-1',
-      sessions_total: 10,
-      sessions_used: 0,
-      source: 'admin_grant',
-    });
-    expect(auditMock).toHaveBeenCalledTimes(1);
-  });
 });
 
 describe('consumePtCredit', () => {

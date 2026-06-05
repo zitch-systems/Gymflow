@@ -126,12 +126,12 @@ export default async function AdminAnalyticsPage({ params, searchParams }: PageP
     }))
     .sort((a, b) => b.pct - a.pct);
   // Cumulative offsets for stacked stroke-dasharray segments around the donut.
-  let cum = 0;
-  const planMix = planMixRaw.map((s) => {
-    const start = cum;
-    cum += s.pct;
-    return { ...s, start };
-  });
+  // Each segment starts where the sum of all preceding segments ends (n is the
+  // plan count — tiny — so the inner reduce is fine and keeps render pure).
+  const planMix = planMixRaw.map((s, i) => ({
+    ...s,
+    start: planMixRaw.slice(0, i).reduce((acc, p) => acc + p.pct, 0),
+  }));
 
   // ── Check-ins by day — last 7 days bars. ────────────────────────────────
   const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

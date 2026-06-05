@@ -100,7 +100,7 @@ export default async function SuperadminPage() {
   const totalMembers = Array.from(membersByGym.values()).reduce((a, b) => a + b, 0);
 
   // 12-month MRR series for the area chart.
-  const nowMs = Date.now();
+  const nowMs = new Date().getTime();
   const months: { label: string; ts: number; amount: number }[] = [];
   for (let i = 11; i >= 0; i--) {
     const d = new Date();

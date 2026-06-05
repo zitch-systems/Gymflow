@@ -466,36 +466,29 @@ h1, h2, h3, h4, h5, h6,
 }
 
 .gf-nav-tab {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
   padding: 4px 12px; min-width: 52px;
   color: var(--gf-text-muted);
-  font-family: var(--gf-font-display); font-size: 0.6875rem; font-weight: 600;
+  font-family: var(--gf-font-display); font-size: 0.66rem; font-weight: 600;
   text-decoration: none; background: none; border: none; cursor: pointer;
   transition: color var(--gf-t-fast), transform var(--gf-t-fast);
   letter-spacing: 0.02em; -webkit-user-select: none; user-select: none;
 }
-.gf-nav-tab:active { transform: scale(0.88); }
+.gf-nav-tab:active { transform: scale(0.92); }
 .gf-nav-tab.active { color: var(--gf-brand); }
-/* Every icon lives in a fixed 40px slot so active/inactive tabs share one
-   baseline. Inactive: thin gray glyph on transparent. Active: the slot fills
-   with a green squircle + white icon — the reference app's bottom-bar look. */
+/* Prototype bottom-bar (revamp/member.css .tabbar button): a 23px line icon
+   that simply tints brand-green when active — no filled chip, no slot. */
 .gf-nav-tab svg {
-  width: 40px; height: 40px; padding: 8px; box-sizing: border-box;
-  border-radius: 13px; stroke-width: 1.85;
-  transition: background var(--gf-t-fast), color var(--gf-t-fast), box-shadow var(--gf-t-fast);
+  width: 23px; height: 23px; stroke-width: 1.85;
+  transition: color var(--gf-t-fast);
 }
-.gf-nav-tab.active svg {
-  background: linear-gradient(135deg, var(--gf-brand), var(--gf-brand-dark));
-  color: #fff; stroke-width: 2;
-  box-shadow: 0 6px 16px var(--gf-brand-glow);
-}
+.gf-nav-tab.active svg { stroke-width: 2; }
 
-/* With 6 member tabs the bar gets tight on small phones — trim per-tab
-   padding / min-width and shrink the icon slot slightly so all six fit
-   without wrapping. The flex `space-around` distributes the remainder. */
+/* Very small phones: trim per-tab padding so labels never wrap. The icon
+   already sits at the prototype's 23px, so only the chrome shrinks. */
 @media (max-width: 420px) {
   .gf-nav-tab { min-width: 0; padding-left: 6px; padding-right: 6px; font-size: 0.625rem; }
-  .gf-nav-tab svg { width: 36px; height: 36px; padding: 7px; }
+  .gf-nav-tab svg { width: 22px; height: 22px; }
 }
 
 /* ── Page Header ── */
@@ -6582,6 +6575,11 @@ body::after {
 /* Member profile — centered avatar hero, stat strip, settings groups
    (mirrors revamp/member.css §profile so the live Profile tab matches the
    prototype hero layout rather than the older "Settings menu" treatment). */
+/* Profile blocks carry the prototype's own 14px bottom margins (see
+   revamp/member.css .prof-stats / .group); the flex column must not add a
+   second gap on top, or the vertical rhythm doubles to ~30px. */
+.m-profile { gap: 0; }
+
 .m-prof-top { text-align: center; padding: 14px 0 22px; }
 .m-prof-top .gf-avatar {
   margin: 0 auto 13px;
@@ -6627,7 +6625,7 @@ body::after {
 }
 .m-prof-row-ic svg { width: 20px; height: 20px; }
 .m-prof-row-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.m-prof-row-m strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.95rem; color: var(--gf-text); }
+.m-prof-row-m strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.92rem; color: var(--gf-text); }
 .m-prof-row-m small {
   font-size: 0.78rem; color: var(--gf-text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -6996,9 +6994,10 @@ body::after {
 .act-row .m strong { font-family: var(--gf-font-display); font-size: 0.875rem; font-weight: 600; display: block; }
 .act-row .m small { color: var(--gf-text-muted); font-size: 0.74rem; }
 .act-row .t { font-size: 0.74rem; color: var(--gf-text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-/* (Legacy .adm-revbar*/.adm-chart-foot/.adm-feed*/.adm-donut*/.adm-seg*
-   removed — superseded by prototype's .chart/.bar-col/.bar/.bar-lbl,
-   .feed/.feed-row/.feed-meta/.feed-time, .seg.) */
+/* Legacy admin chart/feed/donut/seg helpers (.adm-revbar, .adm-chart-foot,
+   .adm-feed, .adm-donut, .adm-seg) were removed here — superseded by the
+   prototype primitives .chart, .bar-col, .bar, .bar-lbl, .feed, .feed-row,
+   .feed-meta, .feed-time, and .seg. */
 
 /* ── Member wallet — money hub: summary card · spend chart · transactions · receipt ── */
 .m-wallet-sect { font-family: var(--gf-font-display); font-weight: 800; font-size: 1rem; margin: 22px 0 12px; display: flex; justify-content: space-between; align-items: center; }

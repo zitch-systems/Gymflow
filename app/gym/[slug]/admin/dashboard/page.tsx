@@ -264,7 +264,7 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
           <div className="panel">
             <div className="panel-h">
               <div>
-                <h3>Today's classes</h3>
+                <h3>Today&apos;s classes</h3>
                 <div className="sub">{(todayClasses ?? []).length} session{(todayClasses ?? []).length === 1 ? '' : 's'} scheduled</div>
               </div>
               <Link href="/admin/classes" className="link">All classes <ArrowRight strokeWidth={2} /></Link>
