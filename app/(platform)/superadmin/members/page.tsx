@@ -3,10 +3,8 @@ import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card, CardHeader } from '@/components/ui/card';
-import { Button, ButtonLink } from '@/components/ui/button';
-import { ArrowLeft, Search, SearchX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, SearchX } from 'lucide-react';
 
 type PageProps = { searchParams: Promise<{ q?: string }> };
 
@@ -66,19 +64,18 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
 
   return (
     <div className="gf-page">
-      <PageHeader
-        title="Find a member"
-        subtitle="Search across every gym — email, phone, or name."
-        actions={
-          <ButtonLink href="/superadmin" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
-            Back
-          </ButtonLink>
-        }
-      />
+      <div className="page-h">
+        <div>
+          <h1>Find a member</h1>
+          <p>Search across every gym — email, phone, or name.</p>
+        </div>
+      </div>
 
-      <Card padded>
-        <form>
-          <div className="gf-form-group" style={{ marginBottom: 0 }}>
+      <div className="panel">
+        <div className="panel-title">Search</div>
+        <div className="panel-desc">Cross-tenant lookup; results show every gym the member is linked to.</div>
+        <form className="toolbar" style={{ marginBottom: 0 }}>
+          <div className="search">
             <input
               name="q"
               defaultValue={query}
@@ -87,36 +84,60 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
               autoFocus
             />
           </div>
-          <Button type="submit" variant="primary" leadingIcon={<Search size={16} strokeWidth={1.75} />} className="gf-btn-mt-12" style={{ marginTop: 12 }}>
+          <div style={{ flex: 1 }} />
+          <Button type="submit" variant="primary" size="sm" leadingIcon={<Search size={14} strokeWidth={1.75} />}>
             Search
           </Button>
         </form>
-      </Card>
+      </div>
 
       {query && (
-        <Card>
-          <CardHeader title={`${results.length} result${results.length === 1 ? '' : 's'} for "${query}"`} />
+        <div className="panel" style={{ marginTop: 16 }}>
+          <div className="panel-h">
+            <div>
+              <h3>{results.length} result{results.length === 1 ? '' : 's'}</h3>
+              <div className="sub">For &ldquo;{query}&rdquo;</div>
+            </div>
+          </div>
           {results.length > 0 ? (
-            <div className="gf-table-wrap">
-              <table role="table" className="gf-table gf-table-cards">
-                <thead>
-                  <tr role="row"><th>Name</th><th>Contact</th><th>Role</th><th>Gyms</th><th>Joined</th></tr>
-                </thead>
-                <tbody role="rowgroup">
-                  {results.map((r) => (
-                    <tr role="row" key={r.id}>
-                      <td role="cell" style={{ fontWeight: 600 }}>{r.full_name ?? '—'}</td>
-                      <td role="cell" data-label="Contact">
-                        <div>{r.email ?? '—'}</div>
-                        <div className="gf-table-meta">{r.phone ?? '—'}</div>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Contact</th>
+                  <th>Role</th>
+                  <th>Gyms</th>
+                  <th>Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r) => {
+                  const name = r.full_name ?? r.email ?? '—';
+                  const initial = name.charAt(0).toUpperCase();
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <div className="who">
+                          <span className="gf-avatar gf-avatar-sm">{initial}</span>
+                          <div>
+                            <strong>{r.full_name ?? '—'}</strong>
+                            <small>{r.email ?? '—'}</small>
+                          </div>
+                        </div>
                       </td>
-                      <td role="cell" data-label="Role"><span className="gf-table-meta">{r.role ?? '—'}</span></td>
-                      <td role="cell" data-label="Gyms">
+                      <td style={{ color: 'var(--gf-text-secondary)' }}>{r.phone ?? '—'}</td>
+                      <td>
+                        <span className="gf-badge gf-badge-neutral">
+                          <span className="gf-dot" />
+                          {r.role ?? 'member'}
+                        </span>
+                      </td>
+                      <td>
                         {r.gyms.length === 0 ? (
-                          <span className="gf-table-meta">—</span>
+                          <span style={{ color: 'var(--gf-text-muted)' }}>—</span>
                         ) : (
                           r.gyms.map((g, i) => (
-                            <div key={i}>
+                            <div key={i} style={{ fontSize: '0.86rem' }}>
                               <a
                                 href={`https://${g.gym_slug}.gymflow.ng/admin/dashboard`}
                                 target="_blank"
@@ -125,21 +146,21 @@ export default async function SuperadminMemberSearchPage({ searchParams }: PageP
                               >
                                 {g.gym_name}
                               </a>
-                              {g.status && <span className="gf-table-meta"> · {g.status}</span>}
+                              {g.status && <span style={{ color: 'var(--gf-text-muted)' }}> · {g.status}</span>}
                             </div>
                           ))
                         )}
                       </td>
-                      <td role="cell" data-label="Joined">{r.created_at ? fmtDate(r.created_at) : '—'}</td>
+                      <td style={{ color: 'var(--gf-text-secondary)' }}>{r.created_at ? fmtDate(r.created_at) : '—'}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           ) : (
-            <EmptyState icon={SearchX} title="No matches" />
+            <EmptyState icon={SearchX} title="No matches" message="Try a different email, phone, or name." />
           )}
-        </Card>
+        </div>
       )}
     </div>
   );

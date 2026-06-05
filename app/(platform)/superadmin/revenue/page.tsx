@@ -3,13 +3,19 @@ import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 import { daysAgoIso } from '@/lib/dates';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card, CardHeader } from '@/components/ui/card';
-import { Stat, StatGrid } from '@/components/ui/stat';
-import { ButtonLink } from '@/components/ui/button';
-import { StatusPill } from '@/components/ui/badge';
+import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ArrowLeft, Repeat, Banknote, TrendingUp, TrendingDown, Building2, Receipt } from 'lucide-react';
+import { Repeat, Banknote, TrendingUp, TrendingDown, Receipt } from 'lucide-react';
+
+const GRADS = [
+  'linear-gradient(135deg, #11d18b, #07a86c)',
+  'linear-gradient(135deg, #4080ff, #2a5cc0)',
+  'linear-gradient(135deg, #a8d92e, #6a9c00)',
+  'linear-gradient(135deg, #ffb020, #cc8a10)',
+  'linear-gradient(135deg, #b67bf3, #7c45c0)',
+  'linear-gradient(135deg, #ff4560, #cc2a40)',
+];
+const gradFor = (s: string) => GRADS[s.charCodeAt(0) % GRADS.length];
 
 // Known plan colours mirror the prototype's revenue-by-plan legend; anything
 // else falls back to muted so a new plan tier still renders sensibly.
@@ -163,131 +169,142 @@ export default async function SuperadminRevenuePage() {
 
   return (
     <div className="gf-page">
-      <PageHeader
-        title="Revenue"
-        subtitle={subtitle}
-        actions={
-          <ButtonLink href="/superadmin" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
-            Back
-          </ButtonLink>
-        }
-      />
+      <div className="page-h">
+        <div>
+          <h1>Revenue</h1>
+          <p>{subtitle}</p>
+        </div>
+      </div>
 
-      <StatGrid>
+      <section className="kpis">
         <Stat
           label="MRR (30d platform fees)"
           value={fmtNaira(mrr30)}
-          icon={Repeat}
           accent="emerald"
+          icon={Repeat}
           spark={mrrSpark}
-          hint={
-            mom != null ? (
-              <span style={{ color: mom >= 0 ? 'var(--gf-success)' : 'var(--gf-danger)', fontWeight: 700 }}>
-                {mom >= 0 ? '+' : ''}{mom}% MoM
-              </span>
-            ) : undefined
-          }
+          delta={mom != null ? { dir: mom >= 0 ? 'up' : 'down', value: `${mom >= 0 ? '+' : ''}${mom}%` } : undefined}
         />
-        <Stat label={`Processed in ${monthLabel}`} value={fmtNaira(processedMonth)} icon={Banknote} accent="blue" />
-        <Stat label="ARR (run-rate)" value={fmtNaira(arr)} icon={TrendingUp} accent="purple" />
-        <Stat label="Churn (30d)" value={`${churnPct}%`} icon={TrendingDown} accent="amber" />
-      </StatGrid>
+        <Stat label={`Processed in ${monthLabel}`} value={fmtNaira(processedMonth)} accent="lime" icon={Banknote} />
+        <Stat label="ARR (run-rate)" value={fmtNaira(arr)} accent="blue" icon={TrendingUp} />
+        <Stat label="Churn (30d)" value={`${churnPct}%`} accent="rose" icon={TrendingDown} />
+      </section>
 
-      <div className="adm-dash-row">
-        <Card>
-          <CardHeader title="MRR growth · trailing 12 months" />
-          <div
-            className="adm-revbars"
-            role="img"
-            aria-label={`Monthly platform revenue, ${fmtNaira(monthSeries.reduce((a, m) => a + m.amount, 0))} over 12 months`}
-          >
-            {monthSeries.map((m) => (
-              <div key={m.key} className="adm-revbar" title={`${m.label}: ${fmtNaira(m.amount)}`}>
-                <div className="adm-revbar-track">
-                  <div className="adm-revbar-fill" style={{ height: `${Math.round((m.amount / monthMax) * 100)}%` }} />
-                </div>
-                <span className="adm-revbar-x">{m.label}</span>
+      <section className="adm-grid">
+        <div>
+          <div className="panel">
+            <div className="panel-h">
+              <div>
+                <h3>MRR growth</h3>
+                <div className="sub">Trailing 12 months · {fmtNaira(monthSeries.reduce((a, m) => a + m.amount, 0))} collected</div>
               </div>
-            ))}
-          </div>
-          <div className="adm-chart-foot">{fmtNaira(mrr30)} this month · run-rate {fmtNaira(arr)}/yr</div>
-        </Card>
-
-        <Card>
-          <CardHeader title="Revenue by plan" />
-          {planRows.length > 0 ? (
-            <ul className="gf-list">
-              {planRows.map((p) => (
-                <li key={p.key} className="gf-list-row">
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                    <span aria-hidden style={{ width: 10, height: 10, borderRadius: 3, background: p.color, flexShrink: 0 }} />
-                    <span>
-                      <strong>{p.label}</strong>
-                      <span className="gf-table-meta"> · {p.gyms} gym{p.gyms === 1 ? '' : 's'}</span>
-                    </span>
-                  </span>
-                  <span style={{ fontFamily: 'var(--gf-font-display)', fontWeight: 800 }}>{fmtNaira(p.rev)}</span>
-                </li>
+            </div>
+            <div className="chart" role="img" aria-label={`Monthly platform revenue, ${fmtNaira(monthSeries.reduce((a, m) => a + m.amount, 0))} over 12 months`}>
+              {monthSeries.map((m) => (
+                <div key={m.key} className="bar-col">
+                  <div className={`bar${m.amount === 0 ? ' muted' : ''}`} style={{ height: `${Math.round((m.amount / monthMax) * 100)}%` }} title={`${m.label}: ${fmtNaira(m.amount)}`} />
+                  <span className="bar-lbl">{m.label}</span>
+                </div>
               ))}
-            </ul>
-          ) : (
-            <EmptyState icon={Receipt} title="No revenue yet" message="Plan revenue appears here as gyms subscribe." />
-          )}
-        </Card>
-      </div>
+            </div>
+          </div>
+        </div>
 
-      <Card>
-        <CardHeader title="Recent settlements" />
+        <div>
+          <div className="panel">
+            <div className="panel-h">
+              <div>
+                <h3>Revenue by plan</h3>
+                <div className="sub">{planRows.reduce((s, p) => s + p.gyms, 0)} gyms across {planRows.length} plan{planRows.length === 1 ? '' : 's'}</div>
+              </div>
+            </div>
+            {planRows.length > 0 ? (
+              <div>
+                {planRows.map((p) => (
+                  <div key={p.key} className="act-row">
+                    <div className="ic" style={{ background: 'transparent' }} aria-hidden>
+                      <span style={{ width: 14, height: 14, borderRadius: 4, background: p.color, display: 'inline-block' }} />
+                    </div>
+                    <div className="m">
+                      <strong>{p.label}</strong>
+                      <small>{p.gyms} gym{p.gyms === 1 ? '' : 's'}</small>
+                    </div>
+                    <span className="t naira" style={{ fontFamily: 'var(--gf-font-display)', fontWeight: 800, fontSize: '0.95rem' }}>{fmtNaira(p.rev)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={Receipt} title="No revenue yet" message="Plan revenue appears here as gyms subscribe." />
+            )}
+          </div>
+        </div>
+      </section>
+
+      <div className="panel">
+        <div className="panel-h">
+          <div>
+            <h3>Recent settlements</h3>
+            <div className="sub">Last 12 platform-fee transactions</div>
+          </div>
+        </div>
         {settleRows.length > 0 ? (
-          <div className="gf-table-wrap">
-            <table role="table" className="gf-table gf-table-cards">
-              <thead>
-                <tr role="row">
-                  <th>Gym</th>
-                  <th>Plan</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {settleRows.map((r) => (
-                  <tr role="row" key={r.id}>
-                    <td role="cell">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Gym</th>
+                <th>Plan</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {settleRows.map((r) => {
+                const success = r.status === 'successful';
+                const pending = r.status === 'pending';
+                const badge = success
+                  ? { cls: 'gf-badge-success', label: 'Settled' }
+                  : pending
+                    ? { cls: 'gf-badge-warning', label: 'Pending' }
+                    : { cls: 'gf-badge-danger', label: STATUS_LABEL[r.status] ?? r.status };
+                return (
+                  <tr key={r.id}>
+                    <td>
                       {r.slug ? (
                         <a
                           href={`https://${r.slug}.gymflow.ng/admin/dashboard`}
                           target="_blank"
                           rel="noreferrer"
-                          className="gf-link"
-                          style={{ fontWeight: 600 }}
+                          className="gname"
+                          style={{ textDecoration: 'none', color: 'inherit' }}
                         >
-                          <Building2 size={14} strokeWidth={1.75} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
-                          {r.name}
+                          <span className="sq" style={{ background: gradFor(r.name) }}>{r.name.charAt(0).toUpperCase()}</span>
+                          <div><strong>{r.name}</strong><small>{r.slug}.gymflow.ng</small></div>
                         </a>
                       ) : (
-                        <span style={{ fontWeight: 600 }}>{r.name}</span>
+                        <strong>{r.name}</strong>
                       )}
                     </td>
-                    <td role="cell" data-label="Plan">{r.plan}</td>
-                    <td role="cell" data-label="Date">{fmtDate(r.date)}</td>
-                    <td role="cell" data-label="Status">
-                      <StatusPill tone={r.status === 'successful' ? 'on' : 'off'}>
-                        {STATUS_LABEL[r.status] ?? r.status}
-                      </StatusPill>
+                    <td style={{ color: 'var(--gf-text-secondary)' }}>{r.plan}</td>
+                    <td style={{ color: 'var(--gf-text-secondary)' }}>{fmtDate(r.date)}</td>
+                    <td>
+                      <span className={`gf-badge ${badge.cls}`}>
+                        <span className="gf-dot" />
+                        {badge.label}
+                      </span>
                     </td>
-                    <td role="cell" data-label="Amount" className="naira" style={{ textAlign: 'right' }}>
-                      {fmtNaira(r.amount)}
+                    <td className="naira" style={{ textAlign: 'right', color: success ? 'var(--gf-success)' : 'var(--gf-text)' }}>
+                      {success ? '+' : ''}{fmtNaira(r.amount)}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         ) : (
           <EmptyState icon={Receipt} title="No settlements yet" message="Platform-wide payments appear here as they settle." />
         )}
-      </Card>
+      </div>
     </div>
   );
 }

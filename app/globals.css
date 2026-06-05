@@ -6993,6 +6993,43 @@ body::after {
 .integ .m { flex: 1; min-width: 0; }
 .integ .m strong { font-family: var(--gf-font-display); font-size: 0.92rem; font-weight: 600; display: block; }
 .integ .m small { color: var(--gf-text-muted); font-size: 0.8rem; }
+
+/* Superadmin (revamp/superadmin.html) — eyebrow pill, gradient avatar,
+   activity feed row variants. */
+.pill-plat {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 11px; border-radius: var(--gf-radius-pill);
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  font-family: var(--gf-font-display); font-weight: 700;
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.gname { display: flex; align-items: center; gap: 11px; }
+.gname .sq {
+  width: 36px; height: 36px; border-radius: var(--gf-radius-sm);
+  display: grid; place-items: center; flex-shrink: 0;
+  font-family: var(--gf-font-display); font-weight: 800; color: #fff;
+  font-size: 0.86rem;
+}
+.gname strong { font-family: var(--gf-font-display); font-weight: 600; display: block; font-size: 0.875rem; }
+.gname small { color: var(--gf-text-muted); font-size: 0.74rem; }
+
+.act-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 8px; border-radius: var(--gf-radius-sm);
+  transition: background var(--gf-t);
+}
+.act-row:hover { background: var(--gf-elevated); }
+.act-row .ic {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.act-row .ic svg { width: 17px; height: 17px; }
+.act-row .m { flex: 1; min-width: 0; }
+.act-row .m strong { font-family: var(--gf-font-display); font-size: 0.875rem; font-weight: 600; display: block; }
+.act-row .m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.act-row .t { font-size: 0.74rem; color: var(--gf-text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .adm-revbars { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
 .adm-revbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
 .adm-revbar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }

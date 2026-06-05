@@ -4,21 +4,17 @@ import { isPlatformAdmin, requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { daysAgoIso } from '@/lib/dates';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card, CardHeader } from '@/components/ui/card';
-import { Stat, StatGrid } from '@/components/ui/stat';
+import { Stat } from '@/components/ui/stat';
 import { ButtonLink, Button } from '@/components/ui/button';
-import { StatusPill } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ArrowLeft, Search, Plus, Building2, CheckCircle2, Clock4, AlertTriangle, SearchX } from 'lucide-react';
+import { Search, Plus, Building2, CheckCircle2, Clock, AlertTriangle, SearchX } from 'lucide-react';
 
-// gyms.subscription_status is constrained to these four values
-// (see lib/actions/platform.ts). Map each to a label + pill tone.
-const STATUS_META: Record<string, { label: string; tone: 'on' | 'warn' | 'off' | 'neutral' }> = {
-  active: { label: 'Active', tone: 'on' },
-  trial: { label: 'Trial', tone: 'warn' },
-  past_due: { label: 'Past due', tone: 'off' },
-  cancelled: { label: 'Cancelled', tone: 'off' },
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  active:    { label: 'Active',     cls: 'gf-badge-success' },
+  trial:     { label: 'Trial',      cls: 'gf-badge-warning' },
+  past_due:  { label: 'Past due',   cls: 'gf-badge-danger' },
+  cancelled: { label: 'Cancelled',  cls: 'gf-badge-neutral' },
+  suspended: { label: 'Suspended',  cls: 'gf-badge-neutral' },
 };
 
 const FILTERS: { key: string; label: string }[] = [
@@ -27,6 +23,17 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'trial', label: 'Trial' },
   { key: 'past_due', label: 'Past due' },
 ];
+
+const GRADS = [
+  'linear-gradient(135deg, #11d18b, #07a86c)',
+  'linear-gradient(135deg, #4080ff, #2a5cc0)',
+  'linear-gradient(135deg, #a8d92e, #6a9c00)',
+  'linear-gradient(135deg, #ffb020, #cc8a10)',
+  'linear-gradient(135deg, #b67bf3, #7c45c0)',
+  'linear-gradient(135deg, #ff4560, #cc2a40)',
+  'linear-gradient(135deg, #00c896, #008e6c)',
+];
+const gradFor = (s: string) => GRADS[s.charCodeAt(0) % GRADS.length];
 
 type PageProps = { searchParams: Promise<{ q?: string; status?: string }> };
 
@@ -38,12 +45,9 @@ export default async function SuperadminGymsPage({ searchParams }: PageProps) {
   const query = (q ?? '').trim();
   const status = statusParam && STATUS_META[statusParam] ? statusParam : '';
 
-  // RLS grants platform_admins cross-gym read; the anon client is enough.
   const admin = await createClient();
   const since30 = daysAgoIso(30);
 
-  // Directory query honours the search box + status chip. ilike terms are
-  // stripped of the characters that would break PostgREST's or() grammar.
   let gymsQuery = admin
     .from('gyms')
     .select('id, name, slug, subscription_plan, subscription_status, city, state, created_at, email')
@@ -69,8 +73,6 @@ export default async function SuperadminGymsPage({ searchParams }: PageProps) {
     admin.from('gyms').select('*', { count: 'exact', head: true }).eq('subscription_status', 'past_due'),
   ]);
 
-  // Per-gym member roster + trailing-30d platform fees, scoped to the gyms on
-  // screen. Tallied in JS — same reduce-in-app pattern as the dashboard.
   const ids = (gyms ?? []).map((g) => g.id);
   const [{ data: links }, { data: pay30 }] = ids.length
     ? await Promise.all([
@@ -101,36 +103,43 @@ export default async function SuperadminGymsPage({ searchParams }: PageProps) {
     return qs ? `/superadmin/gyms?${qs}` : '/superadmin/gyms';
   };
 
-  const subtitle = `${totalGyms ?? 0} gyms · ${trialGyms ?? 0} on trial · ${pastDueGyms ?? 0} past due`;
-
   return (
     <div className="gf-page">
-      <PageHeader
-        title="Gyms"
-        subtitle={subtitle}
-        actions={
-          <>
-            <ButtonLink href="/superadmin" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
-              Back
-            </ButtonLink>
-            <ButtonLink href="/superadmin/gyms/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
-              Onboard gym
-            </ButtonLink>
-          </>
-        }
-      />
+      <div className="page-h">
+        <div>
+          <h1>Gyms</h1>
+          <p>{totalGyms ?? 0} total · {trialGyms ?? 0} on trial · {pastDueGyms ?? 0} past due</p>
+        </div>
+        <ButtonLink href="/superadmin/gyms/new" variant="primary" size="sm" leadingIcon={<Plus size={14} strokeWidth={2} />}>
+          Onboard a gym
+        </ButtonLink>
+      </div>
 
-      <StatGrid>
-        <Stat label="Total gyms" value={totalGyms ?? 0} icon={Building2} accent="emerald" />
-        <Stat label="Active" value={activeGyms ?? 0} icon={CheckCircle2} accent="blue" />
-        <Stat label="On trial" value={trialGyms ?? 0} icon={Clock4} accent="amber" />
-        <Stat label="Past due" value={pastDueGyms ?? 0} icon={AlertTriangle} accent="rose" />
-      </StatGrid>
+      <section className="kpis">
+        <Stat label="Total gyms" value={totalGyms ?? 0} accent="emerald" icon={Building2} />
+        <Stat label="Active" value={activeGyms ?? 0} accent="blue" icon={CheckCircle2} />
+        <Stat label="On trial" value={trialGyms ?? 0} accent="amber" icon={Clock} />
+        <Stat label="Past due" value={pastDueGyms ?? 0} accent="rose" icon={AlertTriangle} />
+      </section>
 
-      <Card padded>
-        <form style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <div className="panel">
+        <div className="panel-h">
+          <div>
+            <h3>{(gyms ?? []).length} gym{(gyms ?? []).length === 1 ? '' : 's'}</h3>
+            <div className="sub">Click a gym to inspect their tenant</div>
+          </div>
+          <nav className="seg" aria-label="Filter gyms">
+            {FILTERS.map((f) => (
+              <Link key={f.key || 'all'} href={chipHref(f.key)} className={status === f.key ? 'on' : ''}>
+                {f.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        <form className="toolbar" style={{ marginTop: 0 }}>
           {status && <input type="hidden" name="status" value={status} />}
-          <div className="gf-form-group" style={{ flex: 1, minWidth: 220, marginBottom: 0 }}>
+          <div className="search">
             <input
               name="q"
               defaultValue={query}
@@ -138,59 +147,54 @@ export default async function SuperadminGymsPage({ searchParams }: PageProps) {
               placeholder="Search gyms, subdomains, owners…"
             />
           </div>
-          <Button type="submit" variant="primary" leadingIcon={<Search size={16} strokeWidth={1.75} />}>
+          <div style={{ flex: 1 }} />
+          <Button type="submit" variant="primary" size="sm" leadingIcon={<Search size={14} strokeWidth={1.75} />}>
             Search
           </Button>
         </form>
-        <div className="gf-chips" style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          {FILTERS.map((f) => (
-            <Link key={f.key || 'all'} href={chipHref(f.key)} className={`gf-chip${status === f.key ? ' active' : ''}`}>
-              {f.label}
-            </Link>
-          ))}
-        </div>
-      </Card>
 
-      <Card>
-        <CardHeader title={`${(gyms ?? []).length} gym${(gyms ?? []).length === 1 ? '' : 's'}`} />
         {(gyms ?? []).length > 0 ? (
-          <div className="gf-table-wrap">
-            <table role="table" className="gf-table gf-table-cards">
-              <thead>
-                <tr role="row">
-                  <th>Gym</th>
-                  <th>Plan</th>
-                  <th>Members</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>MRR · 30d</th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {(gyms ?? []).map((g) => {
-                  const meta = STATUS_META[g.subscription_status ?? ''] ?? { label: g.subscription_status ?? '—', tone: 'neutral' as const };
-                  const place = g.city ?? g.state ?? '';
-                  return (
-                    <tr role="row" key={g.id}>
-                      <td role="cell">
-                        <Link href={`/superadmin/gyms/${g.id}`} className="gf-link" style={{ fontWeight: 600 }}>
-                          {g.name}
-                        </Link>
-                        <div className="gf-table-meta">{g.slug}.gymflow.ng{place ? ` · ${place}` : ''}</div>
-                      </td>
-                      <td role="cell" data-label="Plan" style={{ textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
-                      <td role="cell" data-label="Members">{memberCountByGym.get(g.id) ?? 0}</td>
-                      <td role="cell" data-label="Status">
-                        <StatusPill tone={meta.tone}>{meta.label}</StatusPill>
-                      </td>
-                      <td role="cell" data-label="MRR · 30d" className="naira" style={{ textAlign: 'right' }}>
-                        {fmtNaira(mrrByGym.get(g.id) ?? 0)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Gym</th>
+                <th>Plan</th>
+                <th>Members</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>MRR · 30d</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(gyms ?? []).map((g) => {
+                const meta = STATUS_META[g.subscription_status ?? ''] ?? { label: g.subscription_status ?? '—', cls: 'gf-badge-neutral' };
+                const place = g.city ?? g.state ?? '';
+                return (
+                  <tr key={g.id}>
+                    <td>
+                      <Link href={`/superadmin/gyms/${g.id}`} className="gname" style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <span className="sq" style={{ background: gradFor(g.name ?? g.slug ?? 'G') }}>
+                          {(g.name ?? g.slug ?? 'G').charAt(0).toUpperCase()}
+                        </span>
+                        <div>
+                          <strong>{g.name}</strong>
+                          <small>{g.slug}.gymflow.ng{place ? ` · ${place}` : ''}</small>
+                        </div>
+                      </Link>
+                    </td>
+                    <td style={{ color: 'var(--gf-text-secondary)', textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
+                    <td className="naira" style={{ color: 'var(--gf-text-secondary)' }}>{(memberCountByGym.get(g.id) ?? 0).toLocaleString()}</td>
+                    <td>
+                      <span className={`gf-badge ${meta.cls}`}>
+                        <span className="gf-dot" />
+                        {meta.label}
+                      </span>
+                    </td>
+                    <td className="naira" style={{ textAlign: 'right' }}>{fmtNaira(mrrByGym.get(g.id) ?? 0)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         ) : (
           <EmptyState
             icon={SearchX}
@@ -198,7 +202,7 @@ export default async function SuperadminGymsPage({ searchParams }: PageProps) {
             message={query || status ? 'Try a different search or filter.' : 'Onboard the first gym to get started.'}
           />
         )}
-      </Card>
+      </div>
     </div>
   );
 }

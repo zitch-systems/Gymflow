@@ -5,10 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDateTime } from '@/lib/format';
 import { actionLabel, renderAuditDelta } from '@/lib/audit-render';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PageHeader } from '@/components/ui/page-header';
-import { Card } from '@/components/ui/card';
-import { ButtonLink } from '@/components/ui/button';
-import { ArrowLeft, ShieldCheck, Filter } from 'lucide-react';
+import { ShieldCheck, Filter } from 'lucide-react';
 
 type PageProps = {
   searchParams: Promise<{ gym?: string; scope?: string; days?: string }>;
@@ -88,137 +85,134 @@ export default async function SuperadminAuditPage({ searchParams }: PageProps) {
 
   return (
     <div className="gf-page">
-      <PageHeader
-        title="Platform audit log"
-        subtitle={`${rows?.length ?? 0} event${(rows?.length ?? 0) === 1 ? '' : 's'} across every gym · ${days.label.toLowerCase()}`}
-        actions={
-          <ButtonLink href="/superadmin" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
-            Back
-          </ButtonLink>
-        }
-      />
-
-      <Card>
-        <div style={{ padding: 12, borderBottom: '1px solid var(--gf-border)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Filter size={14} strokeWidth={2} style={{ color: 'var(--gf-text-muted)' }} aria-hidden />
-          <span style={{ fontSize: 12, color: 'var(--gf-text-muted)', marginRight: 4 }}>Filter</span>
-          {SCOPES.map((s) => (
-            <Link key={s.id} href={baseHref({ scope: s.id })} className={`gf-chip${s.id === scopeId ? ' active' : ''}`}>
-              {s.label}
-            </Link>
-          ))}
-          <span style={{ width: 1, height: 18, background: 'var(--gf-border)', margin: '0 4px' }} aria-hidden />
-          <form
-            action="/superadmin/audit"
-            method="get"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <input type="hidden" name="scope" value={scopeId} />
-            <input type="hidden" name="days" value={daysId} />
-            <label htmlFor="gym-select" style={{ fontSize: 12, color: 'var(--gf-text-muted)' }}>Gym</label>
-            <select
-              id="gym-select"
-              name="gym"
-              defaultValue={gymFilter}
-              className="gf-select"
-              style={{ height: 28, padding: '0 8px', fontSize: 12, minWidth: 160 }}
-            >
-              <option value="">All gyms</option>
-              {(allGyms ?? []).map((g) => (
-                <option key={g.id} value={g.id}>{g.name ?? g.slug}</option>
-              ))}
-            </select>
-            <button type="submit" className="gf-chip" style={{ borderColor: 'var(--gf-brand)', color: 'var(--gf-brand)' }}>
-              Apply
-            </button>
-            {gymFilter ? (
-              <Link href={baseHref({ gym: '' })} className="gf-chip" style={{ fontSize: 11 }}>Clear</Link>
-            ) : null}
-          </form>
-          <span style={{ flex: 1 }} />
+      <div className="page-h">
+        <div>
+          <h1>Platform audit log</h1>
+          <p>{rows?.length ?? 0} event{(rows?.length ?? 0) === 1 ? '' : 's'} across every gym · {days.label.toLowerCase()}</p>
+        </div>
+        <nav className="seg" aria-label="Time window">
           {DAY_OPTIONS.map((d) => (
-            <Link key={d.id} href={baseHref({ days: d.id })} className={`gf-chip${d.id === daysId ? ' active' : ''}`}>
-              {d.label}
+            <Link key={d.id} href={baseHref({ days: d.id })} className={d.id === daysId ? 'on' : ''}>
+              {d.label.replace('Last ', '')}
             </Link>
           ))}
+        </nav>
+      </div>
+
+      <div className="panel">
+        <div className="panel-h">
+          <div>
+            <h3>Events</h3>
+            <div className="sub">Scope · gym</div>
+          </div>
+          <nav className="seg" aria-label="Scope">
+            {SCOPES.map((s) => (
+              <Link key={s.id} href={baseHref({ scope: s.id })} className={s.id === scopeId ? 'on' : ''}>
+                {s.label}
+              </Link>
+            ))}
+          </nav>
         </div>
 
+        <form action="/superadmin/audit" method="get" className="toolbar" style={{ marginBottom: 0 }}>
+          <input type="hidden" name="scope" value={scopeId} />
+          <input type="hidden" name="days" value={daysId} />
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Filter size={14} strokeWidth={2} style={{ color: 'var(--gf-text-muted)' }} />
+            <label htmlFor="gym-select" style={{ fontSize: 12, color: 'var(--gf-text-muted)' }}>Gym</label>
+          </span>
+          <select
+            id="gym-select"
+            name="gym"
+            defaultValue={gymFilter}
+            className="gf-select"
+            style={{ height: 34, padding: '0 10px', fontSize: '0.86rem', minWidth: 180 }}
+          >
+            <option value="">All gyms</option>
+            {(allGyms ?? []).map((g) => (
+              <option key={g.id} value={g.id}>{g.name ?? g.slug}</option>
+            ))}
+          </select>
+          <button type="submit" className="gf-btn gf-btn-primary gf-btn-sm">Apply</button>
+          {gymFilter ? (
+            <Link href={baseHref({ gym: '' })} className="gf-btn gf-btn-ghost gf-btn-sm">Clear</Link>
+          ) : null}
+        </form>
+
         {rows && rows.length > 0 ? (
-          <div className="gf-table-wrap">
-            <table role="table" className="gf-table gf-table-cards">
-              <thead>
-                <tr role="row">
-                  <th style={{ whiteSpace: 'nowrap' }}>When</th>
-                  <th>Gym</th>
-                  <th>Who</th>
-                  <th>What</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {rows.map((r) => {
-                  const gym = Array.isArray(r.gyms) ? r.gyms[0] : r.gyms;
-                  const actor = r.actor_id ? actorById.get(r.actor_id) : null;
-                  const actorName = actor?.full_name ?? actor?.first_name ?? actor?.email ?? 'System';
-                  const delta = renderAuditDelta(r.old_values, r.new_values);
-                  return (
-                    <tr role="row" key={r.id}>
-                      <td role="cell" style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
-                      <td role="cell" style={{ whiteSpace: 'nowrap' }} data-label="Gym">
-                        {gym ? (
-                          <Link href={baseHref({ gym: r.gym_id ?? '' })} style={{ color: 'var(--gf-text)' }}>
-                            {gym.name ?? gym.slug}
-                          </Link>
-                        ) : '—'}
-                      </td>
-                      <td role="cell" style={{ whiteSpace: 'nowrap' }} data-label="Who">{actorName}</td>
-                      <td role="cell" style={{ whiteSpace: 'nowrap' }} data-label="What">
-                        <span style={{ fontWeight: 600 }}>{actionLabel(r.action)}</span>
-                        {r.record_id ? (
-                          <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--gf-text-muted)', marginLeft: 6 }}>
-                            {r.record_id.slice(0, 8)}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td role="cell" style={{ maxWidth: 440 }}>
-                        {delta.rows.length > 0 ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
-                            {delta.rows.slice(0, 4).map(({ key, from, to }) => (
-                              <div key={key} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                <span style={{ color: 'var(--gf-text-muted)', minWidth: 100 }}>{key}</span>
-                                {from ? (
-                                  <>
-                                    <span style={{ color: 'var(--gf-danger)', textDecoration: 'line-through' }}>{from}</span>
-                                    <span style={{ color: 'var(--gf-text-muted)' }}>→</span>
-                                    <span style={{ color: 'var(--gf-brand)' }}>{to}</span>
-                                  </>
-                                ) : (
-                                  <span>{to}</span>
-                                )}
-                              </div>
-                            ))}
-                            {delta.rows.length > 4 ? (
-                              <span style={{ color: 'var(--gf-text-muted)', fontSize: 11 }}>+{delta.rows.length - 4} more</span>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <span style={{ color: 'var(--gf-text-muted)', fontSize: 12 }}>{delta.raw ?? '—'}</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th style={{ whiteSpace: 'nowrap' }}>When</th>
+                <th>Gym</th>
+                <th>Who</th>
+                <th>What</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const gym = Array.isArray(r.gyms) ? r.gyms[0] : r.gyms;
+                const actor = r.actor_id ? actorById.get(r.actor_id) : null;
+                const actorName = actor?.full_name ?? actor?.first_name ?? actor?.email ?? 'System';
+                const delta = renderAuditDelta(r.old_values, r.new_values);
+                return (
+                  <tr key={r.id}>
+                    <td style={{ whiteSpace: 'nowrap', fontSize: 12, color: 'var(--gf-text-secondary)' }}>{fmtDateTime(r.created_at)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {gym ? (
+                        <Link href={baseHref({ gym: r.gym_id ?? '' })} className="gf-link" style={{ fontWeight: 600 }}>
+                          {gym.name ?? gym.slug}
+                        </Link>
+                      ) : <span style={{ color: 'var(--gf-text-muted)' }}>—</span>}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{actorName}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 600 }}>{actionLabel(r.action)}</span>
+                      {r.record_id ? (
+                        <span style={{ fontFamily: 'ui-monospace,Menlo,monospace', fontSize: 11, color: 'var(--gf-text-muted)', marginLeft: 6 }}>
+                          {r.record_id.slice(0, 8)}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td style={{ maxWidth: 440 }}>
+                      {delta.rows.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
+                          {delta.rows.slice(0, 4).map(({ key, from, to }) => (
+                            <div key={key} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ color: 'var(--gf-text-muted)', minWidth: 100 }}>{key}</span>
+                              {from ? (
+                                <>
+                                  <span style={{ color: 'var(--gf-danger)', textDecoration: 'line-through' }}>{from}</span>
+                                  <span style={{ color: 'var(--gf-text-muted)' }}>→</span>
+                                  <span style={{ color: 'var(--gf-brand)' }}>{to}</span>
+                                </>
+                              ) : (
+                                <span>{to}</span>
+                              )}
+                            </div>
+                          ))}
+                          {delta.rows.length > 4 ? (
+                            <span style={{ color: 'var(--gf-text-muted)', fontSize: 11 }}>+{delta.rows.length - 4} more</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--gf-text-muted)', fontSize: 12 }}>{delta.raw ?? '—'}</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         ) : (
           <EmptyState
             icon={ShieldCheck}
             title={gymFilter || scope.id !== 'all' ? 'No events match these filters' : 'No events in this window'}
-            message="Gym lifecycle changes (suspend / terminate / re-activate), per-gym admin actions, and member-initiated events all appear here. Try widening the window or clearing the scope/gym filter."
+            message="Gym lifecycle changes, per-gym admin actions, and member-initiated events all appear here. Try widening the window or clearing the filters."
           />
         )}
-      </Card>
+      </div>
     </div>
   );
 }
