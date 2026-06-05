@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google';
 import { ToastProvider } from '@/lib/toast';
 import { ServiceWorkerRegister } from '@/lib/sw-register';
+import { VersionWatcher } from '@/components/ui/version-watcher';
 import { ThemeSystemSync, themeInitScript } from '@/lib/theme';
 import { PwaInstallPrompt } from '@/lib/pwa-install';
 import { Analytics } from '@/components/analytics';
@@ -75,6 +76,7 @@ export default function RootLayout({
         <ToastProvider>{children}</ToastProvider>
         <ThemeSystemSync />
         <ServiceWorkerRegister />
+        <VersionWatcher />
         <PwaInstallPrompt />
         {/* Analytics uses useSearchParams — wrap in Suspense per Next 16 */}
         <Suspense fallback={null}>
