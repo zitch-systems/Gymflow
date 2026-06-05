@@ -6643,3 +6643,56 @@ body::after {
 .adm-seg-btn { padding: 6px 14px; border-radius: 999px; color: var(--gf-text-muted); font-size: 0.84rem; font-weight: 600; text-decoration: none; transition: all var(--gf-t); }
 .adm-seg-btn:hover { color: var(--gf-text); }
 .adm-seg-btn.on { background: var(--gf-brand); color: #04140d; }
+
+/* ── Member wallet — money hub: summary card · spend chart · transactions · receipt ── */
+.m-wallet-sect { font-family: var(--gf-font-display); font-weight: 800; font-size: 1rem; margin: 22px 0 12px; display: flex; justify-content: space-between; align-items: center; }
+.m-wallet-sect a { font-size: 0.78rem; color: var(--gf-brand); text-decoration: none; font-weight: 600; }
+
+.m-wcard { border-radius: var(--gf-radius-lg); padding: 20px; color: #fff; position: relative; overflow: hidden; background: linear-gradient(135deg, var(--gf-brand) 0%, var(--gf-brand-dark) 100%); }
+.m-wcard::after { content: ''; position: absolute; right: -50px; top: -50px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,0.10); }
+.m-wcard-label { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.85; display: flex; align-items: center; gap: 7px; position: relative; }
+.m-wcard-label svg { width: 15px; height: 15px; }
+.m-wcard-bal { font-family: var(--gf-font-display); font-weight: 800; font-size: 2.1rem; letter-spacing: -0.03em; margin: 10px 0 2px; position: relative; }
+.m-wcard-sub { font-size: 0.8rem; opacity: 0.9; display: flex; align-items: center; gap: 6px; margin-top: 2px; position: relative; }
+.m-wcard-sub svg { width: 14px; height: 14px; }
+.m-wcard-btns { display: flex; gap: 9px; margin-top: 18px; position: relative; }
+.m-wcard-btns > * { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; cursor: pointer; padding: 11px; border-radius: var(--gf-radius-sm); font-family: var(--gf-font-display); font-weight: 700; font-size: 0.84rem; text-decoration: none; }
+.m-wcard-btns .b-primary { background: #fff; color: var(--gf-brand-dark); }
+.m-wcard-btns .b-ghost { background: rgba(255,255,255,0.16); color: #fff; }
+.m-wcard-btns svg { width: 15px; height: 15px; }
+
+.m-spend { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 16px; margin: 14px 0; }
+.m-spend-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+.m-spend-h b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.25rem; letter-spacing: -0.02em; }
+.m-spend-h small { color: var(--gf-text-muted); font-size: 0.72rem; }
+.m-spend-bars { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 9px; align-items: end; height: 72px; }
+.m-spend-col { display: flex; flex-direction: column; align-items: center; gap: 7px; height: 100%; justify-content: flex-end; }
+.m-spend-col .bv { width: 100%; max-width: 22px; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, var(--gf-brand-light), var(--gf-brand-dark)); min-height: 4px; }
+.m-spend-col.now .bv { background: linear-gradient(180deg, var(--gf-accent), var(--gf-accent-dark)); }
+.m-spend-col span { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.6rem; color: var(--gf-text-muted); }
+
+.m-wallet-group { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 2px 16px; }
+.m-txn { display: flex; align-items: center; gap: 13px; padding: 13px 0; border-top: 1px solid var(--gf-border); text-decoration: none; color: inherit; }
+.m-txn:first-child { border-top: none; }
+.m-txn-ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; background: var(--gf-brand-soft); color: var(--gf-brand); }
+.m-txn-ic.failed { background: var(--gf-danger-soft); color: var(--gf-danger); }
+.m-txn-ic svg { width: 18px; height: 18px; }
+.m-txn-m { flex: 1; min-width: 0; }
+.m-txn-m strong { font-family: var(--gf-font-display); font-size: 0.88rem; font-weight: 600; display: block; }
+.m-txn-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.m-txn-amt { font-family: var(--gf-font-display); font-weight: 800; font-size: 0.95rem; white-space: nowrap; flex-shrink: 0; text-align: right; }
+.m-txn-amt small { display: block; font-size: 0.62rem; color: var(--gf-text-muted); font-weight: 600; }
+.m-txn-amt.failed { color: var(--gf-danger); }
+
+.m-receipt { text-align: center; }
+.m-receipt-top { padding: 12px 0 18px; }
+.m-receipt-ring { width: 80px; height: 80px; border-radius: 50%; background: var(--gf-brand-soft); border: 2px solid var(--gf-brand-glow); display: grid; place-items: center; margin: 0 auto 14px; color: var(--gf-brand); }
+.m-receipt-ring.failed { background: var(--gf-danger-soft); border-color: var(--gf-danger); color: var(--gf-danger); }
+.m-receipt-ring svg { width: 38px; height: 38px; }
+.m-receipt-amt { font-family: var(--gf-font-display); font-weight: 800; font-size: 2rem; letter-spacing: -0.03em; }
+.m-receipt-label { color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 3px; }
+.m-receipt-list { text-align: left; }
+.m-receipt-row { display: flex; justify-content: space-between; gap: 12px; padding: 13px 0; border-top: 1px solid var(--gf-border); font-size: 0.86rem; }
+.m-receipt-row:first-child { border-top: none; }
+.m-receipt-row span { color: var(--gf-text-muted); }
+.m-receipt-row b { font-family: var(--gf-font-display); font-weight: 600; color: var(--gf-text); text-align: right; word-break: break-word; }
