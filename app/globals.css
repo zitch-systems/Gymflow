@@ -6704,6 +6704,11 @@ body::after {
 /* Admin dashboard — revenue bar chart + live check-in feed */
 .adm-dash-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
 @media (max-width: 900px) { .adm-dash-row { grid-template-columns: 1fr; } }
+/* Two-column dashboard grid (revamp/admin.html §.grid) — each column is a
+   flex stack of cards so panels of different heights line up vertically. */
+.adm-dash-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+.adm-dash-col { display: flex; flex-direction: column; gap: 16px; }
+@media (max-width: 1100px) { .adm-dash-grid { grid-template-columns: 1fr; } }
 .adm-revbars { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
 .adm-revbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
 .adm-revbar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }

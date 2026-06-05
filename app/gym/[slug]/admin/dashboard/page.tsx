@@ -5,17 +5,15 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft, fmtDateTime, greeting, firstName } from '@/lib/format';
 import { signOut } from '@/lib/auth/actions';
 import { daysFromNowIso, startOfTodayIso, todayIso, daysAgoIso } from '@/lib/dates';
-import { daysUntilBirthday, birthdayLabel } from '@/lib/birthdays';
 import { Stat, StatGrid } from '@/components/ui/stat';
-import { QuickAction, QuickActions } from '@/components/ui/quick-action';
 import { Card, CardHeader } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusPill } from '@/components/ui/badge';
 import { ButtonLink, Button } from '@/components/ui/button';
 import {
-  Users, CalendarCheck, Clock4, Banknote, LayoutGrid,
-  Tag, BarChart3, Settings, Plus, LogOut, UserPlus, UserX, Cake,
+  Users, CalendarCheck, Clock4, Banknote,
+  Plus, LogOut, UserPlus, AlertCircle,
 } from 'lucide-react';
 
 type PageProps = {
@@ -37,6 +35,7 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
 
   const supabase = await createClient();
 
+  const todayDow = new Date().getUTCDay();
   const [
     { count: memberCount },
     { count: activeToday },
@@ -48,6 +47,8 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
     { data: checkins7 },
     { data: expiring7 },
     { data: joins7 },
+    { data: todayClasses },
+    { data: needsAttention },
   ] = await Promise.all([
     supabase
       .from('gym_member_links')
@@ -105,6 +106,24 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
       .select('joined_at')
       .eq('gym_id', gym.id)
       .gte('joined_at', daysAgoIso(7)),
+    // Today's class sessions — for the "Today's classes" panel.
+    supabase
+      .from('class_schedules')
+      .select('id, start_time, end_time, room, classes(name, instructor)')
+      .eq('gym_id', gym.id)
+      .eq('is_active', true)
+      .eq('day_of_week', todayDow)
+      .order('start_time', { ascending: true })
+      .limit(6),
+    // Needs attention — memberships expiring within 7 days, joined to member name.
+    supabase
+      .from('memberships')
+      .select('member_id, end_date')
+      .eq('gym_id', gym.id)
+      .gte('end_date', todayIso())
+      .lte('end_date', daysFromNowIso(7))
+      .order('end_date', { ascending: true })
+      .limit(6),
   ]);
 
   const revenueToday = (revenueRows ?? []).reduce((acc, p) => acc + Number(p.amount ?? 0), 0);
@@ -124,31 +143,27 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
     if (m.member_id && !membershipByMember.has(m.member_id)) membershipByMember.set(m.member_id, m);
   }
 
-  // Upcoming birthdays — pull every active member's DOB and compute days-out
-  // in code (postgres doesn't have a friendly "days until next anniversary"
-  // operator without an immutable function). Cap at a sensible window so a
-  // 2000-member gym doesn't ship 2000 dates over the wire.
-  const { data: allLinks } = await supabase
-    .from('gym_member_links')
-    .select('user_id')
-    .eq('gym_id', gym.id)
-    .eq('is_active', true)
-    .eq('status', 'active')
-    .limit(2000);
-  const allIds = (allLinks ?? []).map((l) => l.user_id).filter(Boolean) as string[];
-  const { data: dobProfiles } = allIds.length
-    ? await supabase
-        .from('profiles')
-        .select('id, full_name, first_name, last_name, date_of_birth')
-        .in('id', allIds)
-        .not('date_of_birth', 'is', null)
-    : { data: [] as Array<{ id: string; full_name: string | null; first_name: string | null; last_name: string | null; date_of_birth: string | null }> };
-
-  const upcomingBirthdays = (dobProfiles ?? [])
-    .map((p) => ({ ...p, days: daysUntilBirthday(p.date_of_birth) }))
-    .filter((p): p is typeof p & { days: number } => p.days !== null && p.days <= 14)
-    .sort((a, b) => a.days - b.days)
-    .slice(0, 10);
+  // Needs-attention member names — for the right-rail "expiring soon" panel.
+  const attentionIds = [
+    ...new Set((needsAttention ?? []).map((m) => m.member_id).filter((x): x is string => Boolean(x))),
+  ];
+  const { data: attentionProfiles } = attentionIds.length
+    ? await supabase.from('profiles').select('id, full_name, first_name, last_name').in('id', attentionIds)
+    : { data: [] as Array<{ id: string; full_name: string | null; first_name: string | null; last_name: string | null }> };
+  const attentionNameById = new Map(
+    (attentionProfiles ?? []).map((p) => [
+      p.id,
+      p.full_name ?? [p.first_name, p.last_name].filter(Boolean).join(' ') ?? 'Member',
+    ]),
+  );
+  const attentionRows = (needsAttention ?? [])
+    .map((m) => ({
+      id: m.member_id ?? '',
+      name: (m.member_id ? attentionNameById.get(m.member_id) : null) ?? 'Member',
+      end: m.end_date,
+      daysOut: daysLeft(m.end_date),
+    }))
+    .filter((m) => m.id);
 
   const recentRows = (recentLinks ?? []).map((l) => {
     const p = l.user_id ? profileById.get(l.user_id) : null;
@@ -276,127 +291,167 @@ export default async function AdminDashboard({ params, searchParams }: PageProps
         <Stat label={`Revenue · ${rangeLabel}`} value={fmtNaira(revenueToday)} accent="purple" icon={Banknote} spark={revSpark} />
       </StatGrid>
 
-      <QuickActions>
-        <QuickAction href="/admin/members" icon={LayoutGrid} label="Members" />
-        <QuickAction href="/admin/members/lost" icon={UserX} label="Lost members" />
-        <QuickAction href="/admin/pricing" icon={Tag} label="Pricing" />
-        <QuickAction href="/admin/analytics" icon={BarChart3} label="Analytics" />
-        <QuickAction href="/admin/operations" icon={Settings} label="Operations" />
-      </QuickActions>
-
-      <div className="adm-dash-row">
-        <Card>
-          <CardHeader title="Revenue · last 14 days" />
-          <div className="adm-revbars" role="img" aria-label={`Daily revenue, ${fmtNaira(revTotal)} collected over 14 days`}>
-            {revSeries.map((d, i) => (
-              <div key={i} className="adm-revbar" title={`${fmtNaira(d.amount)}`}>
-                <div className="adm-revbar-track">
-                  <div className="adm-revbar-fill" style={{ height: `${Math.round((d.amount / revMax) * 100)}%` }} />
-                </div>
-                <span className="adm-revbar-x">{d.dow}</span>
-              </div>
-            ))}
-          </div>
-          <div className="adm-chart-foot">{fmtNaira(revTotal)} collected · last 14 days</div>
-        </Card>
-        <Card>
-          <CardHeader title="Live check-ins" />
-          {feed.length > 0 ? (
-            <div className="adm-feed">
-              {feed.map((f) => (
-                <div key={f.id} className="adm-feed-row">
-                  <span className="adm-feed-av" aria-hidden>{f.initial}</span>
-                  <span className="adm-feed-m"><strong>{f.name}</strong><small>{f.method}</small></span>
-                  <span className="adm-feed-t">{f.time}</span>
+      {/* 2-col grid mirrors revamp/admin.html: left = Revenue + Members,
+          right = Live check-ins + Needs attention + Today's classes. */}
+      <div className="adm-dash-grid">
+        <div className="adm-dash-col">
+          <Card>
+            <CardHeader
+              title="Revenue"
+              action={
+                <Link href="/admin/analytics" className="gf-link" style={{ fontSize: 13 }}>
+                  View report →
+                </Link>
+              }
+            />
+            <div className="gf-page-subtitle" style={{ marginTop: -4, marginBottom: 12 }}>
+              Last 14 days · {fmtNaira(revTotal)} collected
+            </div>
+            <div className="adm-revbars" role="img" aria-label={`Daily revenue, ${fmtNaira(revTotal)} collected over 14 days`}>
+              {revSeries.map((d, i) => (
+                <div key={i} className="adm-revbar" title={`${fmtNaira(d.amount)}`}>
+                  <div className="adm-revbar-track">
+                    <div className="adm-revbar-fill" style={{ height: `${Math.round((d.amount / revMax) * 100)}%` }} />
+                  </div>
+                  <span className="adm-revbar-x">{d.dow}</span>
                 </div>
               ))}
             </div>
-          ) : (
-            <EmptyState icon={CalendarCheck} title="No check-ins yet" message="Check-ins appear here as members arrive." />
-          )}
-        </Card>
-      </div>
+          </Card>
 
-      <Card>
-        <CardHeader
-          title="Recent members"
-          action={
-            <ButtonLink href="/admin/members/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
-              Add member
-            </ButtonLink>
-          }
-        />
-        {recentRows.length === 0 ? (
-          <EmptyState
-            icon={UserPlus}
-            title="No members yet"
-            message="Members appear here after they sign up on the join page or are added by staff."
-            action={
-              <ButtonLink href="/admin/members/new" variant="outline" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
-                Add the first member
-              </ButtonLink>
-            }
-          />
-        ) : (
-          <div className="gf-table-wrap">
-            <table role="table" className="gf-table gf-table-cards">
-              <thead>
-                <tr role="row">
-                  <th>Member</th>
-                  <th>Joined</th>
-                  <th>Expiry</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {recentRows.map((r) => {
-                  const left = daysLeft(r.expiry);
-                  const active = left > 0 && r.status !== 'cancelled';
-                  return (
-                    <tr role="row" key={r.id}>
-                      <td role="cell">
-                        <Link href={`/admin/members/${r.id}`} className="gf-link" style={{ fontWeight: 600 }}>
-                          {r.name}
-                        </Link>
-                        <div className="gf-table-meta">{r.email}</div>
-                      </td>
-                      <td role="cell" data-label="Joined">{fmtDate(r.joined)}</td>
-                      <td role="cell" data-label="Expiry">{fmtDate(r.expiry)}</td>
-                      <td role="cell" data-label="Status">
-                        <StatusPill tone={active ? 'on' : 'off'}>
-                          {active ? `${left}d left` : (r.status ?? 'inactive')}
-                        </StatusPill>
-                      </td>
+          <Card>
+            <CardHeader
+              title="Recent members"
+              action={
+                <ButtonLink href="/admin/members/new" variant="primary" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
+                  Add member
+                </ButtonLink>
+              }
+            />
+            {recentRows.length === 0 ? (
+              <EmptyState
+                icon={UserPlus}
+                title="No members yet"
+                message="Members appear here after they sign up on the join page or are added by staff."
+                action={
+                  <ButtonLink href="/admin/members/new" variant="outline" size="sm" leadingIcon={<Plus size={16} strokeWidth={2} />}>
+                    Add the first member
+                  </ButtonLink>
+                }
+              />
+            ) : (
+              <div className="gf-table-wrap">
+                <table role="table" className="gf-table gf-table-cards">
+                  <thead>
+                    <tr role="row">
+                      <th>Member</th>
+                      <th>Joined</th>
+                      <th>Expiry</th>
+                      <th>Status</th>
                     </tr>
+                  </thead>
+                  <tbody role="rowgroup">
+                    {recentRows.map((r) => {
+                      const left = daysLeft(r.expiry);
+                      const active = left > 0 && r.status !== 'cancelled';
+                      return (
+                        <tr role="row" key={r.id}>
+                          <td role="cell">
+                            <Link href={`/admin/members/${r.id}`} className="gf-link" style={{ fontWeight: 600 }}>
+                              {r.name}
+                            </Link>
+                            <div className="gf-table-meta">{r.email}</div>
+                          </td>
+                          <td role="cell" data-label="Joined">{fmtDate(r.joined)}</td>
+                          <td role="cell" data-label="Expiry">{fmtDate(r.expiry)}</td>
+                          <td role="cell" data-label="Status">
+                            <StatusPill tone={active ? 'on' : 'off'}>
+                              {active ? `${left}d left` : (r.status ?? 'inactive')}
+                            </StatusPill>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <div className="adm-dash-col">
+          <Card>
+            <CardHeader title="Live check-ins" />
+            {feed.length > 0 ? (
+              <div className="adm-feed">
+                {feed.map((f) => (
+                  <div key={f.id} className="adm-feed-row">
+                    <span className="adm-feed-av" aria-hidden>{f.initial}</span>
+                    <span className="adm-feed-m"><strong>{f.name}</strong><small>{f.method}</small></span>
+                    <span className="adm-feed-t">{f.time}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={CalendarCheck} title="No check-ins yet" message="Check-ins appear here as members arrive." />
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader title="Needs attention" />
+            {attentionRows.length === 0 ? (
+              <div className="gf-page-subtitle" style={{ padding: '6px 2px' }}>No memberships expiring this week.</div>
+            ) : (
+              <div className="adm-feed">
+                {attentionRows.map((m) => (
+                  <div key={m.id} className="adm-feed-row">
+                    <span className="adm-feed-av" aria-hidden style={{ background: 'var(--gf-warning-soft)', color: 'var(--gf-warning)' }}>
+                      <AlertCircle size={16} strokeWidth={2} />
+                    </span>
+                    <span className="adm-feed-m">
+                      <Link href={`/admin/members/${m.id}`} className="gf-link" style={{ fontWeight: 600 }}>{m.name}</Link>
+                      <small>Expires {fmtDate(m.end)}</small>
+                    </span>
+                    <span className="adm-feed-t">{m.daysOut}d left</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Today's classes"
+              action={
+                <Link href="/admin/classes" className="gf-link" style={{ fontSize: 13 }}>
+                  All classes →
+                </Link>
+              }
+            />
+            {(todayClasses ?? []).length === 0 ? (
+              <div className="gf-page-subtitle" style={{ padding: '6px 2px' }}>No sessions scheduled today.</div>
+            ) : (
+              <div className="adm-feed">
+                {(todayClasses ?? []).map((s) => {
+                  const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+                  return (
+                    <div key={s.id} className="adm-feed-row">
+                      <span className="adm-feed-av" aria-hidden style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>
+                        <CalendarCheck size={16} strokeWidth={2} />
+                      </span>
+                      <span className="adm-feed-m">
+                        <strong>{cls?.name ?? 'Class'}</strong>
+                        <small>{cls?.instructor ?? 'TBA'}{s.room ? ` · ${s.room}` : ''}</small>
+                      </span>
+                      <span className="adm-feed-t">{s.start_time.slice(0, 5)}</span>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {upcomingBirthdays.length > 0 && (
-        <Card>
-          <CardHeader title="Upcoming birthdays" />
-          <ul className="gf-list">
-            {upcomingBirthdays.map((b) => {
-              const name = b.full_name ?? [b.first_name, b.last_name].filter(Boolean).join(' ') ?? 'Member';
-              return (
-                <li key={b.id} className="gf-list-row">
-                  <span>
-                    <Link href={`/admin/members/${b.id}`} className="gf-link" style={{ fontWeight: 600 }}>
-                      <Cake size={14} strokeWidth={1.75} style={{ display: 'inline', verticalAlign: -2, marginRight: 6 }} />
-                      {name}
-                    </Link>
-                  </span>
-                  <span className={`status-pill${b.days === 0 ? ' on' : ''}`}>{birthdayLabel(b.days)}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      )}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
