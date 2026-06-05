@@ -6,8 +6,8 @@ import { PlanCreateForm, PlanDeleteButton } from './pricing-forms';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
-import { Stat, StatGrid } from '@/components/ui/stat';
-import { Tag, Coins, Users, BadgeCheck } from 'lucide-react';
+import { Stat } from '@/components/ui/stat';
+import { Tag, Users, CreditCard, Repeat, PlusCircle } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -30,76 +30,103 @@ export default async function AdminPricingPage({ params }: PageProps) {
       .gte('end_date', todayIso()),
   ]);
 
-  // MRR normalises each active subscription to a monthly figure (price / term);
-  // ARPU divides that by active subscribers. Prices come from the plan list above.
   const planById = new Map((plans ?? []).map((p) => [p.id, p] as const));
   const activeSubs = (activeMembs ?? []).filter((m) => m.plan_id && planById.has(m.plan_id));
-  const mrr = activeSubs.reduce((sum, m) => {
-    const p = planById.get(m.plan_id as string)!;
+
+  // Members count per plan (active subscriptions only).
+  const membersByPlan = new Map<string, number>();
+  for (const m of activeSubs) {
+    const k = m.plan_id as string;
+    membersByPlan.set(k, (membersByPlan.get(k) ?? 0) + 1);
+  }
+
+  // MRR normalises each subscription to a monthly figure (price / duration months).
+  let mrrTotal = 0;
+  const mrrByPlan = new Map<string, number>();
+  for (const p of plans ?? []) {
+    const members = membersByPlan.get(p.id) ?? 0;
     const months = p.duration_months || 1;
-    return sum + Number(p.price ?? 0) / months;
-  }, 0);
+    const mrr = (Number(p.price ?? 0) / months) * members;
+    mrrByPlan.set(p.id, mrr);
+    mrrTotal += mrr;
+  }
   const subscribers = activeSubs.length;
-  const arpu = subscribers > 0 ? mrr / subscribers : 0;
-  const activePlans = (plans ?? []).filter((p) => p.is_active).length;
+  const arpu = subscribers > 0 ? mrrTotal / subscribers : 0;
+  const activePlanCount = (plans ?? []).filter((p) => p.is_active).length;
+
+  // Most-subscribed plan gets the "Popular" badge.
+  let popularPlanId: string | null = null;
+  let popularMembers = -1;
+  for (const [id, count] of membersByPlan) {
+    if (count > popularMembers) { popularMembers = count; popularPlanId = id; }
+  }
+
+  const periodLabel = (months: number): string => {
+    if (months <= 1) return '/mo';
+    if (months === 3) return '/qtr';
+    if (months === 12) return '/yr';
+    return `/${months}mo`;
+  };
 
   return (
     <div className="gf-page">
-      <PageHeader title="Pricing plans" subtitle={`${plans?.length ?? 0} plan(s)`} />
+      <PageHeader
+        title="Pricing & plans"
+        subtitle={`${activePlanCount} active plan${activePlanCount === 1 ? '' : 's'} · ${fmtNaira(Math.round(mrrTotal))} monthly recurring`}
+      />
 
-      <StatGrid>
-        <Stat label="MRR" value={fmtNaira(Math.round(mrr))} accent="emerald" icon={Coins} />
-        <Stat label="ARPU" value={fmtNaira(Math.round(arpu))} accent="blue" icon={Users} />
-        <Stat label="Active subscribers" value={subscribers} accent="purple" icon={BadgeCheck} />
-        <Stat label="Active plans" value={activePlans} accent="amber" icon={Tag} />
-      </StatGrid>
+      <div className="adm-pricing-kpis">
+        <Stat label="Monthly recurring" value={fmtNaira(Math.round(mrrTotal))} accent="emerald" icon={Repeat} />
+        <Stat label="On a paid plan" value={subscribers} accent="blue" icon={Users} />
+        <Stat label="Avg revenue / member" value={fmtNaira(Math.round(arpu))} accent="purple" icon={CreditCard} />
+      </div>
+
+      {plans && plans.length > 0 ? (
+        <div className="adm-plans">
+          {plans.map((p) => {
+            const members = membersByPlan.get(p.id) ?? 0;
+            const planMrr = mrrByPlan.get(p.id) ?? 0;
+            const isPopular = popularPlanId === p.id && members > 0;
+            return (
+              <div key={p.id} className={`adm-plan${isPopular ? ' pop' : ''}`}>
+                <div className="adm-plan-top">
+                  <span className="adm-plan-nm">
+                    {p.name}
+                    {isPopular ? <span className="gf-badge gf-badge-brand" style={{ marginLeft: 6 }}>Popular</span> : null}
+                    {!p.is_active ? <span className="gf-badge gf-badge-neutral" style={{ marginLeft: 6 }}>Inactive</span> : null}
+                  </span>
+                </div>
+                <div className="adm-plan-amt">
+                  {fmtNaira(p.price)}
+                  <small>{periodLabel(p.duration_months || 1)}</small>
+                </div>
+                <div className="adm-plan-desc">{p.description ?? '—'}</div>
+                <div className="adm-plan-stat">
+                  <div>
+                    <div className="adm-plan-stat-v">{members}</div>
+                    <div className="adm-plan-stat-l">Members</div>
+                  </div>
+                  <div>
+                    <div className="adm-plan-stat-v">{fmtNaira(Math.round(planMrr))}</div>
+                    <div className="adm-plan-stat-l">MRR</div>
+                  </div>
+                </div>
+                <div className="adm-plan-acts">
+                  <PlanDeleteButton slug={slug} planId={p.id} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <Card>
+          <EmptyState icon={Tag} title="No plans yet" message="Create your first plan below so members can subscribe." />
+        </Card>
+      )}
 
       <Card>
-        <CardHeader title="Create a plan" />
+        <CardHeader title="Add a new plan" />
         <PlanCreateForm slug={slug} />
-      </Card>
-
-      <Card>
-        <CardHeader title="Current plans" />
-        {plans && plans.length > 0 ? (
-          <div className="gf-table-wrap">
-            <table role="table" className="gf-table gf-table-cards">
-              <thead>
-                <tr role="row">
-                  <th>Name</th>
-                  <th>Duration</th>
-                  <th>Price</th>
-                  <th>Active</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody role="rowgroup">
-                {plans.map((p) => (
-                  <tr role="row" key={p.id}>
-                    <td role="cell">
-                      <div style={{ fontWeight: 600 }}>{p.name}</div>
-                      <div className="gf-table-meta">{p.description ?? '—'}</div>
-                    </td>
-                    <td role="cell" data-label="Duration">
-                      {p.duration_months} month{p.duration_months === 1 ? '' : 's'}
-                    </td>
-                    <td role="cell" data-label="Price">{fmtNaira(p.price)}</td>
-                    <td role="cell" data-label="Active">
-                      <span className={`status-pill ${p.is_active ? 'on' : 'off'}`}>
-                        {p.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td role="cell">
-                      <PlanDeleteButton slug={slug} planId={p.id} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyState icon={Tag} title="No plans yet" message="Create your first plan above so members can subscribe." />
-        )}
       </Card>
     </div>
   );
