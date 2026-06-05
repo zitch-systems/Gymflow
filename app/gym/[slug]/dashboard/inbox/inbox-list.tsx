@@ -2,9 +2,10 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { markNotificationRead, markAllNotificationsRead } from '@/lib/actions/notifications';
-import { fmtDateTime, relativeTime } from '@/lib/format';
-import { Megaphone, CreditCard, Wallet, Bell } from 'lucide-react';
+import { markNotificationRead } from '@/lib/actions/notifications';
+import {
+  Bell, CalendarCheck, Gift, Receipt, Sparkles, type LucideIcon,
+} from 'lucide-react';
 
 export type InboxRow = {
   id: string;
@@ -15,72 +16,108 @@ export type InboxRow = {
   is_read: boolean | null;
 };
 
-// Map the notification.type values written across the app onto a small,
-// consistent icon set. Unknown types fall back to a generic bell.
-const TYPE_ICON: Record<string, typeof Megaphone> = {
-  announcement: Megaphone,
-  payment: CreditCard,
-  payout: Wallet,
+// Map notification.type values onto the prototype's five visual buckets
+// (reminder/receipt/class/promo/system). Each bucket has its own icon
+// chip color via .nic.<bucket> CSS.
+type Bucket = 'reminder' | 'receipt' | 'class' | 'promo' | 'system';
+const TYPE_BUCKET: Record<string, Bucket> = {
+  reminder: 'reminder',
+  class_reminder: 'reminder',
+  expiry_reminder: 'reminder',
+  payment: 'receipt',
+  payout: 'receipt',
+  receipt: 'receipt',
+  class_booking: 'class',
+  class_confirmed: 'class',
+  class: 'class',
+  promo: 'promo',
+  referral: 'promo',
+  announcement: 'system',
+  system: 'system',
+};
+const BUCKET_ICON: Record<Bucket, LucideIcon> = {
+  reminder: Bell,
+  receipt: Receipt,
+  class: CalendarCheck,
+  promo: Gift,
+  system: Sparkles,
+};
+
+const DAY_MS = 86_400_000;
+
+function timeLabel(iso: string, now: Date): string {
+  const sent = new Date(iso);
+  const sameDay = sent.toDateString() === now.toDateString();
+  if (sameDay) {
+    return `Today · ${sent.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+  }
+  const diffDays = Math.floor((now.getTime() - sent.getTime()) / DAY_MS);
+  if (diffDays < 7) {
+    return `${sent.toLocaleDateString('en-NG', { weekday: 'short' })} · ${sent.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+  }
+  return sent.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' });
+}
+
+function bucketOf(row: InboxRow, now: Date): 'today' | 'week' | 'earlier' {
+  if (!row.sent_at) return 'earlier';
+  const sent = new Date(row.sent_at);
+  if (sent.toDateString() === now.toDateString()) return 'today';
+  if ((now.getTime() - sent.getTime()) < 7 * DAY_MS) return 'week';
+  return 'earlier';
+}
+
+const BUCKET_LABEL: Record<'today' | 'week' | 'earlier', string> = {
+  today: 'Today',
+  week: 'This week',
+  earlier: 'Earlier',
 };
 
 export function InboxList({ slug, rows }: { slug: string; rows: InboxRow[] }) {
   const [pending, start] = useTransition();
   const router = useRouter();
-  const unreadCount = rows.filter((r) => !r.is_read).length;
+  const now = new Date();
+
+  const groups: Record<'today' | 'week' | 'earlier', InboxRow[]> = { today: [], week: [], earlier: [] };
+  for (const r of rows) groups[bucketOf(r, now)].push(r);
 
   return (
     <>
-      {unreadCount > 0 ? (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-          <button
-            type="button"
-            className="gf-btn gf-btn-ghost gf-btn-sm"
-            disabled={pending}
-            onClick={() => start(async () => { await markAllNotificationsRead(slug); router.refresh(); })}
-          >
-            {pending ? 'Marking…' : `Mark all read (${unreadCount})`}
-          </button>
-        </div>
-      ) : null}
-
-      <ul className="m-links">
-        {rows.map((r) => {
-          const Icon = (r.type && TYPE_ICON[r.type]) || Bell;
-          const unread = !r.is_read;
-          return (
-            <li
-              key={r.id}
-              className="m-lc"
-              style={{
-                cursor: unread ? 'pointer' : 'default',
-                borderColor: unread ? 'var(--gf-brand)' : undefined,
-                background: unread ? 'var(--gf-brand-soft)' : undefined,
-              }}
-              onClick={unread ? () => start(async () => { await markNotificationRead(slug, r.id); router.refresh(); }) : undefined}
-            >
-              <span className="m-lc-ic" aria-hidden>
-                <Icon size={18} strokeWidth={1.75} />
-              </span>
-              <div className="m-lc-m">
-                <strong>
-                  {r.title}
-                  {unread ? (
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gf-brand)', display: 'inline-block' }} aria-label="Unread" />
-                  ) : null}
-                </strong>
-                {r.body ? (
-                  <small style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {r.body}
-                  </small>
-                ) : null}
-                <small style={{ marginTop: 4 }} title={r.sent_at ? fmtDateTime(r.sent_at) : ''}>
-                  {r.sent_at ? relativeTime(r.sent_at) : ''}
-                </small>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {(['today', 'week', 'earlier'] as const).map((b) => {
+        if (groups[b].length === 0) return null;
+        return (
+          <div key={b}>
+            <div className="notif-group">{BUCKET_LABEL[b]}</div>
+            {groups[b].map((r) => {
+              const bucket = (r.type && TYPE_BUCKET[r.type]) || 'system';
+              const Icon = BUCKET_ICON[bucket];
+              const unread = !r.is_read;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  className={`notif${unread ? ' unread' : ''}`}
+                  disabled={pending}
+                  onClick={() => {
+                    if (!unread) return;
+                    start(async () => {
+                      await markNotificationRead(slug, r.id);
+                      router.refresh();
+                    });
+                  }}
+                >
+                  <span className={`nic ${bucket}`} aria-hidden><Icon /></span>
+                  <div className="m">
+                    <strong>{r.title}</strong>
+                    {r.body ? <p>{r.body}</p> : null}
+                    {r.sent_at ? <span className="nt">{timeLabel(r.sent_at, now)}</span> : null}
+                  </div>
+                  {unread ? <span className="udot" aria-label="Unread" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
     </>
   );
 }

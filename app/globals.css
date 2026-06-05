@@ -6603,15 +6603,112 @@ body::after {
 .m-renew-total strong { font-family: var(--gf-font-display); font-size: 1.25rem; color: var(--gf-text); }
 .m-renew-secure { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.76rem; color: var(--gf-text-muted); margin: 0; }
 
-/* Member profile — activity stat header */
-.m-pstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.m-pstat { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 14px 8px; text-align: center; }
-.m-pstat b { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.4rem; color: var(--gf-text); line-height: 1; }
-.m-pstat small { display: block; margin-top: 4px; font-size: 0.72rem; color: var(--gf-text-muted); }
+/* Member profile — centered avatar hero, stat strip, settings groups
+   (mirrors revamp/member.css §profile so the live Profile tab matches the
+   prototype hero layout rather than the older "Settings menu" treatment). */
+.m-prof-top { text-align: center; padding: 14px 0 22px; }
+.m-prof-top .gf-avatar {
+  margin: 0 auto 13px;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  border-color: var(--gf-brand-glow, var(--gf-brand-soft));
+}
+.m-prof-top h2 { font-family: var(--gf-font-display); font-size: 1.3rem; font-weight: 800; margin: 0; }
+.m-prof-top p { color: var(--gf-text-muted); font-size: 0.82rem; margin: 5px 0 0; }
+
+.m-pstats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-lg);
+  padding: 16px 0; margin-bottom: 14px;
+}
+.m-pstat { text-align: center; border-right: 1px solid var(--gf-border); }
+.m-pstat:last-child { border-right: 0; }
+.m-pstat b {
+  display: block; font-family: var(--gf-font-display); font-weight: 800;
+  font-size: 1.3rem; letter-spacing: -0.02em; color: var(--gf-text); line-height: 1.1;
+}
+.m-pstat small {
+  display: block; margin-top: 4px; color: var(--gf-text-muted);
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.m-prof-group {
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-lg); padding: 6px 16px; margin-bottom: 14px;
+}
+.m-prof-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 15px 0; width: 100%;
+  background: none; border: 0; border-top: 1px solid var(--gf-border);
+  color: var(--gf-text); text-decoration: none;
+  font-family: inherit; font-size: 1rem; text-align: left;
+}
+.m-prof-row:first-child, .m-prof-group > form:first-child .m-prof-row { border-top: 0; }
+.m-prof-row-ic {
+  width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+}
+.m-prof-row-ic svg { width: 20px; height: 20px; }
+.m-prof-row-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.m-prof-row-m strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.95rem; color: var(--gf-text); }
+.m-prof-row-m small {
+  font-size: 0.78rem; color: var(--gf-text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-prof-row-chev { width: 18px; height: 18px; color: var(--gf-text-muted); flex-shrink: 0; }
+.m-prof-row.is-danger .m-prof-row-ic { background: var(--gf-danger-soft, rgba(255, 69, 96, 0.12)); color: var(--gf-danger); }
+.m-prof-row.is-danger .m-prof-row-m strong { color: var(--gf-danger); }
+
+/* Member notifications — grouped (Today / This week / Earlier) with
+   type-colored icon chips (reminder/receipt/class/promo/system) and an
+   unread dot. Ports revamp/member.css §.notif. */
+.member-app .notif-group {
+  font-family: var(--gf-font-display); font-weight: 800; font-size: 0.74rem;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--gf-text-muted);
+  margin: 20px 0 10px;
+}
+.member-app .notif-group:first-of-type { margin-top: 4px; }
+.member-app .notif {
+  display: flex; gap: 13px; padding: 14px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius); margin-bottom: 9px;
+  cursor: pointer; transition: border-color var(--gf-t-fast);
+  position: relative; width: 100%; text-align: left;
+  font-family: inherit; font-size: 1rem; color: var(--gf-text);
+  text-decoration: none;
+}
+.member-app .notif:hover { border-color: var(--gf-border-light); }
+.member-app .notif.unread { background: var(--gf-brand-soft); border-color: var(--gf-border-glow); }
+.member-app .notif .nic {
+  width: 42px; height: 42px; border-radius: 13px;
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.member-app .notif .nic svg { width: 19px; height: 19px; }
+.member-app .notif .nic.reminder { background: var(--gf-brand-soft); color: var(--gf-brand); }
+.member-app .notif .nic.receipt  { background: var(--gf-info-soft);  color: var(--gf-info); }
+.member-app .notif .nic.class    { background: var(--gf-accent-soft); color: var(--gf-accent-dark, var(--gf-accent)); }
+.member-app .notif .nic.promo    { background: var(--gf-warning-soft); color: var(--gf-warning); }
+.member-app .notif .nic.system   { background: var(--gf-elevated); color: var(--gf-text-secondary); }
+.member-app .notif .m { flex: 1; min-width: 0; }
+.member-app .notif .m strong { font-family: var(--gf-font-display); font-size: 0.88rem; font-weight: 700; display: block; }
+.member-app .notif .m p { color: var(--gf-text-secondary); font-size: 0.8rem; margin: 3px 0 0; line-height: 1.45; }
+.member-app .notif .m .nt { color: var(--gf-text-muted); font-size: 0.7rem; margin-top: 6px; display: block; }
+.member-app .notif .udot {
+  position: absolute; top: 16px; right: 14px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--gf-brand); flex-shrink: 0;
+}
+.member-app .notif:not(.unread) .udot { display: none; }
 
 /* Admin dashboard — revenue bar chart + live check-in feed */
 .adm-dash-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
 @media (max-width: 900px) { .adm-dash-row { grid-template-columns: 1fr; } }
+/* Two-column dashboard grid (revamp/admin.html §.grid) — each column is a
+   flex stack of cards so panels of different heights line up vertically. */
+.adm-dash-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+.adm-dash-col { display: flex; flex-direction: column; gap: 16px; }
+@media (max-width: 1100px) { .adm-dash-grid { grid-template-columns: 1fr; } }
 .adm-revbars { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
 .adm-revbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
 .adm-revbar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }

@@ -34,6 +34,14 @@ export default async function MemberClassesPage({ params, searchParams }: PagePr
   const { user, gym } = await requireMember(slug);
   const supabase = await createClient();
 
+  const { count: unreadCountRaw } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('gym_id', gym.id)
+    .eq('is_read', false);
+  const unreadCount = unreadCountRaw ?? 0;
+
   // ── Week strip — Monday-anchored, 7 days from today's Monday.
   const today = new Date();
   const todayIso = isoDate(today);
@@ -119,16 +127,31 @@ export default async function MemberClassesPage({ params, searchParams }: PagePr
   const tabHref = (t: 'cal' | 'bookings') => `/classes${t === 'cal' ? '' : '?tab=bookings'}`;
   const dayHref = (iso: string) => `/classes?d=${iso}`;
 
-  // "Today · Wed 11" style day label.
+  // "Today · Wed 11" for today, "Wed 11 Dec" otherwise — prototype shows the
+  // "Today · …" form for the current day and a plain dated form for the rest.
   const sel = new Date(selectedIso);
-  const dayLabel = `${selectedIso === todayIso ? 'Today' : DAY_LABELS[selectedDow].slice(0, 3)} · ${SHORT[selectedDow] === 'S' && selectedDow === 0 ? 'Sun' : DAY_LABELS[selectedDow].slice(0, 3)} ${sel.getDate()}`;
+  const dowAbbr = DAY_LABELS[selectedDow].slice(0, 3);
+  const monAbbr = sel.toLocaleDateString('en-NG', { month: 'short' });
+  const dayLabel = selectedIso === todayIso
+    ? `Today · ${dowAbbr} ${sel.getDate()}`
+    : `${dowAbbr} ${sel.getDate()} ${monAbbr}`;
 
   return (
     <div className="member-portal member-app">
       <header className="m-head" style={{ paddingBottom: 8 }}>
         <strong className="htitle">Schedule</strong>
-        <Link href="/dashboard/inbox" className="m-head-bell" aria-label="Inbox" style={{ marginLeft: 'auto' }}>
+        <Link
+          href="/dashboard/inbox"
+          className="m-head-bell"
+          aria-label={unreadCount > 0 ? `Inbox · ${unreadCount} unread` : 'Inbox'}
+          style={{ marginLeft: 'auto' }}
+        >
           <Bell size={18} strokeWidth={1.9} />
+          {unreadCount > 0 ? (
+            <span className="m-head-bell-badge" aria-hidden>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          ) : null}
         </Link>
       </header>
 

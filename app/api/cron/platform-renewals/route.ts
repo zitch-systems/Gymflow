@@ -182,7 +182,7 @@ export async function GET(request: Request) {
             gymName: gym.name ?? gym.slug ?? 'your gym',
             reason: result.message ?? 'card declined',
             attempts: 1,
-            billingUrl: `https://${gym.slug}.gymflow.ng/admin/billing`,
+            billingUrl: `https://${gym.slug}.gymflow.ng/admin/dashboard`,
           });
         } catch (e) {
           console.warn('[GF platform-renewals] owner notify failed:', (e as Error).message);

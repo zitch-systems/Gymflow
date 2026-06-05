@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
-import { ArrowLeft, Wallet, CreditCard, Repeat, Receipt, ChevronRight } from 'lucide-react';
+import { Wallet, CreditCard, Repeat, Receipt, ChevronRight, Bell } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -18,7 +18,7 @@ export default async function WalletPage({ params }: PageProps) {
   const { user, gym } = await requireMember(slug);
   const supabase = await createClient();
 
-  const [{ data: payments }, { data: subscription }, { data: plans }] = await Promise.all([
+  const [{ data: payments }, { data: subscription }, { data: plans }, { count: unreadRaw }] = await Promise.all([
     supabase
       .from('payments')
       .select('id, amount, payment_date, created_at, payment_status, payment_method, plan_id')
@@ -36,7 +36,14 @@ export default async function WalletPage({ params }: PageProps) {
       .limit(1)
       .maybeSingle(),
     supabase.from('membership_plans').select('id, name').eq('gym_id', gym.id),
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('gym_id', gym.id)
+      .eq('is_read', false),
   ]);
+  const unreadCount = unreadRaw ?? 0;
 
   const planName = new Map((plans ?? []).map((p) => [p.id, p.name]));
   const eff = (p: { payment_date: string | null; created_at: string | null }) => p.payment_date ?? p.created_at;
@@ -76,25 +83,32 @@ export default async function WalletPage({ params }: PageProps) {
 
   return (
     <div className="member-portal member-app">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">Wallet</h1>
-          <p className="gf-page-subtitle">Your payments &amp; receipts at {gym.name}.</p>
-        </div>
-        <Link href="/dashboard" className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Back">
-          <ArrowLeft size={16} strokeWidth={1.75} /> Back
+      <header className="m-head" style={{ paddingBottom: 10 }}>
+        <strong className="htitle">Wallet</strong>
+        <Link
+          href="/dashboard/inbox"
+          className="m-head-bell"
+          aria-label={unreadCount > 0 ? `Inbox · ${unreadCount} unread` : 'Inbox'}
+          style={{ marginLeft: 'auto' }}
+        >
+          <Bell size={18} strokeWidth={1.9} />
+          {unreadCount > 0 ? (
+            <span className="m-head-bell-badge" aria-hidden>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          ) : null}
         </Link>
       </header>
 
-      {/* Summary — total paid + membership context. GymFlow has no stored-value
-          balance, so the headline is real lifetime spend, not a wallet float. */}
+      {/* Headline = real lifetime spend, not a stored-value balance — GymFlow
+          isn't a wallet-float product. Prototype's "Top up" button is omitted
+          for the same reason. */}
       <div className="m-wcard">
         <div className="m-wcard-label"><Wallet strokeWidth={1.9} /> Total spent</div>
         <div className="m-wcard-bal">{fmtNaira(totalSpent)}</div>
         <div className="m-wcard-sub"><Repeat strokeWidth={1.9} /> {membershipLine}</div>
         <div className="m-wcard-btns">
           <Link href="/dashboard/renew" className="b-primary"><CreditCard strokeWidth={2} /> Renew plan</Link>
-          <Link href="/dashboard/cards" className="b-ghost"><Wallet strokeWidth={2} /> Saved cards</Link>
         </div>
       </div>
 
