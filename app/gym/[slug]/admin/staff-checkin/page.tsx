@@ -87,7 +87,7 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
         <Card>
           <CardHeader title="Today's check-ins" />
           {recent && recent.length > 0 ? (
-            <div className="adm-feed">
+            <div className="feed">
               {recent.map((c) => {
                 const p = c.member_id ? profileById.get(c.member_id) : null;
                 const composed = [p?.first_name, p?.last_name].filter(Boolean).join(' ').trim();
@@ -98,15 +98,15 @@ export default async function StaffCheckInPage({ params, searchParams }: PagePro
                   : c.check_in_method === 'manual' ? 'Front desk'
                   : c.check_in_method ?? 'Check-in';
                 return (
-                  <div key={c.id} className="adm-feed-row">
-                    <span className="adm-feed-av" aria-hidden>
+                  <div key={c.id} className="feed-row">
+                    <span className="gf-avatar gf-avatar-sm" aria-hidden>
                       {c.check_in_method === 'self' ? <Check size={14} strokeWidth={2.5} /> : initial}
                     </span>
-                    <span className="adm-feed-m">
+                    <span className="feed-meta">
                       <strong>{name}</strong>
                       <small>{method}</small>
                     </span>
-                    <span className="adm-feed-t">{fmtDateTime(c.checked_in_at)}</span>
+                    <span className="feed-time">{fmtDateTime(c.checked_in_at)}</span>
                   </div>
                 );
               })}

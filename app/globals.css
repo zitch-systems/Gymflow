@@ -147,6 +147,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'ss01' 1, 'cv01' 1;
 }
 
 body {
@@ -157,6 +158,50 @@ body {
   overflow-x: hidden;
   line-height: 1.6;
   transition: background var(--gf-t-slow), color var(--gf-t-slow);
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* High-DPI / crisp rendering pass — applies platform-wide.
+   - Numbers in tables/KPIs get tabular figures (column alignment).
+   - SVG icons keep their stroke crisp under any transform.
+   - Display headings get tighter optical tracking.
+   - Focus rings are consistent + accessible (keyboard only via :focus-visible). */
+svg { display: inline-block; vertical-align: middle; }
+svg:not([fill]) { fill: none; }
+.kpi-val, .panel-h h3, .gf-page-title, .page-h h1,
+.m-prof-top h2, .adm-plan-amt, .m-pstat b, .m-wcard-bal,
+.m-receipt-amt, .adm-plan-stat-v {
+  font-variant-numeric: tabular-nums;
+}
+.naira, .tbl td.naira, .gf-mono { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--gf-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--gf-brand);
+  outline-offset: 2px;
+}
+.kpi:focus-visible, .panel:focus-visible, .feed-row:focus-visible,
+.act-row:focus-visible, .att-row:focus-visible, .cls-row:focus-visible,
+.adm-clx:focus-visible, .adm-plan:focus-visible,
+.notif:focus-visible, .m-prof-row:focus-visible, .gf-srow:focus-visible {
+  outline: 2px solid var(--gf-brand);
+  outline-offset: 2px;
+}
+button:focus:not(:focus-visible) { outline: none; }
+
+/* Hairline-precise borders on high-DPI screens (avoids the blurry 1px under
+   transform/scale). Applied to the visual primitives that frame everything. */
+@media (min-resolution: 2dppx), (-webkit-min-device-pixel-ratio: 2) {
+  .panel, .kpi, .gf-card, .tbl td, .tbl th, .integ, .set-row, .notif,
+  .adm-clx, .adm-day, .adm-plan, .m-prof-group, .m-pstats, .m-prof-row {
+    border-color: var(--gf-border);
+  }
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -4441,16 +4486,16 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 
 /* ── Page shell ──────────────────────────────────────────────────────── */
 .gf-page {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: clamp(16px, 3vw, 32px);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 .gf-page-header {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
@@ -4759,76 +4804,6 @@ button[disabled] { opacity: 0.7; cursor: wait; }
   padding: 16px 12px;
 }
 .m-group + .m-group { margin-top: 0; }
-
-/* ── Settings list (fintech "Me"/Settings pattern) ───────────────────────────
-   A profile header card + grouped rounded lists of tappable rows
-   (icon chip · label/sub · trailing value or chevron). */
-.gf-slist { display: flex; flex-direction: column; gap: 18px; }
-.gf-slist-sec { display: flex; flex-direction: column; gap: 7px; }
-.gf-slist-title {
-  font-family: var(--gf-font-display); font-size: 0.72rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.05em; color: var(--gf-text-muted);
-  margin: 0 6px;
-}
-.gf-slist-group {
-  background: var(--gf-surface); border: 1px solid var(--gf-border);
-  border-radius: var(--gf-radius-lg); overflow: hidden;
-}
-.gf-srow {
-  display: flex; align-items: center; gap: 13px;
-  padding: 14px 15px; width: 100%;
-  text-decoration: none; color: var(--gf-text);
-  background: none; border: 0; cursor: pointer; text-align: left;
-  font-family: inherit; font-size: 1rem;
-  transition: background var(--gf-t-fast);
-}
-.gf-srow + .gf-srow { border-top: 1px solid var(--gf-border); }
-.gf-srow:hover { background: var(--gf-elevated); }
-.gf-srow:active { background: var(--gf-border); }
-.gf-srow-ic {
-  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
-  display: grid; place-items: center;
-  background: var(--gf-brand-soft); color: var(--gf-brand);
-}
-.gf-srow-ic svg { width: 19px; height: 19px; }
-.gf-srow-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.gf-srow-m strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.92rem; }
-.gf-srow-m small { font-size: 0.76rem; color: var(--gf-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gf-srow-val { font-size: 0.82rem; color: var(--gf-text-muted); flex-shrink: 0; white-space: nowrap; }
-.gf-srow-chev { color: var(--gf-text-muted); flex-shrink: 0; }
-.gf-srow-pill {
-  flex-shrink: 0; font-family: var(--gf-font-display); font-weight: 700;
-  font-size: 0.66rem; letter-spacing: 0.03em; text-transform: uppercase;
-  background: var(--gf-danger, #ef4444); color: #fff;
-  padding: 3px 9px; border-radius: var(--gf-radius-pill);
-}
-.gf-srow.is-danger .gf-srow-ic { background: rgba(239, 68, 68, 0.12); color: var(--gf-danger); }
-.gf-srow.is-danger .gf-srow-m strong { color: var(--gf-danger); }
-
-/* Profile header card at the top of Settings. */
-.gf-profile-card {
-  display: flex; align-items: center; gap: 14px;
-  background: var(--gf-surface); border: 1px solid var(--gf-border);
-  border-radius: var(--gf-radius-lg); padding: 16px;
-  text-decoration: none; color: var(--gf-text);
-  transition: border-color var(--gf-t-fast);
-}
-.gf-profile-card:hover { border-color: var(--gf-brand); }
-.gf-profile-av {
-  width: 58px; height: 58px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
-  background: var(--gf-brand-soft); color: var(--gf-brand);
-  display: grid; place-items: center;
-  font-family: var(--gf-font-display); font-weight: 800; font-size: 1.45rem;
-}
-.gf-profile-av img { width: 100%; height: 100%; object-fit: cover; }
-.gf-profile-m { flex: 1; min-width: 0; }
-.gf-profile-m strong { display: block; font-family: var(--gf-font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.01em; }
-.gf-profile-m small { display: block; color: var(--gf-text-muted); font-size: 0.8rem; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (min-width: 600px) {
-  .gf-srow { padding: 16px 18px; }
-  .gf-srow-ic { width: 42px; height: 42px; }
-  .gf-srow-ic svg { width: 21px; height: 21px; }
-}
 
 /* Framed view (foldable / tablet / desktop): the app column is wider, so the
    chip row looks thin at phone sizes. Scale the chips, glyphs, labels and stats
@@ -6586,9 +6561,6 @@ body::after {
 .m-ci-title { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem; color: var(--gf-text); margin: 0; }
 .m-ci-sub { color: var(--gf-text-secondary); font-size: 0.9rem; margin: 0 0 4px; max-width: 32ch; }
 .m-ci-qr { background: #fff; padding: 14px; border-radius: 16px; border: 1px solid var(--gf-border); line-height: 0; }
-.m-ci-fallback { margin-top: 6px; width: 100%; max-width: 340px; }
-.m-ci-fallback summary { cursor: pointer; font-size: 0.82rem; color: var(--gf-text-muted); }
-.m-ci-code { display: block; margin-top: 6px; font-family: var(--gf-font-mono, ui-monospace, monospace); font-size: 0.76rem; color: var(--gf-text-secondary); word-break: break-all; background: var(--gf-elevated); padding: 8px 10px; border-radius: 8px; }
 
 /* Member renew — radio plan picker */
 .m-renew { display: flex; flex-direction: column; gap: 18px; }
@@ -6705,14 +6677,8 @@ body::after {
 }
 .member-app .notif:not(.unread) .udot { display: none; }
 
-/* Admin dashboard — revenue bar chart + live check-in feed */
-.adm-dash-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
-@media (max-width: 900px) { .adm-dash-row { grid-template-columns: 1fr; } }
-/* Two-column dashboard grid (revamp/admin.html §.grid) — each column is a
-   flex stack of cards so panels of different heights line up vertically. */
-.adm-dash-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
-.adm-dash-col { display: flex; flex-direction: column; gap: 16px; }
-@media (max-width: 1100px) { .adm-dash-grid { grid-template-columns: 1fr; } }
+/* (Legacy .adm-dash-row/.adm-dash-grid/.adm-dash-col removed — superseded by
+   .adm-grid, which mirrors revamp/admin.html §.grid exactly.) */
 
 /* Admin staff check-in — 3-col KPI strip + 2-col main grid (scan card on
    the left, live feed on the right). Mirrors revamp/admin-checkin.html. */
@@ -7030,37 +6996,9 @@ body::after {
 .act-row .m strong { font-family: var(--gf-font-display); font-size: 0.875rem; font-weight: 600; display: block; }
 .act-row .m small { color: var(--gf-text-muted); font-size: 0.74rem; }
 .act-row .t { font-size: 0.74rem; color: var(--gf-text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-.adm-revbars { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
-.adm-revbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
-.adm-revbar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }
-.adm-revbar-fill { width: 100%; min-height: 3px; background: linear-gradient(180deg, var(--gf-brand-light), var(--gf-brand-dark)); border-radius: 6px 6px 0 0; transition: height var(--gf-t); }
-.adm-revbar-x { font-size: 0.68rem; color: var(--gf-text-muted); }
-.adm-chart-foot { margin-top: 10px; font-size: 0.8rem; color: var(--gf-text-muted); text-align: right; }
-.adm-feed { display: flex; flex-direction: column; }
-.adm-feed-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--gf-border); }
-.adm-feed-row:last-child { border-bottom: 0; }
-.adm-feed-av { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--gf-brand-soft); color: var(--gf-brand); display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.8rem; }
-.adm-feed-m { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.adm-feed-m strong { font-family: var(--gf-font-display); font-size: 0.875rem; font-weight: 600; color: var(--gf-text); }
-.adm-feed-m small { color: var(--gf-text-muted); font-size: 0.74rem; }
-.adm-feed-t { font-size: 0.74rem; color: var(--gf-text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
-
-/* Analytics — revenue-mix donut */
-.adm-donut-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; padding: 10px 4px; }
-.adm-donut { width: 150px; height: 150px; flex-shrink: 0; }
-.adm-donut-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; flex: 1; min-width: 200px; }
-.adm-donut-legend li { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
-.adm-donut-total-row { padding-bottom: 8px; border-bottom: 1px solid var(--gf-border); margin-bottom: 2px; }
-.adm-donut-total-row .adm-donut-name { font-family: var(--gf-font-display); }
-.adm-donut-key { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-.adm-donut-name { color: var(--gf-text); font-weight: 600; }
-.adm-donut-val { margin-left: auto; color: var(--gf-text-muted); font-variant-numeric: tabular-nums; }
-
-/* Admin segmented control — dashboard range toggle, status filters */
-.adm-seg { display: inline-flex; gap: 6px; flex-wrap: wrap; padding: 4px; background: var(--gf-elevated); border-radius: 999px; border: 1px solid var(--gf-border); }
-.adm-seg-btn { padding: 6px 14px; border-radius: 999px; color: var(--gf-text-muted); font-size: 0.84rem; font-weight: 600; text-decoration: none; transition: all var(--gf-t); }
-.adm-seg-btn:hover { color: var(--gf-text); }
-.adm-seg-btn.on { background: var(--gf-brand); color: #04140d; }
+/* (Legacy .adm-revbar*/.adm-chart-foot/.adm-feed*/.adm-donut*/.adm-seg*
+   removed — superseded by prototype's .chart/.bar-col/.bar/.bar-lbl,
+   .feed/.feed-row/.feed-meta/.feed-time, .seg.) */
 
 /* ── Member wallet — money hub: summary card · spend chart · transactions · receipt ── */
 .m-wallet-sect { font-family: var(--gf-font-display); font-weight: 800; font-size: 1rem; margin: 22px 0 12px; display: flex; justify-content: space-between; align-items: center; }
