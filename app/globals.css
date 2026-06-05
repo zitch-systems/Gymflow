@@ -6709,6 +6709,33 @@ body::after {
 .adm-dash-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
 .adm-dash-col { display: flex; flex-direction: column; gap: 16px; }
 @media (max-width: 1100px) { .adm-dash-grid { grid-template-columns: 1fr; } }
+
+/* Admin staff check-in — 3-col KPI strip + 2-col main grid (scan card on
+   the left, live feed on the right). Mirrors revamp/admin-checkin.html. */
+.adm-checkin-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+@media (max-width: 800px) { .adm-checkin-kpis { grid-template-columns: 1fr; } }
+
+.adm-checkin-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .adm-checkin-grid { grid-template-columns: 1fr; } }
+
+.adm-checkin-scan {
+  background: linear-gradient(150deg, var(--gf-surface), var(--gf-elevated));
+  border: 1px solid var(--gf-border-glow);
+  border-radius: var(--gf-radius-lg);
+  padding: 28px;
+  text-align: center;
+  box-shadow: var(--gf-shadow-glow, var(--gf-shadow));
+}
+.adm-checkin-scan h2 { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem; margin: 0 0 6px; }
+.adm-checkin-scan p { color: var(--gf-text-secondary); font-size: 0.9rem; margin: 0 0 20px; }
+.adm-checkin-scan form { max-width: 380px; margin: 0 auto; text-align: left; }
+.adm-checkin-ring {
+  width: 96px; height: 96px; border-radius: 50%;
+  background: var(--gf-brand-soft); border: 2px solid var(--gf-border-glow);
+  display: grid; place-items: center; margin: 0 auto 16px;
+  color: var(--gf-brand);
+}
+.adm-checkin-ring svg { width: 44px; height: 44px; }
 .adm-revbars { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 8px; }
 .adm-revbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
 .adm-revbar-track { width: 100%; flex: 1; display: flex; align-items: flex-end; }
