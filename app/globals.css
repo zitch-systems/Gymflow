@@ -6603,11 +6603,62 @@ body::after {
 .m-renew-total strong { font-family: var(--gf-font-display); font-size: 1.25rem; color: var(--gf-text); }
 .m-renew-secure { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.76rem; color: var(--gf-text-muted); margin: 0; }
 
-/* Member profile — activity stat header */
-.m-pstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.m-pstat { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 14px 8px; text-align: center; }
-.m-pstat b { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.4rem; color: var(--gf-text); line-height: 1; }
-.m-pstat small { display: block; margin-top: 4px; font-size: 0.72rem; color: var(--gf-text-muted); }
+/* Member profile — centered avatar hero, stat strip, settings groups
+   (mirrors revamp/member.css §profile so the live Profile tab matches the
+   prototype hero layout rather than the older "Settings menu" treatment). */
+.m-prof-top { text-align: center; padding: 14px 0 22px; }
+.m-prof-top .gf-avatar {
+  margin: 0 auto 13px;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  border-color: var(--gf-brand-glow, var(--gf-brand-soft));
+}
+.m-prof-top h2 { font-family: var(--gf-font-display); font-size: 1.3rem; font-weight: 800; margin: 0; }
+.m-prof-top p { color: var(--gf-text-muted); font-size: 0.82rem; margin: 5px 0 0; }
+
+.m-pstats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-lg);
+  padding: 16px 0; margin-bottom: 14px;
+}
+.m-pstat { text-align: center; border-right: 1px solid var(--gf-border); }
+.m-pstat:last-child { border-right: 0; }
+.m-pstat b {
+  display: block; font-family: var(--gf-font-display); font-weight: 800;
+  font-size: 1.3rem; letter-spacing: -0.02em; color: var(--gf-text); line-height: 1.1;
+}
+.m-pstat small {
+  display: block; margin-top: 4px; color: var(--gf-text-muted);
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.m-prof-group {
+  background: var(--gf-surface); border: 1px solid var(--gf-border);
+  border-radius: var(--gf-radius-lg); padding: 6px 16px; margin-bottom: 14px;
+}
+.m-prof-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 15px 0; width: 100%;
+  background: none; border: 0; border-top: 1px solid var(--gf-border);
+  color: var(--gf-text); text-decoration: none;
+  font-family: inherit; font-size: 1rem; text-align: left;
+}
+.m-prof-row:first-child, .m-prof-group > form:first-child .m-prof-row { border-top: 0; }
+.m-prof-row-ic {
+  width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
+  background: var(--gf-brand-soft); color: var(--gf-brand);
+  display: grid; place-items: center;
+}
+.m-prof-row-ic svg { width: 20px; height: 20px; }
+.m-prof-row-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.m-prof-row-m strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.95rem; color: var(--gf-text); }
+.m-prof-row-m small {
+  font-size: 0.78rem; color: var(--gf-text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-prof-row-chev { width: 18px; height: 18px; color: var(--gf-text-muted); flex-shrink: 0; }
+.m-prof-row.is-danger .m-prof-row-ic { background: var(--gf-danger-soft, rgba(255, 69, 96, 0.12)); color: var(--gf-danger); }
+.m-prof-row.is-danger .m-prof-row-m strong { color: var(--gf-danger); }
 
 /* Admin dashboard — revenue bar chart + live check-in feed */
 .adm-dash-row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
