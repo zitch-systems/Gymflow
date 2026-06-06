@@ -9,6 +9,10 @@ type VerifyBody = {
   reference?: string;
   plan_id?: string;
   payment_method?: string;
+  // Set when the member ticks "Save card for auto-renewals" on the renew
+  // page. Honoured only if Paystack also flags the charge's authorization as
+  // reusable — see fulfilMembershipPurchase.
+  auto_debit_enabled?: boolean;
 };
 
 export async function POST(request: Request) {
@@ -21,7 +25,7 @@ export async function POST(request: Request) {
   const body = await readJsonBody<VerifyBody>(request);
   if (body instanceof Response) return body;
 
-  const { reference, plan_id, payment_method = 'card' } = body;
+  const { reference, plan_id, payment_method = 'card', auto_debit_enabled = false } = body;
   if (!reference || !plan_id) {
     return NextResponse.json({ error: 'reference and plan_id required' }, { status: 400 });
   }
@@ -69,7 +73,7 @@ export async function POST(request: Request) {
       customerEmail: txn.customer.email,
       authorization: txn.authorization,
     },
-    { paymentMethod: payment_method, notify: true },
+    { paymentMethod: payment_method, notify: true, autoDebitEnabled: auto_debit_enabled === true },
   );
 
   if (!result.ok) {

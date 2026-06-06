@@ -3,6 +3,7 @@ import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
 import { Wallet, CreditCard, Repeat, Receipt, ChevronRight, Bell } from 'lucide-react';
+import { AutoDebitToggle } from './auto-debit-toggle';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -18,7 +19,7 @@ export default async function WalletPage({ params }: PageProps) {
   const { user, gym } = await requireMember(slug);
   const supabase = await createClient();
 
-  const [{ data: payments }, { data: subscription }, { data: plans }, { count: unreadRaw }] = await Promise.all([
+  const [{ data: payments }, { data: subscription }, { data: membership }, { data: savedCard }, { data: plans }, { count: unreadRaw }] = await Promise.all([
     supabase
       .from('payments')
       .select('id, amount, payment_date, created_at, payment_status, payment_method, plan_id')
@@ -33,6 +34,28 @@ export default async function WalletPage({ params }: PageProps) {
       .eq('gym_id', gym.id)
       .eq('status', 'active')
       .order('end_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    // memberships.auto_debit_enabled is the flag the daily cron filters on.
+    // member_subscriptions is a separate, older view kept around for end_date
+    // display; the toggle has to flip THIS row to actually take effect.
+    supabase
+      .from('memberships')
+      .select('id, end_date, auto_debit_enabled')
+      .eq('member_id', user.id)
+      .eq('gym_id', gym.id)
+      .eq('status', 'active')
+      .order('end_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('saved_cards')
+      .select('last4, brand')
+      .eq('member_id', user.id)
+      .eq('gym_id', gym.id)
+      .eq('reusable', true)
+      .eq('is_active', true)
+      .order('is_default', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase.from('membership_plans').select('id, name').eq('gym_id', gym.id),
@@ -128,6 +151,19 @@ export default async function WalletPage({ params }: PageProps) {
           </div>
         </div>
       )}
+
+      {membership ? (
+        <>
+          <div className="m-wallet-sect">Membership</div>
+          <AutoDebitToggle
+            slug={slug}
+            enabled={!!membership.auto_debit_enabled}
+            endDate={membership.end_date ?? subscription?.end_date ?? null}
+            cardLast4={savedCard?.last4 ?? null}
+            cardBrand={savedCard?.brand ?? null}
+          />
+        </>
+      ) : null}
 
       <div className="m-wallet-sect">Transactions</div>
       {txns.length > 0 ? (
