@@ -94,9 +94,9 @@ export async function proxy(request: NextRequest) {
 
   if (isLocalhost || isVercelHost || hostname === 'gymflow.ng' || hostname === 'www.gymflow.ng') {
     // Apex / preview: platform routes render directly. Bare gym-scoped paths
-    // fall back to the demo gym on localhost/preview.
+    // fall back to a default gym on localhost/preview (no subdomain to read).
     if (isGymPath) {
-      const localSlug = process.env.LOCAL_DEFAULT_GYM_SLUG || 'gf-test-gym';
+      const localSlug = process.env.LOCAL_DEFAULT_GYM_SLUG || 'ifitness';
       rewriteUrl = buildRewrite(url, isLocalhost || isVercelHost ? localSlug : '');
     }
   } else {

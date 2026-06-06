@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { verifyTransaction } from '@/lib/paystack';
 import { sendTempPassword } from '@/lib/email';
 import { waTempPassword } from '@/lib/whatsapp';
@@ -238,5 +239,23 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, slug: gymRow.slug, name: gymRow.name });
+  // 8. Auto-login: establish a browser session for the brand-new owner so the
+  // client can drop them straight into their dashboard instead of a
+  // "check your email" page. Only when WE just created the account (we hold the
+  // temp password). Best-effort: onboarding already committed, so a sign-in
+  // hiccup must never 500 the request — the client falls back to the done page.
+  // The SSR client writes the auth cookies onto this response.
+  let autoLoggedIn = false;
+  if (!createErr) {
+    try {
+      const sb = await createClient();
+      const { error: signInErr } = await sb.auth.signInWithPassword({ email: ownerEmail, password: temp });
+      autoLoggedIn = !signInErr;
+      if (signInErr) console.warn('[GF onboard-gym] auto-login failed:', signInErr.message);
+    } catch (e) {
+      console.warn('[GF onboard-gym] auto-login threw:', (e as Error).message);
+    }
+  }
+
+  return NextResponse.json({ ok: true, slug: gymRow.slug, name: gymRow.name, autoLoggedIn });
 }
