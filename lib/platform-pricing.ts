@@ -2,9 +2,9 @@
 // Shared by the signup form (client), the initiate route, and onboarding (server).
 
 export const PLATFORM_PRICING = {
-  monthly: { amount: 13_999, label: 'Monthly', months: 1, per: 'mo' },
-  quarterly: { amount: 33_999, label: 'Quarterly', months: 3, per: 'qtr' },
-  annual: { amount: 119_999, label: 'Annual', months: 12, per: 'yr' },
+  monthly: { amount: 14_999, label: 'Monthly', months: 1, per: 'mo' },
+  quarterly: { amount: 39_999, label: 'Quarterly', months: 3, per: 'qtr' },
+  annual: { amount: 149_999, label: 'Annual', months: 12, per: 'yr' },
 } as const;
 
 export type BillingPeriod = keyof typeof PLATFORM_PRICING;
@@ -16,7 +16,7 @@ export function isBillingPeriod(v: unknown): v is BillingPeriod {
   return v === 'monthly' || v === 'quarterly' || v === 'annual';
 }
 
-// Naira, formatted with thousands separators (e.g. "₦13,999").
+// Naira, formatted with thousands separators (e.g. "₦14,999").
 export function formatNaira(amount: number): string {
   return '₦' + amount.toLocaleString('en-NG');
 }

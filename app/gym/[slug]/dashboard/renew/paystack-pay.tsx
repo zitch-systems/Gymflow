@@ -14,7 +14,11 @@ type Props = {
   subaccount?: string | null;
 };
 
-// Loaded by next/script — populates window.PaystackPop.
+// Paystack v2 inline.js — loaded by next/script — exposes PaystackPop as a
+// CONSTRUCTOR on window. Usage: `new window.PaystackPop().newTransaction({...})`.
+// `newTransaction` lives on the instance, NOT on the constructor itself, so
+// `window.PaystackPop.newTransaction(...)` (static call) throws
+// "is not a function".
 type PaystackPopOptions = {
   key: string;
   email: string;
@@ -27,17 +31,21 @@ type PaystackPopOptions = {
   onSuccess: (txn: { reference: string }) => void;
   onClose: () => void;
 };
+type PaystackPopInstance = { newTransaction: (opts: PaystackPopOptions) => void };
 declare global {
   interface Window {
-    PaystackPop?: {
-      newTransaction: (opts: PaystackPopOptions) => void;
-    };
+    PaystackPop?: new () => PaystackPopInstance;
   }
 }
 
 export function PaystackPayButton({ gymId, planId, amount, durationMonths, email, subaccount }: Props) {
   const [ready, setReady] = useState(() => typeof window !== 'undefined' && !!window.PaystackPop);
   const [pending, start] = useTransition();
+  // Defaults ON — auto-renew is the expected behaviour for a recurring
+  // membership product. The verify route still ignores this if Paystack
+  // returns a non-reusable authorization on the charge, so checking the box
+  // can never silently strand the member.
+  const [autoDebit, setAutoDebit] = useState(true);
   const toast = useToast();
   const router = useRouter();
   const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
@@ -64,7 +72,8 @@ export function PaystackPayButton({ gymId, planId, amount, durationMonths, email
     }
     start(() => {
       const ref = 'GF-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-      window.PaystackPop!.newTransaction({
+      const popup = new window.PaystackPop!();
+      popup.newTransaction({
         key: publicKey,
         email,
         amount: Math.round(amount * 100),
@@ -79,6 +88,7 @@ export function PaystackPayButton({ gymId, planId, amount, durationMonths, email
             body: JSON.stringify({
               reference: txn.reference,
               plan_id: planId,
+              auto_debit_enabled: autoDebit,
             }),
           })
             .then((r) => r.json())
@@ -105,6 +115,15 @@ export function PaystackPayButton({ gymId, planId, amount, durationMonths, email
         strategy="afterInteractive"
         onLoad={() => setReady(true)}
       />
+      <label className="m-renew-autorenew">
+        <input
+          type="checkbox"
+          checked={autoDebit}
+          onChange={(e) => setAutoDebit(e.target.checked)}
+          disabled={pending}
+        />
+        <span>Save this card and auto-renew on the renewal date.</span>
+      </label>
       <button
         type="button"
         className="gf-btn gf-btn-primary gf-btn-full"

@@ -12,9 +12,12 @@ type SlugState =
   | { status: 'ok' }
   | { status: 'bad'; reason: string };
 
+// Paystack v2 inline.js exposes PaystackPop as a constructor (see
+// paystack-pay.tsx for the full note). Call as
+// `new window.PaystackPop().newTransaction({...})`, not as a static method.
 declare global {
   interface Window {
-    PaystackPop?: {
+    PaystackPop?: new () => {
       newTransaction: (opts: {
         key: string;
         email: string;
@@ -116,7 +119,8 @@ export function GymSignupForm() {
         return;
       }
 
-      window.PaystackPop.newTransaction({
+      const popup = new window.PaystackPop();
+      popup.newTransaction({
         key: publicKey,
         email: ownerEmail,
         amount: PLATFORM_PRICING[billing].amount * 100,

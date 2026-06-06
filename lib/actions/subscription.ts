@@ -56,6 +56,64 @@ export async function requestPause(slug: string, reason: string): Promise<Result
   return { ok: true };
 }
 
+/**
+ * Toggle auto-debit on the caller's active membership at this gym. Enabling
+ * requires a reusable saved card — without it the daily cron has nothing to
+ * charge on the renewal date, so we refuse the opt-in up front rather than
+ * silently strand the member at the wall on the renewal day.
+ */
+export async function setMemberAutoDebit(slug: string, enabled: boolean): Promise<Result> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, error: 'Not signed in' };
+  const gym = await getGymBySlug(slug);
+  if (!gym) return { ok: false, error: 'Gym not found' };
+
+  const supabase = createAdminClient();
+  const { data: sub } = await supabase
+    .from('memberships')
+    .select('id')
+    .eq('member_id', user.id)
+    .eq('gym_id', gym.id)
+    .eq('status', 'active')
+    .order('end_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!sub) return { ok: false, error: 'No active membership' };
+
+  if (enabled) {
+    const { data: card } = await supabase
+      .from('saved_cards')
+      .select('id')
+      .eq('member_id', user.id)
+      .eq('gym_id', gym.id)
+      .eq('reusable', true)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+    if (!card) {
+      return { ok: false, error: 'No saved card. Renew once with a card to enable auto-debit.' };
+    }
+  }
+
+  const { error } = await supabase
+    .from('memberships')
+    .update({ auto_debit_enabled: enabled, updated_at: new Date().toISOString() })
+    .eq('id', sub.id);
+  if (error) return { ok: false, error: error.message };
+
+  await supabase.from('audit_logs').insert({
+    gym_id: gym.id,
+    actor_id: user.id,
+    user_id: user.id,
+    action: enabled ? 'member.auto_debit_enabled' : 'member.auto_debit_disabled',
+    table_name: 'memberships',
+    record_id: sub.id,
+  });
+
+  revalidatePath(`/gym/${slug}/dashboard/wallet`);
+  return { ok: true };
+}
+
 export async function cancelAtPeriodEnd(slug: string): Promise<Result> {
   const user = await getSessionUser();
   if (!user) return { ok: false, error: 'Not signed in' };

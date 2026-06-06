@@ -6,7 +6,7 @@ import { Star } from 'lucide-react';
 
 export const metadata = {
   title: 'Open your GymFlow account',
-  description: 'Self-onboard your gym onto GymFlow. From ₦13,999/month, cancel anytime.',
+  description: 'Self-onboard your gym onto GymFlow. From ₦14,999/month, cancel anytime.',
 };
 
 export default function GymSignupPage() {

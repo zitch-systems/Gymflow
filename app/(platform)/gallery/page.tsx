@@ -54,7 +54,7 @@ export default function GalleryPage() {
           <div className="container">
             <div className="mk-cta">
               <h2 className="mk-cta-title">Your gym could be next.</h2>
-              <p className="mk-cta-sub">Launch in an afternoon. From ₦13,999/mo · cancel anytime · no setup fees.</p>
+              <p className="mk-cta-sub">Launch in an afternoon. From ₦14,999/mo · cancel anytime · no setup fees.</p>
               <div className="marketing-hero-actions" style={{ justifyContent: 'center' }}>
                 <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
                 <Link href="/contact" className="gf-btn gf-btn-outline gf-btn-lg">Book a demo</Link>

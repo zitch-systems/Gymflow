@@ -39,7 +39,8 @@ export function PtPackBuyButton({ packId, packName, amount, email, subaccount }:
     start(() => {
       // GFP = GymFlow PT pack — distinguishes the reference in admin lookups.
       const ref = 'GFP-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-      window.PaystackPop!.newTransaction({
+      const popup = new window.PaystackPop!();
+      popup.newTransaction({
         key: publicKey,
         email,
         amount: Math.round(amount * 100),

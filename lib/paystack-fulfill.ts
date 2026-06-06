@@ -48,9 +48,13 @@ export async function fulfilMembershipPurchase(
   memberId: string,
   planId: string,
   txn: FulfilTxn,
-  opts: { paymentMethod?: string; notify?: boolean } = {},
+  opts: { paymentMethod?: string; notify?: boolean; autoDebitEnabled?: boolean } = {},
 ): Promise<FulfilResult> {
   const paymentMethod = opts.paymentMethod ?? 'card';
+  // Only honour an auto-debit opt-in if Paystack returned a REUSABLE auth on
+  // this charge — without it the daily cron has no card to charge and the
+  // flag would silently strand the member at the wall on renewal day.
+  const autoDebitEnabled = opts.autoDebitEnabled === true && txn.authorization?.reusable === true;
 
   // Idempotency: a reference is processed at most once. The UNIQUE constraint on
   // payments.paystack_reference is the hard backstop for the rare race window.
@@ -104,7 +108,7 @@ export async function fulfilMembershipPurchase(
       status: 'active',
       start_date: today,
       end_date,
-      auto_debit_enabled: false,
+      auto_debit_enabled: autoDebitEnabled,
     })
     .select('id')
     .maybeSingle();

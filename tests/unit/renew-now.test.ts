@@ -98,6 +98,7 @@ vi.mock('next/server', async () => {
 });
 
 import { POST } from '@/app/api/platform/renew-now/route';
+import { PLATFORM_PRICING } from '@/lib/platform-pricing';
 
 function jsonRequest(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request('https://test.local/api/platform/renew-now', {
@@ -130,7 +131,7 @@ const GYM = {
 const VALID_TXN = {
   status: 'success',
   reference: 'GFP-test-1',
-  amount: 1_399_900, // ₦13,999 in kobo
+  amount: PLATFORM_PRICING.monthly.amount * 100, // gym is on the monthly plan; price in kobo
   currency: 'NGN',
   customer: { email: 'owner@example.com' },
   authorization: {
