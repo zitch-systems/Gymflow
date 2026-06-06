@@ -4775,32 +4775,6 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 }
 .m-circ-badge.is-brand { background: var(--gf-brand); }
 
-/* Grouping card — the reference app nests its icon rows inside elevated cards
-   rather than floating them on the page canvas. Wrap an .m-circ-row in this to
-   get the same grouped look and a consistent, tight vertical rhythm. */
-.m-group {
-  background: var(--gf-surface);
-  border: 1px solid var(--gf-border);
-  border-radius: var(--gf-radius-lg);
-  padding: 16px 12px;
-}
-.m-group + .m-group { margin-top: 0; }
-
-/* Framed view (foldable / tablet / desktop): the app column is wider, so the
-   chip row looks thin at phone sizes. Scale the chips, glyphs, labels and stats
-   up to fill the extra room and give the home screen real presence. (Phones
-   already run a comfortable 64px 4-up.) */
-@media (min-width: 600px) {
-  .m-circ-ic { width: 80px; height: 80px; }
-  .m-circ-ic svg { width: 38px; height: 38px; }
-  .m-circ { gap: 12px; font-size: 0.9rem; }
-  .m-circ-label { max-width: 120px; }
-  .m-circ-row { gap: 10px; }
-  .m-group { padding: 24px 18px; }
-  .m-stat { padding: 22px 10px; }
-  .m-stat-num { font-size: 1.85rem; }
-  .m-stat-flame { width: 22px; height: 22px; }
-}
 
 /* Compact single-screen dashboard: a 3-up stats strip + an optional slim
    "next class" row, sized so the member dashboard fits a phone viewport
@@ -4997,9 +4971,11 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 .cls-day-title span { font-size: 0.74rem; color: var(--gf-text-muted); font-weight: 500; }
 
 .member-portal {
-  max-width: 600px;
+  width: 100%;
   margin: 0 auto;
-  padding: clamp(16px, 4vw, 28px);
+  /* 20px side gutter = the prototype's --gut; no max-width, so the app is
+     full-bleed on phones, tablets and desktop (no empty side columns). */
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -5871,11 +5847,12 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
    Member & Coach portal shells (mobile-first) — bottom tab bar integration
    ═══════════════════════════════════════════════════════════════════════════ */
 /* The member/coach portal is a self-contained app surface. Treat it like an
-   installed app shell: edge-to-edge and full-height on phones (clearing the
-   notch via safe-area), native touch feel (no tap-highlight, contained
-   overscroll so pull doesn't reveal browser chrome). */
+   installed app shell: edge-to-edge and full-height at every width (clearing
+   the notch via safe-area), native touch feel (no tap-highlight, contained
+   overscroll so pull doesn't reveal browser chrome). No centered "phone frame"
+   — the app fills the viewport on phones, tablets and desktop alike. */
 .gf-has-tabbar {
-  --gf-app-w: 460px;
+  width: 100%;
   min-height: 100vh; min-height: 100dvh;
   background: var(--gf-bg);
   padding-top: env(safe-area-inset-top, 0px);
@@ -5887,52 +5864,6 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible {
 .gf-has-tabbar .member-portal,
 .gf-has-tabbar .gf-page {
   padding-bottom: calc(var(--gf-mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
-}
-
-/* Desktop / tablet: present the portal as a centered phone-frame "app" so it
-   reads like an installed APK, not a web page that happens to be narrow — a
-   fixed-width column with side borders + elevation, the tab bar aligned to the
-   same width, sitting on a dim "desk" backdrop. The backdrop is scoped with
-   :has() so only the member/coach portal gets it; admin & marketing keep their
-   normal full-bleed background. */
-@media (min-width: 600px) {
-  .gf-has-tabbar {
-    --gf-app-w: 540px;
-    max-width: var(--gf-app-w);
-    margin-inline: auto;
-    border-inline: 1px solid var(--gf-border);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
-  }
-  body:has(.gf-has-tabbar) {
-    background:
-      radial-gradient(120% 70% at 50% -8%, rgba(16, 209, 139, 0.10), transparent 60%),
-      #06060c;
-  }
-  .gf-mobile-nav {
-    max-width: var(--gf-app-w);
-    margin: 0 auto;
-    border-left: 1px solid var(--gf-border);
-    border-right: 1px solid var(--gf-border);
-  }
-}
-
-/* Tablet (portrait and up): widen the app column further so the portal uses a
-   tablet's space instead of showing a phone-width strip. The tab bar tracks
-   the same width via the inherited --gf-app-w. */
-@media (min-width: 820px) {
-  .gf-has-tabbar { --gf-app-w: 640px; }
-}
-
-/* Foldables in book posture (two side-by-side viewport segments): keep the app
-   inside one panel so it doesn't straddle the hinge. env() falls back to the
-   normal frame width where viewport-segment isn't supported, so this is a safe
-   progressive enhancement. */
-@media (horizontal-viewport-segments: 2) {
-  .gf-has-tabbar,
-  .gf-mobile-nav {
-    max-width: env(viewport-segment-width 0 0, var(--gf-app-w));
-    margin-inline: 0;
-  }
 }
 
 /* Admin content: tighten spacing on phones so dense staff pages read like an
