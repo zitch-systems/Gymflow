@@ -14,7 +14,11 @@ type Props = {
   subaccount?: string | null;
 };
 
-// Loaded by next/script — populates window.PaystackPop.
+// Paystack v2 inline.js — loaded by next/script — exposes PaystackPop as a
+// CONSTRUCTOR on window. Usage: `new window.PaystackPop().newTransaction({...})`.
+// `newTransaction` lives on the instance, NOT on the constructor itself, so
+// `window.PaystackPop.newTransaction(...)` (static call) throws
+// "is not a function".
 type PaystackPopOptions = {
   key: string;
   email: string;
@@ -27,11 +31,10 @@ type PaystackPopOptions = {
   onSuccess: (txn: { reference: string }) => void;
   onClose: () => void;
 };
+type PaystackPopInstance = { newTransaction: (opts: PaystackPopOptions) => void };
 declare global {
   interface Window {
-    PaystackPop?: {
-      newTransaction: (opts: PaystackPopOptions) => void;
-    };
+    PaystackPop?: new () => PaystackPopInstance;
   }
 }
 
@@ -64,7 +67,8 @@ export function PaystackPayButton({ gymId, planId, amount, durationMonths, email
     }
     start(() => {
       const ref = 'GF-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-      window.PaystackPop!.newTransaction({
+      const popup = new window.PaystackPop!();
+      popup.newTransaction({
         key: publicKey,
         email,
         amount: Math.round(amount * 100),
