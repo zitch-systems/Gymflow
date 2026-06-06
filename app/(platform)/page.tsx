@@ -58,8 +58,8 @@ const STRUCTURED_DATA = {
       offers: {
         '@type': 'AggregateOffer',
         priceCurrency: 'NGN',
-        lowPrice: '13999',
-        highPrice: '119999',
+        lowPrice: '14999',
+        highPrice: '149999',
         offerCount: 3,
       },
       provider: { '@id': `${SITE}/#org` },
@@ -190,7 +190,7 @@ export default function MarketingHome() {
         <div className="container">
           <div className="mk-cta">
             <h2 className="mk-cta-title">Ready to run your gym the modern way?</h2>
-            <p className="mk-cta-sub">Launch your gym in an afternoon. From ₦13,999/mo · cancel anytime · no setup fees.</p>
+            <p className="mk-cta-sub">Launch your gym in an afternoon. From ₦14,999/mo · cancel anytime · no setup fees.</p>
             <div className="marketing-hero-actions" style={{ justifyContent: 'center' }}>
               <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
               <Link href="/pricing" className="gf-btn gf-btn-outline gf-btn-lg">See pricing</Link>

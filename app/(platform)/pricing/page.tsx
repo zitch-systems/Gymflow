@@ -7,7 +7,7 @@ import { Check } from 'lucide-react';
 
 export const metadata = {
   title: 'Pricing',
-  description: 'One flat plan, no per-member fees. From ₦13,999/month — pay monthly, quarterly, or annually.',
+  description: 'One flat plan, no per-member fees. From ₦14,999/month — pay monthly, quarterly, or annually.',
 };
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';

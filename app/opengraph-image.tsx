@@ -60,7 +60,7 @@ export default async function OgImage() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: 22, color: '#9adcbe' }}>
           <div style={{ display: 'flex' }}>gymflow.ng</div>
-          <div style={{ display: 'flex' }}>From NGN 13,999/mo · Cancel anytime</div>
+          <div style={{ display: 'flex' }}>From NGN 14,999/mo · Cancel anytime</div>
         </div>
       </div>
     ),
