@@ -152,15 +152,13 @@ export default async function MemberDashboard({ params }: PageProps) {
         </Link>
       </div>
 
-      {/* Quick actions */}
-      <div className="m-group">
-        <section className="m-circ-row" aria-label="Quick actions">
-          <Link href="/checkin" className="m-circ"><span className="m-circ-ic"><ScanLine /></span><span className="m-circ-label">Check in</span></Link>
-          <Link href="/classes" className="m-circ"><span className="m-circ-ic"><CalendarDays /></span><span className="m-circ-label">Schedule</span></Link>
-          <Link href="/dashboard/wallet" className="m-circ"><span className="m-circ-ic"><Wallet /></span><span className="m-circ-label">Wallet</span></Link>
-          <Link href="/checkin" className="m-circ"><span className="m-circ-ic"><QrCode /></span><span className="m-circ-label">My code</span></Link>
-        </section>
-      </div>
+      {/* Quick actions (.qa in the spec — bare on the canvas, no card) */}
+      <section className="m-circ-row" aria-label="Quick actions">
+        <Link href="/checkin" className="m-circ"><span className="m-circ-ic"><ScanLine /></span><span className="m-circ-label">Check in</span></Link>
+        <Link href="/classes" className="m-circ"><span className="m-circ-ic"><CalendarDays /></span><span className="m-circ-label">Schedule</span></Link>
+        <Link href="/dashboard/wallet" className="m-circ"><span className="m-circ-ic"><Wallet /></span><span className="m-circ-label">Wallet</span></Link>
+        <Link href="/checkin" className="m-circ"><span className="m-circ-ic"><QrCode /></span><span className="m-circ-label">My code</span></Link>
+      </section>
 
       {/* Streak + weekly activity */}
       <section className="m-streakcard" aria-label="This week">
