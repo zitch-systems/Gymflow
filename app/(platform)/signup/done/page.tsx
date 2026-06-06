@@ -1,7 +1,21 @@
+import { headers } from 'next/headers';
+
 type PageProps = { searchParams: Promise<{ slug?: string }> };
 
 export default async function SignupDonePage({ searchParams }: PageProps) {
   const { slug } = await searchParams;
+
+  // Link to the gym's login. On the real apex/subdomain deployment that's
+  // {slug}.gymflow.ng/login; on the bare Vercel domain (no wildcard yet) the
+  // subdomain doesn't resolve, so use the same-origin /gym/{slug}/login path.
+  const host = (await headers()).get('host') ?? '';
+  const onGymflowDomain = host === 'gymflow.ng' || host === 'www.gymflow.ng' || host.endsWith('.gymflow.ng');
+  const loginHref = slug
+    ? onGymflowDomain
+      ? `https://${slug}.gymflow.ng/login`
+      : `/gym/${slug}/login`
+    : '/login';
+
   return (
     <div className="login-wrap" style={{ maxWidth: 560, textAlign: 'center' }}>
       <div className="success-msg show" style={{ marginBottom: 24, display: 'inline-flex' }}>
@@ -16,8 +30,8 @@ export default async function SignupDonePage({ searchParams }: PageProps) {
         portal.
       </p>
       {slug && (
-        <a href={`https://${slug}.gymflow.ng/login`} className="gf-btn gf-btn-primary gf-btn-lg" style={{ display: 'inline-flex' }}>
-          Open {slug}.gymflow.ng
+        <a href={loginHref} className="gf-btn gf-btn-primary gf-btn-lg" style={{ display: 'inline-flex' }}>
+          Sign in to {slug}
         </a>
       )}
       <p className="login-footer" style={{ marginTop: 32 }}>

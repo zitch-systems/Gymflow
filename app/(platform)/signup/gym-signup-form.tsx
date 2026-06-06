@@ -146,7 +146,15 @@ export function GymSignupForm() {
             return;
           }
           toast(`${onboard.name ?? 'Your gym'} is live!`, 'success');
-          router.push(`/signup/done?slug=${encodeURIComponent(onboard.slug)}`);
+          if (onboard.autoLoggedIn && onboard.slug) {
+            // The server signed the new owner in (cookies set on this response).
+            // Hard-navigate (not router.push) so those cookies apply, and use the
+            // full /gym/{slug} path so we land in THIS gym — the short /admin path
+            // proxies to the default gym on the bare (non-subdomain) domain.
+            window.location.assign(`/gym/${onboard.slug}/admin/dashboard`);
+          } else {
+            router.push(`/signup/done?slug=${encodeURIComponent(onboard.slug)}`);
+          }
         },
         onClose: () => toast('Payment closed', 'info'),
       });
