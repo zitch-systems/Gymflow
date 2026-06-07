@@ -8,10 +8,7 @@ import {
   Bell, Wallet, Wrench, FileText, GraduationCap, ClipboardList, Check,
 } from 'lucide-react';
 
-export const metadata = {
-  title: 'Features',
-  description: 'Check-in, Paystack subscriptions, classes, staff, analytics, and automation — everything a Nigerian gym needs.',
-};
+export { featuresMetadata as metadata } from './metadata';
 
 function FeatureRow({
   eyebrow, title, body, points, img, alt, reverse,
