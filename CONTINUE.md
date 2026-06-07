@@ -22,11 +22,26 @@ for what's left.
 | Instructor | 7 | `app/(coach)` · `.ds-admin` |
 | Superadmin | 8 | `app/(superadmin)` · `.ds-admin` |
 
-### Backend track (not started)
-Wire real data per `design/HANDOFF.md`: Supabase client + `requireStaff`/
-`requireMember` gates + RLS, subdomain routing (`proxy.ts`), Paystack
-subscriptions, server actions for auth/booking/check-in/renew. Swap each
-page's static arrays for real queries; keep the markup.
+### Backend track (in progress)
+Connected to the live **Gymflow** Supabase project (`kdbbrxqxqewbjoozmfhq`,
+full 33-table schema + RLS already present). Done:
+- `lib/supabase/{server,client,admin,middleware}.ts`, `middleware.ts` (session refresh)
+- `lib/database.types.ts` (generated), `lib/auth/dal.ts` (gates), `lib/auth/actions.ts`, `lib/format.ts`
+- **Auth wired + working:** login/signup/forgot/reset + all sign-outs.
+- **Member surface gated** (requireAuth in `(member)/layout`) + **data-wired:**
+  `/dashboard` (status/checkins/unread), `/dashboard/inbox`, `/dashboard/profile`.
+- `.env.local` has the real URL + anon key (gitignored); `.env.example` tracked.
+
+Still to wire (swap static arrays for queries + gate):
+- Member: `/classes`, `/checkin` (+ self-checkin action), `/dashboard/wallet` (+`/[id]`), `/dashboard/renew`.
+- Admin (11), Instructor (7), Superadmin (8) — gate via their layouts (`requireStaff`/`requireInstructor`/`requirePlatformAdmin`) once test staff accounts exist, then wire each page.
+- **Paystack** subscription/renew flow + webhook (service-role writes to `payments`/`member_subscriptions`).
+- **Subdomain** multi-tenancy in `middleware.ts` (`{slug}.gymflow.ng` → gym) if multi-gym is needed; current DAL resolves the user's gym from their links.
+- Seed/known **test accounts** (member/owner/instructor/platform) so each gated surface is previewable. `SUPABASE_SERVICE_ROLE_KEY` must be set for admin-client paths.
+
+> Note: gating means previewing now needs a real login — sign up at `/signup`
+> or seed a test member. The `SET SERVICE_ROLE` key is required for Paystack/
+> cron/admin write paths (`lib/supabase/admin.ts`).
 
 ## ✅ Done (built from scratch, on `main`, build + tsc green)
 
