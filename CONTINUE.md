@@ -37,17 +37,23 @@ the role gates). **Demo logins** (password `Gymflow2026!`): member@ifitness.com
 → /dashboard · admin@ifitness.com → /admin · instructor@ifitness.com → /coach ·
 admin@gymflow.ng → /superadmin. Each lands on a **real, data-backed** screen.
 
-Data-wired so far:
-- **Member: ALL 8 pages.**
-- **Admin: 10/11** — all except analytics (KPIs easy; chart series need aggregation).
-- **Coach: 4/7** — today, clients, earnings, payouts. (classes, attendance, settings remain.)
-- **Superadmin: 5/8** — overview, gyms, members, revenue, audit. (onboard, support, settings remain.)
+Data-wired: **ALL surfaces complete** — Auth ✓ · Member 8/8 ✓ · Admin 11/11 ✓ ·
+Coach 7/7 ✓ · Superadmin 8/8 ✓. Real writes: member check-in, coach attendance
+(mark sessions), coach profile update, support_tickets.
 
-Still to wire / finish:
-- Admin: analytics chart series (revenue/check-ins/growth aggregation).
-- Coach: classes (instructor's own schedule), attendance (mark instructor_sessions — a write), settings (instructor profile form + update action).
-- Superadmin: onboard (provision form → create gym + owner; needs SERVICE_ROLE), support (no tickets table — leave sample or add one), settings (platform config — mostly static).
-- **Paystack** charge flow (renew/subscribe) + webhook → SERVICE_ROLE_KEY + Paystack keys.
+### Activate with env keys (the only remaining functional gap)
+Everything is wired; these paths run once the keys are in env (Vercel + the
+web-session env), and no-op/guard cleanly without them:
+- `SUPABASE_SERVICE_ROLE_KEY` → Paystack webhook writes (payments + subscription
+  extension) and superadmin **onboard** owner-account provisioning.
+- `PAYSTACK_SECRET_KEY` + `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` → renew→checkout flow.
+- **Paystack webhook URL:** point Paystack at `/api/paystack/webhook` (verifies
+  HMAC-SHA512 signature, idempotent on reference).
+
+Notes:
+- `public.support_tickets` table added (RLS: platform-admin all / gym-staff own).
+- Coach 6-week earnings sparkline + superadmin MRR/plan-mix trend remain
+  illustrative (historical aggregation not yet computed).
 - **Paystack** subscription/renew + webhook → needs `SUPABASE_SERVICE_ROLE_KEY`
   (server-only) set in env; writes go through `lib/supabase/admin.ts`.
 - **Subdomain** multi-tenancy in `middleware.ts` if multi-gym selection is wanted
