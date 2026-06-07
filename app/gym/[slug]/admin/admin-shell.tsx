@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Users, ScanLine, BarChart3, CalendarDays, GraduationCap,
-  Tag, Bell, Wrench, Wallet, Settings,
+  Tag, Bell, Wrench, Wallet, Settings, LayoutDashboard,
   LogOut, Menu,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
@@ -19,15 +19,20 @@ type NavItem = { href: string; label: string; section: 'main' | 'admin'; icon: L
 // Matches the prototype's admin surfaces 1:1 (revamp/admin*.html). Routes
 // outside this list — announcements / audit / billing / business-hours /
 // payouts / pt-packs / waiver — were cut as part of the platform rewrite.
+// Order + labels mirror revamp/admin-mobile.html and the desktop prototype's
+// sidebar. /admin/dashboard is the "Overview" page; /admin/members is the
+// dedicated members table. Route slugs (instructors / operations) stay as
+// they are — only the displayed labels match the prototype (Staff / Facility).
 const NAV: NavItem[] = [
-  { href: '/admin/dashboard',     label: 'Members',     section: 'main',  icon: Users },
+  { href: '/admin/dashboard',     label: 'Overview',    section: 'main',  icon: LayoutDashboard },
+  { href: '/admin/members',       label: 'Members',     section: 'main',  icon: Users },
   { href: '/admin/staff-checkin', label: 'Check-In',    section: 'main',  icon: ScanLine },
   { href: '/admin/analytics',     label: 'Analytics',   section: 'main',  icon: BarChart3 },
   { href: '/admin/classes',       label: 'Classes',     section: 'main',  icon: CalendarDays },
-  { href: '/admin/instructors',   label: 'Instructors', section: 'main',  icon: GraduationCap },
+  { href: '/admin/instructors',   label: 'Staff',       section: 'main',  icon: GraduationCap },
   { href: '/admin/pricing',       label: 'Pricing',     section: 'admin', icon: Tag },
   { href: '/admin/reminders',     label: 'Reminders',   section: 'admin', icon: Bell },
-  { href: '/admin/operations',    label: 'Operations',  section: 'admin', icon: Wrench },
+  { href: '/admin/operations',    label: 'Facility',    section: 'admin', icon: Wrench },
   { href: '/admin/wallet',        label: 'Wallet',      section: 'admin', icon: Wallet },
   { href: '/admin/settings',      label: 'Settings',    section: 'admin', icon: Settings },
 ];
@@ -187,10 +192,10 @@ export function AdminShell({
           ≤1024px (where the sidebar is off-canvas); hidden on desktop. */}
       <nav className="gf-admin-tabbar" aria-label="Primary">
         {([
-          { href: '/admin/dashboard', label: 'Members', icon: Users },
-          { href: '/admin/staff-checkin', label: 'Check-In', icon: ScanLine },
+          { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
+          { href: '/admin/members', label: 'Members', icon: Users },
           { href: '/admin/classes', label: 'Classes', icon: CalendarDays },
-          { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+          { href: '/admin/staff-checkin', label: 'Check-In', icon: ScanLine },
         ] as const).map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
