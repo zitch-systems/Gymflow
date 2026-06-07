@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { fmtNaira } from '@/lib/format';
 import { PaystackPayButton } from './paystack-pay';
 
@@ -32,51 +32,68 @@ export function RenewPlanPicker({
   const baseline = Math.max(...plans.map(perMonth));
   const bestId = plans.reduce((best, p) => (perMonth(p) < perMonth(best) ? p : best), plans[0]).id;
 
-  const badgeFor = (p: Plan): string | null => {
-    if (plans.length > 1 && p.id === bestId) return 'Best value';
+  const badgeFor = (p: Plan): { label: string; tone: 'brand' | 'accent' } | null => {
+    if (plans.length > 1 && p.id === bestId) return { label: 'Best value', tone: 'accent' };
     const save = Math.round((1 - perMonth(p) / baseline) * 100);
-    return save >= 5 ? `Save ${save}%` : null;
+    return save >= 5 ? { label: `Save ${save}%`, tone: 'brand' } : null;
+  };
+
+  // Per-period suffix the prototype uses (/mo, /qtr, /yr).
+  const periodSuffix = (months: number): string => {
+    if (months <= 1) return '/mo';
+    if (months === 3) return '/qtr';
+    if (months === 12) return '/yr';
+    return `/${months}mo`;
+  };
+
+  // Short tagline shown under the plan name — prefer the gym's own description,
+  // fall back to a per-cadence stock line so the layout doesn't collapse.
+  const tagline = (p: Plan): string => {
+    if (p.description) return p.description;
+    if (p.duration_months <= 1) return 'Billed every month · cancel anytime';
+    if (p.duration_months === 3) return 'Billed every 3 months';
+    if (p.duration_months === 12) return 'Billed yearly';
+    return `Billed every ${p.duration_months} months`;
   };
 
   const [selectedId, setSelectedId] = useState(bestId);
   const selected = plans.find((p) => p.id === selectedId) ?? plans[0];
 
   return (
-    <div className="m-renew">
-      <div className="m-renew-plans" role="radiogroup" aria-label="Membership plans">
-        {plans.map((p) => {
-          const isSel = p.id === selected.id;
-          const badge = badgeFor(p);
-          return (
-            <button
-              type="button"
-              key={p.id}
-              role="radio"
-              aria-checked={isSel}
-              className={`m-rplan${isSel ? ' on' : ''}`}
-              onClick={() => setSelectedId(p.id)}
-            >
-              <span className="m-rplan-radio" aria-hidden>{isSel ? <Check size={14} strokeWidth={3} /> : null}</span>
-              <span className="m-rplan-main">
-                <span className="m-rplan-name">
-                  {p.name}
-                  {badge && <span className="m-rplan-badge">{badge}</span>}
-                </span>
-                <span className="m-rplan-meta">
-                  {p.duration_months} month{p.duration_months === 1 ? '' : 's'} · {fmtNaira(perMonth(p))}/mo
-                </span>
-              </span>
-              <span className="m-rplan-price">{fmtNaira(p.price)}</span>
-            </button>
-          );
-        })}
-      </div>
+    <div role="radiogroup" aria-label="Membership plans">
+      {plans.map((p) => {
+        const isSel = p.id === selected.id;
+        const badge = badgeFor(p);
+        return (
+          <button
+            type="button"
+            key={p.id}
+            role="radio"
+            aria-checked={isSel}
+            className={`rplan${isSel ? ' on' : ''}`}
+            onClick={() => setSelectedId(p.id)}
+          >
+            <span className="rk" aria-hidden />
+            <div className="info">
+              <strong>
+                {p.name}
+                {badge && (
+                  <span className={`gf-badge gf-badge-${badge.tone}`} style={{ marginLeft: 4 }}>
+                    {badge.label}
+                  </span>
+                )}
+              </strong>
+              <small>{tagline(p)}</small>
+            </div>
+            <div className="pr">
+              {fmtNaira(p.price)}
+              <small>{periodSuffix(p.duration_months)}</small>
+            </div>
+          </button>
+        );
+      })}
 
-      <div className="m-renew-pay">
-        <div className="m-renew-total">
-          <span>Total today</span>
-          <strong>{fmtNaira(selected.price)}</strong>
-        </div>
+      <div style={{ marginTop: 8 }}>
         <PaystackPayButton
           gymId={gymId}
           planId={selected.id}
@@ -85,7 +102,9 @@ export function RenewPlanPicker({
           email={email}
           subaccount={subaccount}
         />
-        <p className="m-renew-secure"><Lock size={13} strokeWidth={2} aria-hidden /> Secured by Paystack · cancel anytime</p>
+      </div>
+      <div className="paysafe">
+        <Lock aria-hidden /> Secured by Paystack · cancel anytime
       </div>
     </div>
   );

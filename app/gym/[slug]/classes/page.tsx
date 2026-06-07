@@ -137,131 +137,125 @@ export default async function MemberClassesPage({ params, searchParams }: PagePr
     : `${dowAbbr} ${sel.getDate()} ${monAbbr}`;
 
   return (
-    <div className="op-mobile member-portal member-app">
-      {/* OPay-style header (matches /dashboard and /wallet) for consistent app chrome. */}
-      <header className="op-header">
-        <Link href="/dashboard/profile" className="op-header-avatar" aria-label="Profile">
-          <span>{(user.email ?? 'M').charAt(0).toUpperCase()}</span>
-        </Link>
-        <div className="op-header-greet">
-          Schedule
-          <small>{gym.name}</small>
-        </div>
-        <div className="op-header-actions">
+    <div className="ds-member">
+      <div className="view on" data-v="schedule">
+        <div className="mhead" style={{ paddingBottom: 8 }}>
+          <strong className="htitle">Schedule</strong>
           <Link
             href="/dashboard/inbox"
-            className="op-icon-btn"
+            className="icon-btn bell"
+            style={{ marginLeft: 'auto', width: 38, height: 38 }}
             aria-label={unreadCount > 0 ? `Inbox · ${unreadCount} unread` : 'Inbox'}
           >
-            <Bell strokeWidth={1.8} />
+            <Bell strokeWidth={1.9} />
             {unreadCount > 0 && (
-              <span className="op-icon-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              <span className="nub">{unreadCount > 99 ? '99+' : unreadCount}</span>
             )}
           </Link>
         </div>
-      </header>
 
-      <nav className="segtabs" aria-label="Schedule view">
-        <Link href={tabHref('cal')} className={tab === 'cal' ? 'on' : ''} aria-current={tab === 'cal' ? 'page' : undefined}>Schedule</Link>
-        <Link href={tabHref('bookings')} className={tab === 'bookings' ? 'on' : ''} aria-current={tab === 'bookings' ? 'page' : undefined}>My bookings</Link>
-      </nav>
+        <nav className="segtabs" aria-label="Schedule view">
+          <Link href={tabHref('cal')} className={tab === 'cal' ? 'on' : ''} aria-current={tab === 'cal' ? 'page' : undefined}>Schedule</Link>
+          <Link href={tabHref('bookings')} className={tab === 'bookings' ? 'on' : ''} aria-current={tab === 'bookings' ? 'page' : undefined}>My bookings</Link>
+        </nav>
 
-      {tab === 'cal' ? (
-        <>
-          {/* Week strip — Monday-anchored, dot when classes exist that DOW */}
-          <div className="calstrip">
-            {weekDays.map((d) => (
-              <Link key={d.iso} href={dayHref(d.iso)} className={`cday${d.iso === selectedIso ? ' on' : ''}`}>
-                <span>{d.dowShort}</span>
-                <b>{d.dom}</b>
-                <span className={`mk${hasOnDow.has(d.dow) ? '' : ' ghost'}`} />
-              </Link>
-            ))}
-          </div>
+        {tab === 'cal' ? (
+          <>
+            {/* Week strip — Monday-anchored, dot when classes exist that DOW */}
+            <div className="calstrip">
+              {weekDays.map((d) => (
+                <Link key={d.iso} href={dayHref(d.iso)} className={`cday${d.iso === selectedIso ? ' on' : ''}`}>
+                  <span>{d.dowShort}</span>
+                  <b>{d.dom}</b>
+                  <span className={`mk${hasOnDow.has(d.dow) ? '' : ' ghost'}`} />
+                </Link>
+              ))}
+            </div>
 
-          <div className="day-label">{dayLabel}</div>
+            <div className="day-label">{dayLabel}</div>
 
-          {slots.length === 0 ? (
-            <EmptyState icon={CalendarX} title="No classes that day" message="Pick another day or check back later." />
-          ) : (
-            <div className="cls-list">
-              {slots.map((s) => {
-                const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
-                const key = bookedKey(s.id, selectedIso);
-                const mine = myBooking.get(key);
-                const capacity = cls?.max_capacity ?? null;
-                const taken = confirmedCount.get(key) ?? 0;
-                const spotsLeft = capacity != null ? Math.max(0, capacity - taken) : null;
-                const isFull = capacity != null && taken >= capacity;
-                const { hm, ap } = splitTime(s.start_time);
-                return (
-                  <div key={s.id} className="cls-card">
-                    <div className="cls-tm">
-                      <b>{hm}</b>
-                      <span>{ap}</span>
+            {slots.length === 0 ? (
+              <EmptyState icon={CalendarX} title="No classes that day" message="Pick another day or check back later." />
+            ) : (
+              <div className="cls-list">
+                {slots.map((s) => {
+                  const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+                  const key = bookedKey(s.id, selectedIso);
+                  const mine = myBooking.get(key);
+                  const capacity = cls?.max_capacity ?? null;
+                  const taken = confirmedCount.get(key) ?? 0;
+                  const spotsLeft = capacity != null ? Math.max(0, capacity - taken) : null;
+                  const isFull = capacity != null && taken >= capacity;
+                  const { hm, ap } = splitTime(s.start_time);
+                  return (
+                    <div key={s.id} className="cls-card">
+                      <div className="tm">
+                        <b>{hm}</b>
+                        <span>{ap}</span>
+                      </div>
+                      <div className="info">
+                        <strong>{cls?.name ?? 'Class'}</strong>
+                        <small>
+                          {cls?.instructor ?? 'TBA'}
+                          {s.room ? ` · ${s.room}` : ''}
+                          {capacity != null ? ` · ${taken}/${capacity} booked` : ''}
+                        </small>
+                      </div>
+                      {capacity != null && !mine && (
+                        <span className={`gf-badge ${isFull ? 'gf-badge-warning' : 'gf-badge-neutral'}`}>
+                          {isFull ? 'Full' : `${spotsLeft} left`}
+                        </span>
+                      )}
+                      <BookClassButton
+                        slug={slug}
+                        scheduleId={s.id}
+                        bookingDate={selectedIso}
+                        memberStatus={(mine?.status as 'booked' | 'waitlisted' | undefined) ?? null}
+                        bookingId={mine?.id ?? null}
+                        isFull={isFull}
+                      />
                     </div>
-                    <div className="cls-info">
-                      <strong>{cls?.name ?? 'Class'}</strong>
-                      <small>
-                        {cls?.instructor ?? 'TBA'}
-                        {s.room ? ` · ${s.room}` : ''}
-                        {capacity != null ? ` · ${taken}/${capacity} booked` : ''}
-                      </small>
-                    </div>
-                    {capacity != null && !mine && (
-                      <span className={`gf-badge ${isFull ? 'gf-badge-warning' : 'gf-badge-neutral'}`}>
-                        {isFull ? 'Full' : `${spotsLeft} left`}
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          // ── My bookings — upcoming first, then anything earlier this week.
+          <>
+            {(bookings ?? []).length === 0 ? (
+              <EmptyState icon={CalendarX} title="No bookings yet" message="Tap a class on the Schedule tab to book." />
+            ) : (
+              <div>
+                {(bookings ?? []).map((b) => {
+                  const sch = b.classes;
+                  const cls = sch?.class_id ? classMetaById.get(sch.class_id) : null;
+                  const d = b.booking_date ? new Date(b.booking_date) : null;
+                  return (
+                    <div key={b.id} className="bkg">
+                      <div className="date">
+                        <b>{d ? d.getDate() : '—'}</b>
+                        <span>{d ? SHORT[d.getDay()] : ''}</span>
+                      </div>
+                      <div className="m">
+                        <strong>{cls?.name ?? 'Class'}</strong>
+                        <small>
+                          {sch?.start_time ? splitTime(sch.start_time).hm + ' ' + splitTime(sch.start_time).ap : ''}
+                          {sch?.room ? ` · ${sch.room}` : ''}
+                          {cls?.instructor ? ` · ${cls.instructor}` : ''}
+                        </small>
+                      </div>
+                      <span className={`gf-badge ${b.status === 'waitlisted' ? 'gf-badge-warning' : 'gf-badge-success'}`}>
+                        {b.status === 'waitlisted' ? 'Waitlist' : 'Booked'}
                       </span>
-                    )}
-                    <BookClassButton
-                      slug={slug}
-                      scheduleId={s.id}
-                      bookingDate={selectedIso}
-                      memberStatus={(mine?.status as 'booked' | 'waitlisted' | undefined) ?? null}
-                      bookingId={mine?.id ?? null}
-                      isFull={isFull}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      ) : (
-        // ── My bookings — upcoming first, then anything earlier this week.
-        <>
-          {(bookings ?? []).length === 0 ? (
-            <EmptyState icon={CalendarX} title="No bookings yet" message="Tap a class on the Schedule tab to book." />
-          ) : (
-            <div>
-              {(bookings ?? []).map((b) => {
-                const sch = b.classes;
-                const cls = sch?.class_id ? classMetaById.get(sch.class_id) : null;
-                const d = b.booking_date ? new Date(b.booking_date) : null;
-                return (
-                  <div key={b.id} className="bkg">
-                    <div className="date">
-                      <b>{d ? d.getDate() : '—'}</b>
-                      <span>{d ? SHORT[d.getDay()] : ''}</span>
                     </div>
-                    <div className="m">
-                      <strong>{cls?.name ?? 'Class'}</strong>
-                      <small>
-                        {sch?.start_time ? splitTime(sch.start_time).hm + ' ' + splitTime(sch.start_time).ap : ''}
-                        {sch?.room ? ` · ${sch.room}` : ''}
-                        {cls?.instructor ? ` · ${cls.instructor}` : ''}
-                      </small>
-                    </div>
-                    <span className={`gf-badge ${b.status === 'waitlisted' ? 'gf-badge-warning' : 'gf-badge-success'}`}>
-                      {b.status === 'waitlisted' ? 'Waitlist' : 'Booked'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
