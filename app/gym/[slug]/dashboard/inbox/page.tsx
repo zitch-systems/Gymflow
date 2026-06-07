@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { markAllNotificationsRead } from '@/lib/actions/notifications';
@@ -31,22 +32,28 @@ export default async function MemberInboxPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal member-app">
-      <header className="m-head" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
-        <strong className="htitle">Notifications</strong>
-        {unreadCount > 0 ? (
-          <form action={markAllNotificationsRead.bind(null, slug)}>
-            <button
-              type="submit"
-              className="m-head-bell"
-              aria-label={`Mark all ${unreadCount} as read`}
-              title="Mark all read"
-            >
-              <CheckCheck size={18} strokeWidth={1.9} />
-            </button>
-          </form>
-        ) : (
-          <span style={{ width: 38, height: 38 }} aria-hidden />
-        )}
+      <header className="op-header">
+        <Link href="/dashboard/profile" className="op-header-avatar" aria-label="Profile">
+          <span>{(gym.name ?? 'M').charAt(0).toUpperCase()}</span>
+        </Link>
+        <div className="op-header-greet">
+          Notifications
+          <small>{unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}</small>
+        </div>
+        <div className="op-header-actions">
+          {unreadCount > 0 && (
+            <form action={markAllNotificationsRead.bind(null, slug)}>
+              <button
+                type="submit"
+                className="op-icon-btn"
+                aria-label={`Mark all ${unreadCount} as read`}
+                title="Mark all read"
+              >
+                <CheckCheck strokeWidth={1.8} />
+              </button>
+            </form>
+          )}
+        </div>
       </header>
 
       {rows.length > 0 ? (
