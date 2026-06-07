@@ -5043,6 +5043,11 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 /* Card slots */
 .gf-card-padded { padding: 18px; }
 .gf-card-body { padding: 18px; }
+
+/* Card header/title used by detail-page cards (member instructor profile,
+   coach client detail, admin operations CRUD). Pairs with .gf-card. */
+.gf-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--gf-border); }
+.gf-card-title { font-family: var(--gf-font-display); font-weight: 700; font-size: 1rem; letter-spacing: -0.01em; margin: 0; color: var(--gf-text); }
 .gf-card-subtitle { font-size: 0.8125rem; color: var(--gf-text-muted); margin: 4px 0 0; }
 .gf-card-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 

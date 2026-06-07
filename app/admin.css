@@ -545,3 +545,16 @@
 .ds-admin .dstat { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .ds-admin .dstat .l { color: var(--gf-text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
 .ds-admin .dstat .v { font-family: var(--gf-font-display); font-weight: 700; margin-top: 4px; }
+
+/* ── Feed/attention row aliases used by admin + coach pages.
+   Pages emit .feed-meta / .feed-time / .att-meta / .cap-num directly
+   instead of the prototype's .feed-row .m / .feed-row .t / .att-row .m
+   nested selectors, so alias them to the same styling. ── */
+.ds-admin .feed-meta { flex: 1; min-width: 0; }
+.ds-admin .feed-meta strong { font-family: var(--gf-font-display); font-size: 0.88rem; font-weight: 600; display: block; }
+.ds-admin .feed-meta small { color: var(--gf-text-muted); font-size: 0.75rem; }
+.ds-admin .feed-time { font-size: 0.75rem; color: var(--gf-text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.ds-admin .att-meta { flex: 1; min-width: 0; }
+.ds-admin .att-meta strong { font-family: var(--gf-font-display); font-size: 0.85rem; font-weight: 600; display: block; }
+.ds-admin .att-meta small { color: var(--gf-warning); font-size: 0.72rem; font-weight: 600; }
+.ds-admin .cap-num { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.78rem; color: var(--gf-text-muted); white-space: nowrap; flex-shrink: 0; }
