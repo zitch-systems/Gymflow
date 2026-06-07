@@ -7111,3 +7111,343 @@ body::after {
 .member-app .bkg .m { flex: 1; min-width: 0; }
 .member-app .bkg .m strong { font-family: var(--gf-font-display); font-size: 0.9rem; font-weight: 600; display: block; }
 .member-app .bkg .m small { color: var(--gf-text-muted); font-size: 0.76rem; }
+
+/* ============================================================================
+   ── OPay-style mobile design layer (.op-*) ──
+   ----------------------------------------------------------------------------
+   New mobile-first design layer added per user request: an OPay-app-style
+   layout for the member portal (and reusable across coach/admin mobile shells).
+   Purely additive — does not modify any existing .m-* / .gf-* rules.
+============================================================================ */
+
+:root {
+  --op-bg: #f4f6f8;
+  --op-card-bg: #ffffff;
+  --op-text: #111827;
+  --op-text-muted: #6b7280;
+  --op-text-soft: #9ca3af;
+  --op-border: #eef0f3;
+  --op-tile-bg: rgba(17, 209, 139, 0.10);
+  --op-tile-bg-hover: rgba(17, 209, 139, 0.16);
+  --op-icon: #07a86c;
+  --op-icon-strong: #11d18b;
+  --op-radius: 18px;
+  --op-radius-sm: 14px;
+  --op-pad: 16px;
+  --op-gap: 12px;
+  --op-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.04);
+  --op-shadow-hero: 0 10px 30px -10px rgba(7, 168, 108, 0.45);
+  --op-grad-hero: linear-gradient(135deg, #11d18b 0%, #07a86c 100%);
+  --op-grad-promo: linear-gradient(135deg, rgba(17, 209, 139, 0.22), rgba(17, 209, 139, 0.06));
+  --op-danger: #ef4444;
+  --op-warning: #f59e0b;
+  --op-nav-h: 72px;
+}
+[data-theme="dark"] {
+  --op-bg: #0a0a12;
+  --op-card-bg: #14141e;
+  --op-text: #f3f3fa;
+  --op-text-muted: #9b9bb8;
+  --op-text-soft: #6a6a86;
+  --op-border: #1f1f2c;
+  --op-tile-bg: rgba(17, 209, 139, 0.12);
+  --op-tile-bg-hover: rgba(17, 209, 139, 0.20);
+  --op-icon: #4fe3a8;
+  --op-icon-strong: #11d18b;
+  --op-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 4px 14px rgba(0,0,0,0.3);
+}
+
+/* Root wrapper — sets the off-white app background + safe paddings */
+.op-mobile {
+  background: var(--op-bg);
+  min-height: 100vh; min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: calc(var(--op-nav-h) + env(safe-area-inset-bottom, 0px) + 16px);
+  color: var(--op-text);
+  font-feature-settings: 'kern','liga','calt';
+  -webkit-tap-highlight-color: transparent;
+}
+.op-mobile * { box-sizing: border-box; }
+.op-stack { display: flex; flex-direction: column; gap: var(--op-gap); padding: 12px var(--op-pad) 0; }
+
+/* Header — avatar with brand ring + greeting + action icons */
+.op-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px var(--op-pad) 4px;
+  background: var(--op-bg);
+}
+.op-header-avatar {
+  position: relative;
+  width: 42px; height: 42px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--op-card-bg);
+  box-shadow: 0 0 0 2px var(--op-icon-strong), 0 0 0 4px var(--op-bg);
+  overflow: hidden; flex-shrink: 0;
+  color: var(--op-text); font-weight: 700; font-size: 0.92rem;
+  text-decoration: none;
+}
+.op-header-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.op-header-greet { flex: 1; min-width: 0; font-size: 0.95rem; font-weight: 600; color: var(--op-text); }
+.op-header-greet small { display: block; font-size: 0.72rem; color: var(--op-text-muted); font-weight: 500; margin-top: 1px; }
+.op-header-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.op-icon-btn {
+  position: relative;
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center;
+  color: var(--op-text); background: transparent; border: none;
+  cursor: pointer; text-decoration: none;
+  transition: background 120ms;
+}
+.op-icon-btn:hover { background: var(--op-tile-bg); }
+.op-icon-btn svg { width: 22px; height: 22px; }
+.op-icon-badge {
+  position: absolute; top: -2px; right: -4px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  background: var(--op-danger); color: #fff;
+  border-radius: 999px;
+  font-size: 0.62rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  display: grid; place-items: center;
+  border: 2px solid var(--op-bg);
+}
+.op-icon-pill {
+  position: absolute; top: -4px; right: -6px;
+  padding: 1px 6px;
+  background: var(--op-danger); color: #fff;
+  border-radius: 999px;
+  font-size: 0.56rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  border: 2px solid var(--op-bg);
+}
+
+/* Hero card — brand-green gradient with balance / subscription number */
+.op-hero {
+  background: var(--op-grad-hero);
+  color: #fff;
+  border-radius: var(--op-radius);
+  padding: 18px 18px 20px;
+  box-shadow: var(--op-shadow-hero);
+  position: relative; overflow: hidden;
+}
+.op-hero::after {
+  content: ''; position: absolute; right: -30px; top: -50px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  pointer-events: none;
+}
+.op-hero-top { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
+.op-hero-label { display: inline-flex; align-items: center; gap: 7px; font-size: 0.84rem; font-weight: 600; opacity: 0.96; }
+.op-hero-label svg { width: 16px; height: 16px; }
+.op-hero-secondary { font-size: 0.84rem; font-weight: 600; color: #fff; opacity: 0.96; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.op-hero-amount {
+  font-family: var(--gf-font-display);
+  font-size: 1.85rem; font-weight: 800; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  display: flex; align-items: center; gap: 6px;
+  margin: 12px 0 0; position: relative; z-index: 1;
+}
+.op-hero-amount-strike { text-decoration: line-through; opacity: 0.6; font-weight: 700; }
+.op-hero-amount svg { opacity: 0.85; }
+.op-hero-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; position: relative; z-index: 1; }
+.op-hero-meta { font-size: 0.78rem; opacity: 0.92; }
+.op-hero-cta {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #fff; color: var(--op-icon);
+  border-radius: 999px; padding: 9px 16px;
+  font-size: 0.84rem; font-weight: 700; text-decoration: none;
+  border: none; cursor: pointer;
+  transition: transform 120ms;
+}
+.op-hero-cta:hover { transform: translateY(-1px); }
+.op-hero-cta svg { width: 16px; height: 16px; }
+.op-hero-bar { height: 6px; background: rgba(255,255,255,0.28); border-radius: 99px; overflow: hidden; margin: 10px 0 6px; position: relative; z-index: 1; }
+.op-hero-bar > span { display: block; height: 100%; background: #fff; border-radius: 99px; }
+
+/* Base card surface */
+.op-card {
+  background: var(--op-card-bg);
+  border-radius: var(--op-radius);
+  padding: var(--op-pad);
+  box-shadow: var(--op-shadow);
+}
+
+/* List card — transaction-style rows inside .op-card */
+.op-list { display: flex; flex-direction: column; gap: 14px; }
+.op-list-row { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.op-list-row + .op-list-row { padding-top: 14px; border-top: 1px solid var(--op-border); }
+.op-list-ic {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--op-tile-bg);
+  display: grid; place-items: center; flex-shrink: 0;
+  color: var(--op-icon);
+}
+.op-list-ic svg { width: 18px; height: 18px; }
+.op-list-m { flex: 1; min-width: 0; }
+.op-list-title { font-size: 0.9rem; font-weight: 600; color: var(--op-text); line-height: 1.3; }
+.op-list-sub { font-size: 0.75rem; color: var(--op-text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.op-list-r { text-align: right; flex-shrink: 0; }
+.op-list-amt { font-size: 0.92rem; font-weight: 700; color: var(--op-text); font-variant-numeric: tabular-nums; }
+.op-list-amt.is-credit { color: var(--op-icon); }
+.op-list-status {
+  display: inline-block; margin-top: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--op-tile-bg); color: var(--op-icon);
+  font-size: 0.66rem; font-weight: 600;
+}
+.op-list-status.is-pending { background: rgba(245, 158, 11, 0.16); color: var(--op-warning); }
+.op-list-status.is-failed  { background: rgba(239, 68, 68, 0.16);  color: var(--op-danger); }
+
+/* Action row (3 large tiles like To OPay / To Bank / Withdraw) */
+.op-action-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.op-action-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  padding: 14px 6px;
+  text-decoration: none; color: var(--op-text);
+  border-radius: 12px;
+  transition: background 120ms;
+}
+.op-action-tile:hover { background: var(--op-tile-bg); }
+.op-action-tile .op-ic {
+  width: 56px; height: 56px; border-radius: var(--op-radius-sm);
+  background: var(--op-tile-bg);
+  display: grid; place-items: center;
+  color: var(--op-icon);
+}
+.op-action-tile .op-ic svg { width: 26px; height: 26px; }
+.op-action-tile-label { font-size: 0.84rem; font-weight: 600; }
+
+/* 4-col service grid */
+.op-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 6px; }
+.op-grid-tile {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 8px 4px;
+  text-decoration: none; color: var(--op-text);
+  border-radius: 12px;
+  transition: background 120ms;
+}
+.op-grid-tile:hover { background: var(--op-tile-bg); }
+.op-grid-tile .op-ic {
+  width: 48px; height: 48px; border-radius: var(--op-radius-sm);
+  background: var(--op-tile-bg);
+  display: grid; place-items: center;
+  color: var(--op-icon);
+}
+.op-grid-tile .op-ic svg { width: 24px; height: 24px; }
+.op-grid-tile-label { font-size: 0.76rem; font-weight: 600; text-align: center; line-height: 1.2; color: var(--op-text); }
+.op-grid-tile-badge {
+  position: absolute; top: -4px; right: 6px;
+  padding: 1px 6px;
+  background: var(--op-danger); color: #fff;
+  border-radius: 999px;
+  font-size: 0.56rem; font-weight: 700;
+  white-space: nowrap;
+}
+.op-grid-tile-badge.is-amber { background: var(--op-warning); }
+.op-grid-tile-badge.is-brand { background: var(--op-icon); }
+
+/* Promo card — light-green voucher / referral block */
+.op-promo {
+  background: var(--op-card-bg);
+  border-radius: var(--op-radius);
+  padding: 14px var(--op-pad);
+  box-shadow: var(--op-shadow);
+  display: flex; align-items: center; gap: 12px;
+}
+.op-promo-ic {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--op-tile-bg);
+  display: grid; place-items: center;
+  color: var(--op-icon); flex-shrink: 0;
+}
+.op-promo-m { flex: 1; min-width: 0; }
+.op-promo-m strong { display: block; font-size: 0.92rem; font-weight: 700; color: var(--op-text); }
+.op-promo-m small  { display: block; font-size: 0.78rem; color: var(--op-text-muted); margin-top: 2px; line-height: 1.4; }
+.op-promo-cta {
+  flex-shrink: 0;
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--op-icon); color: #fff;
+  font-size: 0.78rem; font-weight: 700; text-decoration: none;
+  border: none; cursor: pointer;
+}
+
+/* Voucher variant (the green-gradient '₦10 Savings' card) */
+.op-voucher {
+  background: var(--op-grad-promo);
+  border: 1px solid rgba(17, 209, 139, 0.25);
+  border-radius: var(--op-radius);
+  padding: 14px var(--op-pad);
+  display: flex; align-items: center; gap: 12px;
+}
+.op-voucher-coin {
+  flex-shrink: 0;
+  width: 60px; padding: 8px 0; text-align: center;
+  background: var(--op-card-bg);
+  border: 1px dashed rgba(17, 209, 139, 0.4);
+  border-radius: 10px;
+  font-family: var(--gf-font-display);
+  font-variant-numeric: tabular-nums;
+}
+.op-voucher-coin b { display: block; font-size: 1.1rem; font-weight: 800; color: var(--op-icon); line-height: 1.1; }
+.op-voucher-coin small { font-size: 0.6rem; color: var(--op-text-muted); }
+.op-voucher-m { flex: 1; min-width: 0; }
+.op-voucher-m strong { display: block; font-size: 0.92rem; font-weight: 700; color: var(--op-text); }
+.op-voucher-m small  { display: block; font-size: 0.74rem; color: var(--op-text-muted); margin-top: 2px; line-height: 1.4; }
+.op-voucher-cta {
+  flex-shrink: 0;
+  padding: 8px 14px; border-radius: 999px;
+  background: #111827; color: #fff;
+  font-size: 0.74rem; font-weight: 700; text-decoration: none;
+  border: none; cursor: pointer;
+}
+
+/* Section heading */
+.op-sect-h { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; }
+.op-sect-h strong { font-size: 0.92rem; font-weight: 700; color: var(--op-text); }
+.op-sect-h a { font-size: 0.78rem; color: var(--op-icon); font-weight: 600; text-decoration: none; }
+
+/* Bottom 5-tab nav — restyle the existing .gf-mobile-nav */
+.gf-has-tabbar .gf-mobile-nav {
+  height: calc(var(--op-nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--op-card-bg);
+  border-top: 1px solid var(--op-border);
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
+  display: grid; grid-template-columns: repeat(5, 1fr);
+}
+.gf-has-tabbar .gf-nav-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 8px 4px;
+  color: var(--op-text-muted); text-decoration: none;
+  font-size: 0.66rem; font-weight: 600;
+  position: relative;
+  transition: color 120ms;
+}
+.gf-has-tabbar .gf-nav-tab svg { width: 22px; height: 22px; stroke-width: 1.9; }
+.gf-has-tabbar .gf-nav-tab.active { color: var(--op-icon); }
+.gf-has-tabbar .gf-nav-tab.active::before {
+  content: ''; position: absolute; top: 6px;
+  width: 26px; height: 4px; border-radius: 99px;
+  background: var(--op-icon);
+}
+
+/* Auth-page mobile polish */
+@media (max-width: 480px) {
+  .gf-auth .formside { padding: 24px 16px; }
+  .gf-auth .formcard h1 { font-size: 1.5rem; margin-top: 16px; }
+  .gf-auth .auth-tabs { padding: 3px; margin-bottom: 18px; }
+  .gf-auth .auth-tabs a { font-size: 0.82rem; padding: 7px; }
+  .gf-auth .auth-roles { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .gf-auth .role-btn { padding: 10px 12px; font-size: 0.78rem; }
+}
+
+/* Tighten member portal wrapper on phones for pages not yet migrated to .op-mobile */
+@media (max-width: 640px) {
+  .gf-has-tabbar { background: var(--op-bg); }
+  .member-portal { padding: 12px 14px; gap: 14px; }
+}
+
+/* Admin/coach mobile shells — make data-dense pages breathe on phones */
+@media (max-width: 640px) {
+  .gf-page { padding: 14px; gap: 14px; background: var(--op-bg); }
+  .kpi, .panel { border-radius: var(--op-radius); box-shadow: var(--op-shadow); }
+}
+
