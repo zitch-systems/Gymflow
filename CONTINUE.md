@@ -23,7 +23,16 @@ for what's left.
 
 **Auth (4 routes)** — `/login`, `/signup` (login in "create gym" mode), `/forgot-password`, `/reset-password` (live strength meter). Client components; no backend (prototypes are backendless too).
 
+**Member PWA (8 routes)** ✅ — `member.css` namespaced under `.ds-member` (device chrome stripped); `components/member/tabbar.tsx` + `app/(member)/layout.tsx`. Routes: `/dashboard`, `/classes`, `/checkin`, `/dashboard/wallet` + `/wallet/[id]`, `/dashboard/renew`, `/dashboard/inbox`, `/dashboard/profile`.
+
+**Admin (11 routes + shell)** ✅ — admin.css + all 11 `admin*.html` inline styles namespaced under `.ds-admin`; `components/admin/admin-shell.tsx` + `app/(admin)/layout.tsx`. Routes: dashboard, members, staff-checkin, analytics, classes, instructors, pricing, reminders, operations, wallet, settings.
+
 ## ⬜ Remaining app surfaces (each = its own session)
+
+> **Recipe is proven** (member + admin done). For each: extract the surface's
+> inline `<style>` blocks, namespace under `.ds-admin` (they reuse admin's
+> KPI/panel/table primitives), build a shell + the pages with static data.
+> Reuse the namespacing node script pattern from the admin commit.
 
 The pattern is established: per surface, (1) namespace its CSS, (2) build each
 view as a route reproducing the matching `revamp/*.html`.
