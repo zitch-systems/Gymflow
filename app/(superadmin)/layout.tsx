@@ -1,8 +1,9 @@
 import { SuperShell } from '@/components/superadmin/super-shell';
+import { requirePlatformAdmin } from '@/lib/auth/dal';
 
-// Platform-admin console. Reuses .ds-admin (super pages share admin's KPI/
-// panel/table primitives) + super-only widgets (.gt/.gname, .act-row,
-// .dstat, .pill-plat) ported to .ds-admin.
-export default function SuperadminLayout({ children }: { children: React.ReactNode }) {
+// Platform-admin console. requirePlatformAdmin() gates the group (must be an
+// active row in platform_admins); everyone else is redirected to /.
+export default async function SuperadminLayout({ children }: { children: React.ReactNode }) {
+  await requirePlatformAdmin();
   return <SuperShell>{children}</SuperShell>;
 }

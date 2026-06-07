@@ -63,8 +63,9 @@ export async function requireStaff(roles?: string[]): Promise<{ user: NonNullabl
   return { user, gym, role };
 }
 
+// user_role enum: platform_admin | gym_owner | manager | front_desk | accountant | instructor | member
 export async function requireInstructor() {
-  return requireStaff(['instructor', 'manager', 'owner']);
+  return requireStaff(['instructor', 'manager', 'gym_owner']);
 }
 
 export async function isPlatformAdmin(): Promise<boolean> {

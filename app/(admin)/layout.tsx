@@ -1,8 +1,10 @@
 import { AdminShell } from '@/components/admin/admin-shell';
+import { requireStaff } from '@/lib/auth/dal';
 
 // Admin console shell — sidebar + topbar around every /admin/* route.
-// Everything sits inside .ds-admin so the namespaced admin content styles
-// (.kpis, .panel, .tbl, .who, .clx, .balance, etc.) apply.
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+// requireStaff() gates the group (any active gym staff link); non-staff are
+// redirected to /login. Content sits inside .ds-admin (set by AdminShell).
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  await requireStaff();
   return <AdminShell>{children}</AdminShell>;
 }

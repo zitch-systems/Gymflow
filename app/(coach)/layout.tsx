@@ -1,8 +1,9 @@
 import { CoachShell } from '@/components/coach/coach-shell';
+import { requireInstructor } from '@/lib/auth/dal';
 
-// Instructor portal shell. Reuses the .ds-admin namespace (instructor pages
-// share admin's KPI/panel/grid primitives) plus instructor-only widgets
-// (.tl timeline, .roster, .cl-row, .ec chart, .payout) ported to .ds-admin.
-export default function CoachLayout({ children }: { children: React.ReactNode }) {
+// Instructor portal shell. requireInstructor() gates the group (instructor /
+// manager / gym_owner). Reuses the .ds-admin namespace + instructor widgets.
+export default async function CoachLayout({ children }: { children: React.ReactNode }) {
+  await requireInstructor();
   return <CoachShell>{children}</CoachShell>;
 }

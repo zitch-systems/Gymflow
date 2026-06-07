@@ -2,15 +2,11 @@ import Link from 'next/link';
 import {
   Users, ScanLine, Clock, Wallet, ArrowRight, Zap, TrendingUp,
 } from 'lucide-react';
+import { requireStaff, getProfile } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { fmtNaira, firstName } from '@/lib/format';
 
 export const metadata = { title: 'Overview' };
-
-const KPIS = [
-  { icon: Users, fg: '#11d18b', bg: 'rgba(17,209,139,0.12)', val: '482', lbl: 'Active members', delta: '+12', up: true },
-  { icon: ScanLine, fg: '#4080ff', bg: 'rgba(64,128,255,0.12)', val: '14', lbl: 'Check-ins today', delta: '+3', up: true },
-  { icon: Clock, fg: '#ffb020', bg: 'rgba(255,176,32,0.12)', val: '18', lbl: 'Expiring this week', delta: '−2', up: false },
-  { icon: Wallet, fg: '#a8d92e', bg: 'rgba(198,242,78,0.12)', val: '₦1.24M', lbl: 'Revenue · 7 days', delta: '+8%', up: true },
-];
 
 const REV = [40, 62, 48, 80, 55, 92, 70];
 const REV_MAX = Math.max(...REV);
@@ -41,13 +37,41 @@ const CLASSES = [
   { time: '17:30', name: 'Spin Class', sub: 'Coach Tobi · Studio 2', cap: '20/20' },
 ];
 
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const { gym } = await requireStaff();
+  const profile = await getProfile();
+  const supabase = await createClient();
+
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const weekAhead = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+
+  const [{ count: members }, { count: checkins }, { count: expiring }, { data: pay }] = await Promise.all([
+    supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('is_active', true),
+    supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).gte('checked_in_at', todayStart.toISOString()),
+    supabase.from('member_subscriptions').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('status', 'active').gte('end_date', today).lte('end_date', weekAhead),
+    supabase.from('payments').select('amount').eq('gym_id', gym.id).eq('payment_status', 'successful').gte('payment_date', weekAgo),
+  ]);
+  const revenue = (pay ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+
+  const KPIS = [
+    { icon: Users, fg: '#11d18b', bg: 'rgba(17,209,139,0.12)', val: String(members ?? 0), lbl: 'Active members', delta: '', up: true },
+    { icon: ScanLine, fg: '#4080ff', bg: 'rgba(64,128,255,0.12)', val: String(checkins ?? 0), lbl: 'Check-ins today', delta: '', up: true },
+    { icon: Clock, fg: '#ffb020', bg: 'rgba(255,176,32,0.12)', val: String(expiring ?? 0), lbl: 'Expiring this week', delta: '', up: false },
+    { icon: Wallet, fg: '#a8d92e', bg: 'rgba(198,242,78,0.12)', val: fmtNaira(revenue), lbl: 'Revenue · 7 days', delta: '', up: true },
+  ];
+
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const ownerName = firstName(profile?.full_name ?? profile?.first_name, 'there');
+
   return (
     <>
       <div className="hdr">
         <div>
-          <h1>Good morning, <span>Adunni</span></h1>
-          <p>Friday, 30 May · 14 check-ins so far today · 3 memberships need attention</p>
+          <h1>{greet}, <span>{ownerName}</span></h1>
+          <p>{gym.name} · {checkins ?? 0} check-in{checkins === 1 ? '' : 's'} today · {expiring ?? 0} membership{expiring === 1 ? '' : 's'} expiring this week</p>
         </div>
         <div className="seg">
           <button className="on">Today</button>
@@ -63,7 +87,7 @@ export default function AdminDashboard() {
             <div className="kpi" key={k.lbl}>
               <div className="kpi-top">
                 <div className="kpi-ic" style={{ background: k.bg, color: k.fg }}><Icon strokeWidth={1.9} /></div>
-                <span className={`kpi-delta ${k.up ? 'up' : 'down'}`}><TrendingUp strokeWidth={2} /> {k.delta}</span>
+                {k.delta && <span className={`kpi-delta ${k.up ? 'up' : 'down'}`}><TrendingUp strokeWidth={2} /> {k.delta}</span>}
               </div>
               <div className="kpi-val">{k.val}</div>
               <div className="kpi-lbl">{k.lbl}</div>
