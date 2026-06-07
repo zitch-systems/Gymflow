@@ -448,3 +448,100 @@
   .ds-admin .clx .cap,
   .ds-admin .adm-clx-cap { width: 100%; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Coach (instructor) — shares .ds-admin namespace since coach pages already
+   use admin's .kpis, .kpi-X, .panel, .grid, .naira, .link, .feed-row, and
+   .cls-row classes. These rules cover the prototype's coach-only widgets:
+   today timeline (.tl-X), avatar stack (.roster), client rows (.cl-row),
+   micro earnings chart (.ec X), gradient payout card (.payout), drawer
+   attendance row (.att-r). Ported from revamp/instructor.html inline style.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Today timeline (.tl) */
+.ds-admin .tl { display: flex; flex-direction: column; }
+.ds-admin .tl-row { display: flex; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .tl-row:last-child { border-bottom: none; }
+.ds-admin .tl-time { width: 64px; flex-shrink: 0; text-align: right; }
+.ds-admin .tl-time b { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.9rem; display: block; }
+.ds-admin .tl-time span { font-size: 0.66rem; color: var(--gf-text-muted); }
+.ds-admin .tl-card { flex: 1; background: var(--gf-elevated); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-sm); padding: 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.ds-admin .tl-card.now { border-color: var(--gf-brand); box-shadow: inset 3px 0 0 var(--gf-brand); }
+.ds-admin .tl-card .info { flex: 1; min-width: 0; }
+.ds-admin .tl-card .info strong { font-family: var(--gf-font-display); font-size: 0.92rem; display: block; }
+.ds-admin .tl-card .info small { color: var(--gf-text-muted); font-size: 0.76rem; }
+
+/* Avatar roster (stacked overlap) */
+.ds-admin .roster { display: flex; margin-left: 4px; }
+.ds-admin .roster .gf-avatar { width: 28px; height: 28px; font-size: 0.66rem; margin-left: -8px; border: 2px solid var(--gf-surface); background: var(--gf-brand-soft); color: var(--gf-brand); }
+.ds-admin .roster .more { background: var(--gf-elevated); color: var(--gf-text-muted); }
+
+/* Client list rows (.cl-row) */
+.ds-admin .cl-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .cl-row:last-child { border-bottom: none; }
+.ds-admin .cl-row .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); font-size: 0.78rem; }
+.ds-admin .cl-row .m { flex: 1; min-width: 0; }
+.ds-admin .cl-row .m strong { font-family: var(--gf-font-display); font-size: 0.86rem; display: block; }
+.ds-admin .cl-row .m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+
+/* Earnings micro-chart (.ec / .col / .bar / .lbl) */
+.ds-admin .ec { display: flex; align-items: flex-end; gap: 8px; height: 120px; margin-top: 6px; }
+.ds-admin .ec .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.ds-admin .ec .bar { width: 100%; max-width: 30px; border-radius: 7px 7px 3px 3px; background: linear-gradient(180deg, var(--gf-brand-light), var(--gf-brand-dark)); }
+.ds-admin .ec .lbl { font-size: 0.66rem; color: var(--gf-text-muted); font-weight: 600; }
+
+/* Payout gradient card (.payout) */
+.ds-admin .payout { background: linear-gradient(150deg, var(--gf-brand), var(--gf-brand-dark)); border-radius: var(--gf-radius); padding: 18px; color: #fff; position: relative; overflow: hidden; }
+.ds-admin .payout::after { content: ''; position: absolute; right: -30px; top: -30px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 70%); }
+.ds-admin .payout small { font-size: 0.74rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.ds-admin .payout .amt { font-family: var(--gf-font-display); font-size: 2rem; font-weight: 800; margin: 6px 0 2px; letter-spacing: -0.02em; }
+
+/* Attendance row in drawer (.att-r) */
+.ds-admin .att-r { display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .att-r:last-child { border-bottom: none; }
+.ds-admin .att-r .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); font-size: 0.74rem; }
+.ds-admin .att-r .m { flex: 1; min-width: 0; }
+.ds-admin .att-r .m strong { font-family: var(--gf-font-display); font-size: 0.84rem; font-weight: 600; display: block; }
+.ds-admin .att-r .m small { color: var(--gf-text-muted); font-size: 0.72rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Superadmin — also shares .ds-admin namespace. The platform-admin pages
+   already use admin's .page-h, .kpis, .kpi-X, .panel, .naira, .seg, .set-row,
+   .integ, .search classes. These rules add the super-only widgets: gym table
+   (.gt + .gname + .sq color tile), activity feed (.act-row), drawer stats
+   grid (.dstat), and the platform-admin role pill (.pill-plat). Ported from
+   revamp/superadmin.html inline style.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Platform-admin role pill (next to "Platform admin" in the topbar/sidebar) */
+.ds-admin .pill-plat { display: inline-flex; align-items: center; gap: 6px; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gf-info); background: var(--gf-info-soft); border: 1px solid rgba(64, 128, 255, 0.25); padding: 3px 9px; border-radius: var(--gf-radius-pill); }
+
+/* MRR area chart container */
+.ds-admin .area { height: 200px; width: 100%; }
+
+/* Gym table (.gt) — similar to .mtbl but used on /superadmin/gyms */
+.ds-admin .gt { width: 100%; border-collapse: collapse; }
+.ds-admin .gt th { text-align: left; font-family: var(--gf-font-display); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gf-text-muted); padding: 0 14px 12px; }
+.ds-admin .gt td { padding: 12px 14px; border-top: 1px solid var(--gf-border); font-size: 0.875rem; }
+.ds-admin .gt tbody tr { transition: background var(--gf-t); cursor: pointer; }
+.ds-admin .gt tbody tr:hover { background: var(--gf-elevated); }
+
+/* Gym row name cell — colored square initial + name/subdomain */
+.ds-admin .gname { display: flex; align-items: center; gap: 11px; }
+.ds-admin .gname .sq { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 800; font-size: 0.85rem; color: #fff; background: linear-gradient(135deg, var(--gf-brand), var(--gf-brand-dark)); flex-shrink: 0; }
+.ds-admin .gname strong { font-family: var(--gf-font-display); font-weight: 600; display: block; font-size: 0.875rem; }
+.ds-admin .gname small { color: var(--gf-text-muted); font-size: 0.72rem; }
+
+/* Activity feed (.act-row) on /superadmin (audit) */
+.ds-admin .act-row { display: flex; align-items: center; gap: 11px; padding: 10px 0; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .act-row:last-child { border-bottom: none; }
+.ds-admin .act-row .ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; background: var(--gf-elevated); }
+.ds-admin .act-row .ic svg { width: 15px; height: 15px; }
+.ds-admin .act-row .m { flex: 1; min-width: 0; font-size: 0.84rem; }
+.ds-admin .act-row .m small { color: var(--gf-text-muted); font-size: 0.72rem; display: block; }
+.ds-admin .act-row .t { font-size: 0.72rem; color: var(--gf-text-muted); white-space: nowrap; }
+
+/* Drawer stat grid (gym detail panel) */
+.ds-admin .dstat { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ds-admin .dstat .l { color: var(--gf-text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.ds-admin .dstat .v { font-family: var(--gf-font-display); font-weight: 700; margin-top: 4px; }

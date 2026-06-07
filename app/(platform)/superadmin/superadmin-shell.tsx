@@ -112,7 +112,10 @@ export function SuperadminShell({
           <span style={{ flex: 1 }} />
           <span className="gf-badge gf-badge-brand">Superadmin</span>
         </header>
-        {children}
+        {/* .ds-admin scopes the prototype's content classes (.kpis, .panel,
+            .gt, .gname, .act-row, .dstat, .pill-plat). Topbar stays out so
+            .gf-topbar keeps its chrome. */}
+        <div className="ds-admin">{children}</div>
       </div>
 
       <nav className="gf-admin-tabbar" aria-label="Primary">
