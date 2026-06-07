@@ -3,13 +3,25 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Mail, ArrowLeft, ArrowRight, Lock } from 'lucide-react';
+import { Mail, ArrowLeft, ArrowRight, Lock, AlertCircle } from 'lucide-react';
+import { requestPasswordReset } from '@/lib/auth/actions';
 
-// revamp/forgot-password.html — request → "check your email" two-step flow.
-// No backend here; submitting advances to the sent state (faithful to proto).
+// revamp/forgot-password.html — request → "check your email" two-step flow,
+// wired to the requestPasswordReset server action.
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [email, setEmail] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function handle(formData: FormData) {
+    setPending(true);
+    setErr(null);
+    const res = await requestPasswordReset({ error: null }, formData);
+    setPending(false);
+    if (res.error) setErr(res.error);
+    else setSent(true);
+  }
 
   return (
     <div className="auth-shell">
@@ -36,16 +48,17 @@ export default function ForgotPasswordPage() {
             <>
               <h1>Forgot your password?</h1>
               <p className="lede">No worries — enter the email on your GymFlow account and we&apos;ll send a link to reset it.</p>
-              <form onSubmit={(e) => { e.preventDefault(); setSent(true); }}>
+              <form action={handle}>
                 <div className="field gf-form-group">
                   <label className="gf-form-label">Email</label>
                   <div className="gf-input-group">
                     <Mail className="gf-input-icon" strokeWidth={1.75} />
-                    <input className="gf-input" type="email" placeholder="you@yourgym.ng" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <input className="gf-input" type="email" name="email" placeholder="you@yourgym.ng" required value={email} onChange={(e) => setEmail(e.target.value)} />
                   </div>
                 </div>
-                <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit">
-                  Send reset link <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
+                {err && <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '-4px 0 14px' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
+                <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={pending}>
+                  {pending ? 'Sending…' : 'Send reset link'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
                 </button>
               </form>
             </>

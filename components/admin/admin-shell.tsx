@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
+import { signOut } from '@/lib/auth/actions';
 import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
   GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search,
@@ -72,9 +73,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '0.8125rem', fontWeight: 600 }}>Adunni O.</div>
               <div style={{ fontSize: '0.68rem', color: 'var(--gf-text-muted)' }}>Owner</div>
             </div>
-            <Link href="/login" className="icon-btn" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out">
-              <LogOut size={16} strokeWidth={1.75} />
-            </Link>
+            <form action={signOut}>
+              <button type="submit" className="icon-btn" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out">
+                <LogOut size={16} strokeWidth={1.75} />
+              </button>
+            </form>
           </div>
         </div>
       </aside>

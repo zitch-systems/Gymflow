@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useActionState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, Mail, Lock, ArrowRight, Users, Shield, GraduationCap, Globe } from 'lucide-react';
+import { Star, Mail, Lock, ArrowRight, Users, Shield, GraduationCap, Globe, AlertCircle } from 'lucide-react';
+import { signIn, signUp, type AuthState } from '@/lib/auth/actions';
 
 const ROLES = [
   { label: 'Member', href: '/dashboard', icon: Users },
@@ -12,12 +13,17 @@ const ROLES = [
   { label: 'Platform', href: '/superadmin', icon: Globe },
 ] as const;
 
-// Recreates revamp/login.html: brand-split layout, Sign in / Create gym tabs,
-// email+password, role quick-access. No backend in this build — submit is a
-// no-op that routes to the chosen surface, matching the prototype's behaviour.
+const initial: AuthState = { error: null };
+
+// revamp/login.html: brand-split layout, Sign in / Create gym tabs, email +
+// password, role quick-access. Wired to the signIn / signUp server actions.
 export function LoginClient({ initialMode = 'in' }: { initialMode?: 'in' | 'up' }) {
   const [mode, setMode] = useState<'in' | 'up'>(initialMode);
   const up = mode === 'up';
+  const [inState, inAction, inPending] = useActionState(signIn, initial);
+  const [upState, upAction, upPending] = useActionState(signUp, initial);
+  const state = up ? upState : inState;
+  const pending = up ? upPending : inPending;
 
   return (
     <>
@@ -54,29 +60,29 @@ export function LoginClient({ initialMode = 'in' }: { initialMode?: 'in' | 'up' 
           <p className="lede">{up ? 'Create your gym in one step — branded subdomain included.' : "Sign in to your gym's dashboard."}</p>
 
           <div className="tabs" role="tablist">
-            <button className={!up ? 'on' : undefined} onClick={() => setMode('in')} role="tab" aria-selected={!up}>Sign in</button>
-            <button className={up ? 'on' : undefined} onClick={() => setMode('up')} role="tab" aria-selected={up}>Create gym</button>
+            <button className={!up ? 'on' : undefined} onClick={() => setMode('in')} role="tab" aria-selected={!up} type="button">Sign in</button>
+            <button className={up ? 'on' : undefined} onClick={() => setMode('up')} role="tab" aria-selected={up} type="button">Create gym</button>
           </div>
 
-          <form onSubmit={(e) => e.preventDefault()}>
+          <form action={up ? upAction : inAction}>
             {up && (
               <div className="field gf-form-group">
                 <label className="gf-form-label">Gym name</label>
-                <input className="gf-input" placeholder="e.g. Powerhouse Fitness" required />
+                <input className="gf-input" name="gym" placeholder="e.g. Powerhouse Fitness" required />
               </div>
             )}
             <div className="field gf-form-group">
               <label className="gf-form-label">Email</label>
               <div className="gf-input-group">
                 <Mail className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="email" placeholder="you@yourgym.ng" required />
+                <input className="gf-input" type="email" name="email" placeholder="you@yourgym.ng" required />
               </div>
             </div>
             <div className="field gf-form-group">
               <label className="gf-form-label">Password</label>
               <div className="gf-input-group">
                 <Lock className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="password" placeholder="••••••••" required />
+                <input className="gf-input" type="password" name="password" placeholder="••••••••" required />
               </div>
             </div>
             {!up && (
@@ -85,8 +91,13 @@ export function LoginClient({ initialMode = 'in' }: { initialMode?: 'in' | 'up' 
                 <Link href="/forgot-password">Forgot password?</Link>
               </div>
             )}
-            <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" style={{ marginTop: up ? 18 : 0 }}>
-              {up ? 'Launch your gym' : 'Sign in'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
+            {state.error && (
+              <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: up ? '0 0 14px' : '-8px 0 14px' }}>
+                <AlertCircle size={15} strokeWidth={2} /> {state.error}
+              </p>
+            )}
+            <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={pending} style={{ marginTop: up ? 4 : 0 }}>
+              {pending ? 'Please wait…' : up ? 'Launch your gym' : 'Sign in'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
             </button>
           </form>
 

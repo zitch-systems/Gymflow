@@ -3,37 +3,68 @@ import {
   Bell, CreditCard, ScanLine, CalendarDays, Wallet, QrCode, Flame, Check,
   Activity, CalendarCheck, Timer, Bike, Gift,
 } from 'lucide-react';
+import { requireMember, getProfile } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { fmtDate, daysLeft, firstName } from '@/lib/format';
 
 export const metadata = { title: 'Home' };
 
-// Member home — recreates revamp/member.html "home" view: greeting header,
-// membership status card, quick actions, weekly streak, stat trio, next
-// class, refer promo, recent check-ins. Static prototype data (no backend yet).
+// Member home — recreates revamp/member.html "home" view. Header, membership
+// status card, and recent check-ins are wired to Supabase; the weekly streak +
+// stat trio remain sample data pending the activity-aggregation pass.
 const WEEK = [
   { d: 'M', done: true }, { d: 'T', done: true }, { d: 'W', done: true, today: true },
   { d: 'T', done: false }, { d: 'F', done: false }, { d: 'S', rest: true }, { d: 'S', rest: true },
 ];
 
-export default function MemberHome() {
+export default async function MemberHome() {
+  const { user, gym } = await requireMember();
+  const profile = await getProfile();
+  const supabase = await createClient();
+
+  const [{ data: sub }, { data: checkIns }, { count: unread }] = await Promise.all([
+    supabase
+      .from('member_subscriptions')
+      .select('status, start_date, end_date, plan_id, membership_plans(name)')
+      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+      .order('end_date', { ascending: false }).limit(1).maybeSingle(),
+    supabase
+      .from('check_ins')
+      .select('checked_in_at, check_in_method')
+      .eq('member_id', user.id).eq('gym_id', gym.id)
+      .order('checked_in_at', { ascending: false }).limit(3),
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id).eq('is_read', false),
+  ]);
+
+  const name = firstName(profile?.full_name ?? profile?.first_name);
+  const initial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
+  const planName = (sub as unknown as { membership_plans: { name: string } | null })?.membership_plans?.name ?? 'Membership';
+  const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
+  const isActive = remaining > 0;
+  const unreadCount = unread ?? 0;
+
   return (
     <section className="view on" data-v="home">
       <div className="mhead">
-        <span className="gf-avatar gf-avatar-md">T</span>
-        <div><small>Powerhouse Fitness</small><strong>Hi, Tunde 👋</strong></div>
+        <span className="gf-avatar gf-avatar-md">{initial}</span>
+        <div><small>{gym.name}</small><strong>Hi, {name} 👋</strong></div>
         <Link href="/dashboard/inbox" className="icon-btn bell" style={{ width: 38, height: 38 }} aria-label="Notifications">
-          <Bell strokeWidth={1.9} /><span className="nub">3</span>
+          <Bell strokeWidth={1.9} />{unreadCount > 0 && <span className="nub">{unreadCount > 99 ? '99+' : unreadCount}</span>}
         </Link>
       </div>
 
       <div className="home-grid">
         <div className="col-a">
           <div className="status">
-            <span className="tag"><span className="gf-dot" style={{ background: '#fff' }} /> Active</span>
-            <div className="plan">Annual membership</div>
-            <div className="meta">Renews 12 March 2027</div>
+            <span className="tag"><span className="gf-dot" style={{ background: '#fff' }} /> {isActive ? 'Active' : sub ? 'Expired' : 'No plan'}</span>
+            <div className="plan">{planName}</div>
+            <div className="meta">{isActive ? `Renews ${fmtDate(sub!.end_date)}` : sub ? 'Renew to keep training' : 'No active membership'}</div>
             <div className="barwrap"><div className="bar" /></div>
-            <div className="days"><span>228 days used</span><span>137 days left</span></div>
-            <Link href="/dashboard/wallet" className="status-cta"><CreditCard strokeWidth={2} /> Manage membership</Link>
+            <div className="days"><span>{sub?.start_date ? fmtDate(sub.start_date) : '—'}</span><span>{remaining} days left</span></div>
+            <Link href={isActive ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta"><CreditCard strokeWidth={2} /> {isActive ? 'Manage membership' : 'Renew membership'}</Link>
           </div>
 
           <div className="qa">
@@ -82,9 +113,18 @@ export default function MemberHome() {
             <button className="pill">Invite</button>
           </div>
 
-          <div className="sect-t">Recent check-ins</div>
-          <div className="lc"><div className="ic"><Check strokeWidth={1.9} /></div><div className="m"><strong>Main entrance</strong><small>QR scan</small></div><span className="t">Today · 7:02</span></div>
-          <div className="lc"><div className="ic"><Check strokeWidth={1.9} /></div><div className="m"><strong>Main entrance</strong><small>QR scan</small></div><span className="t">Wed · 6:58</span></div>
+          {(checkIns?.length ?? 0) > 0 && (
+            <>
+              <div className="sect-t">Recent check-ins</div>
+              {(checkIns ?? []).map((c, i) => (
+                <div className="lc" key={i}>
+                  <div className="ic"><Check strokeWidth={1.9} /></div>
+                  <div className="m"><strong>Main entrance</strong><small>{c.check_in_method ?? 'QR scan'}</small></div>
+                  <span className="t">{fmtDate(c.checked_in_at)}</span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
     </section>

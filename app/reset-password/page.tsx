@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Lock, Check, ArrowRight } from 'lucide-react';
+import { Lock, Check, ArrowRight, AlertCircle } from 'lucide-react';
+import { updatePassword } from '@/lib/auth/actions';
 
 // revamp/reset-password.html — set-password with a live strength meter +
 // requirement checklist, then a "password updated" success state.
@@ -18,10 +19,22 @@ export default function ResetPasswordPage() {
   const [pw, setPw] = useState('');
   const [confirm, setConfirm] = useState('');
   const [done, setDone] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   const score = useMemo(() => REQS.reduce((n, r) => n + (r.test(pw) ? 1 : 0), 0), [pw]);
   const matchHint = confirm.length === 0 ? '' : pw === confirm ? 'Passwords match.' : 'Passwords don’t match yet.';
   const canSubmit = score === 4 && pw === confirm;
+
+  async function handle(formData: FormData) {
+    setPending(true);
+    setErr(null);
+    // updatePassword redirects to /login?reset=1 on success; only returns on error.
+    const res = await updatePassword({ error: null }, formData);
+    setPending(false);
+    if (res?.error) setErr(res.error);
+    else setDone(true);
+  }
 
   return (
     <div className="auth-shell">
@@ -49,12 +62,12 @@ export default function ResetPasswordPage() {
               <h1>Set a new password</h1>
               <p className="lede">Resetting for <span className="em">adunni@powerhouse.ng</span>. Choose something strong you&apos;ll remember.</p>
 
-              <form onSubmit={(e) => { e.preventDefault(); if (canSubmit) setDone(true); }}>
+              <form action={handle}>
                 <div className="field gf-form-group">
                   <label className="gf-form-label">New password</label>
                   <div className="gf-input-group">
                     <Lock className="gf-input-icon" strokeWidth={1.75} />
-                    <input className="gf-input" type="password" placeholder="••••••••" value={pw} onChange={(e) => setPw(e.target.value)} required />
+                    <input className="gf-input" type="password" name="password" placeholder="••••••••" value={pw} onChange={(e) => setPw(e.target.value)} required />
                   </div>
                 </div>
 
@@ -83,8 +96,10 @@ export default function ResetPasswordPage() {
                   {matchHint}
                 </div>
 
-                <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={!canSubmit}>
-                  Update password <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
+                {err && <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '0 0 14px' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
+
+                <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={!canSubmit || pending}>
+                  {pending ? 'Updating…' : 'Update password'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
                 </button>
               </form>
             </>

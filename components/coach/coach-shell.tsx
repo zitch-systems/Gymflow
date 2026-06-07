@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
+import { signOut } from '@/lib/auth/actions';
 import {
   CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
 } from 'lucide-react';
@@ -56,9 +57,11 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
               <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '0.8125rem', fontWeight: 600 }}>Coach Femi</div>
               <div style={{ fontSize: '0.68rem', color: 'var(--gf-text-muted)' }}>70% revenue share</div>
             </div>
-            <Link href="/login" className="icon-btn" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out">
-              <LogOut size={16} strokeWidth={1.75} />
-            </Link>
+            <form action={signOut}>
+              <button type="submit" className="icon-btn" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out">
+                <LogOut size={16} strokeWidth={1.75} />
+              </button>
+            </form>
           </div>
         </div>
       </aside>

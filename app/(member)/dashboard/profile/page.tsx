@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Wallet, QrCode, Bell, FileText, LifeBuoy, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { signOut } from '@/lib/auth/actions';
 
 export const metadata = { title: 'Profile' };
 
@@ -58,11 +59,13 @@ export default function ProfilePage() {
       </div>
 
       <div className="group">
-        <Link href="/login" className="row" style={{ color: 'var(--gf-danger)' }}>
-          <span className="ic" style={{ background: 'var(--gf-danger-soft)', color: 'var(--gf-danger)' }}><LogOut strokeWidth={1.9} /></span>
-          <div className="m"><strong style={{ color: 'var(--gf-danger)' }}>Sign out</strong></div>
-          <ChevronRight className="chev" strokeWidth={1.9} />
-        </Link>
+        <form action={signOut}>
+          <button type="submit" className="row" style={{ color: 'var(--gf-danger)', width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <span className="ic" style={{ background: 'var(--gf-danger-soft)', color: 'var(--gf-danger)' }}><LogOut strokeWidth={1.9} /></span>
+            <div className="m"><strong style={{ color: 'var(--gf-danger)' }}>Sign out</strong></div>
+            <ChevronRight className="chev" strokeWidth={1.9} />
+          </button>
+        </form>
       </div>
     </section>
   );
