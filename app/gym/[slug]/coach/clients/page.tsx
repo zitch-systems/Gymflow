@@ -118,13 +118,17 @@ export default async function CoachClientsPage({ params }: PageProps) {
   };
 
   return (
-    <div className="gf-page">
-      <div className="page-h">
-        <div>
-          <h1>PT clients</h1>
-          <p>{activeCount} active · {expiringCount} expiring · {fmtNaira(monthRevenue)} this month</p>
+    <div className="op-mobile gf-page">
+      <header className="op-header">
+        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+          <span>C</span>
+        </Link>
+        <div className="op-header-greet">
+          PT clients
+          <small>{activeCount} active · {expiringCount} expiring</small>
         </div>
-      </div>
+        <div className="op-header-actions" />
+      </header>
 
       <section className="kpis">
         <Stat label="Active clients" value={activeCount} accent="emerald" icon={Dumbbell} />
