@@ -6,16 +6,15 @@ import { fmtDate, daysLeft, firstName } from '@/lib/format';
 import { computeActivity, findNextClass, type ScheduleRow } from '@/lib/activity';
 import { daysAgoIso } from '@/lib/dates';
 import {
-  Bell, ScanLine, CalendarDays, Wallet, QrCode, CreditCard, ChevronRight,
-  ShieldCheck, Eye, Plus, ArrowDownLeft, ArrowUpRight, Headphones,
-  GraduationCap, Inbox, Activity, Megaphone, Sparkles, UserCircle2,
-  Dumbbell, MoreHorizontal, Receipt,
+  Bell, ScanLine, CalendarDays, Wallet, QrCode, CreditCard, Flame, Check,
+  Activity, CalendarCheck, Timer, Bike, Gift,
 } from 'lucide-react';
 import { ReferShareButton } from './refer-share-button';
 
-type PageProps = {
-  params: Promise<{ slug: string }>;
-};
+type PageProps = { params: Promise<{ slug: string }> };
+
+// Short day labels for the prototype's weekly grid (M T W T F S S, Mon-anchored).
+const DOW_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default async function MemberDashboard({ params }: PageProps) {
   const { slug } = await params;
@@ -36,7 +35,7 @@ export default async function MemberDashboard({ params }: PageProps) {
   const remaining = subscription ? daysLeft(subscription.end_date) : 0;
   const isActive = remaining > 0;
 
-  const [{ data: checkIns }, { data: schedules }, { count: unreadCountRaw }, { data: recentPayments }] = await Promise.all([
+  const [{ data: checkIns }, { data: schedules }, { count: unreadCountRaw }] = await Promise.all([
     supabase
       .from('check_ins')
       .select('checked_in_at')
@@ -55,13 +54,6 @@ export default async function MemberDashboard({ params }: PageProps) {
       .eq('user_id', user.id)
       .eq('gym_id', gym.id)
       .eq('is_read', false),
-    supabase
-      .from('payments')
-      .select('id, amount, status, created_at, payment_method')
-      .eq('member_id', user.id)
-      .eq('gym_id', gym.id)
-      .order('created_at', { ascending: false })
-      .limit(2),
   ]);
   const unreadCount = unreadCountRaw ?? 0;
 
@@ -69,253 +61,177 @@ export default async function MemberDashboard({ params }: PageProps) {
   const nextClass = findNextClass((schedules ?? []) as unknown as ScheduleRow[]);
 
   const memberName = firstName(profile?.full_name ?? profile?.first_name) || 'there';
-  const memberNameUpper = memberName.toUpperCase();
   const avatarInitial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
 
-  // Referral signup URL. NEXT_PUBLIC_SITE_URL is set in prod (e.g.
-  // https://gymflow.ng); falls back to /join under the current gym so the
-  // link works on the bare *.vercel.app preview too.
   const siteBase = process.env.NEXT_PUBLIC_SITE_URL ?? '';
   const referralUrl = `${siteBase}/join?gym=${encodeURIComponent(slug)}`;
 
-  // Membership progress
+  // Membership progress: % of paid period elapsed (drives the .status .bar).
   let pctUsed = 0;
+  let daysUsed = 0;
   if (subscription?.end_date && subscription?.start_date) {
     const start = new Date(subscription.start_date).getTime();
     const end = new Date(subscription.end_date).getTime();
     // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
-    if (end > start) {
-      pctUsed = Math.min(100, Math.max(0, Math.round(((now - start) / (end - start)) * 100)));
-    }
+    if (end > start) pctUsed = Math.min(100, Math.max(0, Math.round(((now - start) / (end - start)) * 100)));
+    daysUsed = Math.max(0, Math.round((now - start) / 86_400_000));
   }
 
-  const formatAmt = (n: number | null | undefined) => {
-    const v = Number(n ?? 0);
-    return `₦${v.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  };
-  const fmtPaymentDate = (iso: string | null) => {
-    if (!iso) return '';
-    const d = new Date(iso);
-    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    return `${date}, ${time}`;
-  };
+  // Weekly activity grid: which days of THIS week the member checked in.
+  const todayDow = new Date().getDay();
+  const sunday = new Date();
+  sunday.setHours(0, 0, 0, 0);
+  sunday.setDate(sunday.getDate() - sunday.getDay());
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const dow = (i + 1) % 7; // Mon..Sun column order
+    const target = new Date(sunday);
+    target.setDate(sunday.getDate() + dow);
+    const targetIso = target.toISOString().split('T')[0];
+    return {
+      label: DOW_LABELS[dow],
+      done: (checkIns ?? []).some((c) => (c.checked_in_at ?? '').startsWith(targetIso)),
+      isToday: dow === todayDow,
+      isWeekend: dow === 0 || dow === 6,
+    };
+  });
+  const weeklyDone = weekDays.filter((d) => d.done).length;
+  const weeklyGoal = weekDays.filter((d) => !d.isWeekend).length;
 
   return (
-    <div className="op-mobile m-dash">
-      {/* Header */}
-      <header className="op-header">
-        <Link href="/dashboard/profile" className="op-header-avatar" aria-label="Profile & settings">
-          {profile?.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.photo_url} alt="" />
-          ) : (
-            <span>{avatarInitial}</span>
-          )}
-        </Link>
-        <div className="op-header-greet">
-          Hi, {memberNameUpper}
-          <small>{gym.name}</small>
-        </div>
-        <div className="op-header-actions">
-          <a href="mailto:hello@gymflow.ng" className="op-icon-btn" aria-label="Support">
-            <Headphones strokeWidth={1.8} />
-            <span className="op-icon-pill">HELP</span>
-          </a>
-          <Link href="/checkin" className="op-icon-btn" aria-label="Scan QR check-in">
-            <ScanLine strokeWidth={1.8} />
+    <div className="ds-member">
+      <div className="view on" data-v="home">
+        {/* ── Greeting header ── */}
+        <div className="mhead">
+          <Link href="/dashboard/profile" className="gf-avatar gf-avatar-md" aria-label="Profile & settings">
+            {avatarInitial}
           </Link>
-          <Link href="/dashboard/inbox" className="op-icon-btn" aria-label={unreadCount > 0 ? `Inbox · ${unreadCount} unread` : 'Inbox'}>
-            <Bell strokeWidth={1.8} />
-            {unreadCount > 0 && (
-              <span className="op-icon-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
-            )}
+          <div>
+            <small>{gym.name}</small>
+            <strong>Hi, {memberName} 👋</strong>
+          </div>
+          <Link href="/dashboard/inbox" className="icon-btn bell" aria-label={unreadCount > 0 ? `Notifications · ${unreadCount} unread` : 'Notifications'}>
+            <Bell strokeWidth={1.75} />
+            {unreadCount > 0 && <span className="nub">{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </Link>
         </div>
-      </header>
 
-      <div className="op-stack">
-        {/* Hero — subscription status */}
-        <section className="op-hero" aria-label="Membership status">
-          <div className="op-hero-top">
-            <span className="op-hero-label">
-              <ShieldCheck strokeWidth={2} />
-              {isActive ? 'Active membership' : subscription ? 'Membership expired' : 'No active plan'}
-              <Eye strokeWidth={1.8} />
-            </span>
-            <Link href="/dashboard/wallet" className="op-hero-secondary">
-              Transaction history <ChevronRight strokeWidth={2.2} size={14} />
-            </Link>
-          </div>
-          <div className="op-hero-amount">
-            {isActive ? `${remaining} ${remaining === 1 ? 'day' : 'days'} left` : 'Renew now'}
-            <ChevronRight strokeWidth={2.2} size={22} />
-          </div>
-          {subscription && (
-            <div className="op-hero-bar"><span style={{ width: `${100 - pctUsed}%` }} /></div>
-          )}
-          <div className="op-hero-bottom">
-            <span className="op-hero-meta">
-              {isActive ? `Renews ${fmtDate(subscription!.end_date)}` : 'No active subscription'}
-            </span>
-            <Link href={isActive ? '/dashboard/wallet' : '/dashboard/renew'} className="op-hero-cta">
-              <Plus strokeWidth={2.5} /> {isActive ? 'Top up' : 'Renew'}
-            </Link>
-          </div>
-        </section>
-
-        {/* Recent payments list */}
-        {(recentPayments && recentPayments.length > 0) && (
-          <section className="op-card">
-            <div className="op-list">
-              {recentPayments.map((p) => {
-                const isSuccess = p.status === 'success' || p.status === 'completed';
-                return (
-                  <Link key={p.id} href={`/dashboard/wallet/${p.id}`} className="op-list-row">
-                    <span className="op-list-ic" aria-hidden>
-                      <ArrowUpRight />
-                    </span>
-                    <div className="op-list-m">
-                      <div className="op-list-title">Membership payment{p.payment_method ? ` · ${p.payment_method}` : ''}</div>
-                      <div className="op-list-sub">{fmtPaymentDate(p.created_at)}</div>
-                    </div>
-                    <div className="op-list-r">
-                      <div className="op-list-amt">-{formatAmt(p.amount)}</div>
-                      <span className={`op-list-status ${isSuccess ? '' : p.status === 'failed' ? 'is-failed' : 'is-pending'}`}>
-                        {isSuccess ? 'Successful' : p.status || 'Pending'}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+        <div className="home-grid">
+          <div className="col-a">
+            {/* ── Status card ── */}
+            <div className="status">
+              <span className="tag">
+                <span className="gf-dot" style={{ background: '#fff' }} />
+                {isActive ? 'Active' : subscription ? 'Expired' : 'No plan'}
+              </span>
+              <div className="plan">{isActive ? 'Active membership' : subscription ? 'Membership expired' : 'No active membership'}</div>
+              <div className="meta">
+                {isActive ? `Renews ${fmtDate(subscription!.end_date)}` : subscription ? 'Renew to keep training' : 'Renew to start training'}
+              </div>
+              {subscription && (
+                <>
+                  <div className="barwrap"><div className="bar" style={{ width: `${pctUsed}%` }} /></div>
+                  <div className="days">
+                    <span>{daysUsed} {daysUsed === 1 ? 'day' : 'days'} used</span>
+                    <span>{remaining} {remaining === 1 ? 'day' : 'days'} left</span>
+                  </div>
+                </>
+              )}
+              <Link href={isActive ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta">
+                <CreditCard strokeWidth={2} /> {isActive ? 'Manage membership' : 'Renew membership'}
+              </Link>
             </div>
-          </section>
-        )}
 
-        {/* 3 quick actions */}
-        <section className="op-card">
-          <div className="op-action-row">
-            <Link href="/checkin" className="op-action-tile">
-              <span className="op-ic"><QrCode /></span>
-              <span className="op-action-tile-label">Check in</span>
-            </Link>
-            <Link href="/dashboard/wallet" className="op-action-tile">
-              <span className="op-ic"><Wallet /></span>
-              <span className="op-action-tile-label">Wallet</span>
-            </Link>
-            <Link href={isActive ? '/dashboard/wallet' : '/dashboard/renew'} className="op-action-tile">
-              <span className="op-ic"><ArrowDownLeft /></span>
-              <span className="op-action-tile-label">{isActive ? 'Manage' : 'Renew'}</span>
-            </Link>
-          </div>
-        </section>
+            {/* ── Quick actions ── */}
+            <div className="qa">
+              <Link href="/checkin"><span className="tile"><ScanLine /></span><span>Check in</span></Link>
+              <Link href="/classes"><span className="tile"><CalendarDays /></span><span>Schedule</span></Link>
+              <Link href="/dashboard/wallet"><span className="tile"><Wallet /></span><span>Wallet</span></Link>
+              <Link href="/checkin"><span className="tile"><QrCode /></span><span>My code</span></Link>
+            </div>
 
-        {/* 4-col service grid */}
-        <section className="op-card">
-          <div className="op-grid">
-            <Link href="/classes" className="op-grid-tile">
-              <span className="op-ic"><CalendarDays /></span>
-              <span className="op-grid-tile-label">Schedule</span>
-            </Link>
-            <Link href="/dashboard/instructors" className="op-grid-tile">
-              <span className="op-ic"><GraduationCap /></span>
-              <span className="op-grid-tile-label">Coaches</span>
-            </Link>
-            <Link href="/dashboard/pt-packs" className="op-grid-tile">
-              {!isActive && <span className="op-grid-tile-badge is-amber">New</span>}
-              <span className="op-ic"><Dumbbell /></span>
-              <span className="op-grid-tile-label">PT Packs</span>
-            </Link>
-            <Link href="/dashboard/inbox" className="op-grid-tile">
-              {unreadCount > 0 && <span className="op-grid-tile-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
-              <span className="op-ic"><Inbox /></span>
-              <span className="op-grid-tile-label">Inbox</span>
-            </Link>
-            <Link href="/dashboard/wallet" className="op-grid-tile">
-              <span className="op-ic"><Receipt /></span>
-              <span className="op-grid-tile-label">Receipts</span>
-            </Link>
-            <Link href="/dashboard/cards" className="op-grid-tile">
-              <span className="op-ic"><CreditCard /></span>
-              <span className="op-grid-tile-label">Cards</span>
-            </Link>
-            <Link href="/dashboard/renew" className="op-grid-tile">
-              {!isActive && <span className="op-grid-tile-badge is-brand">Hot</span>}
-              <span className="op-ic"><Sparkles /></span>
-              <span className="op-grid-tile-label">Renew</span>
-            </Link>
-            <Link href="/dashboard/profile" className="op-grid-tile">
-              <span className="op-ic"><MoreHorizontal /></span>
-              <span className="op-grid-tile-label">More</span>
-            </Link>
-          </div>
-        </section>
+            {/* ── Weekly streak ── */}
+            <div className="week">
+              <div className="week-top">
+                <div className="week-streak">
+                  <span className="flame"><Flame strokeWidth={2} /></span>
+                  <div>
+                    <b>{activity.currentStreak}-day streak</b>
+                    <small>Total {activity.totalVisits} {activity.totalVisits === 1 ? 'visit' : 'visits'}</small>
+                  </div>
+                </div>
+                <div className="week-goal">
+                  <b>{weeklyDone}/{weeklyGoal}</b>
+                  <small>Weekly goal</small>
+                </div>
+              </div>
+              <div className="week-days">
+                {weekDays.map((d, i) => (
+                  <div key={i} className={`wd${d.done ? ' done' : ''}${d.isToday ? ' today' : ''}${d.isWeekend ? ' rest' : ''}`}>
+                    <span>{d.label}</span>
+                    <div className="dot">{d.done && <Check strokeWidth={3} />}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-        {/* Voucher promo — referral. The Share button uses navigator.share()
-            with a clipboard fallback; the receiver lands on /join?gym=<slug>
-            which is the existing member self-signup flow. */}
-        <section className="op-voucher" aria-label="Refer a friend">
-          <div className="op-voucher-coin">
-            <b>₦5K</b>
-            <small>Bonus</small>
+            {/* ── Stat trio ── */}
+            <div className="stat3">
+              <div className="s"><Activity strokeWidth={1.9} /><b>{activity.visitsThisMonth}</b><small>Visits this month</small></div>
+              <div className="s"><CalendarCheck strokeWidth={1.9} /><b>{activity.totalVisits}</b><small>Recent visits</small></div>
+              <div className="s"><Timer strokeWidth={1.9} /><b>{activity.currentStreak}<span style={{ fontSize: '0.9rem' }}>d</span></b><small>Day streak</small></div>
+            </div>
           </div>
-          <div className="op-voucher-m">
-            <strong>Refer a friend</strong>
-            <small>Bring a buddy. Both of you get ₦5,000 off your next renewal.</small>
-          </div>
-          <ReferShareButton
-            gymName={gym.name}
-            signupUrl={referralUrl}
-            className="op-voucher-cta"
-          >
-            Share
-          </ReferShareButton>
-        </section>
 
-        {/* Next-class promo OR last-checkin nudge */}
-        <section className="op-promo">
-          <span className="op-promo-ic" aria-hidden>
-            {nextClass ? <CalendarDays /> : <Megaphone />}
-          </span>
-          <div className="op-promo-m">
+          <div className="col-b">
+            {/* ── Next class ── */}
+            <div className="sect-t">Next class <Link href="/classes">See all</Link></div>
             {nextClass ? (
-              <>
-                <strong>{nextClass.name} · {nextClass.dayLabel}</strong>
-                <small>{nextClass.start}–{nextClass.end}{nextClass.room ? ` · ${nextClass.room}` : ''}{nextClass.instructor ? ` · ${nextClass.instructor}` : ''}</small>
-              </>
+              <Link href="/classes" className="lc tap">
+                <div className="ic"><Bike /></div>
+                <div className="m">
+                  <strong>{nextClass.name}</strong>
+                  <small>{nextClass.instructor ?? 'TBA'} · {nextClass.start} {nextClass.dayLabel}</small>
+                </div>
+                <span className="gf-badge gf-badge-success">Booked</span>
+              </Link>
             ) : (
+              <Link href="/classes" className="lc tap">
+                <div className="ic"><CalendarDays /></div>
+                <div className="m">
+                  <strong>No class booked</strong>
+                  <small>Browse the schedule</small>
+                </div>
+              </Link>
+            )}
+
+            {/* ── Refer & earn ── */}
+            <div className="promo">
+              <span className="pic"><Gift /></span>
+              <div className="m">
+                <strong>Refer &amp; earn ₦5,000</strong>
+                <small>Invite a friend to {gym.name}.</small>
+              </div>
+              <ReferShareButton gymName={gym.name} signupUrl={referralUrl} className="pill">
+                Invite
+              </ReferShareButton>
+            </div>
+
+            {/* ── Recent check-ins ── */}
+            {(checkIns?.length ?? 0) > 0 && (
               <>
-                <strong>{activity.lastVisit ? `Last visit ${fmtDate(activity.lastVisit)}` : 'No check-ins yet'}</strong>
-                <small>Scan the gym QR at the entrance to log your visit.</small>
+                <div className="sect-t">Recent check-ins</div>
+                {(checkIns ?? []).slice(0, 3).map((c, i) => (
+                  <div key={i} className="lc">
+                    <div className="ic"><Check /></div>
+                    <div className="m"><strong>Main entrance</strong><small>QR scan</small></div>
+                    <span className="t">{fmtDate(c.checked_in_at ?? '')}</span>
+                  </div>
+                ))}
               </>
             )}
           </div>
-          <Link href={nextClass ? '/classes' : '/checkin'} className="op-promo-cta">
-            {nextClass ? 'View' : 'Scan'}
-          </Link>
-        </section>
-
-        {/* Activity stat trio */}
-        <section className="op-card" aria-label="Your activity">
-          <div className="op-action-row">
-            <div className="op-action-tile" style={{ cursor: 'default' }}>
-              <span className="op-ic"><Activity /></span>
-              <span className="op-action-tile-label" style={{ fontSize: '1.1rem', fontWeight: 800 }}>{activity.visitsThisMonth}</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--op-text-muted)', marginTop: -4 }}>This month</span>
-            </div>
-            <div className="op-action-tile" style={{ cursor: 'default' }}>
-              <span className="op-ic"><UserCircle2 /></span>
-              <span className="op-action-tile-label" style={{ fontSize: '1.1rem', fontWeight: 800 }}>{activity.currentStreak}</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--op-text-muted)', marginTop: -4 }}>Day streak</span>
-            </div>
-            <div className="op-action-tile" style={{ cursor: 'default' }}>
-              <span className="op-ic"><ScanLine /></span>
-              <span className="op-action-tile-label" style={{ fontSize: '1.1rem', fontWeight: 800 }}>{activity.totalVisits}</span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--op-text-muted)', marginTop: -4 }}>Total visits</span>
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
     </div>
   );
