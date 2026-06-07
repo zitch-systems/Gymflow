@@ -32,14 +32,11 @@ export default async function CoachBankPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal member-app">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">Payout bank</h1>
-          <p className="gf-page-subtitle">Where {gym.name} sends your revenue share. Only you and gym admins can see this.</p>
-        </div>
-        <Link href="/coach/profile" className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Back to profile">
-          <ArrowLeft size={16} strokeWidth={1.75} /> Back
+      <header className="op-header is-sub">
+        <Link href="/coach/profile" className="op-icon-btn" aria-label="Back to profile">
+          <ArrowLeft strokeWidth={1.8} />
         </Link>
+        <strong className="op-header-title">Payout bank</strong>
       </header>
 
       <Card>
