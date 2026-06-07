@@ -48,56 +48,56 @@ export default async function MemberPtPacksPage({ params }: PageProps) {
   const credits = (creditsRaw ?? []) as unknown as Credit[];
 
   return (
-    <div className="op-mobile member-portal member-app">
-      <header className="op-header is-sub">
-        <Link href="/dashboard" className="op-icon-btn" aria-label="Back">
-          <ArrowLeft strokeWidth={1.8} />
-        </Link>
-        <strong className="op-header-title">PT packs</strong>
-      </header>
+    <div className="ds-member">
+      <div className="view on" data-v="pt-packs">
+        <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+          <Link href="/dashboard" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back">
+            <ArrowLeft strokeWidth={1.9} />
+          </Link>
+          <strong className="htitle">PT packs</strong>
+          <span style={{ width: 34, height: 34 }} aria-hidden />
+        </div>
 
-      {credits.length > 0 && (
-        <Card>
-          <CardHeader title="Your balance" />
-          <ul className="gf-list">
-            {credits.map((c) => {
-              const remaining = c.sessions_total - c.sessions_used;
-              return (
-                <li key={c.id} className="gf-list-row" style={{ opacity: remaining === 0 ? 0.55 : 1 }}>
-                  <span>
-                    <strong>{remaining}</strong> session{remaining === 1 ? '' : 's'} left
-                    <span className="gf-table-meta"> · with {coachLabel.get(c.instructor_id) ?? 'Coach'}</span>
-                  </span>
-                  <span className="gf-table-meta">{c.sessions_used} of {c.sessions_total} used</span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader title={`Available packs (${packs.length})`} />
-        {packs.length === 0 ? (
-          <EmptyState
-            icon={Dumbbell}
-            title="No packs on offer"
-            message={`${gym.name} hasn't published any personal training packs yet.`}
-          />
-        ) : (
-          <div style={{ display: 'grid', gap: 12, padding: 18 }}>
-            {packs.map((p) => (
-              <div
-                key={p.id}
-                className="gf-card"
-                style={{ padding: 16, display: 'grid', gap: 12, gridTemplateColumns: '1fr auto', alignItems: 'center', border: '1px solid var(--gf-border)' }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{p.name}</div>
-                  <div className="gf-table-meta" style={{ marginTop: 4 }}>
-                    {p.session_count} session{p.session_count === 1 ? '' : 's'} · with {coachLabel.get(p.instructor_id) ?? 'Coach'}
+        {credits.length > 0 && (
+          <>
+            <div className="sect-t">Your balance</div>
+            <div className="group" style={{ marginBottom: 14 }}>
+              {credits.map((c) => {
+                const remaining = c.sessions_total - c.sessions_used;
+                return (
+                  <div key={c.id} className="row" style={{ opacity: remaining === 0 ? 0.55 : 1 }}>
+                    <span className="ic"><Dumbbell /></span>
+                    <div className="m">
+                      <strong>{remaining} session{remaining === 1 ? '' : 's'} left</strong>
+                      <small>with {coachLabel.get(c.instructor_id) ?? 'Coach'} · {c.sessions_used} of {c.sessions_total} used</small>
+                    </div>
                   </div>
-                  <div style={{ marginTop: 6, fontSize: 20, fontWeight: 800, color: 'var(--gf-brand)' }}>{fmtNaira(p.price)}</div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <div className="sect-t">Available packs ({packs.length})</div>
+        {packs.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={Dumbbell}
+              title="No packs on offer"
+              message={`${gym.name} hasn't published any personal training packs yet.`}
+            />
+          </Card>
+        ) : (
+          <div className="group">
+            {packs.map((p) => (
+              <div key={p.id} className="row" style={{ alignItems: 'flex-start' }}>
+                <span className="ic"><Dumbbell /></span>
+                <div className="m">
+                  <strong>{p.name}</strong>
+                  <small>{p.session_count} session{p.session_count === 1 ? '' : 's'} · with {coachLabel.get(p.instructor_id) ?? 'Coach'}</small>
+                  <div style={{ marginTop: 6, fontFamily: 'var(--gf-font-display)', fontWeight: 800, fontSize: '1.15rem', color: 'var(--gf-brand)' }}>
+                    {fmtNaira(p.price)}
+                  </div>
                 </div>
                 <PtPackBuyButton
                   packId={p.id}
@@ -110,11 +110,11 @@ export default async function MemberPtPacksPage({ params }: PageProps) {
             ))}
           </div>
         )}
-      </Card>
 
-      <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13, color: 'var(--gf-text-muted)' }}>
-        Need a refund? <Link href="/dashboard" style={{ color: 'var(--gf-brand)', textDecoration: 'none' }}>Contact the gym</Link>.
-      </p>
+        <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.78rem', color: 'var(--gf-text-muted)' }}>
+          Need a refund? <Link href="/dashboard" style={{ color: 'var(--gf-brand)', textDecoration: 'none' }}>Contact the gym</Link>.
+        </p>
+      </div>
     </div>
   );
 }

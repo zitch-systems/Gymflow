@@ -54,62 +54,68 @@ export default async function MemberInstructorsPage({ params }: PageProps) {
   });
 
   return (
-    <div className="op-mobile member-portal member-app">
-      <header className="op-header is-sub">
-        <Link href="/dashboard" className="op-icon-btn" aria-label="Back">
-          <ArrowLeft strokeWidth={1.8} />
-        </Link>
-        <strong className="op-header-title">Coaches</strong>
-      </header>
-
-      {(!staffLinks || staffLinks.length === 0) ? (
-        <Card>
-          <EmptyState
-            icon={GraduationCap}
-            title="No coaches at this gym yet"
-            message="Check back soon — your gym is still onboarding instructors."
-          />
-        </Card>
-      ) : (
-        <div className="m-links">
-          {staffLinks.map((s) => {
-            const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
-            if (!p?.id) return null;
-            const price = priceByInstructor.get(p.id);
-            const sub = activeSubByInstructor.get(p.id);
-            const isActive = sub?.status === 'active' && sub.end_date && sub.end_date >= today;
-            return (
-              <Link key={p.id} href={`/dashboard/instructors/${p.id}`} className="m-lc m-lc-coach">
-                {p.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.photo_url} alt="" className="m-lc-photo" />
-                ) : (
-                  <span className="m-lc-ic m-lc-ic-lg">
-                    {(p.full_name ?? 'C').charAt(0).toUpperCase()}
-                  </span>
-                )}
-                <span className="m-lc-m">
-                  <strong>{p.full_name ?? 'Coach'}</strong>
-                  <small>
-                    {p.specialisation ?? 'Instructor'}
-                    {price ? ` · ${fmtNaira(price)}/mo` : ''}
-                  </small>
-                  {p.certifications && (
-                    <small className="m-lc-certs">
-                      <Award size={11} strokeWidth={2} /> {p.certifications}
-                    </small>
-                  )}
-                </span>
-                {isActive && sub ? (
-                  <span className="gf-badge gf-badge-brand">Active · {sub.end_date ? fmtDate(sub.end_date) : '—'}</span>
-                ) : (
-                  <ChevronRight size={18} strokeWidth={1.9} className="m-lc-chev" />
-                )}
-              </Link>
-            );
-          })}
+    <div className="ds-member">
+      <div className="view on" data-v="coaches">
+        <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+          <Link href="/dashboard" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back">
+            <ArrowLeft strokeWidth={1.9} />
+          </Link>
+          <strong className="htitle">Coaches</strong>
+          <span style={{ width: 34, height: 34 }} aria-hidden />
         </div>
-      )}
+
+        {(!staffLinks || staffLinks.length === 0) ? (
+          <Card>
+            <EmptyState
+              icon={GraduationCap}
+              title="No coaches at this gym yet"
+              message="Check back soon — your gym is still onboarding instructors."
+            />
+          </Card>
+        ) : (
+          <div className="group">
+            {staffLinks.map((s) => {
+              const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+              if (!p?.id) return null;
+              const price = priceByInstructor.get(p.id);
+              const sub = activeSubByInstructor.get(p.id);
+              const isActive = sub?.status === 'active' && sub.end_date && sub.end_date >= today;
+              return (
+                <Link key={p.id} href={`/dashboard/instructors/${p.id}`} className="row">
+                  {p.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.photo_url}
+                      alt=""
+                      className="ic"
+                      style={{ objectFit: 'cover', width: 42, height: 42, padding: 0, borderRadius: 13 }}
+                    />
+                  ) : (
+                    <span className="ic"><GraduationCap /></span>
+                  )}
+                  <div className="m">
+                    <strong>{p.full_name ?? 'Coach'}</strong>
+                    <small>
+                      {p.specialisation ?? 'Instructor'}
+                      {price ? ` · ${fmtNaira(price)}/mo` : ''}
+                    </small>
+                    {p.certifications && (
+                      <small style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <Award size={11} strokeWidth={2} /> {p.certifications}
+                      </small>
+                    )}
+                  </div>
+                  {isActive && sub ? (
+                    <span className="gf-badge gf-badge-brand">Active · {sub.end_date ? fmtDate(sub.end_date) : '—'}</span>
+                  ) : (
+                    <ChevronRight className="chev" strokeWidth={1.9} />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -558,3 +558,11 @@
 .ds-admin .att-meta strong { font-family: var(--gf-font-display); font-size: 0.85rem; font-weight: 600; display: block; }
 .ds-admin .att-meta small { color: var(--gf-warning); font-size: 0.72rem; font-weight: 600; }
 .ds-admin .cap-num { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.78rem; color: var(--gf-text-muted); white-space: nowrap; flex-shrink: 0; }
+
+/* ── Mobile sub-page chrome (.mhead / .htitle) — used by coach sub-pages
+   under the .ds-admin namespace. Mirrors .ds-member .mhead so member-style
+   back-arrow + title + action buttons render correctly inside .ds-admin. */
+.ds-admin .mhead { display: flex; align-items: center; gap: 12px; padding: 6px 0 18px; min-height: 44px; }
+.ds-admin .mhead .htitle { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.05rem; }
+.ds-admin .mhead .bell { margin-left: auto; flex-shrink: 0; position: relative; }
+.ds-admin .bell .nub { position: absolute; top: 7px; right: 8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: var(--gf-danger); color: #fff; font-family: var(--gf-font-display); font-weight: 800; font-size: 0.6rem; display: grid; place-items: center; border: 2px solid var(--gf-bg); line-height: 1; }

@@ -77,16 +77,15 @@ export default async function CoachEarningsPage({ params }: PageProps) {
   const monthLabel = monthStart.toLocaleDateString('en-NG', { month: 'long' });
 
   return (
-    <div className="op-mobile gf-page">
-      <header className="op-header">
-        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+    <div className="gf-page">
+      <header className="hdr">
+        <div>
+          <h1>Earnings</h1>
+          <p>{monthLabel} · {fmtNaira(monthShare)} earned · {sharePct}% share</p>
+        </div>
+        <Link href="/coach/profile" className="icon-btn" aria-label="Profile">
           <span>C</span>
         </Link>
-        <div className="op-header-greet">
-          Earnings
-          <small>{monthLabel} · {fmtNaira(monthShare)} earned · {sharePct}% share</small>
-        </div>
-        <div className="op-header-actions" />
       </header>
 
       <section className="kpis">

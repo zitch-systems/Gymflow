@@ -23,39 +23,45 @@ export default async function SavedCardsPage({ params }: PageProps) {
     .order('created_at', { ascending: false });
 
   return (
-    <div className="op-mobile member-portal member-app">
-      <header className="op-header is-sub">
-        <Link href="/dashboard" className="op-icon-btn" aria-label="Back">
-          <ArrowLeft strokeWidth={1.8} />
-        </Link>
-        <strong className="op-header-title">Saved cards</strong>
-      </header>
-
-      {cards && cards.length > 0 ? (
-        <div className="m-links">
-          {cards.map((c) => (
-            <div key={c.id} className="m-lc">
-              <span className="m-lc-ic"><CreditCard size={18} strokeWidth={1.9} /></span>
-              <span className="m-lc-m">
-                <strong>
-                  {(c.brand ?? 'Card').toUpperCase()} •••• {c.last4 ?? '????'}
-                  {c.is_default && <span className="gf-badge gf-badge-brand" style={{ marginLeft: 8, fontSize: '0.62rem' }}>Default</span>}
-                </strong>
-                <small>{c.bank ?? c.card_type ?? '—'} · exp {c.exp_month ?? '--'}/{c.exp_year ?? '--'}</small>
-              </span>
-              <CardActions cardId={c.id} isDefault={!!c.is_default} />
-            </div>
-          ))}
+    <div className="ds-member">
+      <div className="view on" data-v="cards">
+        <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+          <Link href="/dashboard" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back">
+            <ArrowLeft strokeWidth={1.9} />
+          </Link>
+          <strong className="htitle">Saved cards</strong>
+          <span style={{ width: 34, height: 34 }} aria-hidden />
         </div>
-      ) : (
-        <Card>
-          <EmptyState
-            icon={CreditCard}
-            title="No saved cards yet"
-            message={<>Cards are saved automatically the first time you pay — head to <Link href="/dashboard/renew" className="gf-link">renew</Link> to add one.</>}
-          />
-        </Card>
-      )}
+
+        {cards && cards.length > 0 ? (
+          <div className="group">
+            {cards.map((c) => (
+              <div key={c.id} className="method">
+                <span className={`brandmark ${(c.brand ?? '').toLowerCase().includes('master') ? 'mc' : 'visa'}`}>
+                  {(c.brand ?? 'CARD').slice(0, 4).toUpperCase()}
+                </span>
+                <div className="m">
+                  <strong>•••• •••• •••• {c.last4 ?? '????'}</strong>
+                  <small>
+                    {c.bank ?? c.card_type ?? '—'} · exp {c.exp_month ?? '--'}/{c.exp_year ?? '--'}
+                    {c.is_default ? ' · default' : ''}
+                  </small>
+                </div>
+                {c.is_default && <span className="gf-badge gf-badge-brand">Default</span>}
+                <CardActions cardId={c.id} isDefault={!!c.is_default} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <EmptyState
+              icon={CreditCard}
+              title="No saved cards yet"
+              message={<>Cards are saved automatically the first time you pay — head to <Link href="/dashboard/renew" className="gf-link">renew</Link> to add one.</>}
+            />
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

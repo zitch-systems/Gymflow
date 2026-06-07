@@ -56,22 +56,22 @@ export default async function CoachProfilePage({ params }: PageProps) {
   const avatarInitial = (profile?.full_name ?? profile?.email ?? 'C').charAt(0).toUpperCase();
 
   return (
-    <div className="op-mobile gf-page">
-      <header className="op-header">
-        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
-          <span>{avatarInitial}</span>
-        </Link>
-        <div className="op-header-greet">
-          {displayName}
-          <small>{sharePct}% share with {gym.name}</small>
+    <div className="gf-page">
+      <header className="hdr">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1 }}>
+          <span className="gf-avatar gf-avatar-md" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderColor: 'var(--gf-brand-glow)' }}>
+            {avatarInitial}
+          </span>
+          <div>
+            <h1>{displayName}</h1>
+            <p>{sharePct}% share with {gym.name}</p>
+          </div>
         </div>
-        <div className="op-header-actions">
-          <form action={signOut}>
-            <button type="submit" className="op-icon-btn" aria-label="Sign out" title="Sign out">
-              <LogOut strokeWidth={1.8} />
-            </button>
-          </form>
-        </div>
+        <form action={signOut}>
+          <button type="submit" className="icon-btn" aria-label="Sign out" title="Sign out">
+            <LogOut strokeWidth={1.8} />
+          </button>
+        </form>
       </header>
 
       <div className="panel">

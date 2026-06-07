@@ -40,12 +40,13 @@ export default async function CoachClientDetailPage({ params }: PageProps) {
   const totalPaid = (subs ?? []).reduce((s, r) => s + (Number(r.amount_paid) || 0), 0);
 
   return (
-    <div className="op-mobile member-portal">
-      <header className="op-header is-sub">
-        <Link href="/coach/clients" className="op-icon-btn" aria-label="Back to clients">
-          <ArrowLeft strokeWidth={1.8} />
+    <div className="gf-page">
+      <header className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+        <Link href="/coach/clients" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back to clients">
+          <ArrowLeft strokeWidth={1.9} />
         </Link>
-        <strong className="op-header-title">{member.full_name ?? member.email ?? 'Member'}</strong>
+        <strong className="htitle">{member.full_name ?? member.email ?? 'Member'}</strong>
+        <span style={{ width: 34, height: 34 }} aria-hidden />
       </header>
 
       <section className="gf-card">

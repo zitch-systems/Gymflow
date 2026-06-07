@@ -79,16 +79,15 @@ export default async function CoachAttendancePage({ params }: PageProps) {
   const eligibleCount = eligible.size;
 
   return (
-    <div className="op-mobile gf-page">
-      <header className="op-header">
-        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+    <div className="gf-page">
+      <header className="hdr">
+        <div>
+          <h1>Attendance</h1>
+          <p>{totalClassesToday} class{totalClassesToday === 1 ? '' : 'es'} · {totalSessions} PT today</p>
+        </div>
+        <Link href="/coach/profile" className="icon-btn" aria-label="Profile">
           <span>C</span>
         </Link>
-        <div className="op-header-greet">
-          Attendance
-          <small>{totalClassesToday} class{totalClassesToday === 1 ? '' : 'es'} · {totalSessions} PT today</small>
-        </div>
-        <div className="op-header-actions" />
       </header>
 
       <section className="kpis">
