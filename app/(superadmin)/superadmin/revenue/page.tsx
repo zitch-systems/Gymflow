@@ -1,22 +1,42 @@
-import { Repeat, Banknote, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { Repeat, Banknote, CreditCard, Wallet } from 'lucide-react';
+import { requirePlatformAdmin } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { fmtNaira } from '@/lib/format';
+
 export const metadata = { title: 'Revenue' };
-const KPIS = [
-  { icon: Repeat, fg: '#11d18b', bg: '#11d18b1f', val: '₦18.7M', lbl: 'MRR', delta: '+12%', up: true },
-  { icon: Wallet, fg: '#a8d92e', bg: '#c6f24e1f', val: '₦96.4M', lbl: 'Processed (May)', delta: '+18%', up: true },
-  { icon: Banknote, fg: '#4080ff', bg: '#4080ff1f', val: '₦2.9M', lbl: 'Platform fees', delta: '+11%', up: true },
-  { icon: TrendingDown, fg: '#ff4560', bg: '#ff45601f', val: '2.1%', lbl: 'Revenue churn', delta: '0.4%', up: false },
-];
+
 const BARS = [52, 58, 61, 66, 70, 74, 79, 83, 88, 91, 96, 100];
 const MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
 const MIX = [['Scale', 44, '#11d18b'], ['Growth', 38, '#4080ff'], ['Starter', 18, '#c6f24e']] as const;
-export default function SuperRevenue() {
+
+export default async function SuperRevenue() {
+  await requirePlatformAdmin();
+  const supabase = await createClient();
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+
+  const [{ data: monthPay }, { data: allPay }, { count: activeSubs }] = await Promise.all([
+    supabase.from('payments').select('amount, payment_status').eq('payment_status', 'successful').gte('payment_date', monthStart.toISOString()),
+    supabase.from('payments').select('amount, payment_status').eq('payment_status', 'successful'),
+    supabase.from('member_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+  ]);
+  const monthProcessed = (monthPay ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const allProcessed = (allPay ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const platformFees = Math.round(allProcessed * 0.03); // ~3% platform commission
+
+  const KPIS = [
+    { icon: Wallet, fg: '#a8d92e', bg: '#c6f24e1f', val: fmtNaira(monthProcessed), lbl: 'Processed this month' },
+    { icon: Banknote, fg: '#11d18b', bg: '#11d18b1f', val: fmtNaira(allProcessed), lbl: 'Processed all-time' },
+    { icon: CreditCard, fg: '#4080ff', bg: '#4080ff1f', val: fmtNaira(platformFees), lbl: 'Platform fees (≈3%)' },
+    { icon: Repeat, fg: '#ff4560', bg: '#ff45601f', val: String(activeSubs ?? 0), lbl: 'Active subscriptions' },
+  ];
+
   const donut = `conic-gradient(#11d18b 0 44%, #4080ff 44% 82%, #c6f24e 82% 100%)`;
   return (
     <>
-      <div className="hdr"><div><span className="pill-plat">Platform</span><h1>Revenue</h1><p>₦18.7M MRR · +12% MoM · ₦96.4M processed in May · 2.1% churn</p></div></div>
+      <div className="hdr"><div><span className="pill-plat">Platform</span><h1>Revenue</h1><p>{fmtNaira(monthProcessed)} processed this month · {fmtNaira(allProcessed)} all-time · {activeSubs ?? 0} active subscriptions</p></div></div>
       <section className="kpis">
         {KPIS.map((k) => { const Icon = k.icon; return (
-          <div className="kpi" key={k.lbl}><div className="kpi-top"><div className="kpi-ic" style={{ background: k.bg, color: k.fg }}><Icon strokeWidth={1.9} /></div><span className={`delta ${k.up ? 'up' : 'down'}`}>{k.up ? <TrendingUp strokeWidth={2} /> : <TrendingDown strokeWidth={2} />}{k.delta}</span></div><div className="kpi-val">{k.val}</div><div className="kpi-lbl">{k.lbl}</div></div>
+          <div className="kpi" key={k.lbl}><div className="kpi-top"><div className="kpi-ic" style={{ background: k.bg, color: k.fg }}><Icon strokeWidth={1.9} /></div></div><div className="kpi-val">{k.val}</div><div className="kpi-lbl">{k.lbl}</div></div>
         ); })}
       </section>
       <section className="grid2">
