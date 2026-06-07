@@ -1,42 +1,62 @@
-import { Clock, MessageCircle, Reply, Zap, Send, Mail, Check } from 'lucide-react';
+import { Clock, MessageCircle, Reply, Zap, Send, Mail } from 'lucide-react';
+import { requireStaff } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { daysLeft } from '@/lib/format';
 
 export const metadata = { title: 'Reminders' };
 
-const EXPIRING = [
-  { i: 'N', name: 'Ngozi Eze', sub: 'Monthly · expires in 3 days' },
-  { i: 'F', name: 'Fatima Yusuf', sub: 'Monthly · expires in 5 days' },
-  { i: 'D', name: 'David Okon', sub: 'Quarterly · expires in 6 days' },
-  { i: 'S', name: 'Sade Koya', sub: 'Monthly · expires in 6 days' },
-];
+export default async function AdminReminders() {
+  const { gym } = await requireStaff();
+  const supabase = await createClient();
 
-const LOG = [
-  { icon: MessageCircle, fg: 'var(--gf-brand)', bg: 'var(--gf-brand-soft)', title: 'WhatsApp delivered', sub: 'Bola Ade · expiry nudge', t: '12m' },
-  { icon: Mail, fg: 'var(--gf-info)', bg: 'var(--gf-info-soft)', title: 'Email opened', sub: 'Chidi Okeke · receipt', t: '1h' },
-  { icon: MessageCircle, fg: 'var(--gf-brand)', bg: 'var(--gf-brand-soft)', title: 'WhatsApp delivered', sub: 'Grace Udo · class reminder', t: '2h' },
-  { icon: Reply, fg: 'var(--gf-success)', bg: 'var(--gf-success-soft)', title: 'Renewed after nudge', sub: 'Musa Ibrahim · Monthly', t: '3h' },
-];
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAhead = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-export default function AdminReminders() {
+  const [{ data: expiring }, { count: sent }, { data: log }] = await Promise.all([
+    supabase.from('member_subscriptions')
+      .select('id, member_id, end_date, plan_id, membership_plans(name)')
+      .eq('gym_id', gym.id).eq('status', 'active').gte('end_date', today).lte('end_date', weekAhead)
+      .order('end_date', { ascending: true }).limit(50),
+    supabase.from('reminder_logs').select('sent_count', { count: 'exact' }).eq('gym_id', gym.id).gte('created_at', monthStart.toISOString()),
+    supabase.from('reminder_logs').select('id, action, channel, sent_count, recipient_count, created_at').eq('gym_id', gym.id).order('created_at', { ascending: false }).limit(6),
+  ]);
+
+  const ids = [...new Set((expiring ?? []).map((e) => e.member_id).filter(Boolean) as string[])];
+  const { data: profiles } = ids.length
+    ? await supabase.from('profiles').select('id, full_name, email').in('id', ids)
+    : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
+  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? p.email ?? 'Member']));
+
+  const rows = (expiring ?? []).map((e) => {
+    const nm = e.member_id ? (nameById.get(e.member_id) ?? 'Member') : 'Member';
+    const plan = (e as unknown as { membership_plans: { name: string } | null }).membership_plans?.name ?? 'Membership';
+    const left = daysLeft(e.end_date);
+    return { id: e.id, name: nm, initial: nm.charAt(0).toUpperCase(), sub: `${plan} · expires in ${left} day${left === 1 ? '' : 's'}` };
+  });
+
   return (
     <>
       <div className="page-h">
-        <div><h1>Reminders</h1><p>18 memberships expiring this week · 142 reminders sent this month</p></div>
+        <div><h1>Reminders</h1><p>{rows.length} membership{rows.length === 1 ? '' : 's'} expiring this week · {sent ?? 0} reminders sent this month</p></div>
         <button className="gf-btn gf-btn-primary"><Send strokeWidth={1.9} size={16} /> Send all due</button>
       </div>
 
       <section className="kpis">
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#ffb0201f', color: '#ffb020' }}><Clock strokeWidth={1.9} /></div></div><div className="kpi-val">18</div><div className="kpi-lbl">Expiring this week</div></div>
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><MessageCircle strokeWidth={1.9} /></div></div><div className="kpi-val">142</div><div className="kpi-lbl">Sent this month</div></div>
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#4080ff1f', color: '#4080ff' }}><Reply strokeWidth={1.9} /></div></div><div className="kpi-val">61%</div><div className="kpi-lbl">Renewed after nudge</div></div>
+        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#ffb0201f', color: '#ffb020' }}><Clock strokeWidth={1.9} /></div></div><div className="kpi-val">{rows.length}</div><div className="kpi-lbl">Expiring this week</div></div>
+        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><MessageCircle strokeWidth={1.9} /></div></div><div className="kpi-val">{sent ?? 0}</div><div className="kpi-lbl">Sent this month</div></div>
+        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#4080ff1f', color: '#4080ff' }}><Reply strokeWidth={1.9} /></div></div><div className="kpi-val">—</div><div className="kpi-lbl">Renewed after nudge</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#c6f24e1f', color: '#a8d92e' }}><Zap strokeWidth={1.9} /></div></div><div className="kpi-val">On</div><div className="kpi-lbl">Auto-reminders</div></div>
       </section>
 
       <section className="grid2">
         <div className="panel">
           <div className="panel-h"><div><h3>Expiring this week</h3><div className="sub">Nudge before they lapse</div></div></div>
-          {EXPIRING.map((m) => (
-            <div className="rm" key={m.name}>
-              <span className="gf-avatar gf-avatar-sm">{m.i}</span>
+          {rows.length === 0 ? (
+            <div className="empty"><div className="eic"><Clock strokeWidth={1.6} /></div><h3>Nothing expiring</h3><p>No active memberships lapse in the next 7 days.</p></div>
+          ) : rows.map((m) => (
+            <div className="rm" key={m.id}>
+              <span className="gf-avatar gf-avatar-sm">{m.initial}</span>
               <div className="m"><strong>{m.name}</strong><small>{m.sub}</small></div>
               <button className="gf-btn gf-btn-sm gf-btn-primary">Remind</button>
             </div>
@@ -44,13 +64,16 @@ export default function AdminReminders() {
         </div>
         <div className="panel">
           <div className="panel-h"><div><h3>Recent reminders</h3><div className="sub">Delivery log</div></div></div>
-          {LOG.map((l, i) => {
-            const Icon = l.icon;
+          {(log ?? []).length === 0 ? (
+            <div className="empty"><div className="eic"><Mail strokeWidth={1.6} /></div><h3>No reminders sent yet</h3><p>Delivery history will appear here.</p></div>
+          ) : (log ?? []).map((l) => {
+            const isEmail = (l.channel ?? '').toLowerCase().includes('email');
+            const t = l.created_at ? new Date(l.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' }) : '';
             return (
-              <div className="log" key={i}>
-                <div className="ic" style={{ background: l.bg, color: l.fg }}><Icon strokeWidth={1.9} /></div>
-                <div className="m"><strong>{l.title}</strong><small>{l.sub}</small></div>
-                <span className="t">{l.t}</span>
+              <div className="log" key={l.id}>
+                <div className="ic" style={{ background: isEmail ? 'var(--gf-info-soft)' : 'var(--gf-brand-soft)', color: isEmail ? 'var(--gf-info)' : 'var(--gf-brand)' }}>{isEmail ? <Mail strokeWidth={1.9} /> : <MessageCircle strokeWidth={1.9} />}</div>
+                <div className="m"><strong>{l.action ?? 'Reminder'} · {l.channel ?? 'WhatsApp'}</strong><small>{l.sent_count}/{l.recipient_count} delivered</small></div>
+                <span className="t">{t}</span>
               </div>
             );
           })}
