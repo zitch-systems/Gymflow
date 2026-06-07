@@ -54,16 +54,15 @@ export default async function CoachTimetablePage({ params }: PageProps) {
   const daysCovered = new Set(slots.map((s) => s.day_of_week)).size;
 
   return (
-    <div className="op-mobile gf-page">
-      <header className="op-header">
-        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+    <div className="gf-page">
+      <header className="hdr">
+        <div>
+          <h1>Schedule</h1>
+          <p>{totalWeekly} session{totalWeekly === 1 ? '' : 's'}/wk · {totalHours}h at {gym.name}</p>
+        </div>
+        <Link href="/coach/profile" className="icon-btn" aria-label="Profile">
           <span>C</span>
         </Link>
-        <div className="op-header-greet">
-          Schedule
-          <small>{totalWeekly} session{totalWeekly === 1 ? '' : 's'}/wk · {totalHours}h at {gym.name}</small>
-        </div>
-        <div className="op-header-actions" />
       </header>
 
       <section className="kpis">

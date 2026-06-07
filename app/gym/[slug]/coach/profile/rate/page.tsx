@@ -23,12 +23,13 @@ export default async function CoachRatePage({ params }: PageProps) {
   const hasRate = pricing?.price != null;
 
   return (
-    <div className="op-mobile member-portal member-app">
-      <header className="op-header is-sub">
-        <Link href="/coach/profile" className="op-icon-btn" aria-label="Back to profile">
-          <ArrowLeft strokeWidth={1.8} />
+    <div className="gf-page">
+      <header className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+        <Link href="/coach/profile" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back to profile">
+          <ArrowLeft strokeWidth={1.9} />
         </Link>
-        <strong className="op-header-title">Session rate</strong>
+        <strong className="htitle">Session rate</strong>
+        <span style={{ width: 34, height: 34 }} aria-hidden />
       </header>
 
       <Card>

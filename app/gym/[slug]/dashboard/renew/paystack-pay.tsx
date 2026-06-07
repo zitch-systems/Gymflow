@@ -115,12 +115,13 @@ export function PaystackPayButton({ gymId, planId, amount, durationMonths, email
         strategy="afterInteractive"
         onLoad={() => setReady(true)}
       />
-      <label className="m-renew-autorenew">
+      <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', fontSize: '0.84rem', color: 'var(--gf-text-secondary)', cursor: 'pointer' }}>
         <input
           type="checkbox"
           checked={autoDebit}
           onChange={(e) => setAutoDebit(e.target.checked)}
           disabled={pending}
+          style={{ accentColor: 'var(--gf-brand)' }}
         />
         <span>Save this card and auto-renew on the renewal date.</span>
       </label>

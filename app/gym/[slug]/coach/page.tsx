@@ -85,20 +85,40 @@ export default async function CoachDashboard({ params }: PageProps) {
   const coachName = firstName(profile?.full_name ?? profile?.first_name, 'coach');
 
   return (
-    <div className="op-mobile gf-page">
-      <header className="op-header">
-        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
-          <span>{coachInitial}</span>
-        </Link>
-        <div className="op-header-greet">
-          Hi, {coachName}
-          <small>{todayLabel}{(todaySessions ?? []).length > 0 ? ` · ${(todaySessions ?? []).length} session${(todaySessions ?? []).length === 1 ? '' : 's'} today` : ''}</small>
-        </div>
-        <div className="op-header-actions">
-          <Link href="/coach/timetable" className="op-icon-btn" aria-label="Full schedule">
-            <CalendarCheck strokeWidth={1.8} />
+    <div className="gf-page">
+      {/* Prototype instructor-dashboard header (.hdr): avatar + greeting +
+          subtitle on the left, full-schedule icon button on the right.
+          Renders under .ds-admin (set on the coach layout). */}
+      <header className="hdr">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1 }}>
+          <Link
+            href="/coach/profile"
+            className="gf-avatar gf-avatar-md"
+            aria-label="Profile"
+            style={{
+              background: 'var(--gf-brand-soft)',
+              color: 'var(--gf-brand)',
+              borderColor: 'var(--gf-brand-glow)',
+              textDecoration: 'none',
+            }}
+          >
+            {coachInitial}
           </Link>
+          <div>
+            <h1>
+              Hi, <span>{coachName}</span>
+            </h1>
+            <p>
+              {todayLabel}
+              {(todaySessions ?? []).length > 0
+                ? ` · ${(todaySessions ?? []).length} session${(todaySessions ?? []).length === 1 ? '' : 's'} today`
+                : ''}
+            </p>
+          </div>
         </div>
+        <Link href="/coach/timetable" className="icon-btn" aria-label="Full schedule">
+          <CalendarCheck strokeWidth={1.8} />
+        </Link>
       </header>
 
       <section className="kpis">

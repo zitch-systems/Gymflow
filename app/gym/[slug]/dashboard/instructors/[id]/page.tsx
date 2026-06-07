@@ -57,13 +57,15 @@ export default async function InstructorDetailPage({ params }: PageProps) {
   const activeSub = (subs ?? []).find((s) => s.status === 'active' && s.end_date && s.end_date >= today);
 
   return (
-    <div className="op-mobile member-portal">
-      <header className="op-header is-sub">
-        <Link href="/dashboard/instructors" className="op-icon-btn" aria-label="Back to coaches">
-          <ArrowLeft strokeWidth={1.8} />
-        </Link>
-        <strong className="op-header-title">{p.full_name ?? 'Coach'}</strong>
-      </header>
+    <div className="ds-member">
+      <div className="view on" data-v="coach-detail">
+        <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+          <Link href="/dashboard/instructors" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back to coaches">
+            <ArrowLeft strokeWidth={1.9} />
+          </Link>
+          <strong className="htitle">{p.full_name ?? 'Coach'}</strong>
+          <span style={{ width: 34, height: 34 }} aria-hidden />
+        </div>
 
       <section className="gf-card" style={{ padding: 18 }}>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 16 }}>
@@ -157,6 +159,7 @@ export default async function InstructorDetailPage({ params }: PageProps) {
           </ul>
         </section>
       )}
+      </div>
     </div>
   );
 }
