@@ -5915,3 +5915,79 @@ body::after {
 
 /* Login mobile header: keep avatar + name together (override centered avatar) */
 .mk-login-mobilehead .gym-avatar { margin: 0; }
+
+/* ============================================================================
+   Auth chrome (.gf-auth) — brand-split layout for login + recovery flow.
+   Ported from revamp/auth.css. Wraps the existing .gf-auth div used by
+   /login, /forgot-password, /reset-password.
+   ============================================================================ */
+.gf-auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; }
+
+/* Brand panel (left) */
+.gf-auth .brandside { position: relative; overflow: hidden; padding: 44px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--gf-border); }
+.gf-auth .brandside-bg { position: absolute; inset: 0; background: url(/images/gym-studio.jpg) center/cover; opacity: 0.28; }
+.gf-auth .brandside-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, var(--gf-brand-soft), transparent 40%), linear-gradient(0deg, var(--gf-bg) 5%, transparent 60%); }
+.gf-auth .brandside > * { position: relative; }
+.gf-auth .bs-quote { max-width: 440px; }
+.gf-auth .bs-quote .stars { display: flex; gap: 3px; color: var(--gf-accent); margin-bottom: 16px; }
+.gf-auth .bs-quote .stars svg { width: 18px; height: 18px; fill: var(--gf-accent); }
+.gf-auth .bs-quote p { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.02em; margin: 0 0 18px; }
+.gf-auth .bs-quote .by { display: flex; align-items: center; gap: 12px; }
+.gf-auth .bs-quote .by .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); }
+.gf-auth .bs-quote .by strong { font-family: var(--gf-font-display); display: block; }
+.gf-auth .bs-quote .by small { color: var(--gf-text-secondary); }
+.gf-auth .bs-stats { display: flex; gap: 36px; margin-top: 30px; }
+.gf-auth .bs-stats dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gf-text-muted); font-weight: 600; }
+.gf-auth .bs-stats dd { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 800; margin: 4px 0 0; color: var(--gf-brand); }
+
+/* Form panel (right) */
+.gf-auth .formside { display: flex; align-items: center; justify-content: center; padding: 44px; }
+.gf-auth .formcard { width: 100%; max-width: 380px; }
+.gf-auth .formcard h1 { font-family: var(--gf-font-display); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin: 26px 0 6px; }
+.gf-auth .formcard .lede { color: var(--gf-text-secondary); font-size: 0.92rem; margin: 0 0 24px; line-height: 1.5; }
+.gf-auth .auth-tabs { display: flex; gap: 4px; background: var(--gf-elevated); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-pill); padding: 4px; margin-bottom: 22px; }
+.gf-auth .auth-tabs a { flex: 1; border: none; background: transparent; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.875rem; padding: 9px; border-radius: var(--gf-radius-pill); cursor: pointer; text-align: center; text-decoration: none; transition: all var(--gf-t); }
+.gf-auth .auth-tabs a.on { background: var(--gf-brand); color: #fff; box-shadow: 0 2px 10px var(--gf-brand-glow); }
+.gf-auth .auth-divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; color: var(--gf-text-muted); font-size: 0.78rem; }
+.gf-auth .auth-divider::before, .gf-auth .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--gf-border); }
+.gf-auth .auth-roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gf-auth .role-btn { display: flex; align-items: center; gap: 9px; padding: 11px 13px; border-radius: var(--gf-radius-sm); background: var(--gf-elevated); border: 1px solid var(--gf-border); color: var(--gf-text); text-decoration: none; font-family: var(--gf-font-display); font-weight: 600; font-size: 0.82rem; transition: all var(--gf-t); }
+.gf-auth .role-btn:hover { border-color: var(--gf-brand); color: var(--gf-brand); transform: translateY(-1px); }
+.gf-auth .role-btn svg { width: 16px; height: 16px; }
+.gf-auth .foot-note { text-align: center; color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 24px; }
+.gf-auth .foot-note a { color: var(--gf-brand); text-decoration: none; font-weight: 600; }
+
+/* ── back link ── */
+.gf-auth .back-link { display: inline-flex; align-items: center; gap: 7px; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.84rem; text-decoration: none; margin-top: 22px; transition: color var(--gf-t); }
+.gf-auth .back-link:hover { color: var(--gf-text); }
+.gf-auth .back-link svg { width: 15px; height: 15px; }
+
+/* ── lock badge (recovery hero) ── */
+.gf-auth .lock-badge { width: 56px; height: 56px; border-radius: 16px; background: var(--gf-brand-soft); border: 1px solid var(--gf-border-glow); display: grid; place-items: center; color: var(--gf-brand); }
+.gf-auth .lock-badge svg { width: 26px; height: 26px; }
+
+/* ── success state (email sent / reset done) ── */
+.gf-auth .auth-done { text-align: center; }
+.gf-auth .auth-done .ring { width: 78px; height: 78px; border-radius: 50%; background: var(--gf-brand-soft); border: 2px solid var(--gf-brand-glow); display: grid; place-items: center; margin: 0 auto 18px; animation: auth-pop .5s var(--gf-ease-spring); }
+.gf-auth .auth-done .ring svg { width: 38px; height: 38px; color: var(--gf-brand); }
+@keyframes auth-pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.gf-auth .auth-done .em { font-family: var(--gf-font-display); font-weight: 700; color: var(--gf-text); }
+.gf-auth .resend { color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 20px; text-align: center; }
+.gf-auth .resend a, .gf-auth .resend .gf-link { color: var(--gf-brand); text-decoration: none; font-weight: 600; cursor: pointer; background: none; border: none; padding: 0; font-size: inherit; font-family: inherit; }
+.gf-auth .resend .gf-link:hover { text-decoration: underline; }
+.gf-auth .resend .gf-link:disabled { opacity: 0.55; cursor: wait; }
+
+/* ── password strength meter + per-rule checklist ── */
+.gf-auth .pw-meter { display: flex; gap: 5px; margin: 10px 0 4px; }
+.gf-auth .pw-meter span { flex: 1; height: 5px; border-radius: 99px; background: var(--gf-elevated); transition: background var(--gf-t); }
+.gf-auth .pw-meter.s1 span:nth-child(1) { background: var(--gf-danger); }
+.gf-auth .pw-meter.s2 span:nth-child(-n+2) { background: var(--gf-warning); }
+.gf-auth .pw-meter.s3 span:nth-child(-n+3) { background: var(--gf-accent-dark); }
+.gf-auth .pw-meter.s4 span { background: var(--gf-brand); }
+.gf-auth .pw-hint { color: var(--gf-text-muted); font-size: 0.78rem; margin-top: 4px; }
+.gf-auth .pw-reqs { list-style: none; padding: 0; margin: 14px 0 22px; display: grid; gap: 7px; }
+.gf-auth .pw-reqs li { display: flex; align-items: center; gap: 8px; color: var(--gf-text-muted); font-size: 0.82rem; transition: color var(--gf-t); }
+.gf-auth .pw-reqs li svg { width: 15px; height: 15px; flex-shrink: 0; }
+.gf-auth .pw-reqs li.ok { color: var(--gf-brand); }
+
+@media (max-width: 860px) { .gf-auth { grid-template-columns: 1fr; } .gf-auth .brandside { display: none; } }

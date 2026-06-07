@@ -1,27 +1,41 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, CircleCheck, Circle } from 'lucide-react';
 import { updatePassword } from '@/lib/auth/actions';
 
-// 0–4 strength score: length, mixed case, a digit, a symbol.
-function score(pw: string): number {
-  let s = 0;
-  if (pw.length >= 8) s++;
-  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
-  if (/\d/.test(pw)) s++;
-  if (/[^A-Za-z0-9]/.test(pw)) s++;
-  return s;
+// Per-rule checks — drive both the strength meter and the requirement list.
+function checks(pw: string) {
+  return {
+    len: pw.length >= 8,
+    case: /[a-z]/.test(pw) && /[A-Z]/.test(pw),
+    num: /\d/.test(pw),
+    sym: /[^A-Za-z0-9]/.test(pw),
+  };
+}
+function score(c: ReturnType<typeof checks>): number {
+  return Object.values(c).filter(Boolean).length;
 }
 
-const LABELS = ['Too short', 'Weak', 'Fair', 'Good', 'Strong'];
+// 0 (empty) + 1–4 (one-per-rule met). Index 0 is the hint shown when the field
+// is empty, so the messages align with the meter's bar count.
+const LABELS = [
+  'Use 8+ characters with a mix of letters, numbers & symbols.',
+  'Very weak password',
+  'Weak password',
+  'Fair password',
+  'Good password',
+  'Strong password',
+];
 
 export function ResetPasswordForm() {
   const [state, action, pending] = useActionState(updatePassword, undefined);
   const [pw, setPw] = useState('');
   const [confirm, setConfirm] = useState('');
-  const s = score(pw);
+  const c = checks(pw);
+  const s = score(c);
   const mismatch = confirm.length > 0 && confirm !== pw;
+  const ready = s === 4 && pw.length > 0 && confirm === pw;
 
   return (
     <>
@@ -36,7 +50,7 @@ export function ResetPasswordForm() {
               name="password"
               type="password"
               className="gf-input"
-              placeholder="At least 8 characters"
+              placeholder="••••••••"
               autoComplete="new-password"
               required
               minLength={8}
@@ -44,12 +58,18 @@ export function ResetPasswordForm() {
               onChange={(e) => setPw(e.target.value)}
             />
           </div>
-          {pw && (
-            <div className="pw-meter" data-score={s} aria-hidden>
-              <span /><span /><span /><span />
-              <small>{LABELS[s]}</small>
-            </div>
-          )}
+          {/* Strength meter — 4 bars, fills as rules are met (className-based per prototype). */}
+          <div className={`pw-meter${pw ? ` s${s}` : ''}`} aria-hidden>
+            <span /><span /><span /><span />
+          </div>
+          <div className="pw-hint">{LABELS[pw ? s + 1 : 0]}</div>
+          {/* Requirement checklist — every rule must tick before Submit enables. */}
+          <ul className="pw-reqs">
+            <li className={c.len ? 'ok' : ''}>{c.len ? <CircleCheck size={15} strokeWidth={2.2} /> : <Circle size={15} strokeWidth={2.2} />} At least 8 characters</li>
+            <li className={c.case ? 'ok' : ''}>{c.case ? <CircleCheck size={15} strokeWidth={2.2} /> : <Circle size={15} strokeWidth={2.2} />} Upper &amp; lower case letters</li>
+            <li className={c.num ? 'ok' : ''}>{c.num ? <CircleCheck size={15} strokeWidth={2.2} /> : <Circle size={15} strokeWidth={2.2} />} A number</li>
+            <li className={c.sym ? 'ok' : ''}>{c.sym ? <CircleCheck size={15} strokeWidth={2.2} /> : <Circle size={15} strokeWidth={2.2} />} A symbol (!@#$…)</li>
+          </ul>
         </div>
 
         <div className="gf-form-group">
@@ -61,22 +81,26 @@ export function ResetPasswordForm() {
               name="confirm"
               type="password"
               className="gf-input"
-              placeholder="Re-enter your new password"
+              placeholder="••••••••"
               autoComplete="new-password"
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
           </div>
-          {mismatch && <small className="pw-mismatch">Passwords don’t match.</small>}
+          {confirm.length > 0 && (
+            <small className="pw-hint" style={{ color: mismatch ? 'var(--gf-text-muted)' : 'var(--gf-brand)' }}>
+              {mismatch ? 'Passwords don’t match yet' : '✓ Passwords match'}
+            </small>
+          )}
         </div>
 
         <button
           type="submit"
-          disabled={pending || mismatch || s < 2 || confirm.length === 0}
+          disabled={pending || !ready}
           className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg"
         >
-          {pending ? 'Updating…' : 'Update password'}
+          {pending ? 'Updating…' : 'Reset password'}
         </button>
       </form>
     </>

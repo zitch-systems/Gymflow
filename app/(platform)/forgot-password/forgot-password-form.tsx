@@ -12,13 +12,32 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div className="auth-done">
-        <div className="ring" aria-hidden><MailCheck strokeWidth={1.9} /></div>
-        <h1>Check your email</h1>
-        <p className="lede">
-          If an account exists for <span className="em">{email}</span>, we&rsquo;ve sent a link to reset your password. It expires in an hour.
+      <>
+        <div className="auth-done">
+          <div className="ring" aria-hidden><MailCheck strokeWidth={1.9} /></div>
+          <h1>Check your email</h1>
+          <p className="lede">
+            If an account exists for <span className="em">{email}</span>, we&rsquo;ve sent a link to reset your password. It expires in an hour.
+          </p>
+        </div>
+        {/* Recovery affordance from the prototype — Resend + contact support. */}
+        <p className="resend">
+          Didn&rsquo;t get it?{' '}
+          <button
+            type="button"
+            className="gf-link"
+            disabled={pending}
+            onClick={() => {
+              start(async () => {
+                await requestPasswordReset(email, window.location.origin);
+              });
+            }}
+          >
+            {pending ? 'Resending…' : 'Resend email'}
+          </button>{' '}
+          · <a href="mailto:hello@gymflow.ng">Contact support</a>
         </p>
-      </div>
+      </>
     );
   }
 
