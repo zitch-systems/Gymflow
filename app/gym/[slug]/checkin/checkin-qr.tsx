@@ -7,7 +7,7 @@ import { QRCodeSVG } from 'qrcode.react';
 // in the browser (matches the admin GymQrCode pattern).
 export function CheckinQr({ value }: { value: string }) {
   return (
-    <div className="m-ci-qr" aria-label="Your check-in QR code">
+    <div className="qr" aria-label="Your check-in QR code">
       <QRCodeSVG value={value} size={200} level="M" includeMargin={false} />
     </div>
   );

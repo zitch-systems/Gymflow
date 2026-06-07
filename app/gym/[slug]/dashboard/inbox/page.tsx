@@ -3,7 +3,7 @@ import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { markAllNotificationsRead } from '@/lib/actions/notifications';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Bell, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Bell, CheckCheck } from 'lucide-react';
 import { InboxList, type InboxRow } from './inbox-list';
 
 export const metadata = { title: 'Notifications' };
@@ -31,40 +31,40 @@ export default async function MemberInboxPage({ params }: PageProps) {
   const unreadCount = rows.filter((r) => !r.is_read).length;
 
   return (
-    <div className="op-mobile member-portal member-app">
-      <header className="op-header">
-        <Link href="/dashboard/profile" className="op-header-avatar" aria-label="Profile">
-          <span>{(gym.name ?? 'M').charAt(0).toUpperCase()}</span>
-        </Link>
-        <div className="op-header-greet">
-          Notifications
-          <small>{unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}</small>
-        </div>
-        <div className="op-header-actions">
-          {unreadCount > 0 && (
+    <div className="ds-member">
+      <div className="view on" data-v="notifications">
+        <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+          <Link href="/dashboard" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back">
+            <ArrowLeft strokeWidth={1.9} />
+          </Link>
+          <strong className="htitle">Notifications</strong>
+          {unreadCount > 0 ? (
             <form action={markAllNotificationsRead.bind(null, slug)}>
               <button
                 type="submit"
-                className="op-icon-btn"
+                className="icon-btn"
+                style={{ width: 34, height: 34 }}
                 aria-label={`Mark all ${unreadCount} as read`}
                 title="Mark all read"
               >
-                <CheckCheck strokeWidth={1.8} />
+                <CheckCheck strokeWidth={1.9} />
               </button>
             </form>
+          ) : (
+            <span style={{ width: 34, height: 34 }} aria-hidden />
           )}
         </div>
-      </header>
 
-      {rows.length > 0 ? (
-        <InboxList slug={slug} rows={rows} />
-      ) : (
-        <EmptyState
-          icon={Bell}
-          title="No messages yet"
-          message={`Announcements, payment receipts, and gym alerts from ${gym.name} will appear here.`}
-        />
-      )}
+        {rows.length > 0 ? (
+          <InboxList slug={slug} rows={rows} />
+        ) : (
+          <EmptyState
+            icon={Bell}
+            title="No messages yet"
+            message={`Announcements, payment receipts, and gym alerts from ${gym.name} will appear here.`}
+          />
+        )}
+      </div>
     </div>
   );
 }

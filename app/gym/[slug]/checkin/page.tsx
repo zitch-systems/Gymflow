@@ -1,5 +1,3 @@
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 import { requireMember } from '@/lib/auth/gym';
 import { SelfCheckInButton } from './self-checkin-button';
 import { CheckinQr } from './checkin-qr';
@@ -16,19 +14,19 @@ export default async function CheckInPage({ params }: PageProps) {
   const memberCodeUrl = `${origin}/admin/staff-checkin?member=${encodeURIComponent(user.id)}`;
 
   return (
-    <div className="op-mobile member-portal member-app">
-      <header className="op-header is-sub">
-        <Link href="/dashboard" className="op-icon-btn" aria-label="Back to home">
-          <ArrowLeft strokeWidth={1.8} />
-        </Link>
-        <strong className="op-header-title">Check in</strong>
-      </header>
-
-      <div className="m-ci">
-        <h2 className="m-ci-title">Scan at the door</h2>
-        <p className="m-ci-sub">Show this code at the entrance, or tap to self check-in.</p>
-        <CheckinQr value={memberCodeUrl} />
-        <SelfCheckInButton slug={slug} />
+    <div className="ds-member">
+      <div className="view on" data-v="checkin">
+        <div className="ci">
+          <div className="mhead" style={{ justifyContent: 'center', paddingBottom: 6 }}>
+            <strong className="htitle">Check in</strong>
+          </div>
+          <h2>Scan at the door</h2>
+          <p>Show this code at the entrance, or tap to self check-in.</p>
+          <CheckinQr value={memberCodeUrl} />
+          <div style={{ marginTop: 26 }}>
+            <SelfCheckInButton slug={slug} />
+          </div>
+        </div>
       </div>
     </div>
   );

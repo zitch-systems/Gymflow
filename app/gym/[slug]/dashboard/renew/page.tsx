@@ -45,35 +45,38 @@ export default async function RenewPage({ params }: PageProps) {
       : `Pick a plan to start training at ${gym.name}.`;
 
   return (
-    <div className="op-mobile member-portal member-app">
-      <header className="op-header is-sub">
-        <Link href="/dashboard/wallet" className="op-icon-btn" aria-label="Back to wallet">
-          <ArrowLeft strokeWidth={1.8} />
-        </Link>
-        <strong className="op-header-title">Renew membership</strong>
-      </header>
+    <div className="ds-member">
+      <div className="view on" data-v="renew">
+        <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 10 }}>
+          <Link href="/dashboard/wallet" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back to wallet">
+            <ArrowLeft strokeWidth={1.9} />
+          </Link>
+          <strong className="htitle">Renew membership</strong>
+          <span style={{ width: 34, height: 34 }} aria-hidden />
+        </div>
 
-      {!plans || plans.length === 0 ? (
-        <EmptyState icon={ClipboardList} title="No plans available" message="The gym hasn't published any active plans yet." />
-      ) : (
-        <>
-          <p style={{ color: 'var(--gf-text-secondary)', fontSize: '0.88rem', margin: '0 0 16px' }}>
-            {context}
-          </p>
-          <RenewPlanPicker
-            plans={plans.map((p) => ({
-              id: p.id,
-              name: p.name,
-              duration_months: p.duration_months,
-              price: p.price,
-              description: p.description,
-            }))}
-            gymId={gym.id}
-            email={user.email ?? ''}
-            subaccount={gym.paystack_subaccount_code}
-          />
-        </>
-      )}
+        {!plans || plans.length === 0 ? (
+          <EmptyState icon={ClipboardList} title="No plans available" message="The gym hasn't published any active plans yet." />
+        ) : (
+          <>
+            <p style={{ color: 'var(--gf-text-secondary)', fontSize: '0.88rem', margin: '0 0 16px' }}>
+              {context}
+            </p>
+            <RenewPlanPicker
+              plans={plans.map((p) => ({
+                id: p.id,
+                name: p.name,
+                duration_months: p.duration_months,
+                price: p.price,
+                description: p.description,
+              }))}
+              gymId={gym.id}
+              email={user.email ?? ''}
+              subaccount={gym.paystack_subaccount_code}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }

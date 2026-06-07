@@ -52,35 +52,41 @@ export default async function ReceiptPage({ params }: PageProps) {
   ];
 
   return (
-    <div className="op-mobile member-portal member-app">
-      <header className="op-header is-sub">
-        <Link href="/dashboard/wallet" className="op-icon-btn" aria-label="Back to wallet">
-          <ArrowLeft strokeWidth={1.8} />
-        </Link>
-        <strong className="op-header-title">Receipt</strong>
-      </header>
-
-      <div className="m-receipt">
-        <div className="m-receipt-top">
-          <div className={`m-receipt-ring${failed ? ' failed' : ''}`}>
-            {failed ? <X strokeWidth={2.4} /> : pending ? <Clock strokeWidth={2.2} /> : <Check strokeWidth={2.4} />}
-          </div>
-          <div className="m-receipt-amt">{fmtNaira(Number(payment.amount ?? 0))}</div>
-          <div className="m-receipt-label">{planLabel}</div>
+    <div className="ds-member">
+      <div className="view on" data-v="receipt">
+        <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
+          <Link href="/dashboard/wallet" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back to wallet">
+            <ArrowLeft strokeWidth={1.9} />
+          </Link>
+          <strong className="htitle">Receipt</strong>
+          <span style={{ width: 34, height: 34 }} aria-hidden />
         </div>
 
-        <div className="m-wallet-group">
-          <div className="m-receipt-list">
-            {rows.map((r) => (
-              <div key={r.label} className="m-receipt-row">
-                <span>{r.label}</span>
-                <b>{r.value}</b>
-              </div>
-            ))}
+        <div className="receipt">
+          <div className="rtop">
+            <div
+              className="ring"
+              style={failed ? { background: 'var(--gf-danger-soft)', borderColor: 'rgba(255,69,96,0.25)', color: 'var(--gf-danger)' } : undefined}
+            >
+              {failed ? <X strokeWidth={2.4} /> : pending ? <Clock strokeWidth={2.2} /> : <Check strokeWidth={2.4} />}
+            </div>
+            <div className="ra">{fmtNaira(Number(payment.amount ?? 0))}</div>
+            <div className="rl">{planLabel}</div>
           </div>
-        </div>
 
-        <ReceiptActions />
+          <div className="group">
+            <div className="rlist">
+              {rows.map((r) => (
+                <div key={r.label} className="rrow">
+                  <span>{r.label}</span>
+                  <b>{r.value}</b>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <ReceiptActions />
+        </div>
       </div>
     </div>
   );

@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
-import { Wallet, CreditCard, Repeat, Receipt, ChevronRight, Bell } from 'lucide-react';
-import { AutoDebitToggle } from './auto-debit-toggle';
+import {
+  Wallet, CreditCard, Repeat, Receipt, ChevronRight, Bell, ArrowDownLeft,
+} from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -19,7 +20,7 @@ export default async function WalletPage({ params }: PageProps) {
   const { user, gym } = await requireMember(slug);
   const supabase = await createClient();
 
-  const [{ data: payments }, { data: subscription }, { data: membership }, { data: savedCard }, { data: plans }, { count: unreadRaw }] = await Promise.all([
+  const [{ data: payments }, { data: subscription }, { data: plans }, { count: unreadRaw }] = await Promise.all([
     supabase
       .from('payments')
       .select('id, amount, payment_date, created_at, payment_status, payment_method, plan_id')
@@ -29,33 +30,11 @@ export default async function WalletPage({ params }: PageProps) {
       .limit(100),
     supabase
       .from('member_subscriptions')
-      .select('end_date, status')
+      .select('end_date, status, plan_id')
       .eq('member_id', user.id)
       .eq('gym_id', gym.id)
       .eq('status', 'active')
       .order('end_date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    // memberships.auto_debit_enabled is the flag the daily cron filters on.
-    // member_subscriptions is a separate, older view kept around for end_date
-    // display; the toggle has to flip THIS row to actually take effect.
-    supabase
-      .from('memberships')
-      .select('id, end_date, auto_debit_enabled')
-      .eq('member_id', user.id)
-      .eq('gym_id', gym.id)
-      .eq('status', 'active')
-      .order('end_date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from('saved_cards')
-      .select('last4, brand')
-      .eq('member_id', user.id)
-      .eq('gym_id', gym.id)
-      .eq('reusable', true)
-      .eq('is_active', true)
-      .order('is_default', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase.from('membership_plans').select('id, name').eq('gym_id', gym.id),
@@ -82,6 +61,7 @@ export default async function WalletPage({ params }: PageProps) {
     : subscription
       ? 'Membership expired — renew to keep training'
       : 'No active membership';
+  const currentPlanName = subscription?.plan_id ? planName.get(subscription.plan_id) ?? null : null;
 
   // Spend over the last 6 calendar months (successful payments, UTC buckets).
   const now = new Date();
@@ -104,105 +84,119 @@ export default async function WalletPage({ params }: PageProps) {
   const monthMax = Math.max(1, ...monthSeries.map((m) => m.amount));
   const thisMonthSpend = monthSeries[monthSeries.length - 1].amount;
 
+  // Inbound vs outbound classification — refunds are inbound, everything else outbound.
+  // Drives the .tic.in/.tic.out + .amt.credit styling.
+  const isInbound = (status: string | null) => status === 'refunded';
+
   return (
-    <div className="op-mobile member-portal member-app">
-      {/* OPay-style header (matches /dashboard) for consistent app chrome. */}
-      <header className="op-header">
-        <Link href="/dashboard/profile" className="op-header-avatar" aria-label="Profile">
-          <span>{(user.email ?? 'M').charAt(0).toUpperCase()}</span>
-        </Link>
-        <div className="op-header-greet">
-          Wallet
-          <small>{gym.name}</small>
-        </div>
-        <div className="op-header-actions">
+    <div className="ds-member">
+      <div className="view on" data-v="wallet">
+        <div className="mhead" style={{ paddingBottom: 10 }}>
+          <strong className="htitle">Wallet</strong>
           <Link
             href="/dashboard/inbox"
-            className="op-icon-btn"
+            className="icon-btn bell"
+            style={{ marginLeft: 'auto', width: 38, height: 38 }}
             aria-label={unreadCount > 0 ? `Inbox · ${unreadCount} unread` : 'Inbox'}
           >
-            <Bell strokeWidth={1.8} />
+            <Bell strokeWidth={1.9} />
             {unreadCount > 0 && (
-              <span className="op-icon-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              <span className="nub">{unreadCount > 99 ? '99+' : unreadCount}</span>
             )}
           </Link>
         </div>
-      </header>
 
-      {/* Headline = real lifetime spend, not a stored-value balance — GymFlow
-          isn't a wallet-float product. Prototype's "Top up" button is omitted
-          for the same reason. */}
-      <div className="m-wcard">
-        <div className="m-wcard-label"><Wallet strokeWidth={1.9} /> Total spent</div>
-        <div className="m-wcard-bal">{fmtNaira(totalSpent)}</div>
-        <div className="m-wcard-sub"><Repeat strokeWidth={1.9} /> {membershipLine}</div>
-        <div className="m-wcard-btns">
-          <Link href="/dashboard/renew" className="b-primary"><CreditCard strokeWidth={2} /> Renew plan</Link>
-        </div>
-      </div>
-
-      {successful.length > 0 && (
-        <div className="m-spend">
-          <div className="m-spend-h">
-            <div><b>{fmtNaira(thisMonthSpend)}</b> <small>spent this month</small></div>
-            <small>Last 6 months</small>
-          </div>
-          <div className="m-spend-bars" role="img" aria-label={`Monthly spend, ${fmtNaira(totalSpent)} total`}>
-            {monthSeries.map((m, i) => (
-              <div key={m.key} className={`m-spend-col${i === monthSeries.length - 1 ? ' now' : ''}`} title={`${m.label}: ${fmtNaira(m.amount)}`}>
-                <div className="bv" style={{ height: `${Math.round((m.amount / monthMax) * 100)}%` }} />
-                <span>{m.label}</span>
-              </div>
-            ))}
+        {/* Headline = real lifetime spend, not a stored-value balance — GymFlow
+            isn't a wallet-float product. Prototype's "Top up" button is omitted
+            for the same reason. */}
+        <div className="wcard">
+          <div className="wlabel"><Wallet /> Total spent</div>
+          <div className="wbal">{fmtNaira(totalSpent)}</div>
+          <div className="wnext"><Repeat /> {membershipLine}</div>
+          <div className="wbtns">
+            <Link href="/dashboard/renew" className="b-primary"><CreditCard strokeWidth={2} /> Renew plan</Link>
           </div>
         </div>
-      )}
 
-      {membership ? (
-        <>
-          <div className="m-wallet-sect">Membership</div>
-          <AutoDebitToggle
-            slug={slug}
-            enabled={!!membership.auto_debit_enabled}
-            endDate={membership.end_date ?? subscription?.end_date ?? null}
-            cardLast4={savedCard?.last4 ?? null}
-            cardBrand={savedCard?.brand ?? null}
-          />
-        </>
-      ) : null}
+        {successful.length > 0 && (
+          <div className="spend">
+            <div className="sh">
+              <div><b>{fmtNaira(thisMonthSpend)}</b> <small>spent this month</small></div>
+              <small>Last 6 months</small>
+            </div>
+            <div className="bars" role="img" aria-label={`Monthly spend, ${fmtNaira(totalSpent)} total`}>
+              {monthSeries.map((m, i) => (
+                <div
+                  key={m.key}
+                  className={`bcol${i === monthSeries.length - 1 ? ' now' : ''}`}
+                  title={`${m.label}: ${fmtNaira(m.amount)}`}
+                >
+                  <div className="bv" style={{ height: `${Math.round((m.amount / monthMax) * 100)}%` }} />
+                  <span>{m.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-      <div className="m-wallet-sect">Transactions</div>
-      {txns.length > 0 ? (
-        <div className="m-wallet-group">
-          {txns.map((p) => {
-            const failed = p.payment_status !== 'successful' && p.payment_status !== 'pending';
-            const method = p.payment_method || 'Paystack';
-            return (
-              <Link key={p.id} href={`/dashboard/wallet/${p.id}`} className="m-txn">
-                <span className={`m-txn-ic${failed ? ' failed' : ''}`}><CreditCard /></span>
-                <span className="m-txn-m">
-                  <strong>{(p.plan_id && planName.get(p.plan_id)) || 'Membership payment'}</strong>
-                  <small>{fmtDate(eff(p))} · {method}</small>
-                </span>
-                <span className={`m-txn-amt${failed ? ' failed' : ''}`}>
-                  {fmtNaira(Number(p.amount ?? 0))}
-                  <small>{STATUS_LABEL[p.payment_status ?? ''] ?? (p.payment_status || '—')}</small>
-                </span>
+        {subscription && (
+          <>
+            <div className="sect-t">Membership</div>
+            <div className="group" style={{ marginBottom: 14 }}>
+              <Link href="/dashboard/renew" className="row">
+                <span className="ic"><CreditCard /></span>
+                <div className="m">
+                  <strong>Renew or change plan</strong>
+                  <small>
+                    {currentPlanName ? `${currentPlanName} · ` : ''}
+                    {remaining > 0 ? `renews ${fmtDate(subscription.end_date)}` : 'expired'}
+                  </small>
+                </div>
+                <ChevronRight className="chev" strokeWidth={1.9} />
               </Link>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="m-wallet-group" style={{ padding: '32px 16px', textAlign: 'center' }}>
-          <Receipt size={26} strokeWidth={1.6} style={{ color: 'var(--gf-text-muted)', marginBottom: 8 }} />
-          <p style={{ color: 'var(--gf-text-muted)', fontSize: '0.86rem', margin: '0 0 14px' }}>
-            No payments yet. Your renewals and purchases will show here.
-          </p>
-          <Link href="/dashboard/renew" className="gf-btn gf-btn-primary gf-btn-sm">
-            Renew membership <ChevronRight size={15} strokeWidth={2} />
-          </Link>
-        </div>
-      )}
+            </div>
+          </>
+        )}
+
+        <div className="sect-t">Transactions</div>
+        {txns.length > 0 ? (
+          <div className="group">
+            {txns.map((p) => {
+              const failed = p.payment_status !== 'successful' && p.payment_status !== 'pending';
+              const method = p.payment_method || 'Paystack';
+              const inbound = isInbound(p.payment_status);
+              const Icon = inbound ? ArrowDownLeft : CreditCard;
+              const amount = Number(p.amount ?? 0);
+              const planLabel = (p.plan_id && planName.get(p.plan_id)) || 'Membership payment';
+              return (
+                <Link key={p.id} href={`/dashboard/wallet/${p.id}`} className="txn">
+                  <span className={`tic ${inbound ? 'in' : 'out'}`}>
+                    <Icon />
+                  </span>
+                  <div className="m">
+                    <strong>{planLabel}</strong>
+                    <small>{fmtDate(eff(p))} · {method}</small>
+                  </div>
+                  <span className={`amt${inbound ? ' credit' : ''}`} style={failed ? { color: 'var(--gf-danger)' } : undefined}>
+                    {inbound ? '+' : '−'}{fmtNaira(amount).replace('−', '')}
+                    <small>{STATUS_LABEL[p.payment_status ?? ''] ?? (p.payment_status || '—')}</small>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="group" style={{ padding: '32px 16px', textAlign: 'center' }}>
+            <Receipt strokeWidth={1.6} style={{ color: 'var(--gf-text-muted)', marginBottom: 8 }} />
+            <p style={{ color: 'var(--gf-text-muted)', fontSize: '0.86rem', margin: '0 0 14px' }}>
+              No payments yet. Your renewals and purchases will show here.
+            </p>
+            <Link href="/dashboard/renew" className="gf-btn gf-btn-primary gf-btn-sm">
+              Renew membership <ChevronRight strokeWidth={2} />
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
