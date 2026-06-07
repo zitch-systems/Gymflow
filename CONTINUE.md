@@ -4,6 +4,12 @@ Building the project from scratch from the design bundle (`design/`), exactly
 as the `revamp/*.html` prototypes specify. Tracking what's done and the recipe
 for what's left.
 
+> **Priority (set by the user): VISUALS FIRST.** Build every surface's UI to
+> pixel-faithful completeness against `revamp/*.html` before any backend.
+> Pages may use the prototypes' static/fake data for now — Supabase + Paystack
+> wiring is a deliberate later track. Order: Member PWA → Admin → Instructor →
+> Superadmin, then backend.
+
 ## ✅ Done (built from scratch, on `main`, build + tsc green)
 
 **Foundation**
