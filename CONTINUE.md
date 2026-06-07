@@ -4,11 +4,29 @@ Building the project from scratch from the design bundle (`design/`), exactly
 as the `revamp/*.html` prototypes specify. Tracking what's done and the recipe
 for what's left.
 
-> **Priority (set by the user): VISUALS FIRST.** Build every surface's UI to
-> pixel-faithful completeness against `revamp/*.html` before any backend.
-> Pages may use the prototypes' static/fake data for now — Supabase + Paystack
-> wiring is a deliberate later track. Order: Member PWA → Admin → Instructor →
-> Superadmin, then backend.
+> **✅ VISUAL REBUILD COMPLETE.** All 6 surfaces (48 routes) are built from
+> `revamp/*.html`, building + prerendering, tsc/lint clean. Pages use the
+> prototypes' static data. **Next track: backend** — wire Supabase (auth +
+> RLS + multi-tenant subdomains) and Paystack so the static UIs become a real
+> product. See `design/HANDOFF.md` §5 for the module list. Re-enable
+> `typedRoutes` in `next.config.ts` once routes are stable.
+
+## Surfaces — all ✅ built (static data)
+
+| Surface | Routes | Group |
+|---|---|---|
+| Marketing | 8 | `app/(platform-pages)` (top-level) |
+| Auth | 4 | `/login` `/signup` `/forgot-password` `/reset-password` |
+| Member PWA | 8 | `app/(member)` · `.ds-member` |
+| Admin | 11 | `app/(admin)` · `.ds-admin` |
+| Instructor | 7 | `app/(coach)` · `.ds-admin` |
+| Superadmin | 8 | `app/(superadmin)` · `.ds-admin` |
+
+### Backend track (not started)
+Wire real data per `design/HANDOFF.md`: Supabase client + `requireStaff`/
+`requireMember` gates + RLS, subdomain routing (`proxy.ts`), Paystack
+subscriptions, server actions for auth/booking/check-in/renew. Swap each
+page's static arrays for real queries; keep the markup.
 
 ## ✅ Done (built from scratch, on `main`, build + tsc green)
 
