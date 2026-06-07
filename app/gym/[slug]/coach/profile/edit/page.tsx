@@ -20,7 +20,7 @@ export default async function CoachProfileEditPage({ params }: PageProps) {
     .maybeSingle();
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">Public profile</h1>

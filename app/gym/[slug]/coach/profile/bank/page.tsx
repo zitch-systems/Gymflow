@@ -31,7 +31,7 @@ export default async function CoachBankPage({ params }: PageProps) {
   const bank = (bankRaw ?? null) as unknown as BankRow | null;
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">Payout bank</h1>

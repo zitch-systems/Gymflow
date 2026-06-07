@@ -105,7 +105,7 @@ export default async function WalletPage({ params }: PageProps) {
   const thisMonthSpend = monthSeries[monthSeries.length - 1].amount;
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="m-head" style={{ paddingBottom: 10 }}>
         <strong className="htitle">Wallet</strong>
         <Link

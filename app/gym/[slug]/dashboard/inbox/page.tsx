@@ -30,7 +30,7 @@ export default async function MemberInboxPage({ params }: PageProps) {
   const unreadCount = rows.filter((r) => !r.is_read).length;
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="m-head" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
         <strong className="htitle">Notifications</strong>
         {unreadCount > 0 ? (
