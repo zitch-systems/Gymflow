@@ -11,6 +11,7 @@ import {
   GraduationCap, Inbox, Activity, Megaphone, Sparkles, UserCircle2,
   Dumbbell, MoreHorizontal, Receipt,
 } from 'lucide-react';
+import { ReferShareButton } from './refer-share-button';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -70,6 +71,12 @@ export default async function MemberDashboard({ params }: PageProps) {
   const memberName = firstName(profile?.full_name ?? profile?.first_name) || 'there';
   const memberNameUpper = memberName.toUpperCase();
   const avatarInitial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
+
+  // Referral signup URL. NEXT_PUBLIC_SITE_URL is set in prod (e.g.
+  // https://gymflow.ng); falls back to /join under the current gym so the
+  // link works on the bare *.vercel.app preview too.
+  const siteBase = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  const referralUrl = `${siteBase}/join?gym=${encodeURIComponent(slug)}`;
 
   // Membership progress
   let pctUsed = 0;
@@ -245,7 +252,9 @@ export default async function MemberDashboard({ params }: PageProps) {
           </div>
         </section>
 
-        {/* Voucher promo — referral hook (placeholder until real referral wired) */}
+        {/* Voucher promo — referral. The Share button uses navigator.share()
+            with a clipboard fallback; the receiver lands on /join?gym=<slug>
+            which is the existing member self-signup flow. */}
         <section className="op-voucher" aria-label="Refer a friend">
           <div className="op-voucher-coin">
             <b>₦5K</b>
@@ -255,7 +264,13 @@ export default async function MemberDashboard({ params }: PageProps) {
             <strong>Refer a friend</strong>
             <small>Bring a buddy. Both of you get ₦5,000 off your next renewal.</small>
           </div>
-          <Link href="/dashboard/profile" className="op-voucher-cta">Share</Link>
+          <ReferShareButton
+            gymName={gym.name}
+            signupUrl={referralUrl}
+            className="op-voucher-cta"
+          >
+            Share
+          </ReferShareButton>
         </section>
 
         {/* Next-class promo OR last-checkin nudge */}
