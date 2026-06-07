@@ -74,3 +74,474 @@
 
 .gf-content { flex: 1; padding: 24px; }
 .gf-content-full { flex: 1; padding: 24px; width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   .ds-admin — prototype admin content classes. Ported from revamp/admin*.html
+   inline <style> blocks + revamp/admin.css. All selectors namespaced under
+   .ds-admin so they only apply inside <div class="ds-admin"> (wraps {children}
+   in admin-shell.tsx). Covers both the prototype's class names (.kpis, .panel,
+   .clx, .day, etc.) and the .adm-* aliases the existing Next.js pages use.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Page header (greeting / title row) ── */
+.ds-admin .page-h,
+.ds-admin .hdr { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+.ds-admin .page-h h1,
+.ds-admin .hdr h1 { font-family: var(--gf-font-display); font-size: clamp(1.5rem, 2.4vw, 2rem); font-weight: 800; letter-spacing: -0.03em; margin: 0; }
+.ds-admin .page-h h1 span,
+.ds-admin .hdr h1 span { color: var(--gf-brand); }
+.ds-admin .page-h p,
+.ds-admin .hdr p { margin: 5px 0 0; color: var(--gf-text-secondary); font-size: 0.9rem; }
+
+/* ── Segmented control ── */
+.ds-admin .seg { display: inline-flex; background: var(--gf-elevated); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-pill); padding: 3px; gap: 2px; }
+.ds-admin .seg button,
+.ds-admin .seg a { border: none; background: transparent; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.8125rem; padding: 7px 16px; border-radius: var(--gf-radius-pill); cursor: pointer; transition: all var(--gf-t); text-decoration: none; }
+.ds-admin .seg button.on,
+.ds-admin .seg a.on { background: var(--gf-brand); color: #fff; box-shadow: 0 2px 10px var(--gf-brand-glow); }
+
+/* ── KPI row ── */
+.ds-admin .kpis,
+.ds-admin .adm-classes-kpis,
+.ds-admin .adm-checkin-kpis,
+.ds-admin .adm-pricing-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.ds-admin .kpi { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 18px; position: relative; overflow: hidden; transition: all var(--gf-t); }
+.ds-admin .kpi:hover { transform: translateY(-3px); border-color: var(--gf-border-light); box-shadow: var(--gf-shadow); }
+.ds-admin .kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.ds-admin .kpi-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; }
+.ds-admin .kpi-ic svg { width: 19px; height: 19px; }
+.ds-admin .kpi-val { font-family: var(--gf-font-display); font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; position: relative; z-index: 2; }
+.ds-admin .kpi-lbl { color: var(--gf-text-muted); font-size: 0.8125rem; margin-top: 6px; position: relative; z-index: 2; }
+.ds-admin .kpi-delta { font-size: 0.75rem; font-weight: 700; font-family: var(--gf-font-display); display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: var(--gf-radius-pill); }
+.ds-admin .kpi-delta.up { color: var(--gf-success); background: var(--gf-success-soft); }
+.ds-admin .kpi-delta.down { color: var(--gf-danger); background: var(--gf-danger-soft); }
+.ds-admin .kpi-delta svg { width: 13px; height: 13px; }
+
+/* ── Panels ── */
+.ds-admin .panel { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 20px; box-shadow: var(--gf-shadow-sm), var(--gf-hairline); transition: box-shadow var(--gf-t), border-color var(--gf-t); }
+.ds-admin .panel:hover { box-shadow: var(--gf-shadow), var(--gf-hairline); }
+.ds-admin .panel-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+.ds-admin .panel-h h3 { font-family: var(--gf-font-display); font-size: 1.0625rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.ds-admin .panel-h .sub,
+.ds-admin .panel .sub { color: var(--gf-text-muted); font-size: 0.78rem; margin-top: 2px; }
+.ds-admin .panel-title { font-family: var(--gf-font-display); font-weight: 700; font-size: 1.05rem; margin: 0 0 4px; }
+.ds-admin .panel-desc { color: var(--gf-text-muted); font-size: 0.82rem; margin: 0 0 18px; }
+.ds-admin .link { color: var(--gf-brand); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.8125rem; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.ds-admin .link svg { width: 14px; height: 14px; }
+
+/* ── Two-column grids ── */
+.ds-admin .grid,
+.ds-admin .adm-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; align-items: start; }
+.ds-admin .grid2 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; align-items: start; margin-bottom: 16px; }
+
+/* ── Tables (members table .mtbl + generic .tbl) ── */
+.ds-admin .tbl,
+.ds-admin .mtbl { width: 100%; border-collapse: collapse; }
+.ds-admin .tbl th,
+.ds-admin .mtbl th { text-align: left; font-family: var(--gf-font-display); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gf-text-muted); padding: 0 14px 12px; }
+.ds-admin .tbl td,
+.ds-admin .mtbl td { padding: 13px 14px; border-top: 1px solid var(--gf-border); font-size: 0.875rem; }
+.ds-admin .tbl tbody tr,
+.ds-admin .mtbl tbody tr { transition: background var(--gf-t); cursor: pointer; }
+.ds-admin .tbl tbody tr:hover,
+.ds-admin .mtbl tbody tr:hover { background: var(--gf-elevated); }
+.ds-admin .tbl-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.ds-admin .tbl-wrap { margin-top: 16px; }
+.ds-admin .who { display: flex; align-items: center; gap: 11px; }
+.ds-admin .who .gf-avatar { font-size: 0.78rem; background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); }
+.ds-admin .who strong { font-family: var(--gf-font-display); font-weight: 600; display: block; font-size: 0.875rem; }
+.ds-admin .who small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.ds-admin .naira { font-variant-numeric: tabular-nums; font-weight: 600; font-family: var(--gf-font-display); }
+
+/* ── Chips + toolbar ── */
+.ds-admin .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.ds-admin .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.ds-admin .toolbar .search { flex: 1; min-width: 220px; max-width: 380px; }
+
+/* ── Settings rows ── */
+.ds-admin .set-row { display: flex; align-items: center; gap: 14px; padding: 16px 0; border-top: 1px solid var(--gf-border); }
+.ds-admin .set-row:first-child { border-top: none; }
+.ds-admin .set-row .m { flex: 1; min-width: 0; }
+.ds-admin .set-row .m strong { font-family: var(--gf-font-display); font-size: 0.92rem; font-weight: 600; display: block; }
+.ds-admin .set-row .m small { color: var(--gf-text-muted); font-size: 0.8rem; }
+
+/* ── Revenue bar chart (.chart + .bar-col + .bar) ── */
+.ds-admin .chart { display: flex; align-items: flex-end; gap: 10px; height: 180px; padding-top: 10px; }
+.ds-admin .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; }
+.ds-admin .bar { width: 100%; max-width: 38px; border-radius: 8px 8px 4px 4px; background: linear-gradient(180deg, var(--gf-brand-light), var(--gf-brand-dark)); position: relative; transition: height 0.6s var(--gf-ease-out); cursor: pointer; }
+.ds-admin .bar.muted { background: var(--gf-elevated); }
+.ds-admin .bar-lbl { font-size: 0.7rem; color: var(--gf-text-muted); font-weight: 600; }
+
+/* ── Live check-in feed (.feed + .feed-row) ── */
+.ds-admin .feed { display: flex; flex-direction: column; gap: 2px; }
+.ds-admin .feed-row { display: flex; align-items: center; gap: 12px; padding: 11px 8px; border-radius: var(--gf-radius-sm); transition: background var(--gf-t); }
+.ds-admin .feed-row:hover { background: var(--gf-elevated); }
+.ds-admin .feed-row.fresh { animation: ds-admin-pop 0.5s var(--gf-ease-spring); background: var(--gf-brand-soft); }
+.ds-admin .feed-row .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); font-size: 0.8rem; }
+.ds-admin .feed-row .m { flex: 1; min-width: 0; }
+.ds-admin .feed-row .m strong { font-family: var(--gf-font-display); font-size: 0.88rem; font-weight: 600; display: block; }
+.ds-admin .feed-row .m small { color: var(--gf-text-muted); font-size: 0.75rem; }
+.ds-admin .feed-row .t { font-size: 0.75rem; color: var(--gf-text-muted); font-variant-numeric: tabular-nums; }
+@keyframes ds-admin-pop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* ── Dashboard attention list + today's classes ── */
+.ds-admin .att { display: flex; flex-direction: column; gap: 10px; }
+.ds-admin .att-row { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--gf-border); border-radius: var(--gf-radius-sm); background: var(--gf-elevated); }
+.ds-admin .att-row .gf-avatar { font-size: 0.8rem; }
+.ds-admin .att-row .m { flex: 1; min-width: 0; }
+.ds-admin .att-row .m strong { font-family: var(--gf-font-display); font-size: 0.85rem; font-weight: 600; display: block; }
+.ds-admin .att-row .m small { color: var(--gf-warning); font-size: 0.72rem; font-weight: 600; }
+.ds-admin .cls { display: flex; flex-direction: column; gap: 8px; }
+.ds-admin .cls-row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: var(--gf-radius-sm); transition: background var(--gf-t); }
+.ds-admin .cls-row:hover { background: var(--gf-elevated); }
+.ds-admin .cls-time { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.8rem; color: var(--gf-brand); width: 56px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.ds-admin .cls-meta { flex: 1; min-width: 0; }
+.ds-admin .cls-meta strong { font-family: var(--gf-font-display); font-size: 0.85rem; font-weight: 600; display: block; }
+.ds-admin .cls-meta small { color: var(--gf-text-muted); font-size: 0.72rem; }
+.ds-admin .cap { font-size: 0.72rem; color: var(--gf-text-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ── /admin/classes — day strip + class cards (both .day/.clx + .adm-* aliases) ── */
+.ds-admin .days,
+.ds-admin .adm-day-strip { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.ds-admin .day,
+.ds-admin .adm-day { flex: 1; min-width: 84px; padding: 12px; border-radius: var(--gf-radius-sm); background: var(--gf-surface); border: 1px solid var(--gf-border); text-align: center; cursor: pointer; transition: all var(--gf-t); text-decoration: none; color: var(--gf-text); display: block; }
+.ds-admin .day:hover,
+.ds-admin .adm-day:hover { border-color: var(--gf-border-light); }
+.ds-admin .day.on,
+.ds-admin .adm-day.on { background: var(--gf-brand-soft); border-color: var(--gf-brand-glow); }
+.ds-admin .day .dn,
+.ds-admin .adm-day-name { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.78rem; color: var(--gf-text-muted); display: block; }
+.ds-admin .day.on .dn,
+.ds-admin .adm-day.on .adm-day-name { color: var(--gf-brand); }
+.ds-admin .day .dd,
+.ds-admin .adm-day-num { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem; margin-top: 4px; display: block; }
+.ds-admin .day .dc,
+.ds-admin .adm-day-count { font-size: 0.68rem; color: var(--gf-text-muted); margin-top: 2px; display: block; }
+.ds-admin .cls-list,
+.ds-admin .adm-cls-list { display: flex; flex-direction: column; gap: 12px; }
+.ds-admin .clx,
+.ds-admin .adm-clx { display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); transition: all var(--gf-t); }
+.ds-admin .clx:hover,
+.ds-admin .adm-clx:hover { border-color: var(--gf-border-light); }
+.ds-admin .clx .tm,
+.ds-admin .adm-clx-tm { text-align: center; width: 64px; flex-shrink: 0; }
+.ds-admin .clx .tm b,
+.ds-admin .adm-clx-tm b { font-family: var(--gf-font-display); font-weight: 800; font-size: 1rem; display: block; }
+.ds-admin .clx .tm span,
+.ds-admin .adm-clx-tm span { font-size: 0.66rem; color: var(--gf-text-muted); }
+.ds-admin .clx .info,
+.ds-admin .adm-clx-info { flex: 1; min-width: 0; }
+.ds-admin .clx .info strong,
+.ds-admin .adm-clx-info strong { font-family: var(--gf-font-display); font-size: 1rem; font-weight: 700; display: block; }
+.ds-admin .clx .info small,
+.ds-admin .adm-clx-info small { color: var(--gf-text-muted); font-size: 0.8rem; }
+.ds-admin .clx .cap,
+.ds-admin .adm-clx-cap { width: 160px; flex-shrink: 0; }
+.ds-admin .clx .cap .lbl,
+.ds-admin .adm-clx-cap-lbl { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--gf-text-muted); margin-bottom: 6px; }
+.ds-admin .clx .cap .track,
+.ds-admin .adm-clx-cap-track { height: 7px; background: var(--gf-elevated); border-radius: 99px; overflow: hidden; }
+.ds-admin .clx .cap .fill,
+.ds-admin .adm-clx-cap-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--gf-brand-light), var(--gf-brand)); }
+.ds-admin .clx .cap .fill.warn,
+.ds-admin .adm-clx-cap-fill.warn { background: linear-gradient(90deg, var(--gf-warning), #e09000); }
+.ds-admin .adm-clx-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* ── /admin/pricing — plan cards (.plan / .adm-plan*) ── */
+.ds-admin .plans,
+.ds-admin .adm-plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+.ds-admin .plan,
+.ds-admin .adm-plan { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 24px; display: flex; flex-direction: column; position: relative; transition: all var(--gf-t); }
+.ds-admin .plan:hover,
+.ds-admin .adm-plan:hover { border-color: var(--gf-border-light); }
+.ds-admin .plan.pop,
+.ds-admin .adm-plan.pop { border-color: var(--gf-brand); box-shadow: 0 0 0 3px var(--gf-brand-soft); }
+.ds-admin .plan-top,
+.ds-admin .adm-plan-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.ds-admin .plan .nm,
+.ds-admin .adm-plan-nm { font-family: var(--gf-font-display); font-weight: 700; font-size: 1.1rem; }
+.ds-admin .plan .amt,
+.ds-admin .adm-plan-amt { font-family: var(--gf-font-display); font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; margin: 8px 0 0; }
+.ds-admin .plan .amt small,
+.ds-admin .adm-plan-amt small { font-size: 0.85rem; color: var(--gf-text-muted); font-weight: 500; }
+.ds-admin .plan .desc,
+.ds-admin .adm-plan-desc { color: var(--gf-text-muted); font-size: 0.84rem; margin: 6px 0 0; }
+.ds-admin .plan .stat,
+.ds-admin .adm-plan-stat { display: flex; gap: 18px; margin: 18px 0; padding: 14px 0; border-top: 1px solid var(--gf-border); border-bottom: 1px solid var(--gf-border); }
+.ds-admin .plan .stat .v,
+.ds-admin .adm-plan-stat-v { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.2rem; display: block; }
+.ds-admin .plan .stat .l,
+.ds-admin .adm-plan-stat-l { font-size: 0.7rem; color: var(--gf-text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.ds-admin .plan ul,
+.ds-admin .adm-plan ul { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 9px; }
+.ds-admin .plan li,
+.ds-admin .adm-plan li { display: flex; align-items: center; gap: 8px; color: var(--gf-text-secondary); font-size: 0.86rem; }
+.ds-admin .plan li svg,
+.ds-admin .adm-plan li svg { width: 15px; height: 15px; color: var(--gf-brand); flex-shrink: 0; }
+.ds-admin .plan .acts,
+.ds-admin .adm-plan-acts { display: flex; gap: 8px; margin-top: auto; }
+.ds-admin .addplan { border: 1.5px dashed var(--gf-border-light); border-radius: var(--gf-radius-lg); display: grid; place-items: center; min-height: 220px; cursor: pointer; transition: all var(--gf-t); background: transparent; }
+.ds-admin .addplan:hover { border-color: var(--gf-brand); background: var(--gf-brand-soft); }
+
+/* ── /admin/staff — staff table chips + side cards ── */
+.ds-admin .role-chip { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.74rem; padding: 3px 9px; border-radius: var(--gf-radius-pill); white-space: nowrap; display: inline-block; }
+.ds-admin .on-shift { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600; }
+.ds-admin .on-shift::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.ds-admin .scard { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--gf-border); }
+.ds-admin .scard:first-child { border-top: none; }
+.ds-admin .scard .gf-avatar { font-size: 0.74rem; background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); }
+.ds-admin .scard .m { flex: 1; min-width: 0; }
+.ds-admin .scard .m strong { font-family: var(--gf-font-display); font-size: 0.84rem; font-weight: 600; display: block; }
+.ds-admin .scard .m small { color: var(--gf-text-muted); font-size: 0.72rem; }
+.ds-admin .role-grid { display: flex; flex-direction: column; gap: 8px; }
+.ds-admin .role-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--gf-border); border-radius: var(--gf-radius-sm); background: var(--gf-elevated); }
+.ds-admin .role-row .ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; }
+.ds-admin .role-row .ic svg { width: 16px; height: 16px; }
+.ds-admin .role-row .m { flex: 1; min-width: 0; }
+.ds-admin .role-row .m strong { font-family: var(--gf-font-display); font-size: 0.82rem; display: block; }
+.ds-admin .role-row .m small { color: var(--gf-text-muted); font-size: 0.7rem; }
+.ds-admin .role-row .ct { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.1rem; }
+
+/* ── /admin/reminders — recipient rows + send log ── */
+.ds-admin .rm { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--gf-border); }
+.ds-admin .rm:first-child { border-top: none; }
+.ds-admin .rm .gf-avatar { background: var(--gf-warning-soft); color: var(--gf-warning); border-color: rgba(255, 176, 32, 0.25); font-size: 0.76rem; }
+.ds-admin .rm .m { flex: 1; min-width: 0; }
+.ds-admin .rm .m strong { font-family: var(--gf-font-display); font-size: 0.88rem; font-weight: 600; display: block; }
+.ds-admin .rm .m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+.ds-admin .log { display: flex; align-items: center; gap: 11px; padding: 10px 0; border-top: 1px solid var(--gf-border); }
+.ds-admin .log:first-child { border-top: none; }
+.ds-admin .log .ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; }
+.ds-admin .log .ic svg { width: 14px; height: 14px; }
+.ds-admin .log .m { flex: 1; min-width: 0; font-size: 0.82rem; }
+.ds-admin .log .m small { color: var(--gf-text-muted); font-size: 0.72rem; display: block; }
+.ds-admin .log .t { font-size: 0.72rem; color: var(--gf-text-muted); }
+
+/* ── /admin/operations (facility) — zones + equipment + maintenance ── */
+.ds-admin .zones { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ds-admin .zone { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 16px; }
+.ds-admin .zone .zt { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.ds-admin .zone .zt .ic { width: 34px; height: 34px; border-radius: 10px; background: var(--gf-brand-soft); color: var(--gf-brand); display: grid; place-items: center; }
+.ds-admin .zone .zt .ic svg { width: 17px; height: 17px; }
+.ds-admin .zone .zt strong { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.95rem; }
+.ds-admin .zone .zt small { color: var(--gf-text-muted); font-size: 0.72rem; display: block; }
+.ds-admin .cap-bar { height: 8px; border-radius: 99px; background: var(--gf-elevated); overflow: hidden; margin: 8px 0 6px; }
+.ds-admin .cap-bar > div { height: 100%; border-radius: 99px; }
+.ds-admin .cap-meta { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--gf-text-muted); font-weight: 600; }
+.ds-admin .eq-name { display: flex; align-items: center; gap: 11px; }
+.ds-admin .eq-name .ic { width: 34px; height: 34px; border-radius: 9px; background: var(--gf-elevated); display: grid; place-items: center; flex-shrink: 0; }
+.ds-admin .eq-name .ic svg { width: 17px; height: 17px; color: var(--gf-text-secondary); }
+.ds-admin .eq-name strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.86rem; display: block; }
+.ds-admin .eq-name small { color: var(--gf-text-muted); font-size: 0.72rem; }
+.ds-admin .mt { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--gf-border); }
+.ds-admin .mt:first-child { border-top: none; }
+.ds-admin .mt .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+.ds-admin .mt .ic svg { width: 16px; height: 16px; }
+.ds-admin .mt .m { flex: 1; min-width: 0; }
+.ds-admin .mt .m strong { font-family: var(--gf-font-display); font-size: 0.84rem; font-weight: 600; display: block; }
+.ds-admin .mt .m small { color: var(--gf-text-muted); font-size: 0.72rem; }
+.ds-admin .mt .t { font-size: 0.72rem; color: var(--gf-text-muted); white-space: nowrap; }
+
+/* ── /admin/wallet — balance card + side stats + tx amounts ── */
+.ds-admin .wtop { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: stretch; }
+.ds-admin .balance { background: linear-gradient(150deg, var(--gf-brand), var(--gf-brand-dark)); border-radius: var(--gf-radius-lg); padding: 26px; color: #fff; position: relative; overflow: hidden; }
+.ds-admin .balance::after { content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 70%); }
+.ds-admin .balance small { font-size: 0.78rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.ds-admin .balance .amt { font-family: var(--gf-font-display); font-size: 2.8rem; font-weight: 800; letter-spacing: -0.03em; margin: 8px 0 4px; }
+.ds-admin .balance .sub { font-size: 0.84rem; opacity: 0.92; color: #fff; }
+.ds-admin .balance .acts { display: flex; gap: 10px; margin-top: 22px; }
+.ds-admin .wstats { display: grid; grid-template-rows: 1fr 1fr; gap: 16px; }
+.ds-admin .ws { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 18px; display: flex; align-items: center; gap: 14px; }
+.ds-admin .ws .ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; }
+.ds-admin .ws .v { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; display: block; }
+.ds-admin .ws .l { color: var(--gf-text-muted); font-size: 0.8rem; }
+.ds-admin .tx-amt.in { color: var(--gf-success); font-family: var(--gf-font-display); font-weight: 700; }
+.ds-admin .tx-amt.out { color: var(--gf-text); font-family: var(--gf-font-display); font-weight: 700; }
+
+/* ── /admin/staff-checkin — scanner panel + suggestions ── */
+.ds-admin .ci-grid,
+.ds-admin .adm-checkin-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 16px; align-items: start; }
+.ds-admin .scan,
+.ds-admin .adm-checkin-scan { background: linear-gradient(150deg, var(--gf-surface), var(--gf-elevated)); border: 1px solid var(--gf-border-glow); border-radius: var(--gf-radius-lg); padding: 28px; text-align: center; box-shadow: var(--gf-shadow); }
+.ds-admin .scan .ring,
+.ds-admin .adm-checkin-ring { width: 96px; height: 96px; border-radius: 50%; background: var(--gf-brand-soft); border: 2px solid var(--gf-border-glow); display: grid; place-items: center; margin: 0 auto 16px; }
+.ds-admin .scan .ring svg,
+.ds-admin .adm-checkin-ring svg { width: 44px; height: 44px; color: var(--gf-brand); }
+.ds-admin .scan h2 { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem; margin: 0 0 6px; }
+.ds-admin .scan p { color: var(--gf-text-secondary); font-size: 0.9rem; margin: 0 0 20px; }
+.ds-admin .sug { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; max-width: 340px; margin-left: auto; margin-right: auto; }
+
+/* ── /admin/analytics — multi-bar chart + legend + donut ── */
+.ds-admin .bars { display: flex; align-items: flex-end; gap: 10px; height: 200px; padding-top: 10px; }
+.ds-admin .bars .bcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; }
+.ds-admin .bars .bar { width: 100%; max-width: 34px; border-radius: 7px 7px 3px 3px; }
+.ds-admin .blbl { font-size: 0.68rem; color: var(--gf-text-muted); font-weight: 600; }
+.ds-admin .area { width: 100%; height: 200px; }
+.ds-admin .legend { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.ds-admin .lg-row { display: flex; align-items: center; gap: 10px; }
+.ds-admin .lg-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.ds-admin .lg-row .nm { flex: 1; font-size: 0.85rem; color: var(--gf-text-secondary); }
+.ds-admin .lg-row .vl { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.85rem; }
+.ds-admin .donut { width: 160px; height: 160px; margin: 0 auto; }
+
+/* ── /admin/settings — sticky subnav + sections + form rows + integration list + hours ── */
+.ds-admin .set-wrap { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; }
+.ds-admin .subnav { position: sticky; top: 88px; display: flex; flex-direction: column; gap: 2px; }
+.ds-admin .subnav a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--gf-radius-sm); color: var(--gf-text-secondary); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.875rem; text-decoration: none; cursor: pointer; transition: all var(--gf-t); }
+.ds-admin .subnav a svg { width: 17px; height: 17px; color: var(--gf-text-muted); }
+.ds-admin .subnav a:hover { background: var(--gf-elevated); color: var(--gf-text); }
+.ds-admin .subnav a.on { background: var(--gf-brand-soft); color: var(--gf-brand); }
+.ds-admin .subnav a.on svg { color: var(--gf-brand); }
+.ds-admin .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.ds-admin .integ { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-top: 1px solid var(--gf-border); }
+.ds-admin .integ:first-child { border-top: none; }
+.ds-admin .integ .ig { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; }
+.ds-admin .integ .ig svg { width: 20px; height: 20px; }
+.ds-admin .integ .m { flex: 1; min-width: 0; }
+.ds-admin .integ .m strong { font-family: var(--gf-font-display); font-size: 0.92rem; font-weight: 600; display: block; }
+.ds-admin .integ .m small { color: var(--gf-text-muted); font-size: 0.8rem; }
+.ds-admin .hours { display: flex; flex-direction: column; }
+.ds-admin .hrow { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-top: 1px solid var(--gf-border); }
+.ds-admin .hrow:first-child { border-top: none; }
+.ds-admin .hrow .dn { width: 100px; font-family: var(--gf-font-display); font-weight: 600; font-size: 0.88rem; }
+.ds-admin .hrow .tt { color: var(--gf-text-secondary); font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+.ds-admin .hrow .tt.closed { color: var(--gf-text-muted); }
+
+/* ── Toggle switch (admin uses checkbox-driven, distinct from .ds-member .switch) ── */
+.ds-admin .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; cursor: pointer; display: inline-block; }
+.ds-admin .switch input { display: none; }
+.ds-admin .switch .track { position: absolute; inset: 0; background: var(--gf-border); border-radius: 99px; transition: background var(--gf-t); }
+.ds-admin .switch .thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform var(--gf-t); box-shadow: var(--gf-shadow-xs); }
+.ds-admin .switch input:checked + .track { background: var(--gf-brand); }
+.ds-admin .switch input:checked + .track + .thumb { transform: translateX(18px); }
+
+/* ── Drawer (member detail in admin) ── */
+.ds-admin .drawer-bg { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity var(--gf-t); z-index: 300; }
+.ds-admin .drawer-bg.open { opacity: 1; pointer-events: auto; }
+.ds-admin .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; max-width: 92vw; background: var(--gf-surface); border-left: 1px solid var(--gf-border); box-shadow: var(--gf-shadow-lg); transform: translateX(100%); transition: transform var(--gf-t-slow); z-index: 310; overflow-y: auto; }
+.ds-admin .drawer.open { transform: translateX(0); }
+.ds-admin .drawer-h { display: flex; align-items: center; justify-content: space-between; padding: 20px; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .drawer-b { padding: 20px; }
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .ds-admin .kpis,
+  .ds-admin .adm-classes-kpis,
+  .ds-admin .adm-checkin-kpis,
+  .ds-admin .adm-pricing-kpis { grid-template-columns: 1fr 1fr; }
+  .ds-admin .grid,
+  .ds-admin .adm-grid,
+  .ds-admin .grid2,
+  .ds-admin .ci-grid,
+  .ds-admin .adm-checkin-grid,
+  .ds-admin .wtop { grid-template-columns: 1fr; }
+  .ds-admin .plans,
+  .ds-admin .adm-plans { grid-template-columns: 1fr; }
+  .ds-admin .zones { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .ds-admin .set-wrap { grid-template-columns: 1fr; }
+  .ds-admin .subnav { position: static; flex-direction: row; overflow-x: auto; }
+  .ds-admin .frow { grid-template-columns: 1fr; }
+  .ds-admin .clx,
+  .ds-admin .adm-clx { flex-wrap: wrap; }
+  .ds-admin .clx .cap,
+  .ds-admin .adm-clx-cap { width: 100%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Coach (instructor) — shares .ds-admin namespace since coach pages already
+   use admin's .kpis, .kpi-X, .panel, .grid, .naira, .link, .feed-row, and
+   .cls-row classes. These rules cover the prototype's coach-only widgets:
+   today timeline (.tl-X), avatar stack (.roster), client rows (.cl-row),
+   micro earnings chart (.ec X), gradient payout card (.payout), drawer
+   attendance row (.att-r). Ported from revamp/instructor.html inline style.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Today timeline (.tl) */
+.ds-admin .tl { display: flex; flex-direction: column; }
+.ds-admin .tl-row { display: flex; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .tl-row:last-child { border-bottom: none; }
+.ds-admin .tl-time { width: 64px; flex-shrink: 0; text-align: right; }
+.ds-admin .tl-time b { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.9rem; display: block; }
+.ds-admin .tl-time span { font-size: 0.66rem; color: var(--gf-text-muted); }
+.ds-admin .tl-card { flex: 1; background: var(--gf-elevated); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-sm); padding: 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.ds-admin .tl-card.now { border-color: var(--gf-brand); box-shadow: inset 3px 0 0 var(--gf-brand); }
+.ds-admin .tl-card .info { flex: 1; min-width: 0; }
+.ds-admin .tl-card .info strong { font-family: var(--gf-font-display); font-size: 0.92rem; display: block; }
+.ds-admin .tl-card .info small { color: var(--gf-text-muted); font-size: 0.76rem; }
+
+/* Avatar roster (stacked overlap) */
+.ds-admin .roster { display: flex; margin-left: 4px; }
+.ds-admin .roster .gf-avatar { width: 28px; height: 28px; font-size: 0.66rem; margin-left: -8px; border: 2px solid var(--gf-surface); background: var(--gf-brand-soft); color: var(--gf-brand); }
+.ds-admin .roster .more { background: var(--gf-elevated); color: var(--gf-text-muted); }
+
+/* Client list rows (.cl-row) */
+.ds-admin .cl-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .cl-row:last-child { border-bottom: none; }
+.ds-admin .cl-row .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); font-size: 0.78rem; }
+.ds-admin .cl-row .m { flex: 1; min-width: 0; }
+.ds-admin .cl-row .m strong { font-family: var(--gf-font-display); font-size: 0.86rem; display: block; }
+.ds-admin .cl-row .m small { color: var(--gf-text-muted); font-size: 0.74rem; }
+
+/* Earnings micro-chart (.ec / .col / .bar / .lbl) */
+.ds-admin .ec { display: flex; align-items: flex-end; gap: 8px; height: 120px; margin-top: 6px; }
+.ds-admin .ec .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.ds-admin .ec .bar { width: 100%; max-width: 30px; border-radius: 7px 7px 3px 3px; background: linear-gradient(180deg, var(--gf-brand-light), var(--gf-brand-dark)); }
+.ds-admin .ec .lbl { font-size: 0.66rem; color: var(--gf-text-muted); font-weight: 600; }
+
+/* Payout gradient card (.payout) */
+.ds-admin .payout { background: linear-gradient(150deg, var(--gf-brand), var(--gf-brand-dark)); border-radius: var(--gf-radius); padding: 18px; color: #fff; position: relative; overflow: hidden; }
+.ds-admin .payout::after { content: ''; position: absolute; right: -30px; top: -30px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 70%); }
+.ds-admin .payout small { font-size: 0.74rem; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.ds-admin .payout .amt { font-family: var(--gf-font-display); font-size: 2rem; font-weight: 800; margin: 6px 0 2px; letter-spacing: -0.02em; }
+
+/* Attendance row in drawer (.att-r) */
+.ds-admin .att-r { display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .att-r:last-child { border-bottom: none; }
+.ds-admin .att-r .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); font-size: 0.74rem; }
+.ds-admin .att-r .m { flex: 1; min-width: 0; }
+.ds-admin .att-r .m strong { font-family: var(--gf-font-display); font-size: 0.84rem; font-weight: 600; display: block; }
+.ds-admin .att-r .m small { color: var(--gf-text-muted); font-size: 0.72rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Superadmin — also shares .ds-admin namespace. The platform-admin pages
+   already use admin's .page-h, .kpis, .kpi-X, .panel, .naira, .seg, .set-row,
+   .integ, .search classes. These rules add the super-only widgets: gym table
+   (.gt + .gname + .sq color tile), activity feed (.act-row), drawer stats
+   grid (.dstat), and the platform-admin role pill (.pill-plat). Ported from
+   revamp/superadmin.html inline style.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Platform-admin role pill (next to "Platform admin" in the topbar/sidebar) */
+.ds-admin .pill-plat { display: inline-flex; align-items: center; gap: 6px; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gf-info); background: var(--gf-info-soft); border: 1px solid rgba(64, 128, 255, 0.25); padding: 3px 9px; border-radius: var(--gf-radius-pill); }
+
+/* MRR area chart container */
+.ds-admin .area { height: 200px; width: 100%; }
+
+/* Gym table (.gt) — similar to .mtbl but used on /superadmin/gyms */
+.ds-admin .gt { width: 100%; border-collapse: collapse; }
+.ds-admin .gt th { text-align: left; font-family: var(--gf-font-display); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gf-text-muted); padding: 0 14px 12px; }
+.ds-admin .gt td { padding: 12px 14px; border-top: 1px solid var(--gf-border); font-size: 0.875rem; }
+.ds-admin .gt tbody tr { transition: background var(--gf-t); cursor: pointer; }
+.ds-admin .gt tbody tr:hover { background: var(--gf-elevated); }
+
+/* Gym row name cell — colored square initial + name/subdomain */
+.ds-admin .gname { display: flex; align-items: center; gap: 11px; }
+.ds-admin .gname .sq { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 800; font-size: 0.85rem; color: #fff; background: linear-gradient(135deg, var(--gf-brand), var(--gf-brand-dark)); flex-shrink: 0; }
+.ds-admin .gname strong { font-family: var(--gf-font-display); font-weight: 600; display: block; font-size: 0.875rem; }
+.ds-admin .gname small { color: var(--gf-text-muted); font-size: 0.72rem; }
+
+/* Activity feed (.act-row) on /superadmin (audit) */
+.ds-admin .act-row { display: flex; align-items: center; gap: 11px; padding: 10px 0; border-bottom: 1px solid var(--gf-border); }
+.ds-admin .act-row:last-child { border-bottom: none; }
+.ds-admin .act-row .ic { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; background: var(--gf-elevated); }
+.ds-admin .act-row .ic svg { width: 15px; height: 15px; }
+.ds-admin .act-row .m { flex: 1; min-width: 0; font-size: 0.84rem; }
+.ds-admin .act-row .m small { color: var(--gf-text-muted); font-size: 0.72rem; display: block; }
+.ds-admin .act-row .t { font-size: 0.72rem; color: var(--gf-text-muted); white-space: nowrap; }
+
+/* Drawer stat grid (gym detail panel) */
+.ds-admin .dstat { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ds-admin .dstat .l { color: var(--gf-text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.ds-admin .dstat .v { font-family: var(--gf-font-display); font-weight: 700; margin-top: 4px; }

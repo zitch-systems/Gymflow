@@ -176,7 +176,10 @@ export function AdminShell({
             </span>
           </button>
         </header>
-        {children}
+        {/* .ds-admin scopes every admin page's prototype-class styling
+            (.page-h, .kpis, .panel, .who, .clx, .day, .balance, etc.).
+            Topbar above stays out of the namespace so it keeps using .gf-*. */}
+        <div className="ds-admin">{children}</div>
       </div>
 
       {/* Mobile bottom tab bar — app-style quick nav to the top admin
