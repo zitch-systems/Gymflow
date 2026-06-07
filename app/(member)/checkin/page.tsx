@@ -1,12 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { ScanLine, Check } from 'lucide-react';
+import { selfCheckIn } from '@/lib/actions/checkin';
 
-// Check-in — recreates revamp/member.html "checkin": a QR card + tap-to-check-in
-// that swaps to a success ring. Static QR svg (the prototype's), no backend.
+// Check-in — recreates revamp/member.html "checkin": QR card + tap-to-check-in
+// → success ring. The tap calls the selfCheckIn server action (writes a
+// check_ins row); the success line shows days left on the plan.
 export default function CheckinPage() {
   const [done, setDone] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+
+  function check() {
+    start(async () => {
+      const res = await selfCheckIn();
+      if (res.ok) {
+        setMsg(res.daysLeft != null ? `${res.daysLeft} day${res.daysLeft === 1 ? '' : 's'} left on your plan.` : 'Checked in.');
+        setDone(true);
+        router.refresh();
+      } else {
+        setErr(res.error);
+      }
+    });
+  }
 
   return (
     <section className="view on" data-v="checkin">
@@ -33,16 +53,17 @@ export default function CheckinPage() {
               </g>
             </svg>
           </div>
-          <button className="gf-btn gf-btn-primary gf-btn-lg ci-btn" onClick={() => setDone(true)}>
-            <ScanLine strokeWidth={1.9} style={{ width: 18, height: 18 }} /> Tap to check in
+          <button className="gf-btn gf-btn-primary gf-btn-lg ci-btn" onClick={check} disabled={pending}>
+            <ScanLine strokeWidth={1.9} style={{ width: 18, height: 18 }} /> {pending ? 'Checking in…' : 'Tap to check in'}
           </button>
+          {err && <p style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', marginTop: 14 }}>{err}</p>}
         </div>
       ) : (
         <div className="ci-ok on">
           <div className="ring"><Check strokeWidth={2.4} /></div>
           <h2 style={{ fontFamily: 'var(--gf-font-display)', fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>You&apos;re in!</h2>
-          <p style={{ color: 'var(--gf-text-secondary)', margin: 0 }}>Checked in at Main entrance · just now</p>
-          <button className="gf-btn gf-btn-secondary" onClick={() => setDone(false)}>Done</button>
+          <p style={{ color: 'var(--gf-text-secondary)', margin: 0, textAlign: 'center' }}>Checked in just now{msg ? ` · ${msg}` : ''}</p>
+          <button className="gf-btn gf-btn-secondary" onClick={() => { setDone(false); setMsg(null); }}>Done</button>
         </div>
       )}
     </section>

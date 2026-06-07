@@ -1,92 +1,128 @@
 import Link from 'next/link';
-import {
-  Bell, Wallet, Repeat, Plus, CreditCard, ChevronRight, UserPlus, ArrowDownLeft, Gift,
-} from 'lucide-react';
+import { Bell, Wallet, Repeat, CreditCard, ChevronRight, ArrowDownLeft, Plus, Receipt } from 'lucide-react';
+import { requireMember } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
 
 export const metadata = { title: 'Wallet' };
 
-const SPEND = [
-  { m: 'Jul', h: 34 }, { m: 'Aug', h: 58 }, { m: 'Sep', h: 30 },
-  { m: 'Oct', h: 72 }, { m: 'Nov', h: 44 }, { m: 'Dec', h: 90, now: true },
-];
+const STATUS_LABEL: Record<string, string> = { successful: 'Successful', pending: 'Pending', failed: 'Failed', refunded: 'Refunded' };
 
-const TXNS = [
-  { id: '9f3a21', title: 'Quarterly renewal', sub: '12 Dec · Visa 4242', amt: '−₦37,999', dir: 'out' as const, icon: CreditCard },
-  { id: '7c1b08', title: 'Guest day pass', sub: '28 Nov · Wallet', amt: '−₦2,500', dir: 'out' as const, icon: UserPlus },
-  { id: '5a9d44', title: 'Wallet top-up', sub: '20 Nov · Visa 4242', amt: '+₦5,000', dir: 'in' as const, icon: ArrowDownLeft },
-  { id: 'ref3120', title: 'Referral reward', sub: '10 Nov · GymFlow', amt: '+₦5,000', dir: 'in' as const, icon: Gift },
-];
+export default async function WalletPage() {
+  const { user, gym } = await requireMember();
+  const supabase = await createClient();
 
-// Wallet — recreates revamp/member.html "wallet": balance card, 6-month spend
-// bars, auto-debit toggle, renew row, payment methods, transactions. Static data.
-export default function WalletPage() {
+  const [{ data: payments }, { data: sub }, { data: cards }, { count: unread }] = await Promise.all([
+    supabase.from('payments')
+      .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id')
+      .eq('member_id', user.id).eq('gym_id', gym.id)
+      .order('payment_date', { ascending: false }).limit(40),
+    supabase.from('member_subscriptions')
+      .select('end_date, plan_id, status, membership_plans(name)')
+      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+      .order('end_date', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('saved_cards')
+      .select('id, brand, last4, exp_month, exp_year, bank, is_default')
+      .eq('member_id', user.id).eq('gym_id', gym.id).eq('is_active', true)
+      .order('is_default', { ascending: false }),
+    supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
+  ]);
+
+  const eff = (p: { payment_date: string | null; created_at: string | null }) => p.payment_date ?? p.created_at;
+  const txns = payments ?? [];
+  const successful = txns.filter((p) => p.payment_status === 'successful');
+  const totalSpent = successful.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
+  const planName = (sub as unknown as { membership_plans: { name: string } | null })?.membership_plans?.name ?? null;
+  const unreadCount = unread ?? 0;
+
+  // Last 6 months of successful spend (UTC buckets).
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (5 - i), 1));
+    return { key: `${d.getUTCFullYear()}-${d.getUTCMonth()}`, label: d.toLocaleDateString('en-NG', { month: 'short', timeZone: 'UTC' }), amount: 0 };
+  });
+  for (const p of successful) {
+    const e = eff(p); if (!e) continue;
+    const d = new Date(e); const k = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+    const m = months.find((mo) => mo.key === k); if (m) m.amount += Number(p.amount ?? 0);
+  }
+  const max = Math.max(1, ...months.map((m) => m.amount));
+  const thisMonth = months[months.length - 1].amount;
+
   return (
     <section className="view on" data-v="wallet">
       <div className="mhead" style={{ paddingBottom: 10 }}>
         <strong className="htitle">Wallet</strong>
         <Link href="/dashboard/inbox" className="icon-btn bell" style={{ width: 38, height: 38 }} aria-label="Notifications">
-          <Bell strokeWidth={1.9} /><span className="nub">3</span>
+          <Bell strokeWidth={1.9} />{unreadCount > 0 && <span className="nub">{unreadCount > 99 ? '99+' : unreadCount}</span>}
         </Link>
       </div>
 
       <div className="wcard">
-        <div className="wlabel"><Wallet strokeWidth={1.9} /> GymFlow wallet</div>
-        <div className="wbal">₦4,500<span className="k"> .00</span></div>
-        <div className="wnext"><Repeat strokeWidth={1.9} /> Next auto-debit 12 Mar · ₦37,999</div>
+        <div className="wlabel"><Wallet strokeWidth={1.9} /> Total spent</div>
+        <div className="wbal">{fmtNaira(totalSpent)}</div>
+        <div className="wnext"><Repeat strokeWidth={1.9} /> {remaining > 0 ? `Renews ${fmtDate(sub!.end_date)}` : 'No active membership'}</div>
         <div className="wbtns">
-          <button className="b-primary"><Plus strokeWidth={2} /> Top up</button>
-          <Link href="/dashboard/renew" className="b-ghost" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, textDecoration: 'none', borderRadius: 'var(--gf-radius-sm)', padding: 11, fontFamily: 'var(--gf-font-display)', fontWeight: 700, fontSize: '0.84rem' }}><CreditCard strokeWidth={2} /> Renew plan</Link>
+          <Link href="/dashboard/renew" className="b-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, textDecoration: 'none', borderRadius: 'var(--gf-radius-sm)', padding: 11, fontFamily: 'var(--gf-font-display)', fontWeight: 700, fontSize: '0.84rem' }}><CreditCard strokeWidth={2} /> Renew plan</Link>
         </div>
       </div>
 
-      <div className="spend">
-        <div className="sh"><div><b>₦42,000</b> <small>spent this month</small></div><small>Last 6 months</small></div>
-        <div className="bars">
-          {SPEND.map((s) => (
-            <div key={s.m} className={`bcol${s.now ? ' now' : ''}`}>
-              <div className="bv" style={{ height: `${s.h}%` }} /><span>{s.m}</span>
-            </div>
-          ))}
+      {successful.length > 0 && (
+        <div className="spend">
+          <div className="sh"><div><b>{fmtNaira(thisMonth)}</b> <small>spent this month</small></div><small>Last 6 months</small></div>
+          <div className="bars">
+            {months.map((m, i) => (
+              <div key={m.key} className={`bcol${i === months.length - 1 ? ' now' : ''}`}>
+                <div className="bv" style={{ height: `${Math.round((m.amount / max) * 100)}%` }} /><span>{m.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="sect-t">Membership</div>
-      <div className="toggle-row">
-        <span className="ic"><Repeat strokeWidth={1.9} /></span>
-        <div className="m"><strong>Auto-debit</strong><small>Renew automatically on 12 Mar</small></div>
-        <span className="switch on" aria-label="Auto-debit on" role="switch" aria-checked="true" />
-      </div>
       <div className="group" style={{ marginBottom: 14 }}>
         <Link href="/dashboard/renew" className="row">
           <span className="ic"><CreditCard strokeWidth={1.9} /></span>
-          <div className="m"><strong>Renew or change plan</strong><small>Annual · renews 12 Mar 2027</small></div>
+          <div className="m"><strong>Renew or change plan</strong><small>{planName ? `${planName} · ` : ''}{remaining > 0 ? `renews ${fmtDate(sub!.end_date)}` : 'expired'}</small></div>
           <ChevronRight className="chev" strokeWidth={1.9} />
         </Link>
       </div>
 
-      <div className="sect-t">Payment methods <a>Add</a></div>
+      <div className="sect-t">Payment methods</div>
       <div className="group">
-        <div className="method"><span className="brandmark visa">VISA</span><div className="m"><strong>•••• •••• •••• 4242</strong><small>Expires 08/27 · default</small></div><span className="gf-badge gf-badge-brand">Default</span></div>
-        <div className="method"><span className="brandmark mc">MC</span><div className="m"><strong>•••• •••• •••• 8821</strong><small>Expires 03/26</small></div></div>
-        <div className="row" style={{ padding: '14px 0' }}>
-          <span className="ic" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Plus strokeWidth={1.9} /></span>
-          <div className="m"><strong>Add payment method</strong><small>Card · bank · Paystack</small></div>
-          <ChevronRight className="chev" strokeWidth={1.9} />
-        </div>
+        {(cards ?? []).length > 0 ? (cards ?? []).map((c) => (
+          <div className="method" key={c.id}>
+            <span className={`brandmark ${(c.brand ?? '').toLowerCase().includes('master') ? 'mc' : 'visa'}`}>{(c.brand ?? 'CARD').slice(0, 4).toUpperCase()}</span>
+            <div className="m"><strong>•••• •••• •••• {c.last4 ?? '????'}</strong><small>Expires {c.exp_month ?? '--'}/{c.exp_year ?? '--'}{c.is_default ? ' · default' : ''}</small></div>
+            {c.is_default && <span className="gf-badge gf-badge-brand">Default</span>}
+          </div>
+        )) : (
+          <div className="row" style={{ padding: '14px 0' }}>
+            <span className="ic" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Plus strokeWidth={1.9} /></span>
+            <div className="m"><strong>No saved cards</strong><small>A card is saved the first time you pay</small></div>
+          </div>
+        )}
       </div>
 
-      <div className="sect-t">Transactions <a>Export</a></div>
+      <div className="sect-t">Transactions</div>
       <div className="group">
-        {TXNS.map((t) => {
-          const Icon = t.icon;
+        {txns.length > 0 ? txns.map((p) => {
+          const refund = p.payment_status === 'refunded';
           return (
-            <Link key={t.id} href={`/dashboard/wallet/${t.id}`} className="txn" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <span className={`tic ${t.dir}`}><Icon strokeWidth={1.9} /></span>
-              <div className="m"><strong>{t.title}</strong><small>{t.sub}</small></div>
-              <span className={`amt${t.dir === 'in' ? ' credit' : ''}`}>{t.amt}<small>{t.dir === 'in' && t.id === 'ref3120' ? 'Credited' : 'Successful'}</small></span>
+            <Link key={p.id} href={`/dashboard/wallet/${p.id}`} className="txn" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <span className={`tic ${refund ? 'in' : 'out'}`}>{refund ? <ArrowDownLeft strokeWidth={1.9} /> : <CreditCard strokeWidth={1.9} />}</span>
+              <div className="m"><strong>Membership payment</strong><small>{fmtDate(eff(p))} · {p.payment_method ?? 'Paystack'}</small></div>
+              <span className={`amt${refund ? ' credit' : ''}`}>{refund ? '+' : '−'}{fmtNaira(Number(p.amount ?? 0)).replace('−', '')}<small>{STATUS_LABEL[p.payment_status ?? ''] ?? p.payment_status}</small></span>
             </Link>
           );
-        })}
+        }) : (
+          <div className="row" style={{ padding: '18px 0' }}>
+            <span className="ic" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Receipt strokeWidth={1.9} /></span>
+            <div className="m"><strong>No payments yet</strong><small>Renewals show here</small></div>
+          </div>
+        )}
       </div>
     </section>
   );
