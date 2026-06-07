@@ -1,93 +1,96 @@
-import { LayoutGrid, Dumbbell, Wrench, Activity, Bike, Users, Waves, AlertTriangle, Droplet, Check, Plus } from 'lucide-react';
+import { LayoutGrid, Dumbbell, Wrench, Receipt, AlertTriangle, Check, Plus } from 'lucide-react';
+import { requireStaff } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { fmtNaira, fmtDate } from '@/lib/format';
 
 export const metadata = { title: 'Facility' };
 
-const ZONES = [
-  { icon: Dumbbell, name: 'Weights floor', cap: 60, inNow: 43, pct: 72, color: 'var(--gf-warning)' },
-  { icon: Bike, name: 'Cardio zone', cap: 40, inNow: 22, pct: 55, color: 'var(--gf-brand)' },
-  { icon: Users, name: 'Studio A', cap: 24, inNow: 22, pct: 92, color: 'var(--gf-danger)' },
-  { icon: Waves, name: 'Studio B / Yoga', cap: 16, inNow: 5, pct: 31, color: 'var(--gf-brand)' },
-];
+const EQ_STATUS: Record<string, [string, string]> = {
+  operational: ['gf-badge-success', 'OK'], maintenance: ['gf-badge-warning', 'Service'], broken: ['gf-badge-danger', 'Down'],
+};
 
-const MAINT = [
-  { icon: AlertTriangle, fg: 'var(--gf-danger)', bg: 'var(--gf-danger-soft)', title: 'Treadmill #4 — belt slipping', sub: 'Cardio zone · reported by Femi', t: '2h' },
-  { icon: Wrench, fg: 'var(--gf-warning)', bg: 'var(--gf-warning-soft)', title: 'Cable machine — frayed cable', sub: 'Weights floor · scheduled', t: '1d' },
-  { icon: Droplet, fg: 'var(--gf-warning)', bg: 'var(--gf-warning-soft)', title: 'Shower 2 — low pressure', sub: 'Locker room · vendor booked', t: '2d' },
-  { icon: Check, fg: 'var(--gf-success)', bg: 'var(--gf-success-soft)', title: 'AC unit — serviced', sub: 'Studio A · completed', t: '3d' },
-];
+export default async function AdminFacility() {
+  const { gym } = await requireStaff();
+  const supabase = await createClient();
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
 
-const EQUIP = [
-  { name: 'Treadmills', zone: 'Cardio zone', units: 12, serviced: '2 weeks ago', st: ['gf-badge-warning', '1 down'] },
-  { name: 'Power racks', zone: 'Weights floor', units: 8, serviced: '1 month ago', st: ['gf-badge-success', 'OK'] },
-  { name: 'Spin bikes', zone: 'Studio 2', units: 24, serviced: '3 weeks ago', st: ['gf-badge-success', 'OK'] },
-  { name: 'Cable machines', zone: 'Weights floor', units: 6, serviced: '6 weeks ago', st: ['gf-badge-warning', 'Service due'] },
-];
+  const [{ data: equipment }, { data: expenses }] = await Promise.all([
+    supabase.from('equipment').select('id, name, category, status, location, last_maintenance_date, next_maintenance_date, maintenance_notes').eq('gym_id', gym.id).order('name', { ascending: true }).limit(100),
+    supabase.from('expenses').select('id, amount, category, description, expense_date').eq('gym_id', gym.id).order('expense_date', { ascending: false }).limit(20),
+  ]);
 
-export default function AdminFacility() {
+  const eq = equipment ?? [];
+  const zones = new Set(eq.map((e) => e.location).filter(Boolean)).size;
+  const needsService = eq.filter((e) => e.status === 'maintenance' || e.status === 'broken' || (e.next_maintenance_date && e.next_maintenance_date <= todayIso));
+  const spend30 = (expenses ?? []).filter((e) => (e.expense_date ?? '') >= monthAgo).reduce((s, e) => s + Number(e.amount ?? 0), 0);
+
+  const KPIS = [
+    { icon: LayoutGrid, fg: '#11d18b', bg: '#11d18b1f', val: String(zones), lbl: 'Zones' },
+    { icon: Dumbbell, fg: '#4080ff', bg: '#4080ff1f', val: String(eq.length), lbl: 'Equipment units' },
+    { icon: Wrench, fg: '#ffb020', bg: '#ffb0201f', val: String(needsService.length), lbl: 'Need maintenance' },
+    { icon: Receipt, fg: '#a8d92e', bg: '#c6f24e1f', val: fmtNaira(spend30), lbl: 'Spend (30d)' },
+  ];
+
   return (
     <>
-      <div className="page-h"><div><h1>Facility</h1><p>Powerhouse Fitness · Lekki · 1,240 m² · 4 zones · 86 equipment units</p></div></div>
+      <div className="page-h"><div><h1>Facility</h1><p>{gym.name} · {zones} zone{zones === 1 ? '' : 's'} · {eq.length} equipment unit{eq.length === 1 ? '' : 's'}</p></div></div>
 
       <section className="kpis">
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><LayoutGrid strokeWidth={1.9} /></div></div><div className="kpi-val">4</div><div className="kpi-lbl">Active zones</div></div>
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#4080ff1f', color: '#4080ff' }}><Dumbbell strokeWidth={1.9} /></div></div><div className="kpi-val">86</div><div className="kpi-lbl">Equipment units</div></div>
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#ffb0201f', color: '#ffb020' }}><Wrench strokeWidth={1.9} /></div></div><div className="kpi-val">3</div><div className="kpi-lbl">Need maintenance</div></div>
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#c6f24e1f', color: '#a8d92e' }}><Activity strokeWidth={1.9} /></div></div><div className="kpi-val">68%</div><div className="kpi-lbl">Current occupancy</div></div>
+        {KPIS.map((k) => { const Icon = k.icon; return (
+          <div className="kpi" key={k.lbl}><div className="kpi-top"><div className="kpi-ic" style={{ background: k.bg, color: k.fg }}><Icon strokeWidth={1.9} /></div></div><div className="kpi-val">{k.val}</div><div className="kpi-lbl">{k.lbl}</div></div>
+        ); })}
       </section>
 
-      <div className="grid2">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="panel">
-            <div className="panel-h"><div><h3>Zones &amp; capacity</h3><div className="sub">Live occupancy across the floor</div></div></div>
-            <div className="zones">
-              {ZONES.map((z) => {
-                const Icon = z.icon;
-                return (
-                  <div className="zone" key={z.name}>
-                    <div className="zt"><div className="ic"><Icon strokeWidth={1.9} /></div><div><strong>{z.name}</strong><small>Cap {z.cap}</small></div></div>
-                    <div className="cap-bar"><div style={{ width: `${z.pct}%`, background: z.color }} /></div>
-                    <div className="cap-meta"><span>{z.inNow} in now</span><span>{z.pct}%</span></div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-h">
-              <div><h3>Equipment</h3><div className="sub">86 units · 3 flagged</div></div>
-              <div style={{ display: 'flex', gap: 8 }}><span className="gf-chip active">All</span><span className="gf-chip">Operational</span><span className="gf-chip">Needs service</span></div>
-            </div>
+      <div className="grid2" style={{ gridTemplateColumns: '1fr 340px' }}>
+        <div className="panel">
+          <div className="panel-h"><div><h3>Equipment</h3><div className="sub">{eq.length} unit{eq.length === 1 ? '' : 's'} · {needsService.length} flagged</div></div></div>
+          {eq.length === 0 ? (
+            <div className="empty"><div className="eic"><Dumbbell strokeWidth={1.6} /></div><h3>No equipment logged</h3><p>Add equipment to track maintenance and zones.</p></div>
+          ) : (
             <table className="tbl">
-              <thead><tr><th>Equipment</th><th>Zone</th><th>Units</th><th>Last serviced</th><th>Status</th></tr></thead>
+              <thead><tr><th>Equipment</th><th>Zone</th><th>Last serviced</th><th>Status</th></tr></thead>
               <tbody>
-                {EQUIP.map((e) => (
-                  <tr key={e.name}>
-                    <td><div className="eq-name"><div className="ic"><Dumbbell strokeWidth={1.9} /></div><div><strong>{e.name}</strong></div></div></td>
-                    <td style={{ color: 'var(--gf-text-secondary)' }}>{e.zone}</td>
-                    <td>{e.units}</td>
-                    <td style={{ color: 'var(--gf-text-secondary)' }}>{e.serviced}</td>
-                    <td><span className={`gf-badge ${e.st[0]}`}>{e.st[1]}</span></td>
-                  </tr>
-                ))}
+                {eq.map((e) => {
+                  const st = EQ_STATUS[e.status ?? 'operational'] ?? ['gf-badge-neutral', e.status ?? '—'];
+                  return (
+                    <tr key={e.id}>
+                      <td><div className="eq-name"><div className="ic"><Dumbbell strokeWidth={1.9} /></div><div><strong>{e.name}</strong><small>{e.category ?? '—'}</small></div></div></td>
+                      <td style={{ color: 'var(--gf-text-secondary)' }}>{e.location ?? '—'}</td>
+                      <td style={{ color: 'var(--gf-text-secondary)' }}>{e.last_maintenance_date ? fmtDate(e.last_maintenance_date) : '—'}</td>
+                      <td><span className={`gf-badge ${st[0]}`}>{st[1]}</span></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="panel">
-            <div className="panel-h"><div><h3>Maintenance</h3><div className="sub">Open tickets</div></div><span className="link"><Plus strokeWidth={2} size={14} /> Log issue</span></div>
-            {MAINT.map((m, i) => {
-              const Icon = m.icon;
-              return (
-                <div className="mt" key={i}>
-                  <div className="ic" style={{ background: m.bg, color: m.fg }}><Icon strokeWidth={1.9} /></div>
-                  <div className="m"><strong>{m.title}</strong><small>{m.sub}</small></div>
-                  <span className="t">{m.t}</span>
-                </div>
-              );
-            })}
+            <div className="panel-h"><div><h3>Maintenance</h3><div className="sub">Flagged units</div></div></div>
+            {needsService.length === 0 ? (
+              <div className="mt"><div className="ic" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)' }}><Check strokeWidth={1.9} /></div><div className="m"><strong>All good</strong><small>Nothing needs service</small></div></div>
+            ) : needsService.slice(0, 6).map((e) => (
+              <div className="mt" key={e.id}>
+                <div className="ic" style={{ background: e.status === 'broken' ? 'var(--gf-danger-soft)' : 'var(--gf-warning-soft)', color: e.status === 'broken' ? 'var(--gf-danger)' : 'var(--gf-warning)' }}><AlertTriangle strokeWidth={1.9} /></div>
+                <div className="m"><strong>{e.name}</strong><small>{e.location ?? e.category ?? '—'}{e.maintenance_notes ? ` · ${e.maintenance_notes}` : ''}</small></div>
+                <span className="t">{e.next_maintenance_date ? fmtDate(e.next_maintenance_date) : ''}</span>
+              </div>
+            ))}
+          </div>
+          <div className="panel">
+            <div className="panel-h"><div><h3>Recent expenses</h3><div className="sub">{fmtNaira(spend30)} last 30 days</div></div><span className="link"><Plus strokeWidth={2} size={14} /> Log</span></div>
+            {(expenses ?? []).length === 0 ? (
+              <div className="sub">No expenses logged.</div>
+            ) : (expenses ?? []).slice(0, 6).map((x) => (
+              <div className="mt" key={x.id}>
+                <div className="ic" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Receipt strokeWidth={1.9} /></div>
+                <div className="m"><strong>{x.description ?? x.category}</strong><small>{x.expense_date ? fmtDate(x.expense_date) : ''}</small></div>
+                <span className="t naira">{fmtNaira(Number(x.amount ?? 0))}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
