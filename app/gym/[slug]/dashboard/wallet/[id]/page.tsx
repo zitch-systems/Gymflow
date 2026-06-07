@@ -53,12 +53,11 @@ export default async function ReceiptPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal member-app">
-      <header className="m-head" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
-        <Link href="/dashboard/wallet" className="m-head-bell" aria-label="Back to wallet">
-          <ArrowLeft size={18} strokeWidth={1.9} />
+      <header className="op-header is-sub">
+        <Link href="/dashboard/wallet" className="op-icon-btn" aria-label="Back to wallet">
+          <ArrowLeft strokeWidth={1.8} />
         </Link>
-        <strong className="htitle">Receipt</strong>
-        <span style={{ width: 38, height: 38 }} aria-hidden />
+        <strong className="op-header-title">Receipt</strong>
       </header>
 
       <div className="m-receipt">

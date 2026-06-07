@@ -2,11 +2,9 @@ import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
-import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardHeader } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ArrowLeft, Dumbbell } from 'lucide-react';
-import { ButtonLink } from '@/components/ui/button';
 import { PtPackBuyButton } from './buy-button';
 
 type PageProps = { params: Promise<{ slug: string }> };
@@ -51,15 +49,12 @@ export default async function MemberPtPacksPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal member-app">
-      <PageHeader
-        title="Personal training packs"
-        subtitle={`Prepay a bundle with one of ${gym.name}'s coaches — sessions deduct as you book.`}
-        actions={
-          <ButtonLink href="/dashboard" variant="ghost" size="sm" leadingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}>
-            Back
-          </ButtonLink>
-        }
-      />
+      <header className="op-header is-sub">
+        <Link href="/dashboard" className="op-icon-btn" aria-label="Back">
+          <ArrowLeft strokeWidth={1.8} />
+        </Link>
+        <strong className="op-header-title">PT packs</strong>
+      </header>
 
       {credits.length > 0 && (
         <Card>
