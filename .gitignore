@@ -1,0 +1,11 @@
+# Build artifacts + secrets — kept ignored after the repository was emptied
+# in commit 374d3d5 so a `git status` doesn't keep flagging local Next.js
+# build output, dependencies, and env files as untracked.
+node_modules/
+.next/
+next-env.d.ts
+tsconfig.tsbuildinfo
+.env
+.env.local
+.env.*.local
+.DS_Store
