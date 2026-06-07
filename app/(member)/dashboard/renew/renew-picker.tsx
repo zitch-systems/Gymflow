@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { CreditCard, Lock, Check } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { CreditCard, Lock, AlertCircle } from 'lucide-react';
 import { fmtNaira } from '@/lib/format';
+import { startRenewal } from '@/lib/actions/renew';
 
 export type Plan = { id: string; name: string; price: number; duration_months: number; description: string | null };
 
@@ -15,23 +15,23 @@ function periodSuffix(m: number): string {
 // success state until the Paystack flow is wired (needs SERVICE_ROLE_KEY).
 export function RenewPicker({ plans }: { plans: Plan[] }) {
   const [picked, setPicked] = useState(plans[0]?.id ?? '');
-  const [paid, setPaid] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
   const sel = plans.find((p) => p.id === picked) ?? plans[0];
+
+  function pay() {
+    if (!sel) return;
+    setErr(null);
+    start(async () => {
+      const res = await startRenewal(sel.id);
+      if (res.ok) window.location.href = res.url; // → Paystack checkout
+      else setErr(res.error);
+    });
+  }
 
   const perMonth = (p: Plan) => p.price / Math.max(1, p.duration_months);
   const baseline = plans.length ? Math.max(...plans.map(perMonth)) : 0;
   const cheapest = plans.length ? plans.reduce((b, p) => (perMonth(p) < perMonth(b) ? p : b), plans[0]).id : '';
-
-  if (paid) {
-    return (
-      <div className="ci-ok on">
-        <div className="ring"><Check strokeWidth={2.4} /></div>
-        <h2 style={{ fontFamily: 'var(--gf-font-display)', fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>Membership renewed!</h2>
-        <p style={{ color: 'var(--gf-text-secondary)', margin: 0, textAlign: 'center' }}>Your {sel?.name} plan is active. A receipt is on its way to your email.</p>
-        <Link href="/dashboard" className="gf-btn gf-btn-secondary">Back to home</Link>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -49,8 +49,9 @@ export function RenewPicker({ plans }: { plans: Plan[] }) {
           </button>
         );
       })}
-      <button className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" style={{ marginTop: 8 }} onClick={() => setPaid(true)} disabled={!sel}>
-        <CreditCard strokeWidth={1.9} style={{ width: 18, height: 18 }} /> Pay {sel ? fmtNaira(sel.price) : ''} with Paystack
+      {err && <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '12px 0 0' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
+      <button className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" style={{ marginTop: 8 }} onClick={pay} disabled={!sel || pending}>
+        <CreditCard strokeWidth={1.9} style={{ width: 18, height: 18 }} /> {pending ? 'Starting checkout…' : `Pay ${sel ? fmtNaira(sel.price) : ''} with Paystack`}
       </button>
       <div className="paysafe"><Lock strokeWidth={1.9} /> Secured by Paystack</div>
     </div>

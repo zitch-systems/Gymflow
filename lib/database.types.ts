@@ -1919,6 +1919,50 @@ export type Database = {
           },
         ]
       }
+      support_tickets: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          gym_id: string | null
+          id: string
+          priority: string
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          gym_id?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          gym_id?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       waiver_signatures: {
         Row: {
           gym_id: string | null
