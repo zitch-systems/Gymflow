@@ -2,22 +2,24 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { MarketingNav } from '@/components/marketing/nav';
 import { MarketingFooter } from '@/components/marketing/footer';
+import { FeatureCard } from '@/components/marketing/sections';
+import { HeartHandshake, Gauge, ShieldCheck, MapPin } from 'lucide-react';
 
 export const metadata = {
-  title: 'Gallery',
-  description: 'GymFlow — built in Lagos for Nigerian fitness businesses. A look at the gyms we power.',
+  title: 'About & Gallery',
+  description:
+    'GymFlow is built in Lagos for Nigerian fitness businesses — a look at who we are and the gyms that run on the platform.',
 };
 
-const PHOTOS = [
-  { src: '/images/gym-hero.jpg',        alt: 'Treadmill by floor-to-ceiling windows',          w: 1080, h: 720, span: true },
-  { src: '/images/gym-floor.jpg',       alt: 'Strength machines on the gym floor',             w: 1080, h: 720 },
-  { src: '/images/gym-dumbbells.jpg',   alt: 'Dumbbell rack close-up',                         w: 480,  h: 720 },
-  { src: '/images/gym-bikes.jpg',       alt: 'Air bikes with a mountain view',                 w: 480,  h: 720, span: true },
-  { src: '/images/gym-kettlebells.jpg', alt: 'Kettlebells and dumbbell rack by the window',    w: 480,  h: 720 },
-  { src: '/images/gym-barbell.jpg',     alt: 'Loaded Olympic barbell on the floor',            w: 480,  h: 720 },
-  { src: '/images/gym-machines.jpg',    alt: 'Machines and lockers on a wood floor',           w: 480,  h: 720 },
-  { src: '/images/gym-studio.jpg',      alt: 'Cardio studio with treadmills and lockers',      w: 1080, h: 720 },
-  { src: '/images/gym-kettlebell.jpg',  alt: 'Kettlebell close-up on the rack',                w: 540,  h: 720 },
+const GALLERY = [
+  { src: '/images/gym-studio.jpg', alt: 'Cardio studio' },
+  { src: '/images/gym-machines.jpg', alt: 'Resistance machines' },
+  { src: '/images/gym-bikes.jpg', alt: 'Indoor cycling' },
+  { src: '/images/gym-kettlebells.jpg', alt: 'Kettlebell rack' },
+  { src: '/images/gym-barbell.jpg', alt: 'Barbell platform' },
+  { src: '/images/gym-dumbbells.jpg', alt: 'Dumbbell wall' },
+  { src: '/images/gym-floor.jpg', alt: 'Main training floor' },
+  { src: '/images/gym-hero.jpg', alt: 'Members training' },
 ];
 
 export default function AboutPage() {
@@ -26,62 +28,65 @@ export default function AboutPage() {
       <MarketingNav />
 
       <main id="main-content" tabIndex={-1}>
-      <header className="marketing-hero mk-subhero">
-        <div className="container">
-          <span className="marketing-eyebrow">Built in Lagos</span>
-          <h1 className="marketing-hero-title">Software for the gyms that move Nigeria</h1>
-          <p className="marketing-hero-sub">
-            From boutique studios to multi-floor facilities, GymFlow gives independent gyms the tools big
-            chains take for granted — without the price tag or the hardware.
-          </p>
-        </div>
-      </header>
-
-      <section className="marketing-section" style={{ paddingTop: 8 }}>
-        <div className="container">
-          <div className="mk-masonry">
-            {PHOTOS.map((p) => (
-              <figure key={p.src} className={`mk-masonry-item${p.span ? ' span' : ''}`}>
-                <Image
-                  src={p.src}
-                  alt={p.alt}
-                  width={p.w}
-                  height={p.h}
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                  loading="lazy"
-                  style={{ width: '100%', height: 'auto' }}
-                />
-              </figure>
-            ))}
+        <header className="marketing-hero mk-subhero">
+          <div className="container">
+            <span className="marketing-eyebrow">Our story</span>
+            <h1 className="marketing-hero-title">
+              Built in Lagos, for the gyms that <span className="marketing-accent">built us</span>
+            </h1>
+            <p className="marketing-hero-sub">
+              GymFlow began on a whiteboard in a Yaba co-working space — three friends frustrated
+              that running a great gym meant drowning in spreadsheets, missed renewals and manual
+              WhatsApp reminders. Today, hundreds of gyms across Nigeria run on it.
+            </p>
           </div>
-        </div>
-      </section>
+        </header>
 
-      <section className="marketing-section mk-stats-band">
-        <div className="container">
-          <div className="mk-statgrid">
-            <div><span className="mk-statgrid-num">5 min</span><span className="mk-statgrid-cap">to launch a gym</span></div>
-            <div><span className="mk-statgrid-num">0</span><span className="mk-statgrid-cap">hardware to buy</span></div>
-            <div><span className="mk-statgrid-num">100%</span><span className="mk-statgrid-cap">Naira, no FX</span></div>
-            <div><span className="mk-statgrid-num">24/7</span><span className="mk-statgrid-cap">member self-service</span></div>
+        {/* Values */}
+        <section className="marketing-section">
+          <div className="container">
+            <h2 className="marketing-section-title">What we believe</h2>
+            <p className="marketing-section-sub">The principles behind every release.</p>
+            <div className="marketing-grid">
+              <FeatureCard icon={HeartHandshake} title="Built for operators" body="Every feature starts with a real gym owner's day — not a spreadsheet of abstractions." />
+              <FeatureCard icon={Gauge} title="Fast on any network" body="A light, mobile-first PWA that loads quickly on 3G and works offline at the door." />
+              <FeatureCard icon={ShieldCheck} title="Your data, isolated" body="Row-level security per tenant. No gym can ever see another gym's members or money." />
+              <FeatureCard icon={MapPin} title="Made for Naira" body="Paystack-native pricing, auto-debit and payouts — no FX, no workarounds." />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="marketing-section">
-        <div className="container" style={{ maxWidth: 720, textAlign: 'center' }}>
-          <h2 className="marketing-section-title">Why we built GymFlow</h2>
-          <p className="marketing-section-sub" style={{ margin: '14px 0 0' }}>
-            Most gym software is priced for the West, charges per member, and assumes fast data and foreign cards.
-            GymFlow is the opposite: one flat Naira price, Paystack-native, WhatsApp-first, and fast on any phone.
-            We handle check-ins, payments, classes, staff and analytics so you can focus on your members.
-          </p>
-          <div className="marketing-hero-actions" style={{ justifyContent: 'center', marginTop: 24 }}>
-            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
-            <Link href="/features" className="gf-btn gf-btn-outline gf-btn-lg">Explore features</Link>
+        {/* Gallery */}
+        <section className="marketing-section mk-gallery-strip">
+          <div className="container">
+            <h2 className="marketing-section-title">The gyms that run on GymFlow</h2>
+            <p className="marketing-section-sub">
+              From boutique studios to multi-floor facilities — a look inside the spaces our
+              software keeps moving every day.
+            </p>
+            <div className="mk-gallery">
+              {GALLERY.map((g) => (
+                <div key={g.src} className="mk-gallery-item">
+                  <Image src={g.src} alt={g.alt} width={600} height={800} loading="lazy" sizes="(max-width: 760px) 50vw, 25vw" />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* CTA */}
+        <section className="marketing-section">
+          <div className="container">
+            <div className="mk-cta">
+              <h2 className="mk-cta-title">Join the gyms growing with GymFlow</h2>
+              <p className="mk-cta-sub">Launch your branded instance in an afternoon.</p>
+              <div className="marketing-hero-actions" style={{ justifyContent: 'center' }}>
+                <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
+                <Link href="/features" className="gf-btn gf-btn-outline gf-btn-lg">See features</Link>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <MarketingFooter />

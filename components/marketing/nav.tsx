@@ -21,8 +21,7 @@ export function MarketingNav() {
           <div className="marketing-nav-links">
             <Link href="/features" className="marketing-nav-link">Features</Link>
             <Link href="/pricing" className="marketing-nav-link">Pricing</Link>
-            <Link href="/about" className="marketing-nav-link">About</Link>
-            <Link href="/contact" className="marketing-nav-link">Contact</Link>
+            <Link href="/about" className="marketing-nav-link">Gallery</Link>
             <Link href="/login" className="marketing-nav-link">Sign in</Link>
             <Link href="/signup" className="gf-btn gf-btn-primary">Get started</Link>
             <ThemeToggleButton />
