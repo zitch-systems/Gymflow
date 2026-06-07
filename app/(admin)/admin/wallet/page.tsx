@@ -1,57 +1,90 @@
 import { Banknote, Building2, ArrowDownLeft, ArrowUpRight, CreditCard } from 'lucide-react';
+import { requireStaff } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { fmtNaira, fmtDate } from '@/lib/format';
 
 export const metadata = { title: 'Wallet' };
 
-const TXNS = [
-  { icon: CreditCard, fg: 'var(--gf-success)', bg: 'var(--gf-success-soft)', title: 'Subscription · Tunde A.', sub: 'Annual renewal', type: 'Inflow', date: 'Today', st: ['gf-badge-success', 'Settled'], amt: '+₦119,999', dir: 'in' as const },
-  { icon: Banknote, fg: 'var(--gf-info)', bg: 'var(--gf-info-soft)', title: 'Payout to GTBank', sub: '•••• 8842', type: 'Withdrawal', date: 'Yesterday', st: ['gf-badge-info', 'Processing'], amt: '−₦800,000', dir: 'out' as const },
-  { icon: CreditCard, fg: 'var(--gf-success)', bg: 'var(--gf-success-soft)', title: 'Subscription · Grace U.', sub: 'Annual renewal', type: 'Inflow', date: '28 May', st: ['gf-badge-success', 'Settled'], amt: '+₦119,999', dir: 'in' as const },
-  { icon: CreditCard, fg: 'var(--gf-success)', bg: 'var(--gf-success-soft)', title: 'Subscription · Kelechi O.', sub: 'Quarterly renewal', type: 'Inflow', date: '27 May', st: ['gf-badge-success', 'Settled'], amt: '+₦37,999', dir: 'in' as const },
-];
+const STATUS: Record<string, [string, string]> = {
+  successful: ['gf-badge-success', 'Settled'],
+  pending: ['gf-badge-info', 'Processing'],
+  failed: ['gf-badge-danger', 'Failed'],
+  refunded: ['gf-badge-warning', 'Refunded'],
+};
 
-export default function AdminWallet() {
+export default async function AdminWallet() {
+  const { gym } = await requireStaff();
+  const supabase = await createClient();
+
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+
+  const [{ data: rows }, { data: monthRows }] = await Promise.all([
+    supabase.from('payments')
+      .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id, member_id')
+      .eq('gym_id', gym.id).order('payment_date', { ascending: false }).limit(60),
+    supabase.from('payments')
+      .select('amount, payment_status, payment_date')
+      .eq('gym_id', gym.id).gte('payment_date', monthStart.toISOString()),
+  ]);
+
+  const collected = (monthRows ?? []).filter((p) => p.payment_status === 'successful').reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const pending = (monthRows ?? []).filter((p) => p.payment_status === 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const failed = (monthRows ?? []).filter((p) => p.payment_status !== 'successful' && p.payment_status !== 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
+
+  // Member names + plan names for the table.
+  const memberIds = [...new Set((rows ?? []).map((r) => r.member_id).filter(Boolean) as string[])];
+  const planIds = [...new Set((rows ?? []).map((r) => r.plan_id).filter(Boolean) as string[])];
+  const [{ data: profiles }, { data: plans }] = await Promise.all([
+    memberIds.length ? supabase.from('profiles').select('id, full_name, email').in('id', memberIds) : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string | null }[] }),
+    planIds.length ? supabase.from('membership_plans').select('id, name').in('id', planIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+  ]);
+  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? p.email ?? 'Member']));
+  const planById = new Map((plans ?? []).map((p) => [p.id, p.name]));
+
   return (
     <>
-      <div className="page-h"><div><h1>Wallet</h1><p>Powerhouse Fitness · settlements via Paystack</p></div></div>
+      <div className="page-h"><div><h1>Wallet</h1><p>{gym.name} · settlements via Paystack</p></div></div>
 
       <div className="wtop">
         <div className="balance">
-          <small>Available balance</small>
-          <div className="amt">₦1,284,500</div>
-          <div className="sub">₦184,000 pending settlement · next payout 2 Jun</div>
+          <small>Collected this month</small>
+          <div className="amt">{fmtNaira(collected)}</div>
+          <div className="sub">{fmtNaira(pending)} pending · {(rows ?? []).length} recent transactions</div>
           <div className="acts">
             <button className="gf-btn solid"><Banknote strokeWidth={1.9} size={16} /> Withdraw</button>
             <button className="gf-btn"><Building2 strokeWidth={1.9} size={16} /> Bank account</button>
           </div>
         </div>
         <div className="wstats">
-          <div className="ws"><div className="ic" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)' }}><ArrowDownLeft strokeWidth={1.9} /></div><div><div className="v">₦5.8M</div><div className="l">Collected this month</div></div></div>
-          <div className="ws"><div className="ic" style={{ background: 'var(--gf-info-soft)', color: 'var(--gf-info)' }}><ArrowUpRight strokeWidth={1.9} /></div><div><div className="v">₦4.2M</div><div className="l">Withdrawn this month</div></div></div>
+          <div className="ws"><div className="ic" style={{ background: 'var(--gf-warning-soft)', color: 'var(--gf-warning)' }}><ArrowUpRight strokeWidth={1.9} /></div><div><div className="v">{fmtNaira(pending)}</div><div className="l">Pending settlement</div></div></div>
+          <div className="ws"><div className="ic" style={{ background: 'var(--gf-danger-soft)', color: 'var(--gf-danger)' }}><ArrowDownLeft strokeWidth={1.9} /></div><div><div className="v">{fmtNaira(failed)}</div><div className="l">Failed this month</div></div></div>
         </div>
       </div>
 
       <div className="panel">
-        <div className="panel-h">
-          <div><h3>Transactions</h3><div className="sub">All settlements &amp; payments</div></div>
-          <div style={{ display: 'flex', gap: 8 }}><span className="gf-chip active">All</span><span className="gf-chip">In</span><span className="gf-chip">Out</span></div>
-        </div>
-        <table className="tbl">
-          <thead><tr><th>Description</th><th>Type</th><th>Date</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
-          <tbody>
-            {TXNS.map((t, i) => {
-              const Icon = t.icon;
-              return (
-                <tr key={i}>
-                  <td><div className="who"><span className="gf-avatar gf-avatar-sm" style={{ background: t.bg, color: t.fg, border: 'none' }}><Icon strokeWidth={1.9} size={15} /></span><div><strong>{t.title}</strong><small>{t.sub}</small></div></div></td>
-                  <td style={{ color: 'var(--gf-text-secondary)' }}>{t.type}</td>
-                  <td style={{ color: 'var(--gf-text-secondary)' }}>{t.date}</td>
-                  <td><span className={`gf-badge ${t.st[0]}`}><span className="gf-dot" />{t.st[1]}</span></td>
-                  <td className={`naira tx-amt ${t.dir}`} style={{ textAlign: 'right' }}>{t.amt}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="panel-h"><div><h3>Transactions</h3><div className="sub">All settlements &amp; payments</div></div></div>
+        {(rows ?? []).length === 0 ? (
+          <div className="empty"><div className="eic"><CreditCard strokeWidth={1.6} /></div><h3>No payments yet</h3><p>Member renewals and purchases will show here.</p></div>
+        ) : (
+          <table className="tbl">
+            <thead><tr><th>Description</th><th>Method</th><th>Date</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
+            <tbody>
+              {(rows ?? []).map((p) => {
+                const st = STATUS[p.payment_status ?? ''] ?? ['gf-badge-neutral', p.payment_status ?? '—'];
+                const ok = p.payment_status === 'successful';
+                return (
+                  <tr key={p.id}>
+                    <td><div className="who"><span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)', border: 'none' }}><CreditCard strokeWidth={1.9} size={15} /></span><div><strong>{(p.plan_id && planById.get(p.plan_id)) || 'Payment'} · {p.member_id ? nameById.get(p.member_id) : '—'}</strong><small>{p.payment_method ?? 'Paystack'}</small></div></div></td>
+                    <td style={{ color: 'var(--gf-text-secondary)' }}>{p.payment_method ?? 'Paystack'}</td>
+                    <td style={{ color: 'var(--gf-text-secondary)' }}>{fmtDate(p.payment_date ?? p.created_at)}</td>
+                    <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
+                    <td className={`naira tx-amt ${ok ? 'in' : 'out'}`} style={{ textAlign: 'right' }}>{ok ? '+' : ''}{fmtNaira(Number(p.amount ?? 0))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </>
   );

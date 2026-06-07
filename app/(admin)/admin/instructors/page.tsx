@@ -1,88 +1,96 @@
 import { Users, Clock, GraduationCap, Banknote, Crown, Shield, ScanLine } from 'lucide-react';
+import { requireStaff } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
 
 export const metadata = { title: 'Staff' };
 
-const TEAM = [
-  { i: 'AO', name: 'Adunni O.', role: 'Owner', shift: 'All day', st: ['gf-badge-success', 'On shift'] },
-  { i: 'KM', name: 'Kunle M.', role: 'Manager', shift: '09:00–17:00', st: ['gf-badge-success', 'On shift'] },
-  { i: 'FE', name: 'Coach Femi', role: 'Instructor', shift: '10:00–18:00', st: ['gf-badge-success', 'On shift'] },
-  { i: 'BI', name: 'Coach Bisi', role: 'Instructor', shift: '06:00–12:00', st: ['gf-badge-success', 'On shift'] },
-  { i: 'TO', name: 'Coach Tobi', role: 'Instructor', shift: '16:00–20:00', st: ['gf-badge-neutral', 'Off'] },
-  { i: 'DA', name: 'Deborah A.', role: 'Front desk', shift: '08:00–16:00', st: ['gf-badge-success', 'On shift'] },
-];
+const ROLE_LABEL: Record<string, string> = {
+  gym_owner: 'Owner', manager: 'Manager', instructor: 'Instructor', front_desk: 'Front desk', accountant: 'Accountant',
+};
+const ROLE_META: Record<string, { icon: typeof Crown; fg: string; bg: string; desc: string }> = {
+  gym_owner: { icon: Crown, fg: 'var(--gf-brand)', bg: 'var(--gf-brand-soft)', desc: 'Full access' },
+  manager: { icon: Shield, fg: '#4080ff', bg: '#4080ff1f', desc: 'All but billing' },
+  instructor: { icon: GraduationCap, fg: '#a8d92e', bg: '#c6f24e1f', desc: 'Classes & clients' },
+  front_desk: { icon: ScanLine, fg: '#ffb020', bg: '#ffb0201f', desc: 'Check-in & members' },
+  accountant: { icon: Banknote, fg: '#4080ff', bg: '#4080ff1f', desc: 'Billing & payouts' },
+};
 
-const ROLES = [
-  { icon: Crown, fg: 'var(--gf-brand)', bg: 'var(--gf-brand-soft)', name: 'Owner', desc: 'Full access', ct: 1 },
-  { icon: Shield, fg: '#4080ff', bg: '#4080ff1f', name: 'Manager', desc: 'All but billing', ct: 2 },
-  { icon: GraduationCap, fg: '#a8d92e', bg: '#c6f24e1f', name: 'Instructor', desc: 'Classes & clients', ct: 5 },
-  { icon: ScanLine, fg: '#ffb020', bg: '#ffb0201f', name: 'Front desk', desc: 'Check-in & members', ct: 1 },
-];
+export default async function AdminStaff() {
+  const { gym } = await requireStaff();
+  const supabase = await createClient();
 
-const SHIFT = [
-  { i: 'F', name: 'Coach Femi', sub: 'Instructor · until 18:00' },
-  { i: 'B', name: 'Coach Bisi', sub: 'Instructor · until 12:00' },
-  { i: 'D', name: 'Deborah A.', sub: 'Front desk · until 16:00' },
-  { i: 'K', name: 'Kunle M.', sub: 'Manager · until 17:00' },
-];
+  const { data: staff } = await supabase
+    .from('gym_staff_links')
+    .select('user_id, role, is_active, joined_at')
+    .eq('gym_id', gym.id).eq('is_active', true);
 
-export default function AdminStaff() {
+  const ids = [...new Set((staff ?? []).map((s) => s.user_id).filter(Boolean) as string[])];
+  const { data: profiles } = ids.length
+    ? await supabase.from('profiles').select('id, full_name, email').in('id', ids)
+    : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
+  const pById = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+  const rows = (staff ?? []).map((s) => {
+    const p = pById.get(s.user_id);
+    const name = p?.full_name ?? p?.email ?? 'Staff';
+    return { id: s.user_id, name, initial: name.charAt(0).toUpperCase(), role: s.role as string };
+  });
+
+  const roleCounts = rows.reduce<Record<string, number>>((acc, r) => { acc[r.role] = (acc[r.role] ?? 0) + 1; return acc; }, {});
+  const instructors = roleCounts['instructor'] ?? 0;
+
+  const KPIS = [
+    { icon: Users, fg: '#11d18b', bg: '#11d18b1f', val: String(rows.length), lbl: 'Team members' },
+    { icon: GraduationCap, fg: '#a8d92e', bg: '#c6f24e1f', val: String(instructors), lbl: 'Instructors' },
+    { icon: Shield, fg: '#4080ff', bg: '#4080ff1f', val: String(roleCounts['manager'] ?? 0), lbl: 'Managers' },
+    { icon: Crown, fg: '#ffb020', bg: '#ffb0201f', val: String(roleCounts['gym_owner'] ?? 0), lbl: 'Owners' },
+  ];
+
   return (
     <>
-      <div className="page-h"><div><h1>Staff</h1><p>9 team members · 4 on shift now · payroll runs 30 May</p></div></div>
+      <div className="page-h"><div><h1>Staff</h1><p>{rows.length} team member{rows.length === 1 ? '' : 's'} · {instructors} instructor{instructors === 1 ? '' : 's'}</p></div></div>
 
       <section className="kpis">
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><Users strokeWidth={1.9} /></div></div><div className="kpi-val">9</div><div className="kpi-lbl">Team members</div></div>
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#4080ff1f', color: '#4080ff' }}><Clock strokeWidth={1.9} /></div></div><div className="kpi-val">4</div><div className="kpi-lbl">On shift now</div></div>
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#c6f24e1f', color: '#a8d92e' }}><GraduationCap strokeWidth={1.9} /></div></div><div className="kpi-val">5</div><div className="kpi-lbl">Instructors</div></div>
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#ffb0201f', color: '#ffb020' }}><Banknote strokeWidth={1.9} /></div></div><div className="kpi-val">₦1.4M</div><div className="kpi-lbl">Monthly payroll</div></div>
+        {KPIS.map((k) => { const Icon = k.icon; return (
+          <div className="kpi" key={k.lbl}><div className="kpi-top"><div className="kpi-ic" style={{ background: k.bg, color: k.fg }}><Icon strokeWidth={1.9} /></div></div><div className="kpi-val">{k.val}</div><div className="kpi-lbl">{k.lbl}</div></div>
+        ); })}
       </section>
 
       <div className="grid2">
         <div className="panel">
-          <div className="panel-h">
-            <div><h3>Team</h3><div className="sub">Roles, status &amp; today&apos;s shift</div></div>
-            <div style={{ display: 'flex', gap: 8 }}><span className="gf-chip active">All</span><span className="gf-chip">Instructors</span><span className="gf-chip">Front desk</span></div>
-          </div>
-          <table className="tbl">
-            <thead><tr><th>Member</th><th>Role</th><th>Shift today</th><th>Status</th></tr></thead>
-            <tbody>
-              {TEAM.map((m) => (
-                <tr key={m.name}>
-                  <td><div className="who"><span className="gf-avatar gf-avatar-sm">{m.i}</span><div><strong>{m.name}</strong></div></div></td>
-                  <td><span className="role-chip" style={{ background: 'var(--gf-elevated)' }}>{m.role}</span></td>
-                  <td style={{ color: 'var(--gf-text-secondary)' }}>{m.shift}</td>
-                  <td><span className={`gf-badge ${m.st[0]}`}>{m.st[1]}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="panel-h"><div><h3>Team</h3><div className="sub">Roles &amp; access</div></div></div>
+          {rows.length === 0 ? (
+            <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No staff yet</h3><p>Invite instructors and front-desk staff to your gym.</p></div>
+          ) : (
+            <table className="tbl">
+              <thead><tr><th>Member</th><th>Role</th><th style={{ textAlign: 'right' }}>Status</th></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td><div className="who"><span className="gf-avatar gf-avatar-sm">{r.initial}</span><div><strong>{r.name}</strong></div></div></td>
+                    <td><span className="role-chip" style={{ background: 'var(--gf-elevated)' }}>{ROLE_LABEL[r.role] ?? r.role}</span></td>
+                    <td style={{ textAlign: 'right' }}><span className="gf-badge gf-badge-success">Active</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="panel">
-            <div className="panel-h"><div><h3>Roles</h3><div className="sub">Access levels</div></div></div>
-            <div className="role-grid">
-              {ROLES.map((r) => {
-                const Icon = r.icon;
-                return (
-                  <div className="role-row" key={r.name}>
-                    <div className="ic" style={{ background: r.bg, color: r.fg }}><Icon strokeWidth={1.9} /></div>
-                    <div className="m"><strong>{r.name}</strong><small>{r.desc}</small></div>
-                    <span className="ct">{r.ct}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="panel">
-            <div className="panel-h"><div><h3>On shift now</h3><div className="sub">Live</div></div></div>
-            {SHIFT.map((s) => (
-              <div className="scard" key={s.name}>
-                <span className="gf-avatar gf-avatar-sm">{s.i}</span>
-                <div className="m"><strong>{s.name}</strong><small>{s.sub}</small></div>
-                <span className="on-shift" style={{ color: 'var(--gf-success)' }}>In</span>
-              </div>
-            ))}
+        <div className="panel">
+          <div className="panel-h"><div><h3>Roles</h3><div className="sub">Access levels in use</div></div></div>
+          <div className="role-grid">
+            {Object.entries(roleCounts).map(([role, count]) => {
+              const meta = ROLE_META[role] ?? { icon: Users, fg: 'var(--gf-text-muted)', bg: 'var(--gf-elevated)', desc: '' };
+              const Icon = meta.icon;
+              return (
+                <div className="role-row" key={role}>
+                  <div className="ic" style={{ background: meta.bg, color: meta.fg }}><Icon strokeWidth={1.9} /></div>
+                  <div className="m"><strong>{ROLE_LABEL[role] ?? role}</strong><small>{meta.desc}</small></div>
+                  <span className="ct">{count}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
