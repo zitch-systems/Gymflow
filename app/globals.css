@@ -5126,6 +5126,29 @@ button[disabled] { opacity: 0.7; cursor: wait; }
 /* Button content icon spacing — auto when icon precedes text */
 .gf-btn > svg { flex-shrink: 0; }
 
+/* Compact icon-only button — used in mobile headers (back, bell, share)
+   and other tight spots. Sized 40×40 by default; consumers can override
+   with inline width/height (prototype uses 34/38 for tighter chromes). */
+.icon-btn {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border-radius: var(--gf-radius-sm);
+  background: var(--gf-elevated);
+  border: 1px solid var(--gf-border);
+  color: var(--gf-text-secondary);
+  cursor: pointer;
+  transition: all var(--gf-t);
+  box-shadow: var(--gf-hairline);
+  flex-shrink: 0;
+  position: relative;
+}
+.icon-btn:hover { color: var(--gf-text); border-color: var(--gf-border-light); background: var(--gf-surface); box-shadow: var(--gf-shadow-sm); transform: translateY(-1px); }
+.icon-btn:focus-visible { outline: 2px solid var(--gf-brand); outline-offset: 2px; }
+.icon-btn > svg { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn { transition: none !important; transform: none !important; }
+}
+
 /* Sidebar nav icon row (used by NavItem with lucide icons) */
 .gf-nav-item { display: flex; align-items: center; gap: 10px; }
 .gf-nav-item > svg { flex-shrink: 0; color: var(--gf-text-muted); transition: color 0.15s; }
