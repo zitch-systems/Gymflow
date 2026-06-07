@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 import { SubscribeButton } from './subscribe-button';
 import { ManageSubscription } from './manage-subscription';
-import { Award, Check } from 'lucide-react';
+import { Award, Check, ArrowLeft } from 'lucide-react';
 
 type PageProps = { params: Promise<{ slug: string; id: string }> };
 
@@ -58,12 +58,11 @@ export default async function InstructorDetailPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">{p.full_name ?? 'Coach'}</h1>
-          {p.specialisation && <p className="gf-page-subtitle">{p.specialisation}</p>}
-        </div>
-        <Link href="/dashboard/instructors" className="gf-btn gf-btn-ghost gf-btn-sm">Back</Link>
+      <header className="op-header is-sub">
+        <Link href="/dashboard/instructors" className="op-icon-btn" aria-label="Back to coaches">
+          <ArrowLeft strokeWidth={1.8} />
+        </Link>
+        <strong className="op-header-title">{p.full_name ?? 'Coach'}</strong>
       </header>
 
       <section className="gf-card" style={{ padding: 18 }}>

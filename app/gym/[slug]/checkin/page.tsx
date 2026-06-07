@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { requireMember } from '@/lib/auth/gym';
 import { SelfCheckInButton } from './self-checkin-button';
 import { CheckinQr } from './checkin-qr';
@@ -15,8 +17,11 @@ export default async function CheckInPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal member-app">
-      <header className="m-head" style={{ justifyContent: 'center', paddingBottom: 6 }}>
-        <strong className="htitle">Check in</strong>
+      <header className="op-header is-sub">
+        <Link href="/dashboard" className="op-icon-btn" aria-label="Back to home">
+          <ArrowLeft strokeWidth={1.8} />
+        </Link>
+        <strong className="op-header-title">Check in</strong>
       </header>
 
       <div className="m-ci">

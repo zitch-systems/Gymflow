@@ -24,14 +24,11 @@ export default async function SavedCardsPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal member-app">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">Saved cards</h1>
-          <p className="gf-page-subtitle">For auto-renewal at {gym.name}.</p>
-        </div>
-        <Link href="/dashboard" className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Back">
-          <ArrowLeft size={16} strokeWidth={1.75} /> Back
+      <header className="op-header is-sub">
+        <Link href="/dashboard" className="op-icon-btn" aria-label="Back">
+          <ArrowLeft strokeWidth={1.8} />
         </Link>
+        <strong className="op-header-title">Saved cards</strong>
       </header>
 
       {cards && cards.length > 0 ? (

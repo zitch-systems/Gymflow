@@ -7194,6 +7194,19 @@ body::after {
   .op-icon-btn { width: 34px; height: 34px; }
   .op-icon-btn svg { width: 20px; height: 20px; }
 }
+
+/* Sub-page header variant — back button on the left, centered title.
+   Use on detail/receipt/checkin pages where the avatar+greeting pattern
+   doesn't fit (those are "stack frames" not main tabs). */
+.op-header.is-sub { justify-content: flex-start; }
+.op-header.is-sub .op-header-title {
+  flex: 1; text-align: center;
+  font-family: var(--gf-font-display);
+  font-size: 1.05rem; font-weight: 700; color: var(--op-text);
+  letter-spacing: -0.01em;
+  margin-right: 36px; /* visually centers by counter-balancing the back btn */
+}
+.op-header.is-sub.has-action .op-header-title { margin-right: 0; }
 .op-header-avatar {
   position: relative;
   width: 42px; height: 42px; border-radius: 50%;
