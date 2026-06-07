@@ -32,12 +32,27 @@ full 33-table schema + RLS already present). Done:
   `/dashboard` (status/checkins/unread), `/dashboard/inbox`, `/dashboard/profile`.
 - `.env.local` has the real URL + anon key (gitignored); `.env.example` tracked.
 
-Still to wire (swap static arrays for queries + gate):
-- Member: `/classes`, `/checkin` (+ self-checkin action), `/dashboard/wallet` (+`/[id]`), `/dashboard/renew`.
-- Admin (11), Instructor (7), Superadmin (8) — gate via their layouts (`requireStaff`/`requireInstructor`/`requirePlatformAdmin`) once test staff accounts exist, then wire each page.
-- **Paystack** subscription/renew flow + webhook (service-role writes to `payments`/`member_subscriptions`).
-- **Subdomain** multi-tenancy in `middleware.ts` (`{slug}.gymflow.ng` → gym) if multi-gym is needed; current DAL resolves the user's gym from their links.
-- Seed/known **test accounts** (member/owner/instructor/platform) so each gated surface is previewable. `SUPABASE_SERVICE_ROLE_KEY` must be set for admin-client paths.
+**All four surfaces are gated** (member/admin/coach/superadmin layouts call
+the role gates). **Demo logins** (password `Gymflow2026!`): member@ifitness.com
+→ /dashboard · admin@ifitness.com → /admin · instructor@ifitness.com → /coach ·
+admin@gymflow.ng → /superadmin. Each lands on a **real, data-backed** screen.
+
+Data-wired so far:
+- Member: dashboard, inbox, profile, wallet (+receipt), check-in (write).
+- Admin: dashboard (KPIs), members, wallet, staff, pricing.
+- Coach: today (sessions/clients/earnings).
+- Superadmin: overview (counts), gyms (live GymTable).
+
+Still to wire (swap sample arrays for queries — pattern is identical, copy an
+already-wired page):
+- Member: `/classes`, `/renew`.
+- Admin: analytics, classes, reminders, operations, staff-checkin, settings.
+- Coach: classes, clients, attendance, earnings, payouts, settings.
+- Superadmin: members, revenue, onboard, audit, support, settings.
+- **Paystack** subscription/renew + webhook → needs `SUPABASE_SERVICE_ROLE_KEY`
+  (server-only) set in env; writes go through `lib/supabase/admin.ts`.
+- **Subdomain** multi-tenancy in `middleware.ts` if multi-gym selection is wanted
+  (DAL currently resolves the user's gym from their links).
 
 > Note: gating means previewing now needs a real login — sign up at `/signup`
 > or seed a test member. The `SET SERVICE_ROLE` key is required for Paystack/
