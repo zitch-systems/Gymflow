@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { requireInstructor } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
@@ -40,12 +41,11 @@ export default async function CoachClientDetailPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">{member.full_name ?? member.email ?? 'Member'}</h1>
-          <p className="gf-page-subtitle">{member.email ?? member.phone ?? ''}</p>
-        </div>
-        <Link href="/coach/clients" className="gf-btn gf-btn-ghost gf-btn-sm">Back</Link>
+      <header className="op-header is-sub">
+        <Link href="/coach/clients" className="op-icon-btn" aria-label="Back to clients">
+          <ArrowLeft strokeWidth={1.8} />
+        </Link>
+        <strong className="op-header-title">{member.full_name ?? member.email ?? 'Member'}</strong>
       </header>
 
       <section className="gf-card">

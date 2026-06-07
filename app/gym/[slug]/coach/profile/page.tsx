@@ -56,18 +56,23 @@ export default async function CoachProfilePage({ params }: PageProps) {
   const avatarInitial = (profile?.full_name ?? profile?.email ?? 'C').charAt(0).toUpperCase();
 
   return (
-    <div className="gf-page">
-      <div className="page-h">
-        <div>
-          <h1>Profile</h1>
-          <p>{displayName} · {sharePct}% revenue share with {gym.name}</p>
+    <div className="op-mobile gf-page">
+      <header className="op-header">
+        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+          <span>{avatarInitial}</span>
+        </Link>
+        <div className="op-header-greet">
+          {displayName}
+          <small>{sharePct}% share with {gym.name}</small>
         </div>
-        <form action={signOut}>
-          <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm">
-            <LogOut size={14} strokeWidth={1.9} /> Sign out
-          </button>
-        </form>
-      </div>
+        <div className="op-header-actions">
+          <form action={signOut}>
+            <button type="submit" className="op-icon-btn" aria-label="Sign out" title="Sign out">
+              <LogOut strokeWidth={1.8} />
+            </button>
+          </form>
+        </div>
+      </header>
 
       <div className="panel">
         <div className="panel-title">Public profile</div>

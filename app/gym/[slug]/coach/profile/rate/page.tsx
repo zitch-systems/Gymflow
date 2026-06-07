@@ -24,14 +24,11 @@ export default async function CoachRatePage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal member-app">
-      <header className="member-header">
-        <div>
-          <h1 className="gf-page-title">Session rate</h1>
-          <p className="gf-page-subtitle">Your monthly subscription price. You keep {gym.instructor_revenue_share_pct ?? 50}% of every payment.</p>
-        </div>
-        <Link href="/coach/profile" className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Back to profile">
-          <ArrowLeft size={16} strokeWidth={1.75} /> Back
+      <header className="op-header is-sub">
+        <Link href="/coach/profile" className="op-icon-btn" aria-label="Back to profile">
+          <ArrowLeft strokeWidth={1.8} />
         </Link>
+        <strong className="op-header-title">Session rate</strong>
       </header>
 
       <Card>
