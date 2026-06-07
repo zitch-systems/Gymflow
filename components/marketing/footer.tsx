@@ -14,28 +14,23 @@ export function MarketingFooter() {
             <span>Gym<span className="marketing-logo-em">Flow</span></span>
           </Link>
           <p className="mk-footer-tag">Modern gym management for Nigerian fitness businesses.</p>
-          <p className="mk-footer-tag mk-footer-muted">41 Ogudu Road, Lagos · hello@gymflow.ng</p>
         </div>
         <div className="mk-footer-col">
           <h4>Product</h4>
           <Link href="/features">Features</Link>
           <Link href="/pricing">Pricing</Link>
-          <Link href="/signup">Get started</Link>
+          <Link href="/about">Gallery</Link>
+        </div>
+        <div className="mk-footer-col">
+          <h4>Account</h4>
+          <Link href="/signup">Launch your gym</Link>
           <Link href="/login">Sign in</Link>
         </div>
         <div className="mk-footer-col">
-          <h4>Company</h4>
-          <Link href="/about">About</Link>
-          <Link href="/gallery">Gallery</Link>
-          <Link href="/contact">Contact</Link>
-          <Link href="/careers">Careers</Link>
-        </div>
-        <div className="mk-footer-col">
-          <h4>Legal</h4>
-          <Link href="/legal#privacy">Privacy</Link>
-          <Link href="/legal#terms">Terms</Link>
-          <Link href="/legal#waiver">Waiver</Link>
-          <Link href="/legal#security">Security</Link>
+          <h4>Get in touch</h4>
+          <a href="mailto:hello@gymflow.ng">hello@gymflow.ng</a>
+          <a href="tel:+2348166938327">0816 693 8327</a>
+          <span className="mk-footer-muted">41 Ogudu Road, Lagos</span>
         </div>
       </div>
       <div className="container mk-footer-bottom">
