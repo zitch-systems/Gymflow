@@ -38,15 +38,14 @@ the role gates). **Demo logins** (password `Gymflow2026!`): member@ifitness.com
 admin@gymflow.ng → /superadmin. Each lands on a **real, data-backed** screen.
 
 Data-wired so far:
-- Member: dashboard, inbox, profile, wallet (+receipt), check-in (write).
-- Admin: dashboard (KPIs), members, wallet, staff, pricing.
+- **Member: ALL pages** — dashboard, classes, check-in (write), wallet (+receipt), renew, inbox, profile.
+- **Admin: 10/11** — dashboard, members, classes, staff-checkin, instructors(staff), pricing, reminders, operations, wallet, settings. (analytics still sample charts.)
 - Coach: today (sessions/clients/earnings).
 - Superadmin: overview (counts), gyms (live GymTable).
 
 Still to wire (swap sample arrays for queries — pattern is identical, copy an
 already-wired page):
-- Member: `/classes`, `/renew`.
-- Admin: analytics, classes, reminders, operations, staff-checkin, settings.
+- Admin: analytics (charts — KPIs easy, chart series need aggregation).
 - Coach: classes, clients, attendance, earnings, payouts, settings.
 - Superadmin: members, revenue, onboard, audit, support, settings.
 - **Paystack** subscription/renew + webhook → needs `SUPABASE_SERVICE_ROLE_KEY`
