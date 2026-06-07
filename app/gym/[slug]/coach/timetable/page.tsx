@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireInstructor } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -53,13 +54,17 @@ export default async function CoachTimetablePage({ params }: PageProps) {
   const daysCovered = new Set(slots.map((s) => s.day_of_week)).size;
 
   return (
-    <div className="gf-page">
-      <div className="page-h">
-        <div>
-          <h1>My timetable</h1>
-          <p>{totalWeekly} session{totalWeekly === 1 ? '' : 's'}/week at {gym.name} · {totalHours} coaching hour{totalHours === 1 ? '' : 's'}</p>
+    <div className="op-mobile gf-page">
+      <header className="op-header">
+        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+          <span>C</span>
+        </Link>
+        <div className="op-header-greet">
+          Schedule
+          <small>{totalWeekly} session{totalWeekly === 1 ? '' : 's'}/wk · {totalHours}h at {gym.name}</small>
         </div>
-      </div>
+        <div className="op-header-actions" />
+      </header>
 
       <section className="kpis">
         <Stat label="Sessions / week" value={totalWeekly} accent="emerald" icon={CalendarDays} />

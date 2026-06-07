@@ -81,18 +81,25 @@ export default async function CoachDashboard({ params }: PageProps) {
 
   const todayLabel = new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  const coachInitial = (profile?.full_name ?? user.email ?? 'C').charAt(0).toUpperCase();
+  const coachName = firstName(profile?.full_name ?? profile?.first_name, 'coach');
+
   return (
-    <div className="gf-page">
-      <div className="page-h">
-        <div>
-          <h1>Today&apos;s lineup, <span style={{ color: 'var(--gf-brand)' }}>{firstName(profile?.full_name ?? profile?.first_name, 'coach')}</span></h1>
-          <p>
-            {todayLabel}
-            {(todaySessions ?? []).length > 0 ? ` · ${(todaySessions ?? []).length} session${(todaySessions ?? []).length === 1 ? '' : 's'} scheduled` : ' · no sessions today'}
-            {monthRevenue > 0 ? ` · ${fmtNaira(myCut)} your share this month` : ''}
-          </p>
+    <div className="op-mobile gf-page">
+      <header className="op-header">
+        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+          <span>{coachInitial}</span>
+        </Link>
+        <div className="op-header-greet">
+          Hi, {coachName}
+          <small>{todayLabel}{(todaySessions ?? []).length > 0 ? ` · ${(todaySessions ?? []).length} session${(todaySessions ?? []).length === 1 ? '' : 's'} today` : ''}</small>
         </div>
-      </div>
+        <div className="op-header-actions">
+          <Link href="/coach/timetable" className="op-icon-btn" aria-label="Full schedule">
+            <CalendarCheck strokeWidth={1.8} />
+          </Link>
+        </div>
+      </header>
 
       <section className="kpis">
         <Stat label="Sessions today" value={(todaySessions ?? []).length} accent="emerald" icon={CalendarCheck} />

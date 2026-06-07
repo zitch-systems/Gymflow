@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireInstructor } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { ClassAttendanceRow } from './class-attendance-row';
@@ -78,13 +79,17 @@ export default async function CoachAttendancePage({ params }: PageProps) {
   const eligibleCount = eligible.size;
 
   return (
-    <div className="gf-page">
-      <div className="page-h">
-        <div>
-          <h1>Attendance</h1>
-          <p>{now.toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })} · {totalClassesToday} class{totalClassesToday === 1 ? '' : 'es'} · {totalSessions} PT session{totalSessions === 1 ? '' : 's'}</p>
+    <div className="op-mobile gf-page">
+      <header className="op-header">
+        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+          <span>C</span>
+        </Link>
+        <div className="op-header-greet">
+          Attendance
+          <small>{totalClassesToday} class{totalClassesToday === 1 ? '' : 'es'} · {totalSessions} PT today</small>
         </div>
-      </div>
+        <div className="op-header-actions" />
+      </header>
 
       <section className="kpis">
         <Stat label="Group classes today" value={totalClassesToday} accent="emerald" icon={CalendarCheck} />

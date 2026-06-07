@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireInstructor } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, fmtNaira } from '@/lib/format';
@@ -76,13 +77,17 @@ export default async function CoachEarningsPage({ params }: PageProps) {
   const monthLabel = monthStart.toLocaleDateString('en-NG', { month: 'long' });
 
   return (
-    <div className="gf-page">
-      <div className="page-h">
-        <div>
-          <h1>Earnings</h1>
-          <p>{monthLabel} · {fmtNaira(monthShare)} earned · {sharePct}% revenue share with {gym.name}</p>
+    <div className="op-mobile gf-page">
+      <header className="op-header">
+        <Link href="/coach/profile" className="op-header-avatar" aria-label="Profile">
+          <span>C</span>
+        </Link>
+        <div className="op-header-greet">
+          Earnings
+          <small>{monthLabel} · {fmtNaira(monthShare)} earned · {sharePct}% share</small>
         </div>
-      </div>
+        <div className="op-header-actions" />
+      </header>
 
       <section className="kpis">
         <Stat
