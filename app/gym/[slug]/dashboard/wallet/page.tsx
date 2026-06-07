@@ -106,21 +106,27 @@ export default async function WalletPage({ params }: PageProps) {
 
   return (
     <div className="op-mobile member-portal member-app">
-      <header className="m-head" style={{ paddingBottom: 10 }}>
-        <strong className="htitle">Wallet</strong>
-        <Link
-          href="/dashboard/inbox"
-          className="m-head-bell"
-          aria-label={unreadCount > 0 ? `Inbox · ${unreadCount} unread` : 'Inbox'}
-          style={{ marginLeft: 'auto' }}
-        >
-          <Bell size={18} strokeWidth={1.9} />
-          {unreadCount > 0 ? (
-            <span className="m-head-bell-badge" aria-hidden>
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          ) : null}
+      {/* OPay-style header (matches /dashboard) for consistent app chrome. */}
+      <header className="op-header">
+        <Link href="/dashboard/profile" className="op-header-avatar" aria-label="Profile">
+          <span>{(user.email ?? 'M').charAt(0).toUpperCase()}</span>
         </Link>
+        <div className="op-header-greet">
+          Wallet
+          <small>{gym.name}</small>
+        </div>
+        <div className="op-header-actions">
+          <Link
+            href="/dashboard/inbox"
+            className="op-icon-btn"
+            aria-label={unreadCount > 0 ? `Inbox · ${unreadCount} unread` : 'Inbox'}
+          >
+            <Bell strokeWidth={1.8} />
+            {unreadCount > 0 && (
+              <span className="op-icon-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+            )}
+          </Link>
+        </div>
       </header>
 
       {/* Headline = real lifetime spend, not a stored-value balance — GymFlow

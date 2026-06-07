@@ -34,7 +34,8 @@ export async function signUpMember(page: Page, member: TestMember) {
 
 export async function signIn(page: Page, email: string, password: string) {
   await page.goto('/login');
-  await page.getByLabel('Email address').fill(email);
+  // Label is "Email" (singular) on the OPay-style auth form.
+  await page.getByLabel('Email', { exact: true }).fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole('button', { name: /sign in/i }).click();
 }

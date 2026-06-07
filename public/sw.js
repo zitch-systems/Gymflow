@@ -1,7 +1,8 @@
-// GymFlow Service Worker v8 — Next.js App Router
-// Bumped from v7 to evict caches from before PRs #35/#36; old SW served
-// pre-hotfix HTML/CSS where the auth brand panel didn't collapse on mobile.
-const VERSION = 'gymflow-v8';
+// GymFlow Service Worker v9 — Next.js App Router
+// Bumped from v8 to evict caches from before PRs #38/#39 so returning visitors
+// get the OPay mobile redesign (.op-mobile shell on every member+coach page,
+// sticky header, the pixel-rewritten dashboard) on next visit.
+const VERSION = 'gymflow-v9';
 const STATIC_CACHE = VERSION + '-static';
 const RUNTIME_CACHE = VERSION + '-runtime';
 

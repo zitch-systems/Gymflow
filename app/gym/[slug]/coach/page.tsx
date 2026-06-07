@@ -70,10 +70,12 @@ export default async function CoachDashboard({ params }: PageProps) {
       .order('scheduled_at', { ascending: true }),
   ]);
 
-  // Coach share comes from instructor_rates / gym configuration in a fuller
-  // build; for the dashboard headline we approximate with a fixed 70% share
-  // of the subscription revenue collected for sessions this month.
-  const COACH_SHARE_PCT = 70;
+  // Coach share = the gym-wide instructor_revenue_share_pct (set by the gym
+  // owner in admin settings). Falls back to 70% if the gym hasn't set one,
+  // keeping the legacy dashboard headline number for gyms that pre-date the
+  // setting. Per-instructor overrides would live alongside this field if
+  // they're ever added.
+  const COACH_SHARE_PCT = Number(gym.instructor_revenue_share_pct ?? 70);
   const monthRevenue = (monthSubs ?? []).reduce((s, m) => s + Number(m.amount_paid ?? 0), 0);
   const myCut = (monthRevenue * COACH_SHARE_PCT) / 100;
 
