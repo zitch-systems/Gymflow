@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireMember } from '@/lib/auth/gym';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
-import { Card, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ArrowLeft, Dumbbell } from 'lucide-react';
 import { PtPackBuyButton } from './buy-button';

@@ -158,19 +158,19 @@ export default async function AdminInstructorsPage({ params }: PageProps) {
             {roleRows.length === 0 ? (
               <div className="sub">No active staff yet.</div>
             ) : (
-              <div className="att">
+              <div className="role-grid">
                 {roleRows.map((r) => {
                   const style = ROLE_ICON_STYLE[r.key] ?? { fg: 'var(--gf-text-muted)', bg: 'var(--gf-elevated)' };
                   return (
-                    <div key={r.key} className="att-row">
-                      <span className="gf-avatar gf-avatar-sm" style={{ background: style.bg, color: style.fg, borderColor: 'transparent' }}>
+                    <div key={r.key} className="role-row">
+                      <span className="ic" style={{ background: style.bg, color: style.fg }}>
                         {ROLE_LABEL[r.key]?.charAt(0) ?? '?'}
                       </span>
-                      <span className="att-meta">
+                      <div className="m">
                         <strong>{ROLE_LABEL[r.key] ?? r.key}</strong>
-                        <small style={{ color: 'var(--gf-text-muted)' }}>{ROLE_DESC[r.key] ?? ''}</small>
-                      </span>
-                      <span className="cap-num" style={{ fontSize: '0.9rem' }}>{r.count}</span>
+                        <small>{ROLE_DESC[r.key] ?? ''}</small>
+                      </div>
+                      <span className="ct">{r.count}</span>
                     </div>
                   );
                 })}

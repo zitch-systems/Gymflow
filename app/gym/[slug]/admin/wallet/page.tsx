@@ -4,8 +4,7 @@ import { fmtNaira, fmtDate, fmtDateTime } from '@/lib/format';
 import { daysAgoDate, todayDate } from '@/lib/dates';
 import { WalletFilters } from './wallet-filters';
 import { ExportPaymentsCsvButton } from './export-csv-button';
-import { Stat } from '@/components/ui/stat';
-import { CreditCard, BanknoteArrowUp, Hourglass, BanknoteX } from 'lucide-react';
+import { CreditCard, Hourglass, BanknoteX, Wallet } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -61,10 +60,35 @@ export default async function AdminWalletPage({ params, searchParams }: PageProp
         <ExportPaymentsCsvButton slug={slug} from={from} to={to} method={method || undefined} status={status || undefined} />
       </div>
 
-      <section className="kpis" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-        <Stat label="Collected" value={fmtNaira(totals.success)} icon={BanknoteArrowUp} accent="emerald" />
-        <Stat label="Pending" value={fmtNaira(totals.pending)} icon={Hourglass} accent="amber" />
-        <Stat label="Failed" value={fmtNaira(totals.failed)} icon={BanknoteX} accent="rose" />
+      {/* Prototype .wtop: 1.1fr left .balance gradient hero + 1fr right .wstats
+          stack of small stat tiles. Reads "collected" as the headline since
+          GymFlow is a settlement aggregator (no stored-value float). */}
+      <section className="wtop">
+        <div className="balance">
+          <small><Wallet size={13} strokeWidth={2} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: 4 }} /> Collected · {fmtDate(from)} → {fmtDate(to)}</small>
+          <div className="amt">{fmtNaira(totals.success)}</div>
+          <div className="sub">{totals.count} payment{totals.count === 1 ? '' : 's'} via {gym.paystack_subaccount_code ? 'your Paystack subaccount' : 'GymFlow (subaccount not connected)'}</div>
+        </div>
+        <div className="wstats">
+          <div className="ws">
+            <div className="ic" style={{ background: 'var(--gf-warning-soft)', color: 'var(--gf-warning)' }}>
+              <Hourglass strokeWidth={1.8} />
+            </div>
+            <div>
+              <div className="v">{fmtNaira(totals.pending)}</div>
+              <div className="l">Pending settlement</div>
+            </div>
+          </div>
+          <div className="ws">
+            <div className="ic" style={{ background: 'var(--gf-danger-soft)', color: 'var(--gf-danger)' }}>
+              <BanknoteX strokeWidth={1.8} />
+            </div>
+            <div>
+              <div className="v">{fmtNaira(totals.failed)}</div>
+              <div className="l">Failed</div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <div className="panel">
