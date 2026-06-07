@@ -7482,3 +7482,55 @@ body::after {
   .kpi, .panel { border-radius: var(--op-radius); box-shadow: var(--op-shadow); }
 }
 
+/* ── Admin / superadmin OPay polish (CSS-only — no per-page tsx changes) ── */
+
+/* Topbar — match OPay header proportions on mobile. White surface, soft
+   shadow under, no thick border. The desktop look is preserved above 1024px
+   where the sidebar shows. */
+@media (max-width: 1024px) {
+  .gf-topbar {
+    background: var(--op-card-bg);
+    border-bottom: 1px solid var(--op-border);
+    box-shadow: 0 1px 0 rgba(15,23,42,0.02);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .gf-topbar-title { color: var(--op-text); font-weight: 700; }
+}
+
+/* Mobile bottom tab bar (admin variant) — restyle to match the OPay
+   member/coach nav: white surface, soft top shadow, green pill above the
+   active tab, 5-col grid, larger tap area. */
+.gf-admin-tabbar {
+  background: var(--op-card-bg) !important;
+  border-top: 1px solid var(--op-border) !important;
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04) !important;
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr) !important;
+  height: calc(var(--op-nav-h) + env(safe-area-inset-bottom, 0px)) !important;
+}
+.gf-admin-tabbar .gf-nav-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 8px 4px;
+  color: var(--op-text-muted); text-decoration: none;
+  font-size: 0.66rem; font-weight: 600;
+  position: relative;
+  background: transparent; border: none; cursor: pointer;
+  transition: color 120ms;
+  min-width: 0; /* override the gf-admin-tabbar override */
+}
+.gf-admin-tabbar .gf-nav-tab svg { width: 22px; height: 22px; stroke-width: 1.9; }
+.gf-admin-tabbar .gf-nav-tab.active { color: var(--op-icon); }
+.gf-admin-tabbar .gf-nav-tab.active::before {
+  content: ''; position: absolute; top: 6px;
+  width: 26px; height: 4px; border-radius: 99px;
+  background: var(--op-icon);
+}
+
+/* Page header (.page-h) inside .gf-page — drop the heavy bottom border on
+   phones, tighten the title size so it fits the OPay scale. */
+@media (max-width: 640px) {
+  .page-h { border-bottom: 0; padding-bottom: 4px; margin-bottom: 8px; gap: 8px; }
+  .page-h h1 { font-size: 1.25rem; letter-spacing: -0.01em; }
+  .page-h p { font-size: 0.82rem; color: var(--op-text-muted); }
+  .page-h .actions { gap: 8px; }
+}
