@@ -1,0 +1,78 @@
+/* ============================================================================
+   GymFlow — shared popup system (gfui-*). Modal · drawer · confirm · form.
+   Injected by ui.js. Uses gf-* tokens; reuses gf-form-* / gf-btn for fields.
+   Prefixed to avoid colliding with page-local .modal/.overlay/.drawer.
+   ============================================================================ */
+.gfui-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+           opacity: 0; pointer-events: none; transition: opacity .22s var(--gf-ease-std); z-index: 1400;
+           display: flex; align-items: center; justify-content: center; padding: 20px; }
+.gfui-bg.open { opacity: 1; pointer-events: auto; }
+
+/* centered modal */
+.gfui-modal { width: 100%; max-width: 460px; max-height: calc(100vh - 48px); display: flex; flex-direction: column;
+              background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-xl);
+              box-shadow: var(--gf-shadow-lg); overflow: hidden; transform: translateY(14px) scale(0.98); opacity: 0;
+              transition: transform .28s var(--gf-ease-spring), opacity .2s var(--gf-ease-std); }
+.gfui-bg.open .gfui-modal { transform: none; opacity: 1; }
+
+.gfui-h { display: flex; align-items: center; gap: 13px; padding: 18px 20px; border-bottom: 1px solid var(--gf-border); flex-shrink: 0; }
+.gfui-h .gfui-ic { width: 40px; height: 40px; border-radius: 12px; background: var(--gf-brand-soft); color: var(--gf-brand); display: grid; place-items: center; flex-shrink: 0; }
+.gfui-h .gfui-ic.danger { background: var(--gf-danger-soft); color: var(--gf-danger); }
+.gfui-h .gfui-ic.accent { background: var(--gf-accent-soft); color: var(--gf-accent-dark); }
+.gfui-h .gfui-ic i { width: 20px; height: 20px; }
+.gfui-h .gfui-tt { flex: 1; min-width: 0; }
+.gfui-h h3 { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.1rem; letter-spacing: -0.01em; margin: 0; line-height: 1.25; }
+.gfui-h p { color: var(--gf-text-muted); font-size: 0.8rem; margin: 2px 0 0; }
+.gfui-x { width: 34px; height: 34px; border-radius: var(--gf-radius-xs); border: 1px solid var(--gf-border); background: var(--gf-elevated);
+          color: var(--gf-text-secondary); display: grid; place-items: center; cursor: pointer; flex-shrink: 0; transition: all var(--gf-t-fast); }
+.gfui-x:hover { color: var(--gf-text); border-color: var(--gf-border-light); }
+.gfui-x i { width: 16px; height: 16px; }
+
+.gfui-b { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+.gfui-b .gfui-text { color: var(--gf-text-secondary); font-size: 0.9rem; line-height: 1.6; margin: 0; }
+.gfui-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+@media (max-width: 460px) { .gfui-grid2 { grid-template-columns: 1fr; } }
+
+.gfui-f { padding: 15px 20px; border-top: 1px solid var(--gf-border); display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0; }
+.gfui-f .gf-btn { min-width: 0; }
+
+/* detail rows used in drawers / info modals */
+.gfui-rows { display: flex; flex-direction: column; }
+.gfui-rows .r { display: flex; justify-content: space-between; gap: 14px; padding: 12px 0; border-top: 1px solid var(--gf-border); font-size: 0.875rem; }
+.gfui-rows .r:first-child { border-top: none; }
+.gfui-rows .r span { color: var(--gf-text-muted); }
+.gfui-rows .r b { font-family: var(--gf-font-display); font-weight: 600; color: var(--gf-text); text-align: right; }
+
+/* right-side drawer */
+.gfui-drawer { position: fixed; top: 0; right: 0; height: 100%; width: 440px; max-width: 92vw; background: var(--gf-surface);
+               border-left: 1px solid var(--gf-border); box-shadow: var(--gf-shadow-lg); transform: translateX(102%);
+               transition: transform .32s var(--gf-ease-out); z-index: 1401; display: flex; flex-direction: column; }
+.gfui-drawer.open { transform: none; }
+.gfui-drawer .gfui-b { flex: 1; }
+
+/* identity block (drawer header detail) */
+.gfui-id { display: flex; align-items: center; gap: 13px; }
+.gfui-id .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); }
+.gfui-id strong { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.05rem; display: block; }
+.gfui-id small { color: var(--gf-text-muted); font-size: 0.78rem; }
+
+/* segmented choice (used in some forms) */
+.gfui-seg { display: flex; gap: 8px; flex-wrap: wrap; }
+.gfui-seg button { border: 1.5px solid var(--gf-border); background: var(--gf-elevated); color: var(--gf-text-secondary);
+                   font-family: var(--gf-font-display); font-weight: 600; font-size: 0.82rem; padding: 9px 14px; border-radius: var(--gf-radius-pill); cursor: pointer; transition: all var(--gf-t-fast); }
+.gfui-seg button.on { border-color: var(--gf-brand); background: var(--gf-brand-soft); color: var(--gf-brand); }
+
+/* tiny note line */
+.gfui-note { display: flex; align-items: center; gap: 7px; color: var(--gf-text-muted); font-size: 0.78rem; }
+.gfui-note i { width: 14px; height: 14px; }
+
+/* success check used after a flow */
+.gfui-done { text-align: center; padding: 8px 0 4px; }
+.gfui-done .ring { width: 76px; height: 76px; border-radius: 50%; background: var(--gf-brand-soft); border: 2px solid var(--gf-brand-glow);
+                   display: grid; place-items: center; margin: 0 auto 14px; animation: gfui-pop .5s var(--gf-ease-spring); }
+.gfui-done .ring i { width: 36px; height: 36px; color: var(--gf-brand); }
+@keyframes gfui-pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+/* export spinner */
+.gfui-spin { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--gf-border); border-top-color: var(--gf-brand); animation: gfui-rot .7s linear infinite; }
+@keyframes gfui-rot { to { transform: rotate(360deg); } }

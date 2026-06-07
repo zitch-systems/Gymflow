@@ -1,0 +1,77 @@
+/* ============================================================================
+   GymFlow — shared AUTH chrome. Brand-split layout for login + recovery flow.
+   Used by login.html, forgot-password.html, reset-password.html.
+   Builds on revamp.css (gf-* tokens). Dark-first.
+   ============================================================================ */
+body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; }
+
+/* Brand panel (left) */
+.brandside { position: relative; overflow: hidden; padding: 44px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--gf-border); }
+.brandside-bg { position: absolute; inset: 0; background: url(../assets/gym-studio.jpg) center/cover; opacity: 0.28; }
+.brandside-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, var(--gf-brand-soft), transparent 40%), linear-gradient(0deg, var(--gf-bg) 5%, transparent 60%); }
+.brandside > * { position: relative; }
+.bs-quote { max-width: 440px; }
+.bs-quote .stars { display: flex; gap: 3px; color: var(--gf-accent); margin-bottom: 16px; }
+.bs-quote .stars i { width: 18px; height: 18px; fill: var(--gf-accent); }
+.bs-quote p { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 700; line-height: 1.3; letter-spacing: -0.02em; margin: 0 0 18px; }
+.bs-quote .by { display: flex; align-items: center; gap: 12px; }
+.bs-quote .by .gf-avatar { background: var(--gf-brand-soft); color: var(--gf-brand); border-color: var(--gf-brand-glow); }
+.bs-quote .by strong { font-family: var(--gf-font-display); display: block; }
+.bs-quote .by small { color: var(--gf-text-secondary); }
+.bs-stats { display: flex; gap: 36px; margin-top: 30px; }
+.bs-stats dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gf-text-muted); font-weight: 600; }
+.bs-stats dd { font-family: var(--gf-font-display); font-size: 1.5rem; font-weight: 800; margin: 4px 0 0; color: var(--gf-brand); }
+
+/* Form panel (right) */
+.formside { display: flex; align-items: center; justify-content: center; padding: 44px; }
+.formcard { width: 100%; max-width: 380px; }
+.formcard h1 { font-family: var(--gf-font-display); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin: 26px 0 6px; }
+.formcard .lede { color: var(--gf-text-secondary); font-size: 0.92rem; margin: 0 0 24px; line-height: 1.5; }
+.tabs { display: flex; gap: 4px; background: var(--gf-elevated); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-pill); padding: 4px; margin-bottom: 22px; }
+.tabs button { flex: 1; border: none; background: transparent; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.875rem; padding: 9px; border-radius: var(--gf-radius-pill); cursor: pointer; transition: all var(--gf-t); }
+.tabs button.on { background: var(--gf-brand); color: #fff; box-shadow: 0 2px 10px var(--gf-brand-glow); }
+.field { margin-bottom: 14px; }
+.row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 22px; }
+.row label { display: flex; align-items: center; gap: 7px; color: var(--gf-text-secondary); font-size: 0.84rem; cursor: pointer; }
+.row a { color: var(--gf-brand); font-size: 0.84rem; text-decoration: none; font-weight: 600; }
+.divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; color: var(--gf-text-muted); font-size: 0.78rem; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--gf-border); }
+.roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.role-btn { display: flex; align-items: center; gap: 9px; padding: 11px 13px; border-radius: var(--gf-radius-sm); background: var(--gf-elevated); border: 1px solid var(--gf-border); color: var(--gf-text); text-decoration: none; font-family: var(--gf-font-display); font-weight: 600; font-size: 0.82rem; transition: all var(--gf-t); }
+.role-btn:hover { border-color: var(--gf-brand); color: var(--gf-brand); transform: translateY(-1px); }
+.role-btn i { width: 16px; height: 16px; }
+.foot-note { text-align: center; color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 24px; }
+.foot-note a { color: var(--gf-brand); text-decoration: none; font-weight: 600; }
+
+/* ── back link ── */
+.back-link { display: inline-flex; align-items: center; gap: 7px; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.84rem; text-decoration: none; margin-top: 22px; transition: color var(--gf-t); }
+.back-link:hover { color: var(--gf-text); }
+.back-link i { width: 15px; height: 15px; }
+
+/* ── lock badge (recovery hero) ── */
+.lock-badge { width: 56px; height: 56px; border-radius: 16px; background: var(--gf-brand-soft); border: 1px solid var(--gf-border-glow); display: grid; place-items: center; color: var(--gf-brand); }
+.lock-badge i { width: 26px; height: 26px; }
+
+/* ── success state (email sent / reset done) ── */
+.auth-done { text-align: center; }
+.auth-done .ring { width: 78px; height: 78px; border-radius: 50%; background: var(--gf-brand-soft); border: 2px solid var(--gf-brand-glow); display: grid; place-items: center; margin: 0 auto 18px; animation: auth-pop .5s var(--gf-ease-spring); }
+.auth-done .ring i { width: 38px; height: 38px; color: var(--gf-brand); }
+@keyframes auth-pop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.auth-done .em { font-family: var(--gf-font-display); font-weight: 700; color: var(--gf-text); }
+.resend { color: var(--gf-text-muted); font-size: 0.84rem; margin-top: 20px; }
+.resend a { color: var(--gf-brand); text-decoration: none; font-weight: 600; cursor: pointer; }
+
+/* ── password strength meter ── */
+.pw-meter { display: flex; gap: 5px; margin: 10px 0 4px; }
+.pw-meter span { flex: 1; height: 5px; border-radius: 99px; background: var(--gf-elevated); transition: background var(--gf-t); }
+.pw-meter.s1 span:nth-child(1) { background: var(--gf-danger); }
+.pw-meter.s2 span:nth-child(-n+2) { background: var(--gf-warning); }
+.pw-meter.s3 span:nth-child(-n+3) { background: var(--gf-accent-dark); }
+.pw-meter.s4 span { background: var(--gf-brand); }
+.pw-hint { color: var(--gf-text-muted); font-size: 0.78rem; }
+.pw-reqs { list-style: none; padding: 0; margin: 14px 0 22px; display: grid; gap: 7px; }
+.pw-reqs li { display: flex; align-items: center; gap: 8px; color: var(--gf-text-muted); font-size: 0.82rem; transition: color var(--gf-t); }
+.pw-reqs li i { width: 15px; height: 15px; }
+.pw-reqs li.ok { color: var(--gf-brand); }
+
+@media (max-width: 860px) { body.auth { grid-template-columns: 1fr; } .brandside { display: none; } }

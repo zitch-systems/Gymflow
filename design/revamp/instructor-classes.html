@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="GymFlow Revamp — Coach Classes" subtitle="Coach · Classes — weekly teaching schedule" viewport="1280x820" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Coach Classes</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .daypick { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .day { flex:1; min-width:84px; text-align:center; padding:12px 8px; border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); background:var(--gf-surface); cursor:pointer; transition:all var(--gf-t); }
+  .day.on { background:var(--gf-brand-soft); border-color:var(--gf-brand); }
+  .day b { font-family:var(--gf-font-display); font-weight:800; font-size:1.1rem; display:block; }
+  .day.on b { color:var(--gf-brand); }
+  .day span { font-size:0.7rem; color:var(--gf-text-muted); }
+  .cl { display:flex; align-items:center; gap:14px; padding:16px; border:1px solid var(--gf-border); border-radius:var(--gf-radius); margin-bottom:10px; background:var(--gf-surface); }
+  .cl .tm { width:64px; text-align:center; flex-shrink:0; }
+  .cl .tm b { font-family:var(--gf-font-display); font-weight:800; color:var(--gf-brand); display:block; font-size:1.05rem; }
+  .cl .tm span { font-size:0.66rem; color:var(--gf-text-muted); }
+  .cl .info { flex:1; min-width:0; }
+  .cl .info strong { font-family:var(--gf-font-display); font-weight:600; font-size:0.98rem; display:block; }
+  .cl .info small { color:var(--gf-text-muted); font-size:0.78rem; }
+  .capbar { height:7px; border-radius:99px; background:var(--gf-elevated); overflow:hidden; margin-top:8px; max-width:220px; }
+  .capbar div { height:100%; border-radius:99px; background:var(--gf-brand); }
+</style>
+</head>
+<body data-gf-mobile="instructor-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="coachSidebar"></aside>
+  <div class="main">
+    <header class="top" id="coachTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>Classes</h1><p>Your teaching schedule · 12 classes this week · 84% avg fill</p></div></div>
+      <div class="daypick" id="days"></div>
+      <div id="list"></div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="instructor-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat'];
+const SCHED={
+  Mon:[['06:30','Sunrise HIIT','Studio A','18/20',90],['17:30','Conditioning','Studio B','12/15',80]],
+  Tue:[['09:00','Power Lifting','Weights','12/15',80],['18:00','Spin','Cardio','22/24',92]],
+  Wed:[['06:30','Sunrise HIIT','Studio A','16/20',80]],
+  Thu:[['09:00','Power Lifting','Weights','14/15',93],['17:30','Conditioning','Studio B','9/15',60]],
+  Fri:[['06:30','Sunrise HIIT','Studio A','20/20',100],['19:00','Mobility','Studio B','7/16',44]],
+  Sat:[['10:00','Bootcamp','Outdoor','24/30',80]],
+};
+let day='Thu';
+function renderDays(){ $('#days').innerHTML=DAYS.map(d=>`<div class="day ${d===day?'on':''}" data-d="${d}"><b>${d}</b><span>${(SCHED[d]||[]).length} cls</span></div>`).join(''); $$('.day').forEach(x=>x.onclick=()=>{day=x.dataset.d;renderDays();renderList();}); }
+function renderList(){ const rows=SCHED[day]||[]; $('#list').innerHTML=rows.map(r=>`<div class="cl"><div class="tm"><b>${r[0]}</b><span>${+r[0].split(':')[0]<12?'AM':'PM'}</span></div><div class="info"><strong>${r[1]}</strong><small>${r[2]} · ${r[3]} booked</small><div class="capbar"><div style="width:${r[4]}%;background:${r[4]>=95?'var(--gf-danger)':r[4]>=80?'var(--gf-warning)':'var(--gf-brand)'}"></div></div></div><a class="gf-btn gf-btn-sm gf-btn-secondary" href="instructor-attendance.html">Roster</a></div>`).join('')||'<div style="text-align:center;color:var(--gf-text-muted);padding:30px">No classes this day.</div>'; lucide.createIcons(); }
+coachShell('classes',{search:'Search classes…',action:{label:'New class',icon:'plus',href:'#'}}); buildProto('instructor'); renderDays(); renderList(); lucide.createIcons();
+</script>
+</body>
+</html>

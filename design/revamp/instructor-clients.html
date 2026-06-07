@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="GymFlow Revamp — Coach Clients" subtitle="Coach · PT clients — packs, progress, sessions" viewport="1280x760" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — PT Clients</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .bar { height:7px; border-radius:99px; background:var(--gf-elevated); overflow:hidden; width:120px; }
+  .bar div { height:100%; border-radius:99px; background:var(--gf-brand); }
+</style>
+</head>
+<body data-gf-mobile="instructor-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="coachSidebar"></aside>
+  <div class="main">
+    <header class="top" id="coachTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>PT clients</h1><p>5 active packs · 1 expiring · ₦12K avg session</p></div></div>
+      <section class="kpis">
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#11d18b1f;color:#11d18b"><i data-lucide="dumbbell"></i></div></div><div class="kpi-val">5</div><div class="kpi-lbl">Active packs</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#4080ff1f;color:#4080ff"><i data-lucide="calendar-check"></i></div></div><div class="kpi-val">38</div><div class="kpi-lbl">Sessions this month</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ffb0201f;color:#ffb020"><i data-lucide="alert-triangle"></i></div></div><div class="kpi-val">1</div><div class="kpi-lbl">Pack expiring</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#c6f24e1f;color:#a8d92e"><i data-lucide="banknote"></i></div></div><div class="kpi-val">₦456K</div><div class="kpi-lbl">PT revenue (mo)</div></div>
+      </section>
+      <div class="panel">
+        <div class="panel-h"><div><h3>Clients</h3><div class="sub">Pack progress &amp; next session</div></div></div>
+        <table class="tbl"><thead><tr><th>Client</th><th>Pack</th><th>Progress</th><th>Next session</th><th>Status</th></tr></thead><tbody id="cbody"></tbody></table>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="instructor-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const C=[['Chidi Okeke','C',4,10,'Today 13:00','active','Active'],['Grace Udo','G',7,12,'Fri 10:00','active','Active'],['Musa Ibrahim','M',9,10,'Mon 07:00','warn','1 left'],['Bola Ade','B',2,8,'Mon 07:00','active','Active'],['Sade Koya','S',5,6,'Thu 18:00','active','Active']];
+$('#cbody').innerHTML=C.map(c=>`<tr><td><div class="who"><span class="gf-avatar gf-avatar-sm">${c[1]}</span><div><strong>${c[0]}</strong><small>1-on-1 PT</small></div></div></td><td>${c[2]}/${c[3]} sessions</td><td><div class="bar"><div style="width:${c[2]/c[3]*100}%"></div></div></td><td style="color:var(--gf-text-secondary)">${c[4]}</td><td><span class="gf-badge ${c[5]==='warn'?'gf-badge-warning':'gf-badge-success'}">${c[6]}</span></td></tr>`).join('');
+coachShell('clients',{search:'Search clients…',action:{label:'Add client',icon:'user-plus',href:'#'}}); buildProto('instructor'); lucide.createIcons();
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="GymFlow Revamp — Coach Payouts" subtitle="Coach · Payouts — balance, account, history" viewport="1280x800" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Payouts</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .wtop { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .balance { background:linear-gradient(150deg,var(--gf-brand),var(--gf-brand-dark)); border-radius:var(--gf-radius-lg); padding:24px; color:#fff; position:relative; overflow:hidden; }
+  .balance::after { content:''; position:absolute; right:-40px; top:-40px; width:170px; height:170px; background:radial-gradient(circle,rgba(255,255,255,0.16),transparent 70%); }
+  .balance small { font-size:0.74rem; opacity:0.9; text-transform:uppercase; letter-spacing:0.06em; font-weight:600; }
+  .balance .amt { font-family:var(--gf-font-display); font-size:2.4rem; font-weight:800; letter-spacing:-0.03em; margin:8px 0 2px; }
+  .balance .acts { display:flex; gap:10px; margin-top:18px; }
+  .balance .acts .gf-btn { background:#fff; color:var(--gf-brand-dark); border:none; }
+  .bankcard { background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius-lg); padding:20px; display:flex; flex-direction:column; justify-content:center; gap:6px; }
+  .bankcard .lbl { color:var(--gf-text-muted); font-size:0.74rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; }
+  .bankcard .num { font-family:var(--gf-font-mono); font-size:1.2rem; letter-spacing:1px; }
+</style>
+</head>
+<body data-gf-mobile="instructor-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="coachSidebar"></aside>
+  <div class="main">
+    <header class="top" id="coachTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>Payouts</h1><p>Weekly payouts via Paystack · next on 2 Jun</p></div></div>
+      <div class="wtop">
+        <div class="balance"><small>Pending payout</small><div class="amt">₦42,000</div><div style="font-size:0.84rem;opacity:0.92">From 3 classes + 1 PT this week</div><div class="acts"><button class="gf-btn"><i data-lucide="banknote" style="width:16px;height:16px"></i> Request early</button></div></div>
+        <div class="bankcard"><span class="lbl">Payout account</span><span class="num">GTBank •••• 8842</span><span style="color:var(--gf-text-muted);font-size:0.82rem">Coach Femi Adewale</span><a class="link" style="margin-top:6px">Change account <i data-lucide="arrow-right"></i></a></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div><h3>Payout history</h3><div class="sub">Last 6 payouts</div></div></div>
+        <table class="tbl"><thead><tr><th>Date</th><th>Period</th><th>Sessions</th><th>Status</th><th style="text-align:right">Amount</th></tr></thead><tbody id="pbody"></tbody></table>
+      </div>
+    </main>
+  </div>
+</div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="instructor-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const P=[['26 May','19–25 May',9,'paid','₦39,500'],['19 May','12–18 May',8,'paid','₦36,000'],['12 May','5–11 May',10,'paid','₦44,000'],['5 May','28 Apr–4 May',7,'paid','₦31,500'],['28 Apr','21–27 Apr',9,'paid','₦40,500'],['21 Apr','14–20 Apr',8,'paid','₦35,000']];
+$('#pbody').innerHTML=P.map(p=>`<tr><td style="font-family:var(--gf-font-display);font-weight:600">${p[0]}</td><td style="color:var(--gf-text-secondary)">${p[1]}</td><td>${p[2]}</td><td><span class="gf-badge gf-badge-success"><span class="gf-dot"></span>Paid</span></td><td style="text-align:right" class="naira">${p[4]}</td></tr>`).join('');
+coachShell('payouts',{search:'Search payouts…'}); buildProto('instructor'); lucide.createIcons();
+</script>
+</body>
+</html>

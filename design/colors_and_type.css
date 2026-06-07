@@ -1,0 +1,220 @@
+/* ============================================================================
+   GymFlow — Colors & Type
+   Source of truth: app/globals.css (`gf-*` design system) from
+   github.com/zitch-systems/Gymflow
+   Dark theme is the DEFAULT. Light theme via [data-theme="light"].
+   Fonts: Plus Jakarta Sans (display) · Inter (body) · JetBrains Mono (mono)
+   — all available on Google Fonts, no substitution required.
+   ============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ── Brand — emerald green ── */
+  --gf-brand: #11d18b;
+  --gf-brand-rgb: 17, 209, 139; /* @kind color */
+  --gf-brand-dark: #07a86c;
+  --gf-brand-light: #4fe3a8;
+  --gf-brand-glow: rgba(17, 209, 139, 0.28);
+  --gf-brand-soft: rgba(17, 209, 139, 0.10);
+
+  /* ── Secondary — volt lime (energy accent) ── */
+  --gf-accent: #c6f24e;
+  --gf-accent-rgb: 198, 242, 78; /* @kind color */
+  --gf-accent-dark: #a8d92e;
+  --gf-accent-glow: rgba(198, 242, 78, 0.24);
+  --gf-accent-soft: rgba(198, 242, 78, 0.10);
+
+  /* ── Aliases ── */
+  --gf-primary: var(--gf-brand);
+  --gf-primary-rgb: var(--gf-brand-rgb); /* @kind color */
+  --gf-primary-dark: var(--gf-brand-dark);
+  --gf-primary-glow: var(--gf-brand-glow);
+  --gf-primary-soft: var(--gf-brand-soft);
+
+  /* ── Dark surfaces — near-black with a cool violet undertone ── */
+  --gf-bg: #0a0a12;
+  --gf-bg-rgb: 10, 10, 18; /* @kind color */
+  --gf-surface: #12121e;
+  --gf-surface-rgb: 18, 18, 30; /* @kind color */
+  --gf-elevated: #1b1b2b;
+  --gf-elevated-rgb: 27, 27, 43; /* @kind color */
+  --gf-border: #2a2a40;
+  --gf-border-light: #3d3d5a;
+  --gf-border-glow: rgba(17, 209, 139, 0.16);
+
+  /* ── Text ── */
+  --gf-text: #f3f3fa;
+  --gf-text-secondary: #9b9bb8;
+  --gf-text-muted: #6a6a86;
+  --gf-text-subtle: #3c3c54;
+
+  /* ── Semantic ── */
+  --gf-danger: #ff4560;
+  --gf-danger-rgb: 255, 69, 96; /* @kind color */
+  --gf-danger-soft: rgba(255, 69, 96, 0.08);
+  --gf-warning: #ffb020;
+  --gf-warning-rgb: 255, 176, 32; /* @kind color */
+  --gf-warning-soft: rgba(255, 176, 32, 0.08);
+  --gf-info: #4080ff;
+  --gf-info-rgb: 64, 128, 255; /* @kind color */
+  --gf-info-soft: rgba(64, 128, 255, 0.08);
+  --gf-success: #00c896;
+  --gf-success-rgb: 0, 200, 150; /* @kind color */
+  --gf-success-soft: rgba(17, 209, 139, 0.08);
+
+  /* ── Shape / radius ── */
+  --gf-radius-xs: 8px;
+  --gf-radius-sm: 12px;
+  --gf-radius: 16px;
+  --gf-radius-lg: 20px;
+  --gf-radius-xl: 24px;
+  --gf-radius-pill: 999px;
+
+  /* ── Shadows (dark) ── */
+  --gf-shadow-xs: 0 1px 4px rgba(0,0,0,0.25);
+  --gf-shadow-sm: 0 2px 10px rgba(0,0,0,0.3);
+  --gf-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --gf-shadow-md: 0 8px 32px rgba(0,0,0,0.45);
+  --gf-shadow-lg: 0 16px 48px rgba(0,0,0,0.55);
+  --gf-shadow-glow: 0 0 40px rgba(17, 209, 139, 0.20);
+  --gf-shadow-glow-strong: 0 0 64px rgba(17, 209, 139, 0.34);
+
+  /* ── Motion ── */
+  --gf-ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* @kind other */
+  --gf-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* @kind other */
+  --gf-ease-std: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --gf-t-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --gf-t: 220ms cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --gf-t-slow: 380ms cubic-bezier(0.22, 1, 0.36, 1); /* @kind other */
+
+  /* ── Layout ── */
+  --gf-sidebar-w: 256px; /* @kind spacing */
+  --gf-topbar-h: 64px; /* @kind spacing */
+  --gf-mobile-nav-h: 68px; /* @kind spacing */
+
+  /* ── Fonts ── */
+  --gf-font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --gf-font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --gf-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Semantic type scale (fluid) ── */
+  --gf-type-display: 800 clamp(2.5rem, 5vw, 4.5rem)/1.04 var(--gf-font-display); /* @kind font */
+  --gf-type-h1: 700 clamp(1.75rem, 3vw, 2.5rem)/1.1 var(--gf-font-display); /* @kind font */
+  --gf-type-h2: 700 clamp(1.375rem, 2.5vw, 1.875rem)/1.15 var(--gf-font-display); /* @kind font */
+  --gf-type-h3: 600 clamp(1.125rem, 1.8vw, 1.375rem)/1.25 var(--gf-font-display); /* @kind font */
+  --gf-type-h4: 600 clamp(1rem, 1.4vw, 1.125rem)/1.3 var(--gf-font-display); /* @kind font */
+  --gf-type-body: 400 0.9375rem/1.6 var(--gf-font-body); /* @kind font */
+  --gf-type-small: 400 0.8125rem/1.5 var(--gf-font-body); /* @kind font */
+}
+
+/* ── Light theme ── */
+[data-theme="light"] {
+  --gf-bg: #f6f6fb;
+  --gf-bg-rgb: 246, 246, 251; /* @kind color */
+  --gf-surface: #ffffff;
+  --gf-surface-rgb: 255, 255, 255; /* @kind color */
+  --gf-elevated: #f0f0f7;
+  --gf-elevated-rgb: 240, 240, 247; /* @kind color */
+  --gf-border: #e3e3ee;
+  --gf-border-light: #cdcde0;
+  --gf-border-glow: rgba(17, 209, 139, 0.12);
+  --gf-text: #14121f;
+  --gf-text-secondary: #55546e;
+  --gf-text-muted: #8a89a3;
+  --gf-text-subtle: #cdcde0;
+  --gf-brand: #08a86c;
+  --gf-brand-rgb: 8, 168, 108; /* @kind color */
+  --gf-brand-dark: #06794f;
+  --gf-brand-light: #11d18b;
+  --gf-brand-glow: rgba(8, 168, 108, 0.18);
+  --gf-brand-soft: rgba(8, 168, 108, 0.07);
+  --gf-accent: #7fb800;
+  --gf-accent-rgb: 127, 184, 0; /* @kind color */
+  --gf-accent-dark: #6a9c00;
+  --gf-accent-glow: rgba(127, 184, 0, 0.18);
+  --gf-accent-soft: rgba(127, 184, 0, 0.08);
+  --gf-shadow-xs: 0 1px 3px rgba(20,18,31,0.06);
+  --gf-shadow-sm: 0 2px 8px rgba(20,18,31,0.07);
+  --gf-shadow: 0 4px 16px rgba(20,18,31,0.08);
+  --gf-shadow-md: 0 8px 28px rgba(20,18,31,0.10);
+  --gf-shadow-lg: 0 16px 44px rgba(20,18,31,0.14);
+}
+
+/* ============================================================================
+   Semantic element styles — opt in with the `.gf-prose` wrapper, or apply the
+   utility classes directly (.gf-display, .gf-h1 … .gf-h4, .gf-body, .gf-mono).
+   ============================================================================ */
+
+.gf-display { font: var(--gf-type-display); letter-spacing: -0.045em; color: var(--gf-text); }
+.gf-h1 { font: var(--gf-type-h1); letter-spacing: -0.03em; color: var(--gf-text); }
+.gf-h2 { font: var(--gf-type-h2); letter-spacing: -0.02em; color: var(--gf-text); }
+.gf-h3 { font: var(--gf-type-h3); color: var(--gf-text); }
+.gf-h4 { font: var(--gf-type-h4); color: var(--gf-text); }
+.gf-body { font: var(--gf-type-body); color: var(--gf-text-secondary); }
+.gf-small { font: var(--gf-type-small); color: var(--gf-text-muted); }
+.gf-mono { font-family: var(--gf-font-mono); font-size: 0.875rem; color: var(--gf-text); }
+
+.gf-eyebrow {
+  font-family: var(--gf-font-display);
+  font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--gf-text-muted);
+}
+
+/* ============================================================================
+   ★ 4K / HIGH-FIDELITY ENHANCEMENT LAYER  ·  v2 "Aurora"
+   Premium layered shadows, ambient lighting tokens, crisp high-DPI rendering,
+   and a refined type rhythm. Additive — overrides earlier tokens by cascade.
+   ============================================================================ */
+:root {
+  /* Layered, physically-plausible shadows (ambient + key + contact) */
+  --gf-shadow-xs: 0 1px 2px rgba(0,0,0,0.40);
+  --gf-shadow-sm: 0 1px 2px rgba(0,0,0,0.30), 0 4px 10px -2px rgba(0,0,0,0.40);
+  --gf-shadow:    0 2px 4px rgba(0,0,0,0.28), 0 10px 28px -6px rgba(0,0,0,0.55);
+  --gf-shadow-md: 0 4px 8px rgba(0,0,0,0.30), 0 18px 44px -10px rgba(0,0,0,0.62);
+  --gf-shadow-lg: 0 8px 18px rgba(0,0,0,0.34), 0 34px 70px -14px rgba(0,0,0,0.72);
+  --gf-shadow-glow: 0 0 0 1px var(--gf-border-glow), 0 8px 40px -4px rgba(var(--gf-brand-rgb), 0.28);
+  --gf-shadow-glow-strong: 0 0 0 1px var(--gf-border-glow), 0 10px 60px -6px rgba(var(--gf-brand-rgb), 0.42);
+
+  /* Ambient lighting helpers (used by enhanced components) */
+  --gf-sheen: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0) 42%); /* @kind other */
+  --gf-surface-grad: linear-gradient(180deg, color-mix(in srgb, var(--gf-surface) 100%, #ffffff 4%), var(--gf-surface)); /* @kind other */
+  --gf-hairline: inset 0 1px 0 rgba(255,255,255,0.05); /* @kind shadow */
+  --gf-ring: 0 0 0 3px var(--gf-brand-soft), 0 0 0 1px var(--gf-brand); /* @kind shadow */
+}
+[data-theme="light"] {
+  --gf-shadow-xs: 0 1px 2px rgba(20,18,31,0.05);
+  --gf-shadow-sm: 0 1px 2px rgba(20,18,31,0.05), 0 3px 8px -2px rgba(20,18,31,0.08);
+  --gf-shadow:    0 2px 4px rgba(20,18,31,0.04), 0 10px 26px -8px rgba(20,18,31,0.13);
+  --gf-shadow-md: 0 6px 14px -4px rgba(20,18,31,0.10), 0 20px 44px -12px rgba(20,18,31,0.16);
+  --gf-shadow-lg: 0 12px 24px -8px rgba(20,18,31,0.12), 0 34px 64px -16px rgba(20,18,31,0.22);
+  --gf-sheen: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0) 46%); /* @kind other */
+  --gf-surface-grad: linear-gradient(180deg, #ffffff, color-mix(in srgb, var(--gf-surface) 100%, var(--gf-bg) 6%)); /* @kind other */
+  --gf-hairline: inset 0 1px 0 rgba(255,255,255,0.8); /* @kind shadow */
+}
+
+/* ── Global high-DPI crisp rendering ── */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body { font-feature-settings: "kern" 1, "liga" 1, "calt" 1; }
+::selection { background: var(--gf-brand-soft); color: var(--gf-text); }
+
+/* Photos stay sharp & smoothly scaled at 2x/4x DPI; never blurry-upscaled */
+img { image-rendering: auto; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+img[loading] { image-rendering: -webkit-optimize-contrast; }
+
+/* Refined display rhythm — tighter, more confident headings */
+.gf-display, .gf-h1 { letter-spacing: -0.045em; }
+.gf-h2 { letter-spacing: -0.025em; }
+
+/* Smooth, accessible focus rings everywhere */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+

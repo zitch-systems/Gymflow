@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="GymFlow Revamp — Admin Staff" subtitle="Admin · Staff — roster, roles, shifts, payroll" viewport="1280x860" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Staff</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .grid2 { display:grid; grid-template-columns:1fr 320px; gap:16px; align-items:start; }
+  .role-chip { font-family:var(--gf-font-display); font-weight:600; font-size:0.74rem; padding:3px 9px; border-radius:var(--gf-radius-pill); white-space:nowrap; }
+  .who { display:flex; align-items:center; gap:11px; }
+  .who .gf-avatar { font-size:0.78rem; }
+  .who strong { font-family:var(--gf-font-display); font-weight:600; display:block; font-size:0.875rem; }
+  .who small { color:var(--gf-text-muted); font-size:0.74rem; }
+  .on-shift { display:inline-flex; align-items:center; gap:5px; font-size:0.78rem; font-weight:600; }
+  .on-shift::before { content:''; width:7px; height:7px; border-radius:50%; background:currentColor; }
+  /* side cards */
+  .scard { display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--gf-border); }
+  .scard:first-child { border-top:none; }
+  .scard .gf-avatar { font-size:0.74rem; background:var(--gf-brand-soft); color:var(--gf-brand); border-color:var(--gf-brand-glow); }
+  .scard .m { flex:1; min-width:0; }
+  .scard .m strong { font-family:var(--gf-font-display); font-size:0.84rem; font-weight:600; display:block; }
+  .scard .m small { color:var(--gf-text-muted); font-size:0.72rem; }
+  .role-grid { display:flex; flex-direction:column; gap:8px; }
+  .role-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); background:var(--gf-elevated); }
+  .role-row .ic { width:32px; height:32px; border-radius:9px; display:grid; place-items:center; flex-shrink:0; }
+  .role-row .ic i { width:16px; height:16px; }
+  .role-row .m { flex:1; min-width:0; }
+  .role-row .m strong { font-family:var(--gf-font-display); font-size:0.82rem; display:block; }
+  .role-row .m small { color:var(--gf-text-muted); font-size:0.7rem; }
+  .role-row .ct { font-family:var(--gf-font-display); font-weight:800; font-size:1.1rem; }
+  @media (max-width:1000px){ .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body data-gf-mobile="admin-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="admSidebar"></aside>
+  <div class="main">
+    <header class="top" id="admTop"></header>
+    <main class="content">
+      <div class="page-h"><div><h1>Staff</h1><p>9 team members · 4 on shift now · payroll runs 30 May</p></div></div>
+
+      <section class="kpis">
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#11d18b1f;color:#11d18b"><i data-lucide="users"></i></div></div><div class="kpi-val">9</div><div class="kpi-lbl">Team members</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#4080ff1f;color:#4080ff"><i data-lucide="clock"></i></div></div><div class="kpi-val">4</div><div class="kpi-lbl">On shift now</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#c6f24e1f;color:#a8d92e"><i data-lucide="graduation-cap"></i></div></div><div class="kpi-val">5</div><div class="kpi-lbl">Instructors</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ffb0201f;color:#ffb020"><i data-lucide="banknote"></i></div></div><div class="kpi-val">₦1.4M</div><div class="kpi-lbl">Monthly payroll</div></div>
+      </section>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-h"><div><h3>Team</h3><div class="sub">Roles, status &amp; today's shift</div></div>
+            <div style="display:flex;gap:8px"><span class="gf-chip active" data-r="all">All</span><span class="gf-chip" data-r="instructor">Instructors</span><span class="gf-chip" data-r="front">Front desk</span><span class="gf-chip" data-r="manager">Managers</span></div>
+          </div>
+          <table class="tbl"><thead><tr><th>Member</th><th>Role</th><th>Shift today</th><th>Status</th><th style="text-align:right"></th></tr></thead><tbody id="sbody"></tbody></table>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="panel">
+            <div class="panel-h"><div><h3>Roles</h3><div class="sub">Access levels</div></div></div>
+            <div class="role-grid">
+              <div class="role-row"><div class="ic" style="background:var(--gf-brand-soft);color:var(--gf-brand)"><i data-lucide="crown"></i></div><div class="m"><strong>Owner</strong><small>Full access</small></div><span class="ct">1</span></div>
+              <div class="role-row"><div class="ic" style="background:#4080ff1f;color:#4080ff"><i data-lucide="shield"></i></div><div class="m"><strong>Manager</strong><small>All but billing</small></div><span class="ct">2</span></div>
+              <div class="role-row"><div class="ic" style="background:#c6f24e1f;color:#a8d92e"><i data-lucide="graduation-cap"></i></div><div class="m"><strong>Instructor</strong><small>Classes &amp; clients</small></div><span class="ct">5</span></div>
+              <div class="role-row"><div class="ic" style="background:#ffb0201f;color:#ffb020"><i data-lucide="scan-line"></i></div><div class="m"><strong>Front desk</strong><small>Check-in &amp; members</small></div><span class="ct">1</span></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><div><h3>On shift now</h3><div class="sub">Live</div></div></div>
+            <div class="scard"><span class="gf-avatar gf-avatar-sm">F</span><div class="m"><strong>Coach Femi</strong><small>Instructor · until 18:00</small></div><span class="on-shift" style="color:var(--gf-success)">In</span></div>
+            <div class="scard"><span class="gf-avatar gf-avatar-sm">B</span><div class="m"><strong>Coach Bisi</strong><small>Instructor · until 12:00</small></div><span class="on-shift" style="color:var(--gf-success)">In</span></div>
+            <div class="scard"><span class="gf-avatar gf-avatar-sm">D</span><div class="m"><strong>Deborah A.</strong><small>Front desk · until 16:00</small></div><span class="on-shift" style="color:var(--gf-success)">In</span></div>
+            <div class="scard"><span class="gf-avatar gf-avatar-sm">K</span><div class="m"><strong>Kunle M.</strong><small>Manager · until 17:00</small></div><span class="on-shift" style="color:var(--gf-success)">In</span></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script>
+<script src="admin-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const STAFF=[
+  ['Kunle M.','K','manager','Manager','#4080ff','09:00–17:00','active','Active'],
+  ['Coach Femi','F','instructor','Instructor','#a8d92e','06:00–18:00','active','On shift'],
+  ['Coach Bisi','B','instructor','Instructor','#a8d92e','06:00–12:00','active','On shift'],
+  ['Coach Tobi','T','instructor','Instructor','#a8d92e','15:00–20:00','off','Off today'],
+  ['Coach Ada','A','instructor','Instructor','#a8d92e','17:00–20:00','soon','Starts 17:00'],
+  ['Coach Chuka','C','instructor','Instructor','#a8d92e','—','leave','On leave'],
+  ['Deborah A.','D','front','Front desk','#ffb020','08:00–16:00','active','On shift'],
+  ['Ngozi P.','N','manager','Manager','#4080ff','—','off','Off today'],
+  ['Samuel O.','S','manager','Owner','#11d18b','—','active','Owner'],
+];
+const SST={active:'gf-badge-success',off:'gf-badge-neutral',soon:'gf-badge-info',leave:'gf-badge-warning'};
+let rf='all';
+function renderS(){
+  const rows=STAFF.filter(s=> rf==='all' || s[2]===rf || (rf==='manager'&&s[3]==='Owner'));
+  $('#sbody').innerHTML=rows.map(s=>`<tr>
+    <td><div class="who"><span class="gf-avatar gf-avatar-sm">${s[1]}</span><div><strong>${s[0]}</strong><small>${s[3]==='Owner'?'Founder':'Powerhouse Fitness'}</small></div></div></td>
+    <td><span class="role-chip" style="background:${s[4]}1f;color:${s[4]}">${s[3]}</span></td>
+    <td style="color:var(--gf-text-secondary)">${s[5]}</td>
+    <td><span class="gf-badge ${SST[s[6]]}"><span class="gf-dot"></span>${s[7]}</span></td>
+    <td style="text-align:right"><button class="icon-btn-sm gf-btn gf-btn-ghost" style="width:32px;height:32px;padding:0"><i data-lucide="more-horizontal" style="width:16px;height:16px"></i></button></td>
+  </tr>`).join('');
+  lucide.createIcons();
+}
+$$('.gf-chip').forEach(c=>c.onclick=()=>{ $$('.gf-chip').forEach(x=>x.classList.remove('active')); c.classList.add('active'); rf=c.dataset.r; renderS(); });
+adminShell('staff', { search:'Search staff…', action:{label:'Invite staff', icon:'user-plus', href:'#'} });
+buildProto('admin'); renderS(); lucide.createIcons();
+</script>
+</body>
+</html>
