@@ -1,0 +1,224 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "app/(platform)/**",
+              "app/(platform)/about/**",
+              "app/(platform)/features/**",
+              "app/(platform)/pricing/**",
+              "app/gym/[slug]/admin/**",
+              "components/marketing/**",
+              "revamp/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Plus Jakarta Sans|Inter|JetBrains Mono))/i]",
+        "message": "Font not provided by the design system. Available: Plus Jakarta Sans, Inter, JetBrains Mono."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--gf-accent",
+      "--gf-accent-dark",
+      "--gf-accent-glow",
+      "--gf-accent-rgb",
+      "--gf-accent-soft",
+      "--gf-bg",
+      "--gf-bg-rgb",
+      "--gf-border",
+      "--gf-border-glow",
+      "--gf-border-light",
+      "--gf-brand",
+      "--gf-brand-dark",
+      "--gf-brand-glow",
+      "--gf-brand-light",
+      "--gf-brand-rgb",
+      "--gf-brand-soft",
+      "--gf-danger",
+      "--gf-danger-rgb",
+      "--gf-danger-soft",
+      "--gf-ease-out",
+      "--gf-ease-spring",
+      "--gf-ease-std",
+      "--gf-elevated",
+      "--gf-elevated-rgb",
+      "--gf-font-body",
+      "--gf-font-display",
+      "--gf-font-mono",
+      "--gf-hairline",
+      "--gf-info",
+      "--gf-info-rgb",
+      "--gf-info-soft",
+      "--gf-mobile-nav-h",
+      "--gf-primary",
+      "--gf-primary-dark",
+      "--gf-primary-glow",
+      "--gf-primary-rgb",
+      "--gf-primary-soft",
+      "--gf-radius",
+      "--gf-radius-lg",
+      "--gf-radius-pill",
+      "--gf-radius-sm",
+      "--gf-radius-xl",
+      "--gf-radius-xs",
+      "--gf-ring",
+      "--gf-shadow",
+      "--gf-shadow-glow",
+      "--gf-shadow-glow-strong",
+      "--gf-shadow-lg",
+      "--gf-shadow-md",
+      "--gf-shadow-sm",
+      "--gf-shadow-xs",
+      "--gf-sheen",
+      "--gf-sidebar-w",
+      "--gf-success",
+      "--gf-success-rgb",
+      "--gf-success-soft",
+      "--gf-surface",
+      "--gf-surface-grad",
+      "--gf-surface-rgb",
+      "--gf-t",
+      "--gf-t-fast",
+      "--gf-t-slow",
+      "--gf-text",
+      "--gf-text-muted",
+      "--gf-text-secondary",
+      "--gf-text-subtle",
+      "--gf-topbar-h",
+      "--gf-type-body",
+      "--gf-type-display",
+      "--gf-type-h1",
+      "--gf-type-h2",
+      "--gf-type-h3",
+      "--gf-type-h4",
+      "--gf-type-small",
+      "--gf-warning",
+      "--gf-warning-rgb",
+      "--gf-warning-soft"
+    ],
+    "tokenKinds": {
+      "--gf-brand": "color",
+      "--gf-brand-rgb": "color",
+      "--gf-brand-dark": "color",
+      "--gf-brand-light": "color",
+      "--gf-brand-glow": "color",
+      "--gf-brand-soft": "color",
+      "--gf-accent": "color",
+      "--gf-accent-rgb": "color",
+      "--gf-accent-dark": "color",
+      "--gf-accent-glow": "color",
+      "--gf-accent-soft": "color",
+      "--gf-primary": "color",
+      "--gf-primary-rgb": "color",
+      "--gf-primary-dark": "color",
+      "--gf-primary-glow": "color",
+      "--gf-primary-soft": "color",
+      "--gf-bg": "color",
+      "--gf-bg-rgb": "color",
+      "--gf-surface": "color",
+      "--gf-surface-rgb": "color",
+      "--gf-elevated": "color",
+      "--gf-elevated-rgb": "color",
+      "--gf-border": "color",
+      "--gf-border-light": "color",
+      "--gf-border-glow": "color",
+      "--gf-text": "font",
+      "--gf-text-secondary": "font",
+      "--gf-text-muted": "font",
+      "--gf-text-subtle": "font",
+      "--gf-danger": "color",
+      "--gf-danger-rgb": "color",
+      "--gf-danger-soft": "color",
+      "--gf-warning": "color",
+      "--gf-warning-rgb": "color",
+      "--gf-warning-soft": "color",
+      "--gf-info": "color",
+      "--gf-info-rgb": "color",
+      "--gf-info-soft": "color",
+      "--gf-success": "color",
+      "--gf-success-rgb": "color",
+      "--gf-success-soft": "color",
+      "--gf-radius-xs": "radius",
+      "--gf-radius-sm": "radius",
+      "--gf-radius": "radius",
+      "--gf-radius-lg": "radius",
+      "--gf-radius-xl": "radius",
+      "--gf-radius-pill": "radius",
+      "--gf-shadow-xs": "shadow",
+      "--gf-shadow-sm": "shadow",
+      "--gf-shadow": "shadow",
+      "--gf-shadow-md": "shadow",
+      "--gf-shadow-lg": "shadow",
+      "--gf-shadow-glow": "shadow",
+      "--gf-shadow-glow-strong": "shadow",
+      "--gf-ease-out": "other",
+      "--gf-ease-spring": "other",
+      "--gf-ease-std": "other",
+      "--gf-t-fast": "other",
+      "--gf-t": "other",
+      "--gf-t-slow": "other",
+      "--gf-sidebar-w": "spacing",
+      "--gf-topbar-h": "spacing",
+      "--gf-mobile-nav-h": "spacing",
+      "--gf-font-display": "font",
+      "--gf-font-body": "font",
+      "--gf-font-mono": "font",
+      "--gf-type-display": "font",
+      "--gf-type-h1": "font",
+      "--gf-type-h2": "font",
+      "--gf-type-h3": "font",
+      "--gf-type-h4": "font",
+      "--gf-type-body": "font",
+      "--gf-type-small": "font",
+      "--gf-sheen": "other",
+      "--gf-surface-grad": "other",
+      "--gf-hairline": "shadow",
+      "--gf-ring": "shadow"
+    },
+    "fontFamilies": [
+      "Inter",
+      "JetBrains Mono",
+      "Plus Jakarta Sans"
+    ]
+  }
+}

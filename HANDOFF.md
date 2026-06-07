@@ -3,8 +3,14 @@
 ## Overview
 This bundle is the **GymFlow design system** plus a **full UI revamp** (new identity) covering every product surface: marketing site, auth, the member PWA, the gym-owner admin console, the instructor portal, and the superadmin platform. GymFlow is a multi-tenant gym-management SaaS for Nigerian fitness businesses (Next.js 16 + Supabase + Paystack, subdomain-per-gym, PWA).
 
+> **Build the NEW design, not the old one.** The HTML prototypes in `revamp/` define how every
+> screen should look, behave, and read — they are the visual spec. The production repo
+> `github.com/zitch-systems/Gymflow` is the **backend + class-name reference only**; its
+> currently-shipped UI is the OLD design being replaced. If the live screen and the `revamp/`
+> file disagree on anything visible, the `revamp/` file wins. Never reproduce the existing UI.
+
 ## About the design files
-The files here are **design references created in HTML/CSS/JS** — interactive prototypes that show the intended look, copy, and behavior. They are **not production code to ship directly**. The task is to **recreate these designs in the target codebase** (the live app is Next.js 16 / React 19 with a Tailwind v4 + custom `gf-*` CSS system) using its established patterns — or, for a greenfield surface, to pick the appropriate framework and implement them there. The original source of truth is `github.com/zitch-systems/Gymflow` (`app/globals.css`).
+The files here are **design references created in HTML/CSS/JS** — interactive prototypes that show the intended look, copy, and behavior. They are **not production code to ship directly**. The task is to **recreate these designs in the target codebase** (the live app is Next.js 16 / React 19 with a Tailwind v4 + custom `gf-*` CSS system) using its established patterns — or, for a greenfield surface, to pick the appropriate framework and implement them there. Pull data/auth/payments wiring and existing `gf-*` class names from `github.com/zitch-systems/Gymflow` (`app/globals.css`) — but take **look, layout, and copy from `revamp/`, never from the repo's current screens.**
 
 ## Fidelity
 **High-fidelity.** Final colors, typography, spacing, radii, shadows, motion and copy are all specified in `colors_and_type.css` / `gymflow.css`. Recreate pixel-faithfully. The `gf-*` class names mirror the real app, so most markup maps directly onto existing components.

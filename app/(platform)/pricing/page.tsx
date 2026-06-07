@@ -5,10 +5,7 @@ import { Faq } from '@/components/marketing/sections';
 import { PLATFORM_PRICING, BILLING_PERIODS, periodSavings, formatNaira } from '@/lib/platform-pricing';
 import { Check } from 'lucide-react';
 
-export const metadata = {
-  title: 'Pricing',
-  description: 'One flat plan, no per-member fees. From ₦13,999/month — pay monthly, quarterly, or annually.',
-};
+export { pricingMetadata as metadata } from './metadata';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
 

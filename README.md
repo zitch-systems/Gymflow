@@ -122,8 +122,8 @@ The look and feel, and the rules behind it.
 **Design System tab — `preview/`**
 - Small spec cards for color, type, spacing, components and brand. These populate the Design System tab.
 
-**Interactive UI kit — `revamp/`**
-- A high-fidelity, **interactive recreation of the whole product** under the new identity, with a floating role-switcher: `index.html` (hub), `marketing.html`, `login.html`, `member.html`, `admin.html` (+ `admin-members`, `admin-analytics`, `admin-classes`, `admin-pricing`, `admin-settings`), `instructor.html`, `superadmin.html`. Shared shell in `admin-shell.js`, `proto.js`; styles in `revamp.css` + `admin.css`. This doubles as the living UI kit — copy components from here.
+**Interactive UI kit — `revamp/` (the visual spec)**
+- A high-fidelity, **interactive recreation of the whole product** under the new identity, with a floating role-switcher: `index.html` (hub), `marketing.html`, `login.html`, `member.html`, `admin.html` (+ `admin-members`, `admin-analytics`, `admin-classes`, `admin-pricing`, `admin-settings`), `instructor.html`, `superadmin.html`. Shared shell in `admin-shell.js`, `proto.js`; styles in `revamp.css` + `admin.css`. **This is the authoritative look/UX/copy spec for every screen — build new routes to match these, not the old shipped UI.**
 
 **`SKILL.md`** — makes this folder usable as an Agent Skill.
 
@@ -137,4 +137,4 @@ The look and feel, and the rules behind it.
 4. Match the voice (CONTENT FUNDAMENTALS) and the rules (VISUAL FOUNDATIONS).
 5. Icons via Lucide CDN: `<script src="https://unpkg.com/lucide@latest"></script>` then `lucide.createIcons()`.
 
-> Want to go deeper than this system captures? Read the source at **github.com/zitch-systems/Gymflow** — the `gf-*` system in `app/globals.css` is the ground truth.
+> Want to go deeper than this system captures? Read the source at **github.com/zitch-systems/Gymflow** — the `gf-*` system in `app/globals.css` is the ground truth **for class names and tokens**. It is *not* a visual reference: the repo's currently-shipped screens are the OLD design. For how a screen should look, the `revamp/` prototype is authoritative.

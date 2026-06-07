@@ -5,11 +5,7 @@ import { MarketingFooter } from '@/components/marketing/footer';
 import { FeatureCard } from '@/components/marketing/sections';
 import { HeartHandshake, Gauge, ShieldCheck, MapPin } from 'lucide-react';
 
-export const metadata = {
-  title: 'About & Gallery',
-  description:
-    'GymFlow is built in Lagos for Nigerian fitness businesses — a look at who we are and the gyms that run on the platform.',
-};
+export { aboutMetadata as metadata } from './metadata';
 
 const GALLERY = [
   { src: '/images/gym-studio.jpg', alt: 'Cardio studio' },

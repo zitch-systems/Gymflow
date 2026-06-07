@@ -6,15 +6,38 @@
 
 ---
 
+## 0. ⚠️ THE ONE RULE — build the NEW interface, not the old one
+
+This project is a **redesign**. There are two distinct UIs in play and you must not confuse them:
+
+- **`revamp/*.html` = the NEW interface.** This is the ✅ authoritative spec for **how every
+  screen looks, behaves, is laid out, and is worded.** When you build any route, open the
+  matching `revamp/<name>.html` and reproduce *that*. This is your only visual target.
+- **`github.com/zitch-systems/Gymflow` (the production repo) = the OLD interface + the backend.**
+  Its **shipped UI is what we are replacing — DO NOT reproduce it, port it, or take visual/
+  layout/copy cues from it.** Consult the repo ONLY for non-visual plumbing:
+  data shapes, Supabase/RLS gates, Paystack flows, server actions, and the **names** of
+  existing `gf-*` classes / `@/lib` modules so your wiring matches.
+
+**If the repo's current screen and `revamp/<name>.html` disagree on anything you can see
+(layout, hierarchy, components, copy, states) — `revamp/` wins, every time.** The repo is
+behind; that's the entire reason this redesign exists. Never "match the existing screen."
+
+> Quick test before you write a component: *"Am I copying what GymFlow looks like today?"*
+> If yes, stop — open the `revamp/` file and copy that instead.
+
+---
+
 ## 1. What this project is
 
 **GymFlow** — a multi-tenant gym-management SaaS for Nigerian fitness businesses
 (branded subdomain per gym, e.g. `powerhouse.gymflow.ng`). Members, QR check-in, class
 booking, Paystack subscriptions, automated reminders, analytics; installable PWA.
 
-- **Production source of truth:** `github.com/zitch-systems/Gymflow` — Next.js 16
+- **Backend & conventions source (NOT visual):** `github.com/zitch-systems/Gymflow` — Next.js 16
   (App Router, React 19), Supabase (Postgres + RLS), Paystack (Naira), Tailwind v4 +
-  custom `gf-*` CSS, multi-tenant by subdomain.
+  custom `gf-*` CSS, multi-tenant by subdomain. Use it for data/auth/payments/class-names
+  only — **its shipped UI is the OLD design we are replacing (see §0).**
 - **This bundle** is the **design system + a fully-built, verified HTML prototype** of
   every surface, plus a **partial port** of the marketing site into real Next.js routes.
 
@@ -38,9 +61,11 @@ booking, Paystack subscriptions, automated reminders, analytics; installable PWA
 
 1. **Pick a screen** from the prototype (`revamp/<name>.html`) — open it in a browser to
    see the exact intended look, copy, and interactions.
-2. **Recreate it as a Next.js route** using the app's existing patterns. Match the
-   already-built routes for conventions:
-   `app/(platform)/page.tsx`, `about/page.tsx`, `features/page.tsx`, `pricing/page.tsx`.
+2. **Recreate it as a Next.js route**, reproducing the `revamp/` screen's look, layout, and
+   copy. Use the **already-ported** routes for *code* conventions only (file structure,
+   imports, how `gf-*` classes are applied) — `app/(platform)/page.tsx`, `about/page.tsx`,
+   `features/page.tsx`, `pricing/page.tsx`. These were themselves built from `revamp/`, so
+   they're safe models; do **not** instead mirror the equivalent screen in the production repo.
 3. **Use the real class names** from `app/globals.css` (e.g. `gf-btn`, `gf-card`,
    `marketing-hero`, `mk-steps`, `mk-gallery`, `gf-sidebar`, `gf-nav-item`, `kpi`…).
    Do **not** invent classes — grep `globals.css` first.
