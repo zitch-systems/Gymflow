@@ -137,7 +137,7 @@ export default async function MemberClassesPage({ params, searchParams }: PagePr
     : `${dowAbbr} ${sel.getDate()} ${monAbbr}`;
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="m-head" style={{ paddingBottom: 8 }}>
         <strong className="htitle">Schedule</strong>
         <Link

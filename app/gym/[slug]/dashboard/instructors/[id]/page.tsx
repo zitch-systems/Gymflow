@@ -57,7 +57,7 @@ export default async function InstructorDetailPage({ params }: PageProps) {
   const activeSub = (subs ?? []).find((s) => s.status === 'active' && s.end_date && s.end_date >= today);
 
   return (
-    <div className="member-portal">
+    <div className="op-mobile member-portal">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">{p.full_name ?? 'Coach'}</h1>

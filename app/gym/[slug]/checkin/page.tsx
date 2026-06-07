@@ -14,7 +14,7 @@ export default async function CheckInPage({ params }: PageProps) {
   const memberCodeUrl = `${origin}/admin/staff-checkin?member=${encodeURIComponent(user.id)}`;
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="m-head" style={{ justifyContent: 'center', paddingBottom: 6 }}>
         <strong className="htitle">Check in</strong>
       </header>

@@ -23,7 +23,7 @@ export default async function CoachRatePage({ params }: PageProps) {
   const hasRate = pricing?.price != null;
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">Session rate</h1>

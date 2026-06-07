@@ -7157,24 +7157,42 @@ body::after {
   --op-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 4px 14px rgba(0,0,0,0.3);
 }
 
-/* Root wrapper — sets the off-white app background + safe paddings */
+/* Root wrapper — sets the off-white app background + safe paddings.
+   width: 100% + no max-width keeps the surface edge-to-edge on every viewport
+   (phones, foldables, tablets) so the app feels native rather than centered. */
 .op-mobile {
   background: var(--op-bg);
+  width: 100%;
   min-height: 100vh; min-height: 100dvh;
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: calc(var(--op-nav-h) + env(safe-area-inset-bottom, 0px) + 16px);
+  padding-bottom: calc(var(--op-nav-h) + env(safe-area-inset-bottom, 0px) + 12px);
   color: var(--op-text);
   font-feature-settings: 'kern','liga','calt';
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
 }
 .op-mobile * { box-sizing: border-box; }
-.op-stack { display: flex; flex-direction: column; gap: var(--op-gap); padding: 12px var(--op-pad) 0; }
+/* Tighter side padding (14px) for a more app-like feel; the rule on the
+   `.op-mobile` ensures every direct child stack is consistent. */
+.op-stack { display: flex; flex-direction: column; gap: var(--op-gap); padding: 10px 14px 0; }
+@media (max-width: 360px) { .op-stack { padding: 10px 12px 0; } }
 
-/* Header — avatar with brand ring + greeting + action icons */
+/* Header — avatar with brand ring + greeting + action icons.
+   Sticky on scroll so the bell/scan stay reachable as the user scrolls a
+   long dashboard. background:var(--op-bg) prevents bleed-through. */
 .op-header {
   display: flex; align-items: center; gap: 12px;
-  padding: 14px var(--op-pad) 4px;
+  padding: 12px 14px 6px;
   background: var(--op-bg);
+  position: sticky; top: 0; z-index: 5;
+}
+.op-header-greet { font-size: 0.96rem; }
+.op-header-greet small { font-size: 0.72rem; }
+@media (max-width: 360px) {
+  .op-header { padding: 10px 12px 4px; gap: 10px; }
+  .op-header-actions { gap: 10px; }
+  .op-icon-btn { width: 34px; height: 34px; }
+  .op-icon-btn svg { width: 20px; height: 20px; }
 }
 .op-header-avatar {
   position: relative;

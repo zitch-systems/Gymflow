@@ -39,7 +39,7 @@ export default async function CoachClientDetailPage({ params }: PageProps) {
   const totalPaid = (subs ?? []).reduce((s, r) => s + (Number(r.amount_paid) || 0), 0);
 
   return (
-    <div className="member-portal">
+    <div className="op-mobile member-portal">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">{member.full_name ?? member.email ?? 'Member'}</h1>

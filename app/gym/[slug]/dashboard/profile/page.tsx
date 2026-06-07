@@ -64,7 +64,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
     : null;
 
   return (
-    <div className="member-portal member-app m-profile">
+    <div className="op-mobile member-portal member-app m-profile">
       <div className="m-prof-top">
         <span className="gf-avatar gf-avatar-xl">{avatarInitial}</span>
         <h2>{displayName}</h2>
@@ -107,25 +107,22 @@ export default async function MemberProfilePage({ params }: PageProps) {
         </Link>
       </div>
 
-      {/* Waiver / Help / Settings — present in prototype but no routes yet.
-          Rendered as static rows so the surface matches the spec; they'll
-          become Links when their target pages land. */}
       <div className="m-prof-group">
-        <div className="m-prof-row">
+        <Link href="/legal#waiver" className="m-prof-row">
           <span className="m-prof-row-ic"><FileText /></span>
           <div className="m-prof-row-m"><strong>Waiver &amp; documents</strong></div>
           <ChevronRight className="m-prof-row-chev" strokeWidth={1.9} />
-        </div>
-        <div className="m-prof-row">
+        </Link>
+        <a href="mailto:hello@gymflow.ng?subject=GymFlow%20member%20support" className="m-prof-row">
           <span className="m-prof-row-ic"><LifeBuoy /></span>
-          <div className="m-prof-row-m"><strong>Help &amp; support</strong></div>
+          <div className="m-prof-row-m"><strong>Help &amp; support</strong><small>hello@gymflow.ng</small></div>
           <ChevronRight className="m-prof-row-chev" strokeWidth={1.9} />
-        </div>
-        <div className="m-prof-row">
+        </a>
+        <Link href="/dashboard/cards" className="m-prof-row">
           <span className="m-prof-row-ic"><Settings /></span>
-          <div className="m-prof-row-m"><strong>Settings</strong></div>
+          <div className="m-prof-row-m"><strong>Saved cards &amp; settings</strong></div>
           <ChevronRight className="m-prof-row-chev" strokeWidth={1.9} />
-        </div>
+        </Link>
       </div>
 
       <div className="m-prof-group">

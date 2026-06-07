@@ -54,7 +54,7 @@ export default async function MemberInstructorsPage({ params }: PageProps) {
   });
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="member-header">
         <div>
           <h1 className="gf-page-title">Coaches</h1>

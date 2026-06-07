@@ -45,7 +45,7 @@ export default async function RenewPage({ params }: PageProps) {
       : `Pick a plan to start training at ${gym.name}.`;
 
   return (
-    <div className="member-portal member-app">
+    <div className="op-mobile member-portal member-app">
       <header className="m-head" style={{ justifyContent: 'space-between', paddingBottom: 10 }}>
         <Link href="/dashboard/wallet" className="m-head-bell" aria-label="Back to wallet">
           <ArrowLeft size={18} strokeWidth={1.9} />
