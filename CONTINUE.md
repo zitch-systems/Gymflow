@@ -38,16 +38,16 @@ the role gates). **Demo logins** (password `Gymflow2026!`): member@ifitness.com
 admin@gymflow.ng → /superadmin. Each lands on a **real, data-backed** screen.
 
 Data-wired so far:
-- **Member: ALL pages** — dashboard, classes, check-in (write), wallet (+receipt), renew, inbox, profile.
-- **Admin: 10/11** — dashboard, members, classes, staff-checkin, instructors(staff), pricing, reminders, operations, wallet, settings. (analytics still sample charts.)
-- Coach: today (sessions/clients/earnings).
-- Superadmin: overview (counts), gyms (live GymTable).
+- **Member: ALL 8 pages.**
+- **Admin: 10/11** — all except analytics (KPIs easy; chart series need aggregation).
+- **Coach: 4/7** — today, clients, earnings, payouts. (classes, attendance, settings remain.)
+- **Superadmin: 5/8** — overview, gyms, members, revenue, audit. (onboard, support, settings remain.)
 
-Still to wire (swap sample arrays for queries — pattern is identical, copy an
-already-wired page):
-- Admin: analytics (charts — KPIs easy, chart series need aggregation).
-- Coach: classes, clients, attendance, earnings, payouts, settings.
-- Superadmin: members, revenue, onboard, audit, support, settings.
+Still to wire / finish:
+- Admin: analytics chart series (revenue/check-ins/growth aggregation).
+- Coach: classes (instructor's own schedule), attendance (mark instructor_sessions — a write), settings (instructor profile form + update action).
+- Superadmin: onboard (provision form → create gym + owner; needs SERVICE_ROLE), support (no tickets table — leave sample or add one), settings (platform config — mostly static).
+- **Paystack** charge flow (renew/subscribe) + webhook → SERVICE_ROLE_KEY + Paystack keys.
 - **Paystack** subscription/renew + webhook → needs `SUPABASE_SERVICE_ROLE_KEY`
   (server-only) set in env; writes go through `lib/supabase/admin.ts`.
 - **Subdomain** multi-tenancy in `middleware.ts` if multi-gym selection is wanted
