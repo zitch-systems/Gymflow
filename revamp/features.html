@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="GymFlow Revamp — Features" subtitle="Marketing · Features — categorized deep-dive" viewport="1280x900" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Features</title>
+<link rel="stylesheet" href="revamp.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .nav { position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:20px; padding:16px clamp(20px,5vw,56px); background:color-mix(in srgb,var(--gf-bg) 80%,transparent); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-bottom:1px solid var(--gf-border); }
+  .nav .links { display:flex; align-items:center; gap:6px; margin-left:auto; }
+  .nav .links a { color:var(--gf-text-secondary); text-decoration:none; font-family:var(--gf-font-display); font-weight:600; font-size:0.9rem; padding:8px 14px; border-radius:var(--gf-radius-sm); transition:all var(--gf-t); }
+  .nav .links a:hover { color:var(--gf-text); background:var(--gf-elevated); }
+  .wrap { max-width:1100px; margin:0 auto; padding:0 clamp(20px,5vw,40px); }
+  .head { text-align:center; padding:72px 0 8px; }
+  .head .eyebrow { display:inline-flex; align-items:center; gap:8px; font-family:var(--gf-font-display); font-weight:700; font-size:0.76rem; color:var(--gf-brand); background:var(--gf-brand-soft); border:1px solid var(--gf-border-glow); padding:7px 14px; border-radius:var(--gf-radius-pill); }
+  .head h1 { font-family:var(--gf-font-display); font-size:clamp(2.2rem,5vw,3.4rem); font-weight:800; letter-spacing:-0.035em; line-height:1.05; margin:20px 0 12px; }
+  .head h1 span { color:var(--gf-brand); }
+  .head p { color:var(--gf-text-secondary); font-size:1.1rem; max-width:600px; margin:0 auto; line-height:1.6; }
+  .cat { padding:56px 0; border-bottom:1px solid var(--gf-border); }
+  .cat-grid { display:grid; grid-template-columns:0.85fr 1.15fr; gap:40px; align-items:center; }
+  .cat:nth-child(even) .cat-grid { grid-template-columns:1.15fr 0.85fr; }
+  .cat:nth-child(even) .cat-copy { order:2; }
+  .cat-copy .tag { font-family:var(--gf-font-display); font-weight:700; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.07em; color:var(--gf-brand); }
+  .cat-copy h2 { font-family:var(--gf-font-display); font-size:1.9rem; font-weight:800; letter-spacing:-0.02em; margin:10px 0 12px; }
+  .cat-copy > p { color:var(--gf-text-secondary); font-size:1rem; line-height:1.6; margin:0 0 20px; }
+  .flist { display:flex; flex-direction:column; gap:14px; }
+  .fitem { display:flex; gap:12px; align-items:flex-start; }
+  .fitem .ic { width:34px; height:34px; border-radius:10px; background:var(--gf-brand-soft); color:var(--gf-brand); display:grid; place-items:center; flex-shrink:0; }
+  .fitem .ic i { width:17px; height:17px; }
+  .fitem strong { font-family:var(--gf-font-display); font-size:0.95rem; font-weight:700; display:block; margin-bottom:2px; }
+  .fitem small { color:var(--gf-text-muted); font-size:0.85rem; line-height:1.5; }
+  .cat-vis { border-radius:var(--gf-radius-xl); overflow:hidden; border:1px solid var(--gf-border); position:relative; min-height:300px; background:var(--gf-surface); }
+  .cat-vis img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; opacity:0.9; }
+  .cat-vis .scrim { position:absolute; inset:0; background:linear-gradient(180deg,transparent 40%,rgba(10,10,18,0.7)); }
+  .cta { background:linear-gradient(135deg,var(--gf-surface),var(--gf-elevated)); border:1px solid var(--gf-border-glow); border-radius:var(--gf-radius-xl); padding:52px; text-align:center; box-shadow:var(--gf-shadow-glow); margin:64px 0 100px; }
+  .cta h2 { font-family:var(--gf-font-display); font-size:clamp(1.6rem,3.5vw,2.3rem); font-weight:800; letter-spacing:-0.02em; margin:0 0 10px; }
+  .cta p { color:var(--gf-text-secondary); margin:0 0 24px; font-size:1.05rem; }
+  @media (max-width:860px){ .cat-grid, .cat:nth-child(even) .cat-grid { grid-template-columns:1fr; } .cat:nth-child(even) .cat-copy { order:0; } .nav .links a:not(.btnlink){display:none} }
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="marketing.html"><img class="mark-sm" src="../assets/logomark-v2.svg" alt="GymFlow" /><span class="brand-tx">Gym<em>Flow</em></span></a>
+    <div class="links">
+      <a href="features.html">Features</a>
+      <a href="marketing.html#pricing">Pricing</a>
+      <a href="login.html">Sign in</a>
+      <a href="login.html" class="gf-btn gf-btn-primary btnlink">Get started</a>
+    </div>
+  </nav>
+
+  <header class="head">
+    <div class="wrap">
+      <span class="eyebrow"><i data-lucide="sparkles" style="width:14px;height:14px"></i> Built for the day-to-day</span>
+      <h1>Everything to run a <span>modern gym</span></h1>
+      <p>From the front desk to the back office — members, payments, classes and operations in one mobile-first platform.</p>
+    </div>
+  </header>
+
+  <section class="cat">
+    <div class="wrap cat-grid">
+      <div class="cat-copy">
+        <div class="tag">Members &amp; check-in</div>
+        <h2>Know who's in, who's lapsing</h2>
+        <p>QR check-in at the door, a live attendance feed, and a member list that surfaces who needs attention before they churn.</p>
+        <div class="flist">
+          <div class="fitem"><div class="ic"><i data-lucide="scan-line"></i></div><div><strong>QR self check-in</strong><small>Members scan at the entrance — works offline, syncs when back online.</small></div></div>
+          <div class="fitem"><div class="ic"><i data-lucide="user-search"></i></div><div><strong>Smart member list</strong><small>Filter by status, search instantly, open a full profile in one tap.</small></div></div>
+          <div class="fitem"><div class="ic"><i data-lucide="bell-ring"></i></div><div><strong>Lapse alerts</strong><small>See expiring memberships and nudge them on WhatsApp before they go.</small></div></div>
+        </div>
+      </div>
+      <div class="cat-vis"><img src="../assets/gym-floor.jpg" alt="" /><div class="scrim"></div></div>
+    </div>
+  </section>
+
+  <section class="cat">
+    <div class="wrap cat-grid">
+      <div class="cat-copy">
+        <div class="tag">Payments</div>
+        <h2>Paystack subscriptions on autopilot</h2>
+        <p>Recurring billing in Naira with saved cards, auto-debit and dunning — so renewals just happen and you stop chasing.</p>
+        <div class="flist">
+          <div class="fitem"><div class="ic"><i data-lucide="repeat"></i></div><div><strong>Auto-renew &amp; auto-debit</strong><small>Cards are charged on schedule; failed charges retry automatically.</small></div></div>
+          <div class="fitem"><div class="ic"><i data-lucide="receipt"></i></div><div><strong>Instant receipts</strong><small>Every successful charge emails a branded receipt to the member.</small></div></div>
+          <div class="fitem"><div class="ic"><i data-lucide="banknote"></i></div><div><strong>No FX, no surprises</strong><small>Priced and settled in Naira through Paystack you already trust.</small></div></div>
+        </div>
+      </div>
+      <div class="cat-vis"><img src="../assets/gym-machines.jpg" alt="" /><div class="scrim"></div></div>
+    </div>
+  </section>
+
+  <section class="cat">
+    <div class="wrap cat-grid">
+      <div class="cat-copy">
+        <div class="tag">Classes</div>
+        <h2>Schedule, book, fill every session</h2>
+        <p>Recurring classes with capacity caps, waitlists and RSVP reminders that keep your studios full and your coaches busy.</p>
+        <div class="flist">
+          <div class="fitem"><div class="ic"><i data-lucide="calendar-days"></i></div><div><strong>Recurring schedule</strong><small>Set a class once; it repeats weekly with per-session capacity.</small></div></div>
+          <div class="fitem"><div class="ic"><i data-lucide="hourglass"></i></div><div><strong>Waitlists</strong><small>When a class fills, the next member is promoted automatically.</small></div></div>
+          <div class="fitem"><div class="ic"><i data-lucide="message-circle"></i></div><div><strong>RSVP reminders</strong><small>A push and WhatsApp nudge an hour before each booked class.</small></div></div>
+        </div>
+      </div>
+      <div class="cat-vis"><img src="../assets/gym-bikes.jpg" alt="" /><div class="scrim"></div></div>
+    </div>
+  </section>
+
+  <section class="cat">
+    <div class="wrap cat-grid">
+      <div class="cat-copy">
+        <div class="tag">Operations &amp; insight</div>
+        <h2>Run the back office from your phone</h2>
+        <p>Staff roles, instructor payouts, business hours, analytics and exports — the whole operation, installable as an app.</p>
+        <div class="flist">
+          <div class="fitem"><div class="ic"><i data-lucide="users"></i></div><div><strong>Staff &amp; roles</strong><small>Owner, manager, front desk, accountant, instructor — scoped access.</small></div></div>
+          <div class="fitem"><div class="ic"><i data-lucide="bar-chart-3"></i></div><div><strong>Live analytics</strong><small>Revenue, churn, attendance and growth — daily, monthly, exportable.</small></div></div>
+          <div class="fitem"><div class="ic"><i data-lucide="smartphone"></i></div><div><strong>Installable PWA</strong><small>Add to home screen on Android &amp; iOS — no hardware to buy.</small></div></div>
+        </div>
+      </div>
+      <div class="cat-vis"><img src="../assets/gym-studio.jpg" alt="" /><div class="scrim"></div></div>
+    </div>
+  </section>
+
+  <div class="wrap"><div class="cta">
+    <h2>Ready to run your gym the modern way?</h2>
+    <p>Launch in an afternoon. From ₦13,999/mo · cancel anytime.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap"><a href="login.html" class="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</a><a href="marketing.html#pricing" class="gf-btn gf-btn-outline gf-btn-lg">See pricing</a></div>
+  </div></div>
+
+  <nav class="proto" id="proto"></nav>
+  <script src="proto.js"></script>
+  <script src="theme.js"></script>
+  <script src="wire.js"></script>
+  <script>buildProto('marketing'); lucide.createIcons();</script>
+</body>
+</html>

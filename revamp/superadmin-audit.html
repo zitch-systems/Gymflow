@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="GymFlow Revamp — Platform Audit" subtitle="Platform · Audit log of privileged actions" viewport="1280x780" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Audit log</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .ev { display:flex; gap:13px; padding:14px 0; border-top:1px solid var(--gf-border); }
+  .ev:first-child { border-top:none; }
+  .ev .ic { width:36px; height:36px; border-radius:10px; display:grid; place-items:center; flex-shrink:0; }
+  .ev .ic i { width:17px; height:17px; }
+  .ev .m { flex:1; min-width:0; }
+  .ev .m strong { font-family:var(--gf-font-display); font-size:0.9rem; font-weight:600; display:block; }
+  .ev .m small { color:var(--gf-text-muted); font-size:0.76rem; }
+  .ev .meta { text-align:right; flex-shrink:0; }
+  .ev .meta .t { font-size:0.74rem; color:var(--gf-text-muted); white-space:nowrap; }
+  .ev .meta .actor { font-family:var(--gf-font-display); font-size:0.74rem; font-weight:600; }
+</style>
+</head>
+<body data-gf-mobile="superadmin-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="saSidebar"></aside>
+  <div class="main">
+    <header class="top" id="saTop"></header>
+    <main class="content">
+      <div class="page-h2"><div><span class="pill-plat">Operations</span><h1>Audit log</h1><p>Every privileged action across the platform</p></div></div>
+      <div class="panel">
+        <div class="panel-h"><div><h3>Recent events</h3><div class="sub">Last 24 hours</div></div>
+          <div style="display:flex;gap:8px"><span class="gf-chip active" data-f="all">All</span><span class="gf-chip" data-f="billing">Billing</span><span class="gf-chip" data-f="security">Security</span><span class="gf-chip" data-f="tenant">Tenant</span></div>
+        </div>
+        <div id="log"></div>
+      </div>
+    </main>
+  </div>
+</div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="superadmin-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const E=[
+  ['tenant','building-2','11d18b','New gym onboarded','FlexZone Yaba · Growth plan','Samuel A.','8m ago'],
+  ['billing','banknote','00c896','Subscription charged','IronWorks · ₦119,999','System','22m ago'],
+  ['security','shield','4080ff','Admin role granted','kunle@powerhouse.ng → Manager','Adunni O.','45m ago'],
+  ['billing','alert-triangle','ffb020','Payment retry scheduled','FitHub Enugu · ₦37,999','System','1h ago'],
+  ['tenant','arrow-up-circle','4080ff','Plan upgraded','Powerhouse · Growth → Scale','Adunni O.','3h ago'],
+  ['security','log-in','4080ff','Superadmin sign-in','samuel@gymflow.ng · Lagos','Samuel A.','5h ago'],
+  ['security','key','ff4560','API key rotated','platform-key-prod','Samuel A.','7h ago'],
+  ['tenant','pause','ffb020','Gym suspended','Momentum Gym · past due','Samuel A.','9h ago'],
+];
+let f='all';
+function render(){ const rows=E.filter(e=>f==='all'||e[0]===f); $('#log').innerHTML=rows.map(e=>`<div class="ev"><div class="ic" style="background:#${e[2]}1f;color:#${e[2]}"><i data-lucide="${e[1]}"></i></div><div class="m"><strong>${e[3]}</strong><small>${e[4]}</small></div><div class="meta"><div class="actor">${e[5]}</div><div class="t">${e[6]}</div></div></div>`).join(''); lucide.createIcons(); }
+$$('.gf-chip').forEach(c=>c.onclick=()=>{ $$('.gf-chip').forEach(x=>x.classList.remove('active')); c.classList.add('active'); f=c.dataset.f; render(); });
+saShell('audit',{search:'Search events…',action:{label:'Export',icon:'download',href:'#'}}); buildProto('superadmin'); render(); lucide.createIcons();
+</script>
+</body>
+</html>

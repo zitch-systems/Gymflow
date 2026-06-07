@@ -1,0 +1,17 @@
+<svg width="172" height="48" viewBox="0 0 172 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gfv2l" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4fe3a8"></stop><stop offset="0.55" stop-color="#11d18b"></stop><stop offset="1" stop-color="#07a86c"></stop>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="13" fill="url(#gfv2l)"></rect>
+  <path d="M3 0H45A3 3 0 0 1 48 3V19C48 9 40 3 28 3H3Z" fill="#fff" opacity="0.18"></path>
+  <g transform="translate(3 0) skewX(-9)">
+    <rect x="13" y="25" width="6.5" height="11" rx="3.25" fill="#ffffff" opacity="0.92"></rect>
+    <rect x="22" y="17" width="6.5" height="19" rx="3.25" fill="#ffffff"></rect>
+    <rect x="31" y="9" width="6.5" height="27" rx="3.25" fill="#c6f24e"></rect>
+  </g>
+  <text x="62" y="33" font-family="&#39;Plus Jakarta Sans&#39;, system-ui, sans-serif" font-size="27" font-weight="800" letter-spacing="-0.8">
+    <tspan fill="#14121f">Gym</tspan><tspan fill="#08a86c">Flow</tspan>
+  </text>
+</svg>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="GymFlow Revamp — Platform Support" subtitle="Platform · Support tickets across gyms" viewport="1280x840" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — Support</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .grid2 { display:grid; grid-template-columns:1fr 300px; gap:16px; align-items:start; }
+  .tk { display:flex; gap:13px; padding:14px 0; border-top:1px solid var(--gf-border); cursor:pointer; }
+  .tk:first-child { border-top:none; }
+  .tk .pri { width:4px; border-radius:99px; flex-shrink:0; }
+  .tk .m { flex:1; min-width:0; }
+  .tk .m strong { font-family:var(--gf-font-display); font-size:0.9rem; font-weight:600; display:block; }
+  .tk .m small { color:var(--gf-text-muted); font-size:0.76rem; }
+  .tk .meta { text-align:right; flex-shrink:0; }
+  .tk .meta .t { font-size:0.72rem; color:var(--gf-text-muted); }
+  @media (max-width:1000px){ .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body data-gf-mobile="superadmin-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="saSidebar"></aside>
+  <div class="main">
+    <header class="top" id="saTop"></header>
+    <main class="content">
+      <div class="page-h2"><div><span class="pill-plat">Operations</span><h1>Support</h1><p>14 open tickets · 2 urgent · 3.2h median first response</p></div></div>
+      <section class="kpis">
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ff45601f;color:#ff4560"><i data-lucide="alert-octagon"></i></div></div><div class="kpi-val">2</div><div class="kpi-lbl">Urgent</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ffb0201f;color:#ffb020"><i data-lucide="inbox"></i></div></div><div class="kpi-val">14</div><div class="kpi-lbl">Open tickets</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#4080ff1f;color:#4080ff"><i data-lucide="timer"></i></div></div><div class="kpi-val">3.2h</div><div class="kpi-lbl">Median response</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#11d18b1f;color:#11d18b"><i data-lucide="check-circle-2"></i></div></div><div class="kpi-val">96%</div><div class="kpi-lbl">CSAT</div></div>
+      </section>
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-h"><div><h3>Tickets</h3><div class="sub">Open across all gyms</div></div>
+            <div style="display:flex;gap:8px"><span class="gf-chip active">Open</span><span class="gf-chip">Mine</span><span class="gf-chip">Closed</span></div>
+          </div>
+          <div id="tickets"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><div><h3>By category</h3></div></div>
+          <div class="plan-row" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--gf-border)"></div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <div style="display:flex;justify-content:space-between;padding:9px 0;font-size:0.85rem"><span>Billing</span><strong style="font-family:var(--gf-font-display)">6</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:9px 0;font-size:0.85rem;border-top:1px solid var(--gf-border)"><span>Integrations</span><strong style="font-family:var(--gf-font-display)">4</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:9px 0;font-size:0.85rem;border-top:1px solid var(--gf-border)"><span>Check-in / QR</span><strong style="font-family:var(--gf-font-display)">3</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:9px 0;font-size:0.85rem;border-top:1px solid var(--gf-border)"><span>Other</span><strong style="font-family:var(--gf-font-display)">1</strong></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast"><i data-lucide="check-circle-2"></i><span id="toastMsg">Done</span></div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="superadmin-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const T=[
+  ['ff4560','Paystack webhook failing','IronWorks Gym · billing','Urgent','12m'],
+  ['ff4560','Members can\u2019t check in','Titan Gym · check-in','Urgent','40m'],
+  ['ffb020','Subdomain SSL renewal','FlexZone · integrations','High','2h'],
+  ['4080ff','Export members CSV','Apex Strength · other','Normal','4h'],
+  ['ffb020','WhatsApp reminders delayed','Powerhouse · integrations','High','6h'],
+  ['4080ff','Refund a duplicate charge','Pulse Studio · billing','Normal','8h'],
+];
+$('#tickets').innerHTML=T.map(t=>`<div class="tk"><div class="pri" style="background:#${t[0]}"></div><div class="m"><strong>${t[1]}</strong><small>${t[2]}</small></div><div class="meta"><span class="gf-badge ${t[3]==='Urgent'?'gf-badge-danger':t[3]==='High'?'gf-badge-warning':'gf-badge-neutral'}">${t[3]}</span><div class="t">${t[4]}</div></div></div>`).join('');
+saShell('support',{search:'Search tickets…',action:{label:'New ticket',icon:'plus',href:'#'}}); buildProto('superadmin'); lucide.createIcons();
+</script>
+</body>
+</html>

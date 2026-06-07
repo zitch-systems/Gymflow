@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="GymFlow Revamp — Platform Members" subtitle="Platform · All members across gyms" viewport="1280x800" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GymFlow — All members</title>
+<link rel="stylesheet" href="admin.css" />
+<script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body data-gf-mobile="superadmin-mobile.html">
+<div class="app">
+  <aside class="gf-sidebar" id="saSidebar"></aside>
+  <div class="main">
+    <header class="top" id="saTop"></header>
+    <main class="content">
+      <div class="page-h2"><div><span class="pill-plat">Platform</span><h1>All members</h1><p>486,204 members across 1,204 gyms · +3,420 this month · 2.1% churn</p></div></div>
+      <section class="kpis">
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#11d18b1f;color:#11d18b"><i data-lucide="users"></i></div><span style="font-size:0.75rem;font-weight:700;color:var(--gf-success);font-family:var(--gf-font-display)">+3.4K</span></div><div class="kpi-val">486K</div><div class="kpi-lbl">Total members</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#00c8961f;color:#00c896"><i data-lucide="user-check"></i></div></div><div class="kpi-val">441K</div><div class="kpi-lbl">Active</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ffb0201f;color:#ffb020"><i data-lucide="clock"></i></div></div><div class="kpi-val">31K</div><div class="kpi-lbl">Expiring 30d</div></div>
+        <div class="kpi"><div class="kpi-top"><div class="kpi-ic" style="background:#ff45601f;color:#ff4560"><i data-lucide="user-x"></i></div></div><div class="kpi-val">14K</div><div class="kpi-lbl">Lapsed</div></div>
+      </section>
+      <div class="panel">
+        <div class="panel-h"><div><h3>Members</h3><div class="sub">Across all gyms</div></div>
+          <div style="display:flex;gap:8px"><span class="gf-chip active" data-f="all">All</span><span class="gf-chip" data-f="active">Active</span><span class="gf-chip" data-f="expiring">Expiring</span><span class="gf-chip" data-f="lapsed">Lapsed</span></div>
+        </div>
+        <table class="tbl"><thead><tr><th>Member</th><th>Gym</th><th>Plan</th><th>Joined</th><th>Status</th></tr></thead><tbody id="mbody"></tbody></table>
+      </div>
+    </main>
+  </div>
+</div>
+<nav class="proto" id="proto"></nav>
+<script src="proto.js"></script><script src="theme.js"></script><script src="wire.js"></script><script src="superadmin-shell.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const M=[
+  ['Tunde Adeyemi','T','Powerhouse','Annual','Jan 2024','active','Active'],
+  ['Ngozi Eze','N','FlexZone','Monthly','Mar 2025','expiring','Expiring'],
+  ['Kelechi Obi','K','IronWorks','Quarterly','Aug 2024','active','Active'],
+  ['Aisha Bello','A','FitHub','Monthly','Feb 2025','lapsed','Lapsed'],
+  ['Emeka Nwosu','E','Titan Gym','Annual','Jun 2023','active','Active'],
+  ['Fatima Yusuf','F','Apex Strength','Monthly','Apr 2025','expiring','Expiring'],
+  ['David Okon','D','Pulse Studio','Quarterly','Nov 2024','active','Active'],
+  ['Grace Udo','G','Forge Fitness','Annual','Sep 2023','active','Active'],
+];
+const ST={active:['gf-badge-success','Active'],expiring:['gf-badge-warning','Expiring'],lapsed:['gf-badge-danger','Lapsed']};
+let f='all';
+function render(){ const rows=M.filter(m=>f==='all'||m[5]===f); $('#mbody').innerHTML=rows.map(m=>`<tr><td><div class="who"><span class="gf-avatar gf-avatar-sm">${m[1]}</span><div><strong>${m[0]}</strong><small>${m[0].toLowerCase().replace(' ','.')}@mail.com</small></div></div></td><td style="color:var(--gf-text-secondary)">${m[2]}</td><td>${m[3]}</td><td style="color:var(--gf-text-secondary)">${m[4]}</td><td><span class="gf-badge ${ST[m[5]][0]}"><span class="gf-dot"></span>${ST[m[5]][1]}</span></td></tr>`).join(''); lucide.createIcons(); }
+$$('.gf-chip').forEach(c=>c.onclick=()=>{ $$('.gf-chip').forEach(x=>x.classList.remove('active')); c.classList.add('active'); f=c.dataset.f; render(); });
+saShell('members',{search:'Search members…'}); buildProto('superadmin'); render(); lucide.createIcons();
+</script>
+</body>
+</html>
