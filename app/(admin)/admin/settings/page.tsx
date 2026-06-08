@@ -14,7 +14,7 @@ export default async function AdminSettings() {
 
   return (
     <SettingsClient
-      gym={{ name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address, brand_color: (gym as { brand_color?: string | null }).brand_color ?? null }}
+      gym={{ name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address, brand_color: (gym as { brand_color?: string | null }).brand_color ?? null, logo_url: (gym as { logo_url?: string | null }).logo_url ?? null }}
       staffCount={count ?? 0}
     />
   );

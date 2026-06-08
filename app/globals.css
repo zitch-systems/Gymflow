@@ -2104,3 +2104,6 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .swatch { width:36px; height:36px; border-radius:10px; cursor:pointer; position:relative; outline:2px solid transparent; outline-offset:2px; transition:outline-color var(--gf-t); }
 .ds-admin .swatch input { position:absolute; inset:0; opacity:0; cursor:pointer; margin:0; }
 .ds-admin .swatch:has(input:checked) { outline-color:var(--gf-text); }
+
+/* Member: gym logo in the home header */
+.ds-member .gym-logo { width:42px; height:42px; border-radius:12px; object-fit:cover; background:var(--gf-elevated); flex-shrink:0; }

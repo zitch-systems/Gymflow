@@ -78,6 +78,7 @@ export default async function MemberHome() {
 
   const name = firstName(profile?.full_name ?? profile?.first_name);
   const initial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
+  const gymLogo = (gym as { logo_url?: string | null }).logo_url ?? null;
   const planName = plan?.name ?? 'Membership';
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
   const isActive = remaining > 0;
@@ -87,7 +88,10 @@ export default async function MemberHome() {
   return (
     <section className="view on" data-v="home">
       <div className="mhead">
-        <span className="gf-avatar gf-avatar-md">{initial}</span>
+        {gymLogo
+          ? // eslint-disable-next-line @next/next/no-img-element
+            <img className="gym-logo" src={gymLogo} alt={gym.name} />
+          : <span className="gf-avatar gf-avatar-md">{initial}</span>}
         <div style={{ flex: 1, minWidth: 0 }}><small>{gym.name}</small><strong>Hi, {name} 👋</strong></div>
         <ThemeToggle size={38} />
         <Link href="/dashboard/inbox" className="icon-btn bell" style={{ width: 38, height: 38, marginLeft: 0 }} aria-label="Notifications">
