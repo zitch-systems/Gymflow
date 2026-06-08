@@ -102,6 +102,7 @@ export default async function AdminMembers() {
           <div style={{ flex: 1 }} />
           <button className="gf-btn gf-btn-secondary gf-btn-sm"><Filter strokeWidth={1.9} size={15} /> Filters</button>
           <button className="gf-btn gf-btn-secondary gf-btn-sm"><Download strokeWidth={1.9} size={15} /> Export</button>
+          <Link href="/admin/members/new" className="gf-btn gf-btn-primary gf-btn-sm"><UserPlus strokeWidth={1.9} size={15} /> Add member</Link>
         </div>
         {rows.length === 0 ? (
           <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No members yet</h3><p>Members appear here after they sign up or are added.</p></div>

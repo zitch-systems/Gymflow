@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -120,4 +121,35 @@ export async function setMemberActive(_prev: ActionState, formData: FormData): P
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
+}
+
+// Create a managed member (no login account) for the staff's gym, optionally
+// starting a membership. profiles.id isn't tied to auth.users, so we mint one.
+export async function addMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const fullName = String(formData.get('full_name') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim() || null;
+  const phone = String(formData.get('phone') ?? '').trim() || null;
+  const planId = String(formData.get('planId') ?? '') || null;
+  if (!fullName) return { ok: false, error: 'Enter the member’s name.' };
+
+  const newId = (globalThis.crypto as Crypto).randomUUID();
+  try {
+    const { gym } = await requireStaff();
+    const supabase = await createClient();
+
+    const { error: pErr } = await supabase.from('profiles').insert({
+      id: newId, gym_id: gym.id, full_name: fullName, email, phone, role: 'member', is_active: true,
+    });
+    if (pErr) return { ok: false, error: pErr.message };
+
+    const { error: lErr } = await supabase.from('gym_member_links').insert({
+      gym_id: gym.id, member_id: newId, joined_at: new Date().toISOString(), is_active: true, onboarding_method: 'admin',
+    });
+    if (lErr) return { ok: false, error: lErr.message };
+
+    if (planId) await extendSubscription(supabase, gym.id, newId, planId);
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  redirect(`/admin/members/${newId}`);
 }

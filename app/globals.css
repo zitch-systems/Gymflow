@@ -2049,3 +2049,9 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .act-fb { display:flex; align-items:center; gap:7px; margin:14px 0 0; font-size:0.84rem; font-weight:600; }
 .ds-admin .act-fb.ok { color:var(--gf-success); }
 .ds-admin .act-fb.err { color:var(--gf-danger); }
+
+/* Add member form */
+.ds-admin .addmember { display:flex; flex-direction:column; gap:8px; }
+.ds-admin .addmember .af-grid { gap:14px; }
+.ds-admin .addmember-note { color:var(--gf-text-muted); font-size:0.8rem; margin:4px 0 0; }
+.ds-admin .addmember-actions { display:flex; gap:10px; margin-top:10px; }
