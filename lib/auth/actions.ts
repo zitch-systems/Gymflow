@@ -13,22 +13,16 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   if (!email || !password) return { error: 'Enter your email and password.' };
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
 
-  // Route by role: platform admin → /superadmin, staff → /admin, else member.
-  // Use the user from the sign-in response — avoids a second auth round-trip
-  // (every extra Supabase call widens the cold-start window that can 504).
-  const user = data.user;
-  if (user) {
-    const [{ data: pa }, { data: staff }] = await Promise.all([
-      supabase.from('platform_admins').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
-      supabase.from('gym_staff_links').select('role').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
-    ]);
-    if (pa) redirect('/superadmin');
-    if (staff) redirect((staff as { role: string }).role === 'instructor' ? '/coach' : '/admin');
-  }
-  redirect('/dashboard');
+  // Route by role on the NEXT request (/launch) — not here. Inside this action
+  // the just-created session isn't attached to data queries yet, so role
+  // lookups run as the anon role and return nothing (sending every staff/admin
+  // login to /dashboard, which then bounces back to /login). /launch re-runs the
+  // lookup on a fresh request where the auth cookie and RLS self-read policies
+  // apply. See app/launch/page.tsx.
+  redirect('/launch');
 }
 
 // Create a gym workspace + owner account. Provisions auth user; the gym row +
