@@ -1,4 +1,5 @@
-import { Users, Clock, GraduationCap, Banknote, Crown, Shield, ScanLine } from 'lucide-react';
+import Link from 'next/link';
+import { Users, GraduationCap, Banknote, Crown, Shield, ScanLine, ChevronRight } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 
@@ -63,13 +64,14 @@ export default async function AdminStaff() {
             <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No staff yet</h3><p>Invite instructors and front-desk staff to your gym.</p></div>
           ) : (
             <table className="tbl">
-              <thead><tr><th>Member</th><th>Role</th><th style={{ textAlign: 'right' }}>Status</th></tr></thead>
+              <thead><tr><th>Member</th><th>Role</th><th style={{ textAlign: 'right' }}>Status</th><th aria-hidden /></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td><div className="who"><span className="gf-avatar gf-avatar-sm">{r.initial}</span><div><strong>{r.name}</strong></div></div></td>
+                  <tr key={r.id} className="rowlink">
+                    <td><Link href={`/admin/instructors/${r.id}`} className="who"><span className="gf-avatar gf-avatar-sm">{r.initial}</span><div><strong>{r.name}</strong></div></Link></td>
                     <td><span className="role-chip" style={{ background: 'var(--gf-elevated)' }}>{ROLE_LABEL[r.role] ?? r.role}</span></td>
                     <td style={{ textAlign: 'right' }}><span className="gf-badge gf-badge-success">Active</span></td>
+                    <td style={{ textAlign: 'right', width: 36 }}><Link href={`/admin/instructors/${r.id}`} className="row-chev" aria-label={`View ${r.name}`}><ChevronRight strokeWidth={2} size={16} /></Link></td>
                   </tr>
                 ))}
               </tbody>
