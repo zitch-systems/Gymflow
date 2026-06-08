@@ -37,13 +37,21 @@ export async function requireMember(): Promise<{ user: NonNullable<Awaited<Retur
   if (!user) redirect('/login');
   const { data: link } = await supabase
     .from('gym_member_links')
-    .select('*, gyms(*)')
+    .select('*')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .order('joined_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  const gym = (link as unknown as { gyms: Gym | null })?.gyms ?? null;
+  let gym: Gym | null = null;
+  if (link) {
+    const { data: g } = await supabase
+      .from('gyms')
+      .select('*')
+      .eq('id', (link as { gym_id: string }).gym_id)
+      .maybeSingle();
+    gym = (g as Gym | null) ?? null;
+  }
   if (!link || !gym) redirect('/login');
   return { user, gym, link: link as Database['public']['Tables']['gym_member_links']['Row'] };
 }
@@ -52,15 +60,24 @@ export async function requireStaff(roles?: string[]): Promise<{ user: NonNullabl
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const { data: link } = await supabase
+  const { data: link, error: linkErr } = await supabase
     .from('gym_staff_links')
-    .select('*, gyms(*)')
+    .select('*')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .limit(1)
     .maybeSingle();
-  const gym = (link as unknown as { gyms: Gym | null })?.gyms ?? null;
+  let gym: Gym | null = null;
+  if (link) {
+    const { data: g } = await supabase
+      .from('gyms')
+      .select('*')
+      .eq('id', (link as { gym_id: string }).gym_id)
+      .maybeSingle();
+    gym = (g as Gym | null) ?? null;
+  }
   const role = (link as unknown as { role: string } | null)?.role ?? '';
+  console.log('GFDBG4 reqStaff link=' + Boolean(link) + ' gym=' + Boolean(gym) + ' role=' + role + ' lerr=' + (linkErr?.code ?? linkErr?.message ?? 'none'));
   if (!link || !gym || (roles && !roles.includes(role))) redirect('/login');
   return { user, gym, role };
 }
