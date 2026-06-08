@@ -1,18 +1,23 @@
 import Link from 'next/link';
-import { Bell, CalendarX } from 'lucide-react';
+import { Bell, CalendarX, Check } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { BookButton, CancelButton } from '@/components/member/class-actions';
 
 export const metadata = { title: 'Schedule' };
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAYNAME = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function splitTime(t: string): { hm: string; ap: string } {
   const [h, m = '00'] = (t ?? '00:00').split(':');
   const hh = parseInt(h, 10); const ap = hh < 12 ? 'AM' : 'PM'; const h12 = hh % 12 === 0 ? 12 : hh % 12;
   return { hm: `${h12}:${m.padStart(2, '0')}`, ap };
 }
 
-export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ tab?: string; d?: string }> }) {
   const { user, gym } = await requireMember();
   const sp = await searchParams;
   const tab = sp.tab === 'book' ? 'book' : 'cal';
@@ -20,28 +25,27 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 
   const today = new Date();
   const todayDow = today.getDay();
+  const todayStr = today.toISOString().slice(0, 10);
+  const selDow = sp.d != null && !Number.isNaN(Number(sp.d)) ? (((Number(sp.d) % 7) + 7) % 7) : todayDow;
   const mondayOffset = (todayDow + 6) % 7;
   const monday = new Date(today); monday.setDate(today.getDate() - mondayOffset);
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday); d.setDate(monday.getDate() + i);
-    return { dow: d.getDay(), dom: d.getDate(), label: SHORT[d.getDay()], isToday: d.toDateString() === today.toDateString() };
+    return { dow: d.getDay(), dom: d.getDate(), label: SHORT[d.getDay()], isSel: d.getDay() === selDow };
   });
 
-  const { data: schedules } = await supabase
-    .from('class_schedules')
-    .select('id, day_of_week, start_time, room, class_id, classes(name, instructor, max_capacity)')
-    .eq('gym_id', gym.id).eq('is_active', true)
-    .order('start_time', { ascending: true });
+  const [{ data: classes }, { data: schedules }, { data: bookings }] = await Promise.all([
+    supabase.from('classes').select('id, name, instructor, max_capacity').eq('gym_id', gym.id),
+    supabase.from('class_schedules').select('id, day_of_week, start_time, room, class_id').eq('gym_id', gym.id).eq('is_active', true).order('start_time', { ascending: true }),
+    supabase.from('class_bookings').select('id, booking_date, status, class_schedule_id, class_id').eq('member_id', user.id).neq('status', 'cancelled').order('booking_date', { ascending: true }),
+  ]);
+
+  const classMap = new Map((classes ?? []).map((c) => [c.id, c]));
+  const schedMap = new Map((schedules ?? []).map((s) => [s.id, s]));
   const hasOnDow = new Set((schedules ?? []).map((s) => s.day_of_week));
-  const todaySlots = (schedules ?? []).filter((s) => s.day_of_week === todayDow);
-
-  const { data: bookings } = await supabase
-    .from('class_bookings')
-    .select('id, booking_date, status, class_schedule_id, classes:class_schedules(start_time, room, class_id)')
-    .eq('member_id', user.id).neq('status', 'cancelled')
-    .order('booking_date', { ascending: true }).limit(30);
-
-  const dowAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][todayDow];
+  const bookedSet = new Set((bookings ?? []).filter((b) => (b.booking_date ?? '') >= todayStr).map((b) => b.class_schedule_id));
+  const selSlots = (schedules ?? []).filter((s) => s.day_of_week === selDow);
+  const myBookings = bookings ?? [];
 
   return (
     <section className="view on" data-v="schedule">
@@ -59,23 +63,25 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         <div>
           <div className="calstrip">
             {week.map((d, i) => (
-              <div key={i} className={`cday${d.isToday ? ' on' : ''}`}>
+              <Link key={i} href={`/classes?d=${d.dow}`} className={`cday${d.isSel ? ' on' : ''}`} style={{ textDecoration: 'none' }}>
                 <span>{d.label}</span><b>{d.dom}</b><span className={`mk${hasOnDow.has(d.dow) ? '' : ' ghost'}`} />
-              </div>
+              </Link>
             ))}
           </div>
-          <div className="day-label">Today · {dowAbbr} {today.getDate()}</div>
-          {todaySlots.length === 0 ? (
-            <div className="empty"><div className="eic"><CalendarX strokeWidth={1.6} /></div><h3>No classes today</h3><p>Check another day or back later.</p></div>
+          <div className="day-label">{DAYNAME[selDow]}{selDow === todayDow ? ' · Today' : ''}</div>
+          {selSlots.length === 0 ? (
+            <div className="empty"><div className="eic"><CalendarX strokeWidth={1.6} /></div><h3>No classes</h3><p>Pick another day above.</p></div>
           ) : (
             <div className="cls-list">
-              {todaySlots.map((s) => {
-                const c = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+              {selSlots.map((s) => {
+                const c = s.class_id ? classMap.get(s.class_id) : null;
                 const { hm, ap } = splitTime(s.start_time);
+                const isBooked = bookedSet.has(s.id);
                 return (
                   <div key={s.id} className="cls-card">
                     <div className="tm"><b>{hm}</b><span>{ap}</span></div>
                     <div className="info"><strong>{c?.name ?? 'Class'}</strong><small>{c?.instructor ?? 'TBA'}{s.room ? ` · ${s.room}` : ''}</small></div>
+                    {isBooked ? <span className="bk-done"><Check size={13} strokeWidth={2.6} /> Booked</span> : <BookButton scheduleId={s.id} />}
                   </div>
                 );
               })}
@@ -83,19 +89,21 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           )}
         </div>
       ) : (
-        (bookings ?? []).length === 0 ? (
+        myBookings.length === 0 ? (
           <div className="empty"><div className="eic"><CalendarX strokeWidth={1.6} /></div><h3>No bookings yet</h3><p>Book a class from the schedule tab.</p></div>
         ) : (
           <div className="cls-list">
-            {(bookings ?? []).map((b) => {
-              const sch = Array.isArray(b.classes) ? b.classes[0] : b.classes;
+            {myBookings.map((b) => {
+              const sch = b.class_schedule_id ? schedMap.get(b.class_schedule_id) : null;
+              const c = b.class_id ? classMap.get(b.class_id) : null;
               const d = b.booking_date ? new Date(b.booking_date) : null;
               const t = sch?.start_time ? splitTime(sch.start_time) : null;
+              const upcoming = (b.booking_date ?? '') >= todayStr;
               return (
                 <div key={b.id} className="bkg">
                   <div className="date"><b>{d ? d.getDate() : '—'}</b><span>{d ? SHORT[d.getDay()] : ''}</span></div>
-                  <div className="m"><strong>Class</strong><small>{t ? `${t.hm} ${t.ap}` : ''}{sch?.room ? ` · ${sch.room}` : ''}</small></div>
-                  <span className={`gf-badge ${b.status === 'waitlisted' ? 'gf-badge-warning' : 'gf-badge-success'}`}>{b.status === 'waitlisted' ? 'Waitlist' : 'Booked'}</span>
+                  <div className="m"><strong>{c?.name ?? 'Class'}</strong><small>{t ? `${t.hm} ${t.ap}` : ''}{sch?.room ? ` · ${sch.room}` : ''}</small></div>
+                  {upcoming ? <CancelButton bookingId={b.id} /> : <span className={`gf-badge ${b.status === 'attended' ? 'gf-badge-success' : 'gf-badge'}`}>{b.status === 'attended' ? 'Attended' : 'Past'}</span>}
                 </div>
               );
             })}

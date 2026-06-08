@@ -2063,3 +2063,16 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin a.cl-row:hover .chev { color:var(--gf-brand); }
 .ds-admin a.clx { transition:background var(--gf-t); }
 .ds-admin a.clx:hover { background:var(--gf-elevated); }
+
+/* Member class booking */
+.ds-member .cls-card .info { flex:1; min-width:0; }
+.ds-member .bk-form { flex-shrink:0; }
+.ds-member .bk-btn { display:inline-flex; align-items:center; gap:5px; background:var(--gf-brand); color:#fff; border:none; border-radius:var(--gf-radius-pill); padding:8px 15px; font-family:var(--gf-font-display); font-weight:700; font-size:0.8rem; cursor:pointer; white-space:nowrap; transition:filter var(--gf-t); }
+.ds-member .bk-btn:hover { filter:brightness(1.06); }
+.ds-member .bk-btn:disabled { opacity:0.6; cursor:default; }
+.ds-member .bk-done { display:inline-flex; align-items:center; gap:5px; color:var(--gf-success); font-family:var(--gf-font-display); font-weight:700; font-size:0.8rem; white-space:nowrap; flex-shrink:0; }
+.ds-member .bk-err { display:block; color:var(--gf-danger); font-size:0.68rem; margin-top:3px; }
+.ds-member .bkg .m { flex:1; min-width:0; }
+.ds-member .bk-cancel { background:var(--gf-elevated); border:1px solid var(--gf-border); color:var(--gf-text-muted); width:32px; height:32px; border-radius:10px; display:grid; place-items:center; cursor:pointer; flex-shrink:0; transition:all var(--gf-t); }
+.ds-member .bk-cancel:hover { color:var(--gf-danger); border-color:var(--gf-danger); }
+.ds-member .bk-cancelled { color:var(--gf-text-muted); font-size:0.78rem; flex-shrink:0; }
