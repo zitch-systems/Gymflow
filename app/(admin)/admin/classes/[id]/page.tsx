@@ -4,6 +4,7 @@ import { ArrowLeft, Users, Gauge, CalendarCheck, GraduationCap, MapPin, Clock } 
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
+import { AttendanceButtons } from '@/components/admin/attendance-buttons';
 
 export const metadata = { title: 'Class roster' };
 export const dynamic = 'force-dynamic';
@@ -11,16 +12,6 @@ export const maxDuration = 60;
 
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const hm = (t?: string | null) => (t ? String(t).slice(0, 5) : '');
-
-function bookingBadge(status: string): [string, string] {
-  switch (status) {
-    case 'attended': return ['gf-badge-success', 'Attended'];
-    case 'booked': return ['gf-badge-brand', 'Booked'];
-    case 'waitlisted': return ['gf-badge-warning', 'Waitlisted'];
-    case 'no_show': return ['gf-badge-danger', 'No-show'];
-    default: return ['gf-badge', 'Cancelled'];
-  }
-}
 
 export default async function ClassRoster({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -87,11 +78,10 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
             <tbody>
               {bks.map((b) => {
                 const nm = b.member_id ? (nameById.get(b.member_id) ?? 'Member') : 'Member';
-                const badge = bookingBadge(b.status ?? 'booked');
                 return (
                   <tr key={b.id}>
                     <td><div className="who"><span className="gf-avatar gf-avatar-sm">{nm.charAt(0).toUpperCase()}</span><div><strong>{b.member_id ? <Link href={`/admin/members/${b.member_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{nm}</Link> : nm}</strong></div></div></td>
-                    <td><span className={`gf-badge ${badge[0]}`}>{badge[1]}</span></td>
+                    <td><AttendanceButtons bookingId={b.id} scheduleId={id} status={b.status ?? 'booked'} /></td>
                     <td style={{ textAlign: 'right', color: 'var(--gf-text-secondary)' }}>{fmtDate(b.booking_date)}</td>
                   </tr>
                 );

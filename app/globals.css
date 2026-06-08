@@ -2076,3 +2076,18 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-member .bk-cancel { background:var(--gf-elevated); border:1px solid var(--gf-border); color:var(--gf-text-muted); width:32px; height:32px; border-radius:10px; display:grid; place-items:center; cursor:pointer; flex-shrink:0; transition:all var(--gf-t); }
 .ds-member .bk-cancel:hover { color:var(--gf-danger); border-color:var(--gf-danger); }
 .ds-member .bk-cancelled { color:var(--gf-text-muted); font-size:0.78rem; flex-shrink:0; }
+
+/* Member profile edit form */
+.ds-member .pform { display:flex; flex-direction:column; gap:14px; padding:6px 0 24px; }
+.ds-member .pf { display:flex; flex-direction:column; gap:6px; font-size:0.78rem; font-weight:600; color:var(--gf-text-secondary); }
+.ds-member .pf-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.ds-member .pf-err { display:flex; align-items:center; gap:7px; color:var(--gf-danger); font-size:0.84rem; margin:0; }
+.ds-member .pf-actions { display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+
+/* Admin attendance buttons */
+.ds-admin .att { display:inline-flex; gap:6px; }
+.ds-admin .att-btn { border:1px solid var(--gf-border); background:var(--gf-surface); color:var(--gf-text-muted); font-family:var(--gf-font-display); font-weight:600; font-size:0.72rem; padding:5px 10px; border-radius:var(--gf-radius-pill); cursor:pointer; transition:all var(--gf-t); white-space:nowrap; }
+.ds-admin .att-btn:disabled { opacity:0.6; }
+.ds-admin .att-btn.ok.on { background:var(--gf-success-soft); color:var(--gf-success); border-color:transparent; }
+.ds-admin .att-btn.no.on { background:var(--gf-danger-soft); color:var(--gf-danger); border-color:transparent; }
+.ds-admin .att-btn:hover:not(.on) { border-color:var(--gf-border-light); color:var(--gf-text); }

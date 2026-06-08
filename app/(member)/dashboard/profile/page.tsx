@@ -68,11 +68,11 @@ export default async function ProfilePage() {
           <div className="m"><strong>Help &amp; support</strong></div>
           <ChevronRight className="chev" strokeWidth={1.9} />
         </a>
-        <div className="row">
+        <Link href="/dashboard/profile/edit" className="row">
           <span className="ic"><Settings strokeWidth={1.9} /></span>
-          <div className="m"><strong>Settings</strong></div>
+          <div className="m"><strong>Edit profile</strong></div>
           <ChevronRight className="chev" strokeWidth={1.9} />
-        </div>
+        </Link>
       </div>
 
       <div className="group">

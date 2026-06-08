@@ -85,6 +85,10 @@ export async function recordPayment(_prev: ActionState, formData: FormData): Pro
     });
     if (error) return { ok: false, error: error.message };
     if (extend && planId) await extendSubscription(supabase, gymId, memberId, planId);
+    await supabase.from('notifications').insert({
+      gym_id: gymId, user_id: memberId, type: 'payment', channel: 'in_app',
+      title: 'Payment received', body: `₦${amount.toLocaleString('en-NG')} payment recorded. Thank you!`,
+    });
     revalidatePath(`/admin/members/${memberId}`);
     return { ok: true, error: null, message: extend && planId ? 'Payment recorded and membership extended.' : 'Payment recorded.' };
   } catch (e) {
