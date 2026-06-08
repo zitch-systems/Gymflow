@@ -1,4 +1,5 @@
-import { Repeat, Users, CreditCard, Check, Pencil, Copy, PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Repeat, Users, CreditCard, Check, Pencil, PlusCircle } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
@@ -52,7 +53,7 @@ export default async function AdminPricing() {
               <div className={`plan${pop ? ' pop' : ''}`} key={p.id}>
                 <div className="plan-top">
                   <span className="nm">{p.name}{pop && <span className="gf-badge gf-badge-brand" style={{ marginLeft: 6 }}>Popular</span>}</span>
-                  <button className="icon-btn" style={{ width: 32, height: 32 }} aria-label="Edit plan"><Pencil strokeWidth={1.9} /></button>
+                  <Link href={`/admin/pricing/${p.id}/edit`} className="icon-btn" style={{ width: 32, height: 32 }} aria-label="Edit plan"><Pencil strokeWidth={1.9} /></Link>
                 </div>
                 <div className="amt">{fmtNaira(Number(p.price))}<small>{periodSuffix(p.duration_months)}</small></div>
                 <div className="desc">{p.description ?? `${p.duration_months}-month membership`}</div>
@@ -62,13 +63,12 @@ export default async function AdminPricing() {
                 </div>
                 <ul>{feats.slice(0, 3).map((f, i) => <li key={i}><Check strokeWidth={2.2} /> {f}</li>)}</ul>
                 <div className="acts">
-                  <button className={`gf-btn gf-btn-${pop ? 'primary' : 'secondary'} gf-btn-sm gf-btn-full`}>Edit</button>
-                  <button className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Duplicate"><Copy strokeWidth={1.9} size={15} /></button>
+                  <Link href={`/admin/pricing/${p.id}/edit`} className={`gf-btn gf-btn-${pop ? 'primary' : 'secondary'} gf-btn-sm gf-btn-full`} style={{ textDecoration: 'none' }}>Edit plan</Link>
                 </div>
               </div>
             );
           })}
-          <button className="addplan"><div className="in"><PlusCircle strokeWidth={1.6} /><div style={{ fontFamily: 'var(--gf-font-display)', fontWeight: 600, marginTop: 8 }}>Add a new plan</div></div></button>
+          <Link href="/admin/pricing/new" className="addplan" style={{ textDecoration: 'none' }}><div className="in"><PlusCircle strokeWidth={1.6} /><div style={{ fontFamily: 'var(--gf-font-display)', fontWeight: 600, marginTop: 8 }}>Add a new plan</div></div></Link>
         </div>
       )}
     </>

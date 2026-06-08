@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarDays, Ticket, Gauge, Hourglass, CalendarX } from 'lucide-react';
+import { CalendarDays, Ticket, Gauge, Hourglass, CalendarX, Plus } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 
@@ -57,6 +57,7 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
     <>
       <div className="page-h">
         <div><h1>Classes</h1><p>{totalSessions} session{totalSessions === 1 ? '' : 's'} this week · {totalBookings} booking{totalBookings === 1 ? '' : 's'} · {avgFill}% average fill</p></div>
+        <Link href="/admin/classes/new" className="gf-btn gf-btn-primary gf-btn-sm" style={{ textDecoration: 'none' }}><Plus strokeWidth={1.9} size={15} /> Add class</Link>
       </div>
 
       <section className="kpis">
