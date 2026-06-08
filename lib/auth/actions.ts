@@ -13,11 +13,13 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   if (!email || !password) return { error: 'Enter your email and password.' };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
 
   // Route by role: platform admin → /superadmin, staff → /admin, else member.
-  const { data: { user } } = await supabase.auth.getUser();
+  // Use the user from the sign-in response — avoids a second auth round-trip
+  // (every extra Supabase call widens the cold-start window that can 504).
+  const user = data.user;
   if (user) {
     const [{ data: pa }, { data: staff }] = await Promise.all([
       supabase.from('platform_admins').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
