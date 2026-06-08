@@ -2055,3 +2055,9 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .addmember .af-grid { gap:14px; }
 .ds-admin .addmember-note { color:var(--gf-text-muted); font-size:0.8rem; margin:4px 0 0; }
 .ds-admin .addmember-actions { display:flex; gap:10px; margin-top:10px; }
+
+/* Clickable coach client rows */
+.ds-admin a.cl-row { text-decoration:none; color:inherit; }
+.ds-admin a.cl-row:hover { background:var(--gf-elevated); }
+.ds-admin .cl-row .chev { color:var(--gf-text-muted); flex-shrink:0; }
+.ds-admin a.cl-row:hover .chev { color:var(--gf-brand); }

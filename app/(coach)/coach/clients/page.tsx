@@ -1,4 +1,5 @@
-import { Dumbbell, CalendarCheck, AlertTriangle, Banknote } from 'lucide-react';
+import Link from 'next/link';
+import { Dumbbell, CalendarCheck, AlertTriangle, Banknote, ChevronRight } from 'lucide-react';
 import { requireInstructor } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
@@ -54,11 +55,12 @@ export default async function CoachClients() {
         ) : active.map((s) => {
           const nm = s.member_id ? (nameById.get(s.member_id) ?? 'Member') : 'Member';
           return (
-            <div className="cl-row" key={s.id}>
+            <Link className="cl-row" key={s.id} href={s.member_id ? `/coach/clients/${s.member_id}` : '#'}>
               <span className="gf-avatar gf-avatar-sm">{nm.charAt(0).toUpperCase()}</span>
               <div className="m"><strong>{nm}</strong><small>Active{s.end_date ? ` · renews ${fmtDate(s.end_date)}` : ''}</small></div>
               <span className="naira">{fmtNaira(Number(s.amount_paid ?? 0))}</span>
-            </div>
+              <ChevronRight className="chev" strokeWidth={2} size={16} />
+            </Link>
           );
         })}
       </div>
