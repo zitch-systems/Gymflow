@@ -32,8 +32,9 @@ export async function requireAuth() {
 // Routes are flat (no /[slug]); resolve the user's gym from their links.
 
 export async function requireMember(): Promise<{ user: NonNullable<Awaited<ReturnType<typeof getUser>>>; gym: Gym; link: Database['public']['Tables']['gym_member_links']['Row'] }> {
-  const user = await requireAuth();
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
   const { data: link } = await supabase
     .from('gym_member_links')
     .select('*, gyms(*)')
@@ -48,8 +49,9 @@ export async function requireMember(): Promise<{ user: NonNullable<Awaited<Retur
 }
 
 export async function requireStaff(roles?: string[]): Promise<{ user: NonNullable<Awaited<ReturnType<typeof getUser>>>; gym: Gym; role: string }> {
-  const user = await requireAuth();
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
   const { data: link } = await supabase
     .from('gym_staff_links')
     .select('*, gyms(*)')
@@ -82,7 +84,15 @@ export async function isPlatformAdmin(): Promise<boolean> {
 }
 
 export async function requirePlatformAdmin() {
-  const user = await requireAuth();
-  if (!(await isPlatformAdmin())) redirect('/');
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const { data } = await supabase
+    .from('platform_admins')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!data) redirect('/');
   return user;
 }
