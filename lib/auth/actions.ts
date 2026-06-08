@@ -13,8 +13,12 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   if (!email || !password) return { error: 'Enter your email and password.' };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: error.message };
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    console.log('GFDBG signin error: ' + error.message);
+    return { error: error.message };
+  }
+  console.log('GFDBG signin ok user=' + (data.user?.id ?? 'none') + ' hasSession=' + Boolean(data.session));
 
   // Route by role on the NEXT request (/launch) — not here. Inside this action
   // the just-created session isn't attached to data queries yet, so role
