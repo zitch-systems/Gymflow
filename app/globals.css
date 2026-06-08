@@ -2034,3 +2034,18 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .ci-m strong { font-family:var(--gf-font-display); font-weight:600; font-size:0.875rem; display:block; }
 .ds-admin .ci-m small { color:var(--gf-text-muted); font-size:0.76rem; }
 .ds-admin .ci-time { display:inline-flex; align-items:center; gap:5px; color:var(--gf-text-secondary); font-size:0.78rem; font-variant-numeric:tabular-nums; }
+
+/* Member quick-actions */
+.ds-admin .actions-panel { margin-top:18px; }
+.ds-admin .act-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.ds-admin .act-bar form { margin:0; }
+.ds-admin .gf-btn-secondary.on { border-color:var(--gf-brand); color:var(--gf-brand); }
+.ds-admin .act-form { margin-top:16px; padding-top:16px; border-top:1px solid var(--gf-border); display:flex; flex-direction:column; gap:12px; }
+.ds-admin .af-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+.ds-admin .af-grid label, .ds-admin .act-form > label { display:flex; flex-direction:column; gap:6px; font-size:0.78rem; font-weight:600; color:var(--gf-text-secondary); }
+.ds-admin .af-check { flex-direction:row !important; align-items:center; gap:8px; font-weight:500; color:var(--gf-text-secondary); font-size:0.84rem; }
+.ds-admin .af-check input { accent-color:var(--gf-brand); width:16px; height:16px; }
+.ds-admin .act-form .gf-btn { align-self:flex-start; }
+.ds-admin .act-fb { display:flex; align-items:center; gap:7px; margin:14px 0 0; font-size:0.84rem; font-weight:600; }
+.ds-admin .act-fb.ok { color:var(--gf-success); }
+.ds-admin .act-fb.err { color:var(--gf-danger); }

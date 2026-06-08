@@ -7,6 +7,7 @@ import {
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, fmtDateTime, daysLeft } from '@/lib/format';
+import { MemberActions } from '@/components/admin/member-actions';
 
 export const metadata = { title: 'Member' };
 export const dynamic = 'force-dynamic';
@@ -130,6 +131,12 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
           );
         })}
       </section>
+
+      <MemberActions
+        memberId={id}
+        isActive={Boolean(link.is_active)}
+        plans={(plans ?? []).map((p) => ({ id: p.id, name: p.name ?? 'Plan', price: Number(p.price ?? 0) }))}
+      />
 
       <div className="md-grid">
         <div className="md-col">
