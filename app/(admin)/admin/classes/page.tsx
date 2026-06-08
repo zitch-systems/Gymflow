@@ -84,14 +84,14 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
             const pct = cap > 0 ? Math.min(100, Math.round((booked / cap) * 100)) : 0;
             const { hm, ap } = splitTime(s.start_time);
             return (
-              <div className="clx" key={s.id}>
+              <Link className="clx" key={s.id} href={`/admin/classes/${s.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div className="tm"><b>{hm}</b><span>{ap}</span></div>
                 <div className="info"><strong>{c?.name ?? 'Class'}</strong><small>{c?.instructor ?? 'TBA'}{s.room ? ` · ${s.room}` : ''}</small></div>
                 <div className="cap">
                   <div className="lbl"><span>{booked}/{cap || '—'} booked</span><span>{cap > 0 ? `${pct}%` : ''}</span></div>
                   <div className="track"><div className={`fill${pct >= 90 ? ' warn' : ''}`} style={{ width: `${pct}%` }} /></div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

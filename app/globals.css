@@ -2061,3 +2061,5 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin a.cl-row:hover { background:var(--gf-elevated); }
 .ds-admin .cl-row .chev { color:var(--gf-text-muted); flex-shrink:0; }
 .ds-admin a.cl-row:hover .chev { color:var(--gf-brand); }
+.ds-admin a.clx { transition:background var(--gf-t); }
+.ds-admin a.clx:hover { background:var(--gf-elevated); }
