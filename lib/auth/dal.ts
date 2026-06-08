@@ -60,7 +60,7 @@ export async function requireStaff(roles?: string[]): Promise<{ user: NonNullabl
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const { data: link, error: linkErr } = await supabase
+  const { data: link } = await supabase
     .from('gym_staff_links')
     .select('*')
     .eq('user_id', user.id)
@@ -77,7 +77,6 @@ export async function requireStaff(roles?: string[]): Promise<{ user: NonNullabl
     gym = (g as Gym | null) ?? null;
   }
   const role = (link as unknown as { role: string } | null)?.role ?? '';
-  console.log('GFDBG4 reqStaff link=' + Boolean(link) + ' gym=' + Boolean(gym) + ' role=' + role + ' lerr=' + (linkErr?.code ?? linkErr?.message ?? 'none'));
   if (!link || !gym || (roles && !roles.includes(role))) redirect('/login');
   return { user, gym, role };
 }

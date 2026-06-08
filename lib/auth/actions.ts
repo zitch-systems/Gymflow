@@ -13,19 +13,13 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   if (!email || !password) return { error: 'Enter your email and password.' };
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    console.log('GFDBG signin error: ' + error.message);
-    return { error: error.message };
-  }
-  console.log('GFDBG signin ok user=' + (data.user?.id ?? 'none') + ' hasSession=' + Boolean(data.session));
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { error: error.message };
 
   // Route by role on the NEXT request (/launch) — not here. Inside this action
   // the just-created session isn't attached to data queries yet, so role
-  // lookups run as the anon role and return nothing (sending every staff/admin
-  // login to /dashboard, which then bounces back to /login). /launch re-runs the
-  // lookup on a fresh request where the auth cookie and RLS self-read policies
-  // apply. See app/launch/page.tsx.
+  // lookups run as the anon role and return nothing. /launch re-runs the lookup
+  // on a fresh request where the auth cookie applies. See app/launch/page.tsx.
   redirect('/launch');
 }
 
