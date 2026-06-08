@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import { Building2, Palette, Clock, Bell, Plug, Users, Upload, CreditCard, MessageCircle, Mail } from 'lucide-react';
+import { updateGym, type GymSaveState } from '@/lib/actions/gym';
+
+const GYM_INIT: GymSaveState = { ok: false, error: null };
 
 const NAV = [
   { id: 'profile', label: 'Gym profile', icon: Building2 },
@@ -29,6 +32,7 @@ export type GymProfile = {
 
 export function SettingsClient({ gym, staffCount }: { gym: GymProfile; staffCount: number }) {
   const [sec, setSec] = useState<string>('profile');
+  const [gymState, gymAction, gymPending] = useActionState(updateGym, GYM_INIT);
 
   return (
     <>
@@ -49,20 +53,24 @@ export function SettingsClient({ gym, staffCount }: { gym: GymProfile; staffCoun
         <div>
           {sec === 'profile' && (
             <section className="sec on">
-              <div className="panel">
+              <form className="panel" action={gymAction}>
                 <div className="panel-title">Gym profile</div>
                 <div className="panel-desc">Public details shown to members on your subdomain.</div>
                 <div className="frow">
-                  <div className="gf-form-group"><label className="gf-form-label">Gym name</label><input className="gf-input" defaultValue={gym.name} /></div>
-                  <div className="gf-form-group"><label className="gf-form-label">Subdomain</label><input className="gf-input" defaultValue={`${gym.slug}.gymflow.ng`} /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">Gym name</label><input className="gf-input" name="name" defaultValue={gym.name} required /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">Subdomain</label><input className="gf-input" defaultValue={`${gym.slug}.gymflow.ng`} disabled /></div>
                 </div>
                 <div className="frow">
-                  <div className="gf-form-group"><label className="gf-form-label">Phone</label><input className="gf-input" defaultValue={gym.phone ?? ''} /></div>
-                  <div className="gf-form-group"><label className="gf-form-label">Email</label><input className="gf-input" defaultValue={gym.email ?? ''} /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">Phone</label><input className="gf-input" name="phone" defaultValue={gym.phone ?? ''} /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">Email</label><input className="gf-input" name="email" type="email" defaultValue={gym.email ?? ''} /></div>
                 </div>
-                <div className="gf-form-group" style={{ marginBottom: 18 }}><label className="gf-form-label">Address</label><input className="gf-input" defaultValue={gym.address ?? ''} /></div>
-                <button className="gf-btn gf-btn-primary">Save changes</button>
-              </div>
+                <div className="gf-form-group" style={{ marginBottom: 18 }}><label className="gf-form-label">Address</label><input className="gf-input" name="address" defaultValue={gym.address ?? ''} /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <button className="gf-btn gf-btn-primary" type="submit" disabled={gymPending}>{gymPending ? 'Saving…' : 'Save changes'}</button>
+                  {gymState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
+                  {gymState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{gymState.error}</span>}
+                </div>
+              </form>
             </section>
           )}
 
