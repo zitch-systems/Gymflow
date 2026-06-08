@@ -62,6 +62,7 @@ export async function manualCheckIn(_prev: ActionState, formData: FormData): Pro
     });
     if (error) return { ok: false, error: error.message };
     revalidatePath(`/admin/members/${memberId}`);
+    revalidatePath('/admin/staff-checkin');
     return { ok: true, error: null, message: 'Checked in.' };
   } catch (e) {
     return { ok: false, error: (e as Error).message };

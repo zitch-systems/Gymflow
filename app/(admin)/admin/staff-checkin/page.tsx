@@ -1,12 +1,17 @@
 import { ScanLine, Clock, TrendingUp, QrCode, Search } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { CheckInButton } from '@/components/admin/checkin-button';
 
 export const metadata = { title: 'Check-In' };
+export const dynamic = 'force-dynamic';
 
-export default async function AdminCheckin() {
+export default async function AdminCheckin({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { gym } = await requireStaff();
   const supabase = await createClient();
+  const sp = await searchParams;
+  const q = (sp.q ?? '').trim();
+  const safe = q.replace(/[(),%*]/g, ' ').trim();
 
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const { data: feed } = await supabase
@@ -27,6 +32,16 @@ export default async function AdminCheckin() {
     : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? p.email ?? 'Member']));
 
+  let results: { id: string; full_name: string | null; email: string | null }[] = [];
+  if (safe) {
+    const { data: links } = await supabase.from('gym_member_links').select('member_id, user_id').eq('gym_id', gym.id).eq('is_active', true).limit(1000);
+    const mids = [...new Set((links ?? []).map((l) => l.member_id ?? l.user_id).filter(Boolean) as string[])];
+    if (mids.length) {
+      const { data: matches } = await supabase.from('profiles').select('id, full_name, email').in('id', mids).or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`).limit(10);
+      results = matches ?? [];
+    }
+  }
+
   return (
     <>
       <div className="page-h"><div><h1>Check-In</h1><p>{gym.name} · {todayRows.length} member{todayRows.length === 1 ? '' : 's'} in so far today</p></div></div>
@@ -42,7 +57,23 @@ export default async function AdminCheckin() {
           <div className="ring"><QrCode strokeWidth={1.75} /></div>
           <h2>Scan or search to check in</h2>
           <p>Members scan the door QR, or find them manually below.</p>
-          <div className="find"><Search strokeWidth={1.75} /><input placeholder="Type a member name…" aria-label="Find member" /></div>
+          <form className="find" method="get" action="/admin/staff-checkin"><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Type a member name…" aria-label="Find member" /></form>
+          {q && (
+            <div className="ci-results">
+              {results.length === 0 ? (
+                <p style={{ color: 'var(--gf-text-muted)', fontSize: '0.84rem', margin: '14px 0 0' }}>No members match “{q}”.</p>
+              ) : results.map((r) => {
+                const nm = r.full_name ?? r.email ?? 'Member';
+                return (
+                  <div className="ci-result" key={r.id}>
+                    <span className="gf-avatar gf-avatar-sm">{nm.charAt(0).toUpperCase()}</span>
+                    <div className="m"><strong>{nm}</strong><small>{r.email ?? ''}</small></div>
+                    <CheckInButton memberId={r.id} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="panel">
           <div className="panel-h"><div><h3>Today&apos;s check-ins</h3><div className="sub"><span className="gf-status-dot active">Live</span></div></div></div>

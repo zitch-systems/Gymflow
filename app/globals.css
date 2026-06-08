@@ -2091,3 +2091,10 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .att-btn.ok.on { background:var(--gf-success-soft); color:var(--gf-success); border-color:transparent; }
 .ds-admin .att-btn.no.on { background:var(--gf-danger-soft); color:var(--gf-danger); border-color:transparent; }
 .ds-admin .att-btn:hover:not(.on) { border-color:var(--gf-border-light); color:var(--gf-text); }
+
+/* Front-desk check-in search results */
+.ds-admin .ci-results { margin-top:16px; display:flex; flex-direction:column; gap:8px; text-align:left; }
+.ds-admin .ci-result { display:flex; align-items:center; gap:11px; padding:10px 12px; background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); }
+.ds-admin .ci-result .m { flex:1; min-width:0; }
+.ds-admin .ci-result .m strong { font-family:var(--gf-font-display); font-weight:600; font-size:0.86rem; display:block; }
+.ds-admin .ci-result .m small { color:var(--gf-text-muted); font-size:0.74rem; }
