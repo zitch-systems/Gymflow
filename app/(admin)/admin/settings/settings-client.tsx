@@ -2,10 +2,11 @@
 
 import { useState, useActionState } from 'react';
 import Image from 'next/image';
-import { Building2, Palette, Clock, Bell, Plug, Users, Upload, CreditCard, MessageCircle, Mail } from 'lucide-react';
-import { updateGym, type GymSaveState } from '@/lib/actions/gym';
+import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail } from 'lucide-react';
+import { updateGym, updateBranding, type GymSaveState } from '@/lib/actions/gym';
 
 const GYM_INIT: GymSaveState = { ok: false, error: null };
+const SWATCHES = ['#11d18b', '#4080ff', '#ff4560', '#c6f24e', '#b67bf3', '#f59e0b', '#06b6d4'];
 
 const NAV = [
   { id: 'profile', label: 'Gym profile', icon: Building2 },
@@ -27,12 +28,13 @@ const INTEG = [
 ];
 
 export type GymProfile = {
-  name: string; slug: string; phone: string | null; email: string | null; address: string | null;
+  name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null;
 };
 
 export function SettingsClient({ gym, staffCount }: { gym: GymProfile; staffCount: number }) {
   const [sec, setSec] = useState<string>('profile');
   const [gymState, gymAction, gymPending] = useActionState(updateGym, GYM_INIT);
+  const [brandState, brandAction, brandPending] = useActionState(updateBranding, GYM_INIT);
 
   return (
     <>
@@ -76,20 +78,27 @@ export function SettingsClient({ gym, staffCount }: { gym: GymProfile; staffCoun
 
           {sec === 'branding' && (
             <section className="sec on">
-              <div className="panel">
+              <form className="panel" action={brandAction}>
                 <div className="panel-title">Branding</div>
-                <div className="panel-desc">Your logo and accent colour appear across the member app.</div>
+                <div className="panel-desc">Your accent colour appears across the member app.</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
                   <Image src="/images/logomark-v2.svg" alt="" width={56} height={56} />
-                  <button className="gf-btn gf-btn-secondary gf-btn-sm"><Upload strokeWidth={1.9} size={15} /> Replace logo</button>
+                  <span style={{ color: 'var(--gf-text-muted)', fontSize: '0.82rem' }}>Logo upload coming soon</span>
                 </div>
                 <label className="gf-form-label" style={{ display: 'block', marginBottom: 10 }}>Accent colour</label>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {['#11d18b', '#4080ff', '#ff4560', '#c6f24e', '#b67bf3'].map((c, i) => (
-                    <span key={c} style={{ width: 36, height: 36, borderRadius: 10, background: c, outline: i === 0 ? '2px solid var(--gf-brand)' : undefined, outlineOffset: 2, cursor: 'pointer' }} />
+                <div className="swatches">
+                  {SWATCHES.map((c) => (
+                    <label key={c} className="swatch" style={{ background: c }} title={c}>
+                      <input type="radio" name="brand_color" value={c} defaultChecked={(gym.brand_color ?? '#11d18b') === c} />
+                    </label>
                   ))}
                 </div>
-              </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 20 }}>
+                  <button className="gf-btn gf-btn-primary" type="submit" disabled={brandPending}>{brandPending ? 'Saving…' : 'Save branding'}</button>
+                  {brandState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
+                  {brandState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{brandState.error}</span>}
+                </div>
+              </form>
             </section>
           )}
 

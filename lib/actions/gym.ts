@@ -28,3 +28,23 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
     return { ok: false, error: (e as Error).message };
   }
 }
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+// Save the gym's accent colour (applied across the member app).
+export async function updateBranding(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const color = String(formData.get('brand_color') ?? '').trim();
+  if (!HEX.test(color)) return { ok: false, error: 'Pick a valid colour.' };
+  try {
+    const { gym } = await requireStaff();
+    const supabase = await createClient();
+    // brand_color isn't in the generated types yet — cast to keep tsc happy.
+    const { error } = await supabase.from('gyms').update({ brand_color: color } as never).eq('id', gym.id);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath('/admin/settings');
+    revalidatePath('/dashboard', 'layout');
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}

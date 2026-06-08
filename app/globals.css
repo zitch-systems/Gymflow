@@ -2098,3 +2098,9 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .ci-result .m { flex:1; min-width:0; }
 .ds-admin .ci-result .m strong { font-family:var(--gf-font-display); font-weight:600; font-size:0.86rem; display:block; }
 .ds-admin .ci-result .m small { color:var(--gf-text-muted); font-size:0.74rem; }
+
+/* Branding colour swatches */
+.ds-admin .swatches { display:flex; gap:10px; flex-wrap:wrap; }
+.ds-admin .swatch { width:36px; height:36px; border-radius:10px; cursor:pointer; position:relative; outline:2px solid transparent; outline-offset:2px; transition:outline-color var(--gf-t); }
+.ds-admin .swatch input { position:absolute; inset:0; opacity:0; cursor:pointer; margin:0; }
+.ds-admin .swatch:has(input:checked) { outline-color:var(--gf-text); }
