@@ -1973,3 +1973,64 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .dstat { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .ds-admin .dstat .l { color:var(--gf-text-muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; font-weight:600; }
 .ds-admin .dstat .v { font-family:var(--gf-font-display); font-weight:700; margin-top:4px; }
+
+/* ── Admin empty states (mirror member) + member detail view ──────────────── */
+.ds-admin .empty { text-align:center; padding:44px 20px; }
+.ds-admin .empty.sm { padding:30px 18px; }
+.ds-admin .empty .eic { width:58px; height:58px; border-radius:18px; background:var(--gf-elevated); border:1px solid var(--gf-border); display:grid; place-items:center; margin:0 auto 14px; }
+.ds-admin .empty .eic svg { width:25px; height:25px; color:var(--gf-text-muted); }
+.ds-admin .empty h3 { font-family:var(--gf-font-display); font-weight:800; font-size:1.0rem; margin:0 0 5px; }
+.ds-admin .empty p { color:var(--gf-text-muted); font-size:0.84rem; margin:0; }
+
+/* Clickable table rows + chevron */
+.ds-admin .tbl tr.rowlink:hover { background:var(--gf-elevated); }
+.ds-admin a.who { text-decoration:none; color:inherit; }
+.ds-admin .row-chev { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:8px; color:var(--gf-text-muted); transition:all var(--gf-t); }
+.ds-admin .tbl tr.rowlink:hover .row-chev { color:var(--gf-brand); background:var(--gf-surface); }
+
+/* Member detail header */
+.ds-admin .mdh { display:flex; align-items:center; gap:18px; margin:16px 0 22px; flex-wrap:wrap; }
+.ds-admin .mdh .gf-avatar-xl { width:70px; height:70px; font-size:1.55rem; background:var(--gf-brand-soft); color:var(--gf-brand); border-color:var(--gf-brand-glow); flex-shrink:0; }
+.ds-admin .mdh-id { flex:1; min-width:200px; }
+.ds-admin .mdh-name { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.ds-admin .mdh-name h1 { font-family:var(--gf-font-display); font-size:clamp(1.4rem,2.4vw,1.9rem); font-weight:800; letter-spacing:-0.03em; margin:0; }
+.ds-admin .mdh-meta { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; color:var(--gf-text-secondary); font-size:0.84rem; }
+.ds-admin .mdh-meta span { display:inline-flex; align-items:center; gap:6px; }
+.ds-admin .mdh-actions { display:flex; gap:10px; flex-wrap:wrap; }
+
+/* Detail two-column grid */
+.ds-admin .md-grid { display:grid; grid-template-columns:1fr 1.2fr; gap:18px; align-items:start; margin-top:18px; }
+.ds-admin .md-col { display:flex; flex-direction:column; gap:18px; min-width:0; }
+@media (max-width:920px){ .ds-admin .md-grid { grid-template-columns:1fr; } }
+
+/* Subscription card */
+.ds-admin .md-sub-top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; background:var(--gf-elevated); border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); margin-bottom:14px; }
+.ds-admin .md-sub-top strong { font-family:var(--gf-font-display); font-weight:700; display:block; }
+.ds-admin .md-sub-top small { color:var(--gf-text-muted); font-size:0.78rem; }
+.ds-admin .md-sub-rows { display:grid; grid-template-columns:1fr 1fr; gap:12px 18px; }
+.ds-admin .md-sub-rows > div { display:flex; flex-direction:column; gap:3px; }
+.ds-admin .md-sub-rows span { color:var(--gf-text-muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:600; }
+.ds-admin .md-sub-rows b { font-family:var(--gf-font-display); font-weight:600; font-size:0.9rem; }
+.ds-admin .md-sub-hist { margin-top:14px; color:var(--gf-text-muted); font-size:0.78rem; }
+
+/* Personal-details info list */
+.ds-admin .infolist { display:flex; flex-direction:column; }
+.ds-admin .info-row { display:grid; grid-template-columns:22px 128px 1fr; align-items:center; gap:10px; padding:11px 0; border-top:1px solid var(--gf-border); font-size:0.875rem; }
+.ds-admin .info-row:first-child { border-top:none; }
+.ds-admin .info-ic { color:var(--gf-text-muted); display:grid; place-items:center; }
+.ds-admin .info-lbl { color:var(--gf-text-muted); font-size:0.8rem; }
+.ds-admin .info-val { font-weight:500; text-align:right; word-break:break-word; }
+
+/* Payment date cell */
+.ds-admin .cell-2 strong { font-family:var(--gf-font-display); font-weight:600; display:block; font-size:0.86rem; }
+.ds-admin .cell-2 small { color:var(--gf-text-muted); font-size:0.72rem; font-variant-numeric:tabular-nums; }
+
+/* Check-in list */
+.ds-admin .ci-list { display:flex; flex-direction:column; }
+.ds-admin .ci-item { display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--gf-border); }
+.ds-admin .ci-item:first-child { border-top:none; }
+.ds-admin .ci-ic { width:34px; height:34px; border-radius:10px; background:var(--gf-brand-soft); color:var(--gf-brand); display:grid; place-items:center; flex-shrink:0; }
+.ds-admin .ci-m { flex:1; min-width:0; }
+.ds-admin .ci-m strong { font-family:var(--gf-font-display); font-weight:600; font-size:0.875rem; display:block; }
+.ds-admin .ci-m small { color:var(--gf-text-muted); font-size:0.76rem; }
+.ds-admin .ci-time { display:inline-flex; align-items:center; gap:5px; color:var(--gf-text-secondary); font-size:0.78rem; font-variant-numeric:tabular-nums; }

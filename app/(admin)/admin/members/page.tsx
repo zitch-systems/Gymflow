@@ -1,4 +1,5 @@
-import { Users, Clock, UserX, UserPlus, TrendingUp, Search, Filter, Download } from 'lucide-react';
+import Link from 'next/link';
+import { Users, Clock, UserX, UserPlus, Search, Filter, Download, ChevronRight } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
@@ -56,7 +57,7 @@ export default async function AdminMembers() {
     else { status = ['gf-badge-danger', 'Expired']; lapsed++; }
     if (l.joined_at && new Date(l.joined_at) >= monthAgo) fresh++;
     return {
-      id: l.user_id ?? mid,
+      id: mid,
       name,
       email: p?.email ?? '—',
       initial: name.charAt(0).toUpperCase(),
@@ -106,16 +107,17 @@ export default async function AdminMembers() {
           <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No members yet</h3><p>Members appear here after they sign up or are added.</p></div>
         ) : (
           <table className="tbl">
-            <thead><tr><th>Member</th><th>Plan</th><th>Status</th><th>Joined</th><th>Renews</th><th style={{ textAlign: 'right' }}>Value</th></tr></thead>
+            <thead><tr><th>Member</th><th>Plan</th><th>Status</th><th>Joined</th><th>Renews</th><th style={{ textAlign: 'right' }}>Value</th><th aria-hidden /></tr></thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id}>
-                  <td><div className="who"><span className="gf-avatar gf-avatar-sm">{r.initial}</span><div><strong>{r.name}</strong><small>{r.email}</small></div></div></td>
+                <tr key={r.id} className="rowlink">
+                  <td><Link href={`/admin/members/${r.id}`} className="who"><span className="gf-avatar gf-avatar-sm">{r.initial}</span><div><strong>{r.name}</strong><small>{r.email}</small></div></Link></td>
                   <td>{r.plan}</td>
                   <td><span className={`gf-badge ${r.status[0]}`}>{r.status[1]}</span></td>
                   <td style={{ color: 'var(--gf-text-secondary)' }}>{r.joined}</td>
                   <td style={{ color: 'var(--gf-text-secondary)' }}>{r.renews}</td>
                   <td className="naira" style={{ textAlign: 'right' }}>{r.value}</td>
+                  <td style={{ textAlign: 'right', width: 36 }}><Link href={`/admin/members/${r.id}`} className="row-chev" aria-label={`View ${r.name}`}><ChevronRight strokeWidth={2} size={16} /></Link></td>
                 </tr>
               ))}
             </tbody>
