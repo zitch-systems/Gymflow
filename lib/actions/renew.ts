@@ -29,7 +29,7 @@ export async function startRenewal(planId: string): Promise<RenewResult> {
     email: user.email ?? '',
     amountKobo: Math.round(Number(plan.price) * 100),
     metadata: { member_id: user.id, gym_id: gym.id, plan_id: plan.id, duration_months: plan.duration_months, kind: 'membership_renewal' },
-    callbackUrl: site ? `${site}/dashboard/wallet` : undefined,
+    callbackUrl: site ? `${site}/dashboard/renew/callback` : undefined,
   });
   return res.ok ? { ok: true, url: res.authorization_url } : { ok: false, error: res.error };
 }

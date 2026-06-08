@@ -11,8 +11,9 @@ function periodSuffix(m: number): string {
   if (m <= 1) return '/mo'; if (m === 3) return '/qtr'; if (m === 12) return '/yr'; return `/${m}mo`;
 }
 
-// Plan picker — real plans passed from the server page. "Pay" is a placeholder
-// success state until the Paystack flow is wired (needs SERVICE_ROLE_KEY).
+// Plan picker — real plans from the server page. "Pay" starts a Paystack
+// checkout (startRenewal → authorization_url); the renew callback + webhook
+// record the payment and extend the subscription.
 export function RenewPicker({ plans }: { plans: Plan[] }) {
   const [picked, setPicked] = useState(plans[0]?.id ?? '');
   const [err, setErr] = useState<string | null>(null);
