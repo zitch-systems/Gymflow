@@ -101,7 +101,7 @@ export default async function AdminMembers() {
           <div className="search"><Search strokeWidth={1.75} /><input placeholder="Search by name or email…" aria-label="Search members" /></div>
           <div style={{ flex: 1 }} />
           <button className="gf-btn gf-btn-secondary gf-btn-sm"><Filter strokeWidth={1.9} size={15} /> Filters</button>
-          <button className="gf-btn gf-btn-secondary gf-btn-sm"><Download strokeWidth={1.9} size={15} /> Export</button>
+          <a className="gf-btn gf-btn-secondary gf-btn-sm" href="/admin/members/export" style={{ textDecoration: 'none' }}><Download strokeWidth={1.9} size={15} /> Export</a>
           <Link href="/admin/members/new" className="gf-btn gf-btn-primary gf-btn-sm"><UserPlus strokeWidth={1.9} size={15} /> Add member</Link>
         </div>
         {rows.length === 0 ? (
