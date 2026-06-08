@@ -23,9 +23,17 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// Set the theme before first paint (no flash). Reads the saved choice, else
+// falls back to the OS preference. The <html data-theme> is the single source
+// of truth the CSS keys off; ThemeToggle updates it + localStorage at runtime.
+const THEME_INIT = `(function(){try{var t=localStorage.getItem('gf-theme');if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+      </head>
       <body>{children}</body>
     </html>
   );

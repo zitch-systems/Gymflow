@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
+import { ThemeToggle } from '@/components/theme-toggle';
 import {
   CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
 } from 'lucide-react';
@@ -70,6 +71,7 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
         <header className="top">
           <span className="gf-topbar-title" style={{ fontFamily: 'var(--gf-font-display)' }}>Instructor portal</span>
           <div className="top-spacer" />
+          <ThemeToggle />
           <button className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></button>
         </header>
         <main className="content">{children}</main>

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
+import { ThemeToggle } from '@/components/theme-toggle';
 import {
   LayoutDashboard, Building2, Users, TrendingUp, UserPlus, ScrollText, LifeBuoy, Settings, LogOut, Globe,
 } from 'lucide-react';
@@ -77,6 +78,7 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
         <header className="top">
           <span className="gf-topbar-title" style={{ fontFamily: 'var(--gf-font-display)' }}>Platform console</span>
           <div className="top-spacer" />
+          <ThemeToggle />
           <span className="pill-plat"><Globe size={12} strokeWidth={2} /> Superadmin</span>
         </header>
         <main className="content">{children}</main>

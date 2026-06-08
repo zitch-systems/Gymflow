@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Wallet, QrCode, Bell, FileText, LifeBuoy, Settings, LogOut, ChevronRight } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
+import { ThemeToggleRow } from '@/components/theme-toggle';
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 
@@ -56,6 +57,7 @@ export default async function ProfilePage() {
       </div>
 
       <div className="group">
+        <ThemeToggleRow />
         <Link href="/legal#waiver" className="row">
           <span className="ic"><FileText strokeWidth={1.9} /></span>
           <div className="m"><strong>Waiver &amp; documents</strong></div>

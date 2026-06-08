@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 // Shared marketing nav + footer, recreated from revamp/marketing.html chrome.
 // `cur` highlights the active top-level link.
@@ -16,6 +17,7 @@ export function MarketingNav({ cur }: { cur?: 'features' | 'pricing' | 'about' |
         <Link href="/about" className={cur === 'about' ? 'cur' : undefined}>About</Link>
         <Link href="/contact" className={cur === 'contact' ? 'cur' : undefined}>Contact</Link>
         <Link href="/login">Sign in</Link>
+        <ThemeToggle size={38} />
         <Link href="/signup" className="gf-btn gf-btn-primary btnlink">Get started</Link>
       </div>
     </nav>

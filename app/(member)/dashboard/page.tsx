@@ -6,6 +6,7 @@ import {
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft, firstName } from '@/lib/format';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export const metadata = { title: 'Home' };
 
@@ -50,8 +51,9 @@ export default async function MemberHome() {
     <section className="view on" data-v="home">
       <div className="mhead">
         <span className="gf-avatar gf-avatar-md">{initial}</span>
-        <div><small>{gym.name}</small><strong>Hi, {name} 👋</strong></div>
-        <Link href="/dashboard/inbox" className="icon-btn bell" style={{ width: 38, height: 38 }} aria-label="Notifications">
+        <div style={{ flex: 1, minWidth: 0 }}><small>{gym.name}</small><strong>Hi, {name} 👋</strong></div>
+        <ThemeToggle size={38} />
+        <Link href="/dashboard/inbox" className="icon-btn bell" style={{ width: 38, height: 38, marginLeft: 0 }} aria-label="Notifications">
           <Bell strokeWidth={1.9} />{unreadCount > 0 && <span className="nub">{unreadCount > 99 ? '99+' : unreadCount}</span>}
         </Link>
       </div>

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
+import { ThemeToggle } from '@/components/theme-toggle';
 import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
   GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search,
@@ -89,6 +90,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <input placeholder="Search members, classes, payments…" aria-label="Search" />
           </div>
           <div className="top-spacer" />
+          <ThemeToggle />
           <Link href="/admin/members" className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></Link>
         </header>
         <main className="content">{children}</main>
