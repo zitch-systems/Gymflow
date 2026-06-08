@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {
   Bell, CreditCard, ScanLine, CalendarDays, Wallet, QrCode, Flame, Check,
-  Activity, CalendarCheck, Timer, Bike, Gift,
+  Activity, CalendarCheck, Timer, Gift, CalendarClock,
 } from 'lucide-react';
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
@@ -9,43 +9,80 @@ import { fmtDate, daysLeft, firstName } from '@/lib/format';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 export const metadata = { title: 'Home' };
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
-// Member home — recreates revamp/member.html "home" view. Header, membership
-// status card, and recent check-ins are wired to Supabase; the weekly streak +
-// stat trio remain sample data pending the activity-aggregation pass.
-const WEEK = [
-  { d: 'M', done: true }, { d: 'T', done: true }, { d: 'W', done: true, today: true },
-  { d: 'T', done: false }, { d: 'F', done: false }, { d: 'S', rest: true }, { d: 'S', rest: true },
-];
+const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // Mon..Sun
 
 export default async function MemberHome() {
   const { user, gym } = await requireMember();
   const profile = await getProfile();
   const supabase = await createClient();
 
-  const [{ data: sub }, { data: checkIns }, { count: unread }] = await Promise.all([
-    supabase
-      .from('member_subscriptions')
-      .select('status, start_date, end_date, plan_id, membership_plans(name)')
-      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
-      .order('end_date', { ascending: false }).limit(1).maybeSingle(),
-    supabase
-      .from('check_ins')
-      .select('checked_in_at, check_in_method')
-      .eq('member_id', user.id).eq('gym_id', gym.id)
-      .order('checked_in_at', { ascending: false }).limit(3),
-    supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('is_read', false),
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const dow = (now.getDay() + 6) % 7; // 0 = Monday
+  const weekStart = new Date(now); weekStart.setHours(0, 0, 0, 0); weekStart.setDate(now.getDate() - dow);
+  const weekStartIso = weekStart.toISOString();
+  const since = new Date(now.getTime() - 70 * 86_400_000).toISOString();
+  const today = now.toISOString().slice(0, 10);
+
+  const [{ data: sub }, { count: unread }, { data: allCheckins }, { count: classesAttended }, { data: nextBooking }] = await Promise.all([
+    supabase.from('member_subscriptions').select('status, start_date, end_date, plan_id')
+      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active').order('end_date', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
+    supabase.from('check_ins').select('checked_in_at, checked_out_at, check_in_method')
+      .eq('member_id', user.id).eq('gym_id', gym.id).gte('checked_in_at', since).order('checked_in_at', { ascending: false }),
+    supabase.from('class_bookings').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'attended'),
+    supabase.from('class_bookings').select('booking_date, class_id, status')
+      .eq('member_id', user.id).eq('gym_id', gym.id).gte('booking_date', today).in('status', ['booked', 'confirmed'])
+      .order('booking_date', { ascending: true }).limit(1).maybeSingle(),
   ]);
+
+  // Resolve plan name + next-class name without relying on PostgREST embeds.
+  const [{ data: plan }, { data: nextClass }] = await Promise.all([
+    sub?.plan_id ? supabase.from('membership_plans').select('name').eq('id', sub.plan_id).maybeSingle() : Promise.resolve({ data: null }),
+    nextBooking?.class_id ? supabase.from('classes').select('name, start_time').eq('id', nextBooking.class_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+
+  const checkins = allCheckins ?? [];
+  const daySet = new Set(checkins.map((c) => (c.checked_in_at ?? '').slice(0, 10)).filter(Boolean));
+  const visitsThisMonth = checkins.filter((c) => (c.checked_in_at ?? '') >= monthStart).length;
+  const visitsThisWeek = checkins.filter((c) => (c.checked_in_at ?? '') >= weekStartIso).length;
+
+  // Current streak: consecutive prior days with a check-in (today optional).
+  let streak = 0;
+  const cur = new Date(); cur.setHours(0, 0, 0, 0);
+  if (!daySet.has(cur.toISOString().slice(0, 10))) cur.setDate(cur.getDate() - 1);
+  while (daySet.has(cur.toISOString().slice(0, 10))) { streak++; cur.setDate(cur.getDate() - 1); }
+  // Best streak across the window.
+  const sortedDays = [...daySet].sort();
+  let best = 0, run = 0; let prev: number | null = null;
+  for (const k of sortedDays) {
+    const t = Date.parse(k);
+    run = prev !== null && t - prev === 86_400_000 ? run + 1 : 1;
+    best = Math.max(best, run); prev = t;
+  }
+  // Average session length from completed (checked-out) visits.
+  const withDur = checkins.filter((c) => c.checked_out_at && c.checked_in_at);
+  const avgMin = withDur.length
+    ? Math.round(withDur.reduce((s, c) => s + (new Date(c.checked_out_at!).getTime() - new Date(c.checked_in_at!).getTime()) / 60000, 0) / withDur.length)
+    : 0;
+
+  const weekDays = DAY_LABELS.map((label, i) => {
+    const dt = new Date(weekStart); dt.setDate(weekStart.getDate() + i);
+    const key = dt.toISOString().slice(0, 10);
+    return { d: label, done: daySet.has(key), today: key === today, future: key > today };
+  });
+  const goal = 4;
 
   const name = firstName(profile?.full_name ?? profile?.first_name);
   const initial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
-  const planName = (sub as unknown as { membership_plans: { name: string } | null })?.membership_plans?.name ?? 'Membership';
+  const planName = plan?.name ?? 'Membership';
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
   const isActive = remaining > 0;
   const unreadCount = unread ?? 0;
+  const recent = checkins.slice(0, 3);
 
   return (
     <section className="view on" data-v="home">
@@ -80,13 +117,13 @@ export default async function MemberHome() {
             <div className="week-top">
               <div className="week-streak">
                 <span className="flame"><Flame strokeWidth={2} /></span>
-                <div><b>5-day streak</b><small>Best: 9 days</small></div>
+                <div><b>{streak}-day streak</b><small>{best > 0 ? `Best: ${best} day${best === 1 ? '' : 's'}` : 'Check in to start one'}</small></div>
               </div>
-              <div className="week-goal"><b>3/4</b><small>Weekly goal</small></div>
+              <div className="week-goal"><b>{visitsThisWeek}/{goal}</b><small>Weekly goal</small></div>
             </div>
             <div className="week-days">
-              {WEEK.map((w, i) => (
-                <div key={i} className={`wd${w.done ? ' done' : ''}${w.today ? ' today' : ''}${w.rest ? ' rest' : ''}`}>
+              {weekDays.map((w, i) => (
+                <div key={i} className={`wd${w.done ? ' done' : ''}${w.today ? ' today' : ''}${w.future ? ' rest' : ''}`}>
                   <span>{w.d}</span>
                   <div className="dot"><Check strokeWidth={3} /></div>
                 </div>
@@ -95,33 +132,40 @@ export default async function MemberHome() {
           </div>
 
           <div className="stat3">
-            <div className="s"><Activity strokeWidth={1.9} /><b>14</b><small>Visits this month</small></div>
-            <div className="s"><CalendarCheck strokeWidth={1.9} /><b>6</b><small>Classes booked</small></div>
-            <div className="s"><Timer strokeWidth={1.9} /><b>52<span style={{ fontSize: '0.9rem' }}>m</span></b><small>Avg session</small></div>
+            <div className="s"><Activity strokeWidth={1.9} /><b>{visitsThisMonth}</b><small>Visits this month</small></div>
+            <div className="s"><CalendarCheck strokeWidth={1.9} /><b>{classesAttended ?? 0}</b><small>Classes attended</small></div>
+            <div className="s"><Timer strokeWidth={1.9} /><b>{avgMin > 0 ? <>{avgMin}<span style={{ fontSize: '0.9rem' }}>m</span></> : '—'}</b><small>Avg session</small></div>
           </div>
         </div>
 
         <div className="col-b">
           <div className="sect-t">Next class <Link href="/classes">See all</Link></div>
-          <Link href="/classes" className="lc tap">
-            <div className="ic"><Bike strokeWidth={1.9} /></div>
-            <div className="m"><strong>Spin Class</strong><small>Coach Tobi · 17:30 today</small></div>
-            <span className="gf-badge gf-badge-success">Booked</span>
-          </Link>
+          {nextBooking ? (
+            <Link href="/classes" className="lc tap">
+              <div className="ic"><CalendarClock strokeWidth={1.9} /></div>
+              <div className="m"><strong>{nextClass?.name ?? 'Class'}</strong><small>{fmtDate(nextBooking.booking_date)}{nextClass?.start_time ? ` · ${String(nextClass.start_time).slice(0, 5)}` : ''}</small></div>
+              <span className="gf-badge gf-badge-success">Booked</span>
+            </Link>
+          ) : (
+            <Link href="/classes" className="lc tap">
+              <div className="ic"><CalendarDays strokeWidth={1.9} /></div>
+              <div className="m"><strong>No upcoming classes</strong><small>Browse the schedule to book one</small></div>
+            </Link>
+          )}
 
           <div className="promo">
             <span className="pic"><Gift strokeWidth={1.9} /></span>
-            <div className="m"><strong>Refer &amp; earn ₦5,000</strong><small>Invite a friend to Powerhouse.</small></div>
+            <div className="m"><strong>Refer &amp; earn ₦5,000</strong><small>Invite a friend to {gym.name}.</small></div>
             <button className="pill">Invite</button>
           </div>
 
-          {(checkIns?.length ?? 0) > 0 && (
+          {recent.length > 0 && (
             <>
               <div className="sect-t">Recent check-ins</div>
-              {(checkIns ?? []).map((c, i) => (
+              {recent.map((c, i) => (
                 <div className="lc" key={i}>
                   <div className="ic"><Check strokeWidth={1.9} /></div>
-                  <div className="m"><strong>Main entrance</strong><small>{c.check_in_method ?? 'QR scan'}</small></div>
+                  <div className="m"><strong>Checked in</strong><small>{c.check_in_method ?? 'QR scan'}</small></div>
                   <span className="t">{fmtDate(c.checked_in_at)}</span>
                 </div>
               ))}
