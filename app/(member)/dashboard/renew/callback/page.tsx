@@ -21,7 +21,12 @@ export default async function RenewCallback({ searchParams }: { searchParams: Pr
   if (reference) {
     const v = await verifyTransaction(reference);
     if (v.ok && v.status === 'success') {
-      await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata });
+      // The charge is confirmed at Paystack, so show success. Recording it is
+      // idempotent and the webhook is the authoritative backup; if this inline
+      // attempt fails we log it (the webhook retry will still land it) rather
+      // than alarming a member who genuinely paid.
+      const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata });
+      if (!f.ok) console.error(`[renew/callback] fulfill failed for ${v.reference}: ${f.error}`);
       ok = true;
       msg = 'Your membership has been renewed. Thank you!';
     } else if (v.ok) {
