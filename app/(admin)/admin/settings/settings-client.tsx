@@ -2,6 +2,7 @@
 
 import { useState, useActionState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail } from 'lucide-react';
 import { updateGym, updateBranding, uploadLogo, type GymSaveState } from '@/lib/actions/gym';
 
@@ -164,7 +165,7 @@ export function SettingsClient({ gym, staffCount }: { gym: GymProfile; staffCoun
               <div className="panel">
                 <div className="panel-title">Team</div>
                 <div className="panel-desc">Staff with admin or instructor access.</div>
-                <div className="set-row"><div className="m"><strong>{staffCount} active staff member{staffCount === 1 ? '' : 's'}</strong><small>Manage roles on the Staff page</small></div><button className="gf-btn gf-btn-secondary gf-btn-sm">Invite</button></div>
+                <div className="set-row"><div className="m"><strong>{staffCount} active staff member{staffCount === 1 ? '' : 's'}</strong><small>Manage roles on the Staff page</small></div><Link href="/admin/instructors" className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}>Manage</Link></div>
               </div>
             </section>
           )}

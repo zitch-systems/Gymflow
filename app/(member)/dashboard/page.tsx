@@ -7,6 +7,7 @@ import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft, firstName } from '@/lib/format';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { ShareInvite } from '@/components/member/share-invite';
 
 export const metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
@@ -160,7 +161,7 @@ export default async function MemberHome() {
           <div className="promo">
             <span className="pic"><Gift strokeWidth={1.9} /></span>
             <div className="m"><strong>Refer &amp; earn ₦5,000</strong><small>Invite a friend to {gym.name}.</small></div>
-            <button className="pill">Invite</button>
+            <ShareInvite gymName={gym.name} />
           </div>
 
           {recent.length > 0 && (

@@ -1,4 +1,4 @@
-import { Wallet, ScanLine, Repeat, Users, CreditCard } from 'lucide-react';
+import { Wallet, ScanLine, Users, CreditCard } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';

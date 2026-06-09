@@ -3,6 +3,7 @@ import { ArrowLeft, CheckCheck, Bell, CalendarCheck, Gift, Receipt, Sparkles } f
 import type { LucideIcon } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { markAllRead } from '@/lib/actions/notifications';
 
 export const metadata = { title: 'Notifications' };
 
@@ -55,7 +56,9 @@ export default async function InboxPage() {
       <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
         <Link href="/dashboard" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back"><ArrowLeft strokeWidth={1.9} /></Link>
         <strong className="htitle">Notifications</strong>
-        <button className="icon-btn" style={{ width: 34, height: 34 }} title="Mark all read" aria-label="Mark all read"><CheckCheck strokeWidth={1.9} /></button>
+        <form action={markAllRead}>
+          <button className="icon-btn" style={{ width: 34, height: 34 }} title="Mark all read" aria-label="Mark all read"><CheckCheck strokeWidth={1.9} /></button>
+        </form>
       </div>
 
       {rows.length === 0 ? (

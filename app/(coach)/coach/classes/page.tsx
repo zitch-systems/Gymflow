@@ -1,4 +1,4 @@
-import { CalendarDays, CalendarX } from 'lucide-react';
+import { CalendarX } from 'lucide-react';
 import { requireInstructor } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 

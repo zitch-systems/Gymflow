@@ -1343,8 +1343,8 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .page-h h1 { font-family:var(--gf-font-display); font-size:clamp(1.5rem,2.4vw,2rem); font-weight:800; letter-spacing:-0.03em; margin:0; }
 .ds-admin .page-h p { margin:5px 0 0; color:var(--gf-text-secondary); font-size:0.9rem; }
 .ds-admin .seg { display:inline-flex; background:var(--gf-elevated); border:1px solid var(--gf-border); border-radius:var(--gf-radius-pill); padding:3px; gap:2px; }
-.ds-admin .seg button { border:none; background:transparent; color:var(--gf-text-muted); font-family:var(--gf-font-display); font-weight:600; font-size:0.8125rem; padding:7px 16px; border-radius:var(--gf-radius-pill); cursor:pointer; transition:all var(--gf-t); }
-.ds-admin .seg button.on { background:var(--gf-brand); color:#fff; box-shadow:0 2px 10px var(--gf-brand-glow); }
+.ds-admin .seg button, .ds-admin .seg a { border:none; background:transparent; color:var(--gf-text-muted); font-family:var(--gf-font-display); font-weight:600; font-size:0.8125rem; padding:7px 16px; border-radius:var(--gf-radius-pill); cursor:pointer; transition:all var(--gf-t); }
+.ds-admin .seg button.on, .ds-admin .seg a.on { background:var(--gf-brand); color:#fff; box-shadow:0 2px 10px var(--gf-brand-glow); }
 .ds-admin .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
 .ds-admin .kpi { background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius); padding:18px; position:relative; overflow:hidden; transition:all var(--gf-t); }
 .ds-admin .kpi:hover { transform:translateY(-3px); border-color:var(--gf-border-light); box-shadow:var(--gf-shadow); }
