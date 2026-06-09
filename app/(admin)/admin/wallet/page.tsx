@@ -1,4 +1,4 @@
-import { Banknote, Building2, ArrowDownLeft, ArrowUpRight, CreditCard } from 'lucide-react';
+import { Banknote, ArrowDownLeft, ArrowUpRight, CreditCard } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
@@ -50,9 +50,9 @@ export default async function AdminWallet() {
           <small>Collected this month</small>
           <div className="amt">{fmtNaira(collected)}</div>
           <div className="sub">{fmtNaira(pending)} pending · {(rows ?? []).length} recent transactions</div>
-          <div className="acts">
-            <button className="gf-btn solid"><Banknote strokeWidth={1.9} size={16} /> Withdraw</button>
-            <button className="gf-btn"><Building2 strokeWidth={1.9} size={16} /> Bank account</button>
+          <div className="acts" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Banknote strokeWidth={1.9} size={16} />
+            <span style={{ fontSize: '0.84rem', opacity: 0.92 }}>Paystack settles collections to your bank account automatically (T+1).</span>
           </div>
         </div>
         <div className="wstats">

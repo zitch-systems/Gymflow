@@ -1,5 +1,6 @@
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
-import { MessageSquare, MessageCircle, Mail, Phone, MapPin, Send } from 'lucide-react';
+import { MessageSquare, MessageCircle, Mail, Phone, MapPin } from 'lucide-react';
+import { ContactForm } from '@/components/marketing/contact-form';
 
 export const metadata = {
   title: 'Contact',
@@ -24,24 +25,7 @@ export default function ContactPage() {
           <div className="card-pane">
             <h2>Send us a message</h2>
             <p className="pmuted">Fill this in and we&apos;ll get back to you by email or WhatsApp.</p>
-            <form className="cform" action="mailto:hello@gymflow.ng" method="post" encType="text/plain">
-              <div className="gf-form-group"><label className="gf-form-label">First name</label><input className="gf-input" name="first" placeholder="Tunde" required /></div>
-              <div className="gf-form-group"><label className="gf-form-label">Last name</label><input className="gf-input" name="last" placeholder="Adeyemi" /></div>
-              <div className="gf-form-group full"><label className="gf-form-label">Email</label><input className="gf-input" type="email" name="email" placeholder="you@yourgym.ng" required /></div>
-              <div className="gf-form-group full"><label className="gf-form-label">Gym name</label><input className="gf-input" name="gym" placeholder="e.g. Powerhouse Fitness" /></div>
-              <div className="gf-form-group full">
-                <label className="gf-form-label">What can we help with?</label>
-                <select className="gf-select" name="topic">
-                  <option>Booking a demo</option>
-                  <option>Pricing &amp; plans</option>
-                  <option>Migrating from another system</option>
-                  <option>Partnership</option>
-                  <option>Something else</option>
-                </select>
-              </div>
-              <div className="gf-form-group full"><label className="gf-form-label">Message</label><textarea className="gf-textarea" name="message" placeholder="Tell us a little about your gym…" style={{ minHeight: 110 }} /></div>
-              <button className="gf-btn gf-btn-primary gf-btn-lg full" type="submit"><Send strokeWidth={1.75} style={{ width: 17, height: 17 }} /> Send message</button>
-            </form>
+            <ContactForm />
           </div>
 
           <div>

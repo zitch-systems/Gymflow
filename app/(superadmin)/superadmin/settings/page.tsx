@@ -26,10 +26,9 @@ export default async function SuperSettings() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="panel">
             <div className="panel-title">Platform defaults</div>
-            <div className="panel-desc">Applied to every new gym at provision time.</div>
-            <div className="frow"><div className="gf-form-group"><label className="gf-form-label">Platform commission</label><input className="gf-input" defaultValue="3%" /></div><div className="gf-form-group"><label className="gf-form-label">Trial length</label><input className="gf-input" defaultValue="14 days" /></div></div>
-            <div className="gf-form-group" style={{ marginBottom: 16 }}><label className="gf-form-label">Default currency</label><input className="gf-input" defaultValue="₦ Naira (NGN)" /></div>
-            <button className="gf-btn gf-btn-primary">Save defaults</button>
+            <div className="panel-desc">Applied to every new gym at provision time. Fixed platform-wide for now.</div>
+            <div className="frow"><div className="gf-form-group"><label className="gf-form-label">Platform commission</label><input className="gf-input" value="3%" readOnly disabled /></div><div className="gf-form-group"><label className="gf-form-label">Trial length</label><input className="gf-input" value="14 days" readOnly disabled /></div></div>
+            <div className="gf-form-group"><label className="gf-form-label">Default currency</label><input className="gf-input" value="₦ Naira (NGN)" readOnly disabled /></div>
           </div>
           <div className="panel">
             <div className="panel-title">Platform admins</div>

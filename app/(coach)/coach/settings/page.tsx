@@ -15,6 +15,7 @@ export default async function CoachSettings() {
         specialisation: profile?.specialisation ?? '',
         bio: profile?.bio ?? '',
         initial: name.charAt(0).toUpperCase(),
+        avatar_url: profile?.avatar_url ?? null,
       }}
     />
   );

@@ -1,7 +1,8 @@
-import { Clock, MessageCircle, Reply, Zap, Send, Mail } from 'lucide-react';
+import { Clock, MessageCircle, Reply, Zap, Mail } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { daysLeft } from '@/lib/format';
+import { RemindButton, RemindAllButton } from '@/components/admin/reminder-buttons';
 
 export const metadata = { title: 'Reminders' };
 
@@ -13,15 +14,16 @@ export default async function AdminReminders() {
   const weekAhead = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-  const [{ data: expiring }, { count: sent }, { data: log }] = await Promise.all([
+  const [{ data: expiring }, { data: sentRows }, { data: log }] = await Promise.all([
     supabase.from('member_subscriptions')
       .select('id, member_id, end_date, plan_id, membership_plans(name)')
       .eq('gym_id', gym.id).eq('status', 'active').gte('end_date', today).lte('end_date', weekAhead)
       .order('end_date', { ascending: true }).limit(50),
-    supabase.from('reminder_logs').select('sent_count', { count: 'exact' }).eq('gym_id', gym.id).gte('created_at', monthStart.toISOString()),
+    supabase.from('reminder_logs').select('sent_count').eq('gym_id', gym.id).gte('created_at', monthStart.toISOString()),
     supabase.from('reminder_logs').select('id, action, channel, sent_count, recipient_count, created_at').eq('gym_id', gym.id).order('created_at', { ascending: false }).limit(6),
   ]);
 
+  const sent = (sentRows ?? []).reduce((s, r) => s + Number(r.sent_count ?? 0), 0);
   const ids = [...new Set((expiring ?? []).map((e) => e.member_id).filter(Boolean) as string[])];
   const { data: profiles } = ids.length
     ? await supabase.from('profiles').select('id, full_name, email').in('id', ids)
@@ -39,7 +41,7 @@ export default async function AdminReminders() {
     <>
       <div className="page-h">
         <div><h1>Reminders</h1><p>{rows.length} membership{rows.length === 1 ? '' : 's'} expiring this week · {sent ?? 0} reminders sent this month</p></div>
-        <button className="gf-btn gf-btn-primary"><Send strokeWidth={1.9} size={16} /> Send all due</button>
+        <RemindAllButton />
       </div>
 
       <section className="kpis">
@@ -58,7 +60,7 @@ export default async function AdminReminders() {
             <div className="rm" key={m.id}>
               <span className="gf-avatar gf-avatar-sm">{m.initial}</span>
               <div className="m"><strong>{m.name}</strong><small>{m.sub}</small></div>
-              <button className="gf-btn gf-btn-sm gf-btn-primary">Remind</button>
+              <RemindButton subscriptionId={m.id} />
             </div>
           ))}
         </div>

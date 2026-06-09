@@ -2,11 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   ArrowLeft, Mail, Phone, CalendarDays, Wallet, Activity, CreditCard, ScanLine,
-  ShieldCheck, HeartPulse, MapPin, Cake, UserRound, Clock, ChevronRight, BadgeCheck,
+  ShieldCheck, HeartPulse, MapPin, Cake, UserRound, Clock, BadgeCheck,
 } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, fmtDateTime, daysLeft } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
 import { MemberActions } from '@/components/admin/member-actions';
 
 export const metadata = { title: 'Member' };

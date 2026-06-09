@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Users, Clock, UserX, UserPlus, Search, Filter, Download, ChevronRight } from 'lucide-react';
+import { Users, Clock, UserX, UserPlus, Search, Download, ChevronRight } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
@@ -11,7 +11,13 @@ type Row = {
   plan: string; status: [string, string]; joined: string; renews: string; value: string;
 };
 
-export default async function AdminMembers() {
+const FILTERS = [['all', 'All'], ['active', 'Active'], ['expiring', 'Expiring'], ['expired', 'Expired']] as const;
+type FilterKey = (typeof FILTERS)[number][0];
+
+export default async function AdminMembers({ searchParams }: { searchParams: Promise<{ f?: string; q?: string }> }) {
+  const sp = await searchParams;
+  const filter: FilterKey = (FILTERS.find(([k]) => k === sp.f)?.[0] ?? 'all');
+  const q = (sp.q ?? '').trim().toLowerCase();
   const { gym } = await requireStaff();
   const supabase = await createClient();
 
@@ -42,7 +48,7 @@ export default async function AdminMembers() {
   let active = 0, expiring = 0, lapsed = 0, fresh = 0;
   const monthAgo = new Date(Date.now() - 30 * 86_400_000);
 
-  const rows: Row[] = (links ?? []).map((l) => {
+  const all: (Row & { bucket: FilterKey })[] = (links ?? []).map((l) => {
     const mid = (l.member_id ?? l.user_id) as string;
     const p = profileById.get(mid);
     const name = p?.full_name || [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.email || 'Member';
@@ -52,9 +58,10 @@ export default async function AdminMembers() {
     const isActive = sub?.status === 'active' && (sub.end_date ?? '') >= today;
     const expSoon = isActive && remaining <= 7;
     let status: [string, string];
-    if (expSoon) { status = ['gf-badge-warning', 'Expiring']; expiring++; }
-    else if (isActive) { status = ['gf-badge-success', 'Active']; active++; }
-    else { status = ['gf-badge-danger', 'Expired']; lapsed++; }
+    let bucket: FilterKey;
+    if (expSoon) { status = ['gf-badge-warning', 'Expiring']; bucket = 'expiring'; expiring++; }
+    else if (isActive) { status = ['gf-badge-success', 'Active']; bucket = 'active'; active++; }
+    else { status = ['gf-badge-danger', 'Expired']; bucket = 'expired'; lapsed++; }
     if (l.joined_at && new Date(l.joined_at) >= monthAgo) fresh++;
     return {
       id: mid,
@@ -63,11 +70,17 @@ export default async function AdminMembers() {
       initial: name.charAt(0).toUpperCase(),
       plan: plan?.name ?? '—',
       status,
+      bucket,
       joined: l.joined_at ? fmtDate(l.joined_at) : '—',
       renews: isActive ? (remaining <= 7 ? `in ${remaining} day${remaining === 1 ? '' : 's'}` : fmtDate(sub!.end_date)) : '—',
       value: plan ? fmtNaira(Number(plan.price)) : '—',
     };
   });
+
+  // KPI counts cover the whole roster; the table honors the seg filter + search.
+  const rows = all.filter((r) =>
+    (filter === 'all' || r.bucket === filter) &&
+    (!q || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)));
 
   const KPIS = [
     { icon: Users, fg: '#11d18b', bg: '#11d18b1f', val: String(active), lbl: 'Active members' },
@@ -80,7 +93,11 @@ export default async function AdminMembers() {
     <>
       <div className="page-h">
         <div><h1>Members</h1><p>{active} active · {expiring} expiring this week · {lapsed} lapsed</p></div>
-        <div className="seg"><button className="on">All</button><button>Active</button><button>Expiring</button><button>Expired</button></div>
+        <div className="seg">
+          {FILTERS.map(([k, label]) => (
+            <Link key={k} href={`/admin/members?${new URLSearchParams({ ...(k !== 'all' && { f: k }), ...(q && { q: sp.q ?? '' }) })}`} className={filter === k ? 'on' : ''} style={{ textDecoration: 'none' }}>{label}</Link>
+          ))}
+        </div>
       </div>
 
       <section className="kpis">
@@ -98,14 +115,17 @@ export default async function AdminMembers() {
 
       <div className="panel">
         <div className="toolbar">
-          <div className="search"><Search strokeWidth={1.75} /><input placeholder="Search by name or email…" aria-label="Search members" /></div>
+          <form className="search" action="/admin/members" style={{ display: 'flex' }}>
+            {filter !== 'all' && <input type="hidden" name="f" value={filter} />}
+            <Search strokeWidth={1.75} /><input name="q" defaultValue={sp.q ?? ''} placeholder="Search by name or email…" aria-label="Search members" />
+          </form>
           <div style={{ flex: 1 }} />
-          <button className="gf-btn gf-btn-secondary gf-btn-sm"><Filter strokeWidth={1.9} size={15} /> Filters</button>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- route handler streaming a CSV download; <Link> would client-navigate */}
           <a className="gf-btn gf-btn-secondary gf-btn-sm" href="/admin/members/export" style={{ textDecoration: 'none' }}><Download strokeWidth={1.9} size={15} /> Export</a>
           <Link href="/admin/members/new" className="gf-btn gf-btn-primary gf-btn-sm"><UserPlus strokeWidth={1.9} size={15} /> Add member</Link>
         </div>
         {rows.length === 0 ? (
-          <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No members yet</h3><p>Members appear here after they sign up or are added.</p></div>
+          <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>{q || filter !== 'all' ? 'No matches' : 'No members yet'}</h3><p>{q || filter !== 'all' ? 'Try a different search or filter.' : 'Members appear here after they sign up or are added.'}</p></div>
         ) : (
           <table className="tbl">
             <thead><tr><th>Member</th><th>Plan</th><th>Status</th><th>Joined</th><th>Renews</th><th style={{ textAlign: 'right' }}>Value</th><th aria-hidden /></tr></thead>
