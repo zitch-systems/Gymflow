@@ -22,11 +22,19 @@ export async function POST(req: NextRequest) {
   if (event?.event !== 'charge.success') return NextResponse.json({ received: true });
 
   const d = event.data ?? {};
-  await fulfillCharge({
+  const result = await fulfillCharge({
     reference: d.reference,
     amountKobo: Number(d.amount ?? 0),
     channel: d.channel ?? null,
     metadata: d.metadata ?? {},
   });
+
+  if (!result.ok) {
+    console.error(`[paystack/webhook] fulfill failed for ${d.reference}: ${result.error}`);
+    // Transient failures (DB/config) → 500 so Paystack retries and the charge
+    // isn't silently lost. Permanent ones (unusable metadata) won't improve on
+    // retry, so ack to stop the resends.
+    if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
+  }
   return NextResponse.json({ received: true });
 }

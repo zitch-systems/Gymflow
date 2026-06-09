@@ -1,23 +1,31 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
+// `permanent` marks a failure that won't succeed on retry (e.g. unusable
+// metadata) so the webhook can ack instead of asking Paystack to resend.
+export type FulfillResult = { ok: boolean; created: boolean; error?: string; permanent?: boolean };
 
 // Idempotently record a successful Paystack charge and extend the member's
-// subscription. Shared by the webhook and the post-checkout callback, so a
-// payment is fulfilled even if the Paystack webhook isn't configured. Requires
-// the service-role key (payments / member_subscriptions writes are RLS-locked).
-export async function fulfillCharge(d: ChargeData): Promise<{ ok: boolean; created: boolean; error?: string }> {
+// subscription. Shared by the webhook AND the post-checkout callback — and
+// Paystack fires both near-simultaneously for the same transaction, so this
+// MUST be race-safe. Idempotency rests on a UNIQUE(paystack_reference) index
+// (supabase/migrations/20260609_payments_paystack_reference_unique.sql): the
+// pre-check is a fast path, the unique-violation catch is the real guard that
+// stops a concurrent fulfiller from recording the payment / extending twice.
+// Requires the service-role key (payments / member_subscriptions are RLS-locked).
+export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const meta = d.metadata ?? {};
   const memberId = meta.member_id as string | undefined;
   const gymId = meta.gym_id as string | undefined;
   const planId = (meta.plan_id as string | undefined) ?? null;
   const months = Number(meta.duration_months ?? 1) || 1;
-  if (!memberId || !gymId) return { ok: false, created: false, error: 'missing metadata' };
+  if (!memberId || !gymId) return { ok: false, created: false, error: 'missing member_id/gym_id in metadata', permanent: true };
 
   let admin: ReturnType<typeof createAdminClient>;
   try { admin = createAdminClient(); } catch (e) { return { ok: false, created: false, error: (e as Error).message }; }
 
-  // Idempotency: skip if this reference is already recorded.
+  // Fast path: already recorded (the common case when the webhook wins the race
+  // before the callback runs, or vice versa).
   const { data: existing } = await admin.from('payments').select('id').eq('paystack_reference', d.reference).maybeSingle();
   if (existing) return { ok: true, created: false };
 
@@ -28,8 +36,15 @@ export async function fulfillCharge(d: ChargeData): Promise<{ ok: boolean; creat
     payment_method: d.channel ?? 'paystack', paystack_reference: d.reference,
     payment_date: new Date().toISOString(),
   });
-  if (payErr) return { ok: false, created: false, error: payErr.message };
+  if (payErr) {
+    // 23505 = unique_violation: a concurrent fulfiller recorded this reference
+    // between our pre-check and insert. Idempotent no-op, not a failure — and
+    // crucially, we must NOT fall through to extend the subscription again.
+    if (payErr.code === '23505') return { ok: true, created: false };
+    return { ok: false, created: false, error: payErr.message };
+  }
 
+  // We are the writer that recorded the payment → extend (or create) the sub once.
   const { data: sub } = await admin.from('member_subscriptions')
     .select('id, end_date').eq('member_id', memberId).eq('gym_id', gymId).eq('status', 'active')
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
