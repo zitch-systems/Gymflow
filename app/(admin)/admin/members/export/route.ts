@@ -1,4 +1,4 @@
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ function csvCell(v: unknown): string {
 
 // GET /admin/members/export — CSV of the gym's members (staff only).
 export async function GET() {
-  const { gym } = await requireStaff();
+  const { gym } = await requireStaff(ADMIN_ROLES);
   const supabase = await createClient();
 
   const { data: links } = await supabase

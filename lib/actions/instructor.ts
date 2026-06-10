@@ -47,6 +47,40 @@ export async function saveBankDetails(_prev: MarkResult, formData: FormData): Pr
   }
 }
 
+// Save coach preferences: notification channels (real profiles columns) and
+// teaching-availability days (profiles.availability jsonb — added by the
+// 20260610_profiles_availability migration; degrades with a clear error until
+// it's applied).
+export async function savePrefs(_prev: MarkResult, formData: FormData): Promise<MarkResult> {
+  const days = formData.getAll('day').map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+  const notifEmail = formData.get('notification_email') === 'on';
+  const notifWa = formData.get('notification_whatsapp') === 'on';
+  try {
+    const { user } = await requireInstructor();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ notification_email: notifEmail, notification_whatsapp: notifWa, availability: days, updated_at: new Date().toISOString() } as never)
+      .eq('id', user.id);
+    if (error) {
+      // availability column not migrated yet → save what we can.
+      if (/availability/i.test(error.message)) {
+        const { error: e2 } = await supabase
+          .from('profiles')
+          .update({ notification_email: notifEmail, notification_whatsapp: notifWa, updated_at: new Date().toISOString() })
+          .eq('id', user.id);
+        if (e2) return { ok: false, error: e2.message };
+        return { ok: false, error: 'Notifications saved; availability needs the pending database migration.' };
+      }
+      return { ok: false, error: error.message };
+    }
+    revalidatePath('/coach/settings');
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 // Upload a profile photo to gym-assets (path rooted at the gym id, matching
 // the bucket's per-gym staff RLS) and save it on the profile.
 export async function uploadAvatar(_prev: MarkResult, formData: FormData): Promise<MarkResult> {

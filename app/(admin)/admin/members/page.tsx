@@ -3,6 +3,7 @@ import { Users, Clock, UserX, UserPlus, Search, Download, ChevronRight } from 'l
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
+import { InviteLinkButton } from '@/components/admin/invite-link';
 
 export const metadata = { title: 'Members' };
 
@@ -122,6 +123,7 @@ export default async function AdminMembers({ searchParams }: { searchParams: Pro
           <div style={{ flex: 1 }} />
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- route handler streaming a CSV download; <Link> would client-navigate */}
           <a className="gf-btn gf-btn-secondary gf-btn-sm" href="/admin/members/export" style={{ textDecoration: 'none' }}><Download strokeWidth={1.9} size={15} /> Export</a>
+          <InviteLinkButton slug={gym.slug} />
           <Link href="/admin/members/new" className="gf-btn gf-btn-primary gf-btn-sm"><UserPlus strokeWidth={1.9} size={15} /> Add member</Link>
         </div>
         {rows.length === 0 ? (

@@ -147,7 +147,7 @@ export function LoginClient({ initialMode = 'in', notice = null }: { initialMode
             </button>
           </form>
 
-          <div className="divider">or jump in as</div>
+          <div className="divider">or try a demo as</div>
           <div className="roles">
             {ROLES.map(({ label, href, icon: Icon }) => (
               <Link key={label} href={href} className="role-btn">

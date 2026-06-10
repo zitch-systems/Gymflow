@@ -15,6 +15,13 @@ export const metadata: Metadata = {
     siteName: 'GymFlow',
     locale: 'en_NG',
   },
+  // Installable PWA ("add to home screen") — manifest served by app/manifest.ts.
+  // No service worker by design: public/sw.js is a kill-switch for an old one.
+  icons: {
+    icon: [{ url: '/images/appicon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: [{ url: '/images/appicon-192.png', sizes: '192x192', type: 'image/png' }],
+  },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GymFlow' },
 };
 
 export const viewport: Viewport = {

@@ -10,15 +10,15 @@ export type ContactState = { ok: boolean; error: string | null };
 export async function submitContact(_prev: ContactState, formData: FormData): Promise<ContactState> {
   if (String(formData.get('website') ?? '')) return { ok: true, error: null }; // bot — pretend success
 
-  const first = String(formData.get('first') ?? '').trim();
-  const email = String(formData.get('email') ?? '').trim();
-  const message = String(formData.get('message') ?? '').trim();
+  const first = String(formData.get('first') ?? '').trim().slice(0, 80);
+  const email = String(formData.get('email') ?? '').trim().slice(0, 254);
+  const message = String(formData.get('message') ?? '').trim().slice(0, 2000);
   if (!first || !email) return { ok: false, error: 'Name and email are required.' };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Enter a valid email address.' };
 
-  const last = String(formData.get('last') ?? '').trim();
-  const gymName = String(formData.get('gym') ?? '').trim();
-  const topic = String(formData.get('topic') ?? 'Something else').trim();
+  const last = String(formData.get('last') ?? '').trim().slice(0, 80);
+  const gymName = String(formData.get('gym') ?? '').trim().slice(0, 120);
+  const topic = String(formData.get('topic') ?? 'Something else').trim().slice(0, 60);
 
   try {
     const admin = createAdminClient();

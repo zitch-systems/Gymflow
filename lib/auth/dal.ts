@@ -43,6 +43,14 @@ export async function requireAuth() {
 // on gym_staff_links (commit 81ab48e); the FK exists now but the explicit form
 // is robust and the queries are indexed point-lookups.
 
+// Staff roles allowed into the admin console + admin actions. Deliberately
+// excludes 'instructor' — coaches get /coach, not member PII, payments, plans
+// or gym settings. ('owner' is the profiles.role spelling; staff links use
+// 'gym_owner' — both included defensively.)
+export const ADMIN_ROLES = ['gym_owner', 'owner', 'manager', 'front_desk', 'accountant'] as const;
+// Gym identity / pricing / classes — management only.
+export const MANAGER_ROLES = ['gym_owner', 'owner', 'manager'] as const;
+
 export const requireMember = cache(async (): Promise<{ user: NonNullable<Awaited<ReturnType<typeof getUser>>>; gym: Gym; link: Database['public']['Tables']['gym_member_links']['Row'] }> => {
   const user = await getUser();
   if (!user) redirect('/login');
@@ -55,19 +63,21 @@ export const requireMember = cache(async (): Promise<{ user: NonNullable<Awaited
     .order('joined_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!link) redirect('/login');
+  // Signed-in but not a member here → /launch routes them to their own surface
+  // (staff → /admin, instructor → /coach) instead of a /login dead-end.
+  if (!link) redirect('/launch');
   const { data: gym } = await supabase
     .from('gyms')
     .select('*')
     .eq('id', (link as { gym_id: string }).gym_id)
     .maybeSingle();
-  if (!gym) redirect('/login');
+  if (!gym) redirect('/launch');
   return { user, gym: gym as Gym, link: link as Database['public']['Tables']['gym_member_links']['Row'] };
 });
 
 // Internal staff resolver. Cached on `roles` so requireStaff() (any role) and
-// requireInstructor() (a role subset) each get a cache slot, and both dedupe
-// the layout/page double-call.
+// the role-restricted variants each get a cache slot, and all dedupe the
+// layout/page double-call.
 const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: NonNullable<Awaited<ReturnType<typeof getUser>>>; gym: Gym; role: string }> => {
   const user = await getUser();
   if (!user) redirect('/login');
@@ -79,20 +89,27 @@ const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: No
     .eq('is_active', true)
     .limit(1)
     .maybeSingle();
-  if (!link) redirect('/login');
+  // Signed-in but not staff (or wrong role) → /launch picks their real surface;
+  // bouncing to /login used to trap signed-in users in a redirect loop.
+  if (!link) redirect('/launch');
   const role = (link as unknown as { role: string }).role ?? '';
-  if (roles && !roles.includes(role)) redirect('/login');
+  if (roles && !roles.includes(role)) redirect('/launch');
   const { data: gym } = await supabase
     .from('gyms')
     .select('*')
     .eq('id', (link as { gym_id: string }).gym_id)
     .maybeSingle();
-  if (!gym) redirect('/login');
+  if (!gym) redirect('/launch');
   return { user, gym: gym as Gym, role };
 });
 
-export async function requireStaff(roles?: string[]) {
+export async function requireStaff(roles?: readonly string[]) {
   return resolveStaff(roles);
+}
+
+// Admin console staff (everything except instructors).
+export async function requireAdminStaff() {
+  return resolveStaff(ADMIN_ROLES);
 }
 
 // user_role enum: platform_admin | gym_owner | manager | front_desk | accountant | instructor | member

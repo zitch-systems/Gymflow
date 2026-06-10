@@ -51,15 +51,23 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const base = sub?.end_date && new Date(sub.end_date) > new Date() ? new Date(sub.end_date) : new Date();
   const newEnd = new Date(base); newEnd.setMonth(newEnd.getMonth() + months);
   const endIso = newEnd.toISOString().slice(0, 10);
-  if (sub) {
-    await admin.from('member_subscriptions').update({ end_date: endIso, plan_id: planId ?? undefined, updated_at: new Date().toISOString() }).eq('id', sub.id);
-  } else {
-    await admin.from('member_subscriptions').insert({ member_id: memberId, gym_id: gymId, plan_id: planId, status: 'active', start_date: new Date().toISOString().slice(0, 10), end_date: endIso });
+  const { error: subErr } = sub
+    ? await admin.from('member_subscriptions').update({ end_date: endIso, plan_id: planId ?? undefined, updated_at: new Date().toISOString() }).eq('id', sub.id)
+    : await admin.from('member_subscriptions').insert({ member_id: memberId, gym_id: gymId, plan_id: planId, status: 'active', start_date: new Date().toISOString().slice(0, 10), end_date: endIso });
+  if (subErr) {
+    // The member paid but the extension failed. The payment row we just
+    // inserted is the idempotency lock — if we left it, every retry would
+    // no-op at the pre-check and the member would stay unextended. Compensate:
+    // remove the payment row and report failure so the webhook 500s and
+    // Paystack retries the whole fulfillment.
+    await admin.from('payments').delete().eq('paystack_reference', d.reference);
+    return { ok: false, created: false, error: `subscription extend failed: ${subErr.message}` };
   }
 
-  await admin.from('notifications').insert({
+  const { error: notifErr } = await admin.from('notifications').insert({
     gym_id: gymId, user_id: memberId, type: 'payment', channel: 'in_app',
     title: 'Payment received', body: `₦${(d.amountKobo / 100).toLocaleString('en-NG')} received — membership renewed.`,
   });
+  if (notifErr) console.warn(`[fulfill] receipt notification failed for ${d.reference}: ${notifErr.message}`); // non-critical
   return { ok: true, created: true };
 }

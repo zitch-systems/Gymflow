@@ -161,7 +161,7 @@ export default async function MemberHome() {
           <div className="promo">
             <span className="pic"><Gift strokeWidth={1.9} /></span>
             <div className="m"><strong>Refer &amp; earn ₦5,000</strong><small>Invite a friend to {gym.name}.</small></div>
-            <ShareInvite gymName={gym.name} />
+            <ShareInvite gymName={gym.name} gymSlug={gym.slug} />
           </div>
 
           {recent.length > 0 && (

@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { logAudit } from '@/lib/audit';
 
 export type CState = { ok: boolean; error: string | null; message?: string };
 
@@ -37,7 +38,7 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
   if (!name) return { ok: false, error: 'Plan name is required.' };
   if (!price || price < 0) return { ok: false, error: 'Enter a valid price.' };
   try {
-    const { gym } = await requireStaff();
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
     if (id) {
       const { error } = await supabase.from('membership_plans')
@@ -48,6 +49,7 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
         .insert({ gym_id: gym.id, name, price, duration_months: duration, currency: 'NGN', is_active: isActive });
       if (error) return { ok: false, error: error.message };
     }
+    logAudit({ action: id ? 'plan_updated' : 'plan_created', table: 'membership_plans', actorId: user.id, gymId: gym.id, recordId: id, values: { name, price, duration } });
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
@@ -68,7 +70,7 @@ export async function createClass(_prev: CState, formData: FormData): Promise<CS
   if (Number.isNaN(dow) || dow < 0 || dow > 6) return { ok: false, error: 'Choose a day of week.' };
   if (!startTime || !endTime) return { ok: false, error: 'Set a start and end time.' };
   try {
-    const { gym } = await requireStaff();
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
     const classId = (globalThis.crypto as Crypto).randomUUID();
     const { error: cErr } = await supabase.from('classes')
@@ -77,6 +79,7 @@ export async function createClass(_prev: CState, formData: FormData): Promise<CS
     const { error: sErr } = await supabase.from('class_schedules')
       .insert({ gym_id: gym.id, class_id: classId, day_of_week: dow, start_time: startTime, end_time: endTime, room, is_active: true });
     if (sErr) return { ok: false, error: sErr.message };
+    logAudit({ action: 'class_created', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId, values: { name, dow, startTime } });
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

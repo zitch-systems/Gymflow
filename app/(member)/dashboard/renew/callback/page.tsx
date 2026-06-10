@@ -42,6 +42,11 @@ export default async function RenewCallback({ searchParams }: { searchParams: Pr
         <div className={`pay-ic ${ok ? 'ok' : 'bad'}`}>{ok ? <CheckCircle2 strokeWidth={1.7} /> : <XCircle strokeWidth={1.7} />}</div>
         <h2>{ok ? 'Payment successful' : 'Payment not completed'}</h2>
         <p>{msg}</p>
+        {!ok && (
+          <p style={{ fontSize: '0.84rem', color: 'var(--gf-text-muted)', margin: '4px 0 0' }}>
+            Charged but not renewed? It usually lands within a minute — otherwise email <a href="mailto:hello@gymflow.ng" style={{ color: 'var(--gf-brand)' }}>hello@gymflow.ng</a> with your payment reference.
+          </p>
+        )}
         <Link href="/dashboard" className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" style={{ textDecoration: 'none', marginTop: 6 }}>
           Go to dashboard <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
         </Link>
