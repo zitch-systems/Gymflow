@@ -2,6 +2,7 @@
 
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logAudit } from '@/lib/audit';
 
 export type OnboardState = { ok: boolean; error: string | null; message?: string };
 
@@ -10,7 +11,7 @@ export type OnboardState = { ok: boolean; error: string | null; message?: string
 // email is given, creates/invites the owner auth user + owner staff link.
 // Requires SUPABASE_SERVICE_ROLE_KEY — returns a clear error without it.
 export async function provisionGym(_prev: OnboardState, formData: FormData): Promise<OnboardState> {
-  await requirePlatformAdmin();
+  const actor = await requirePlatformAdmin();
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { ok: false, error: 'Provisioning needs SUPABASE_SERVICE_ROLE_KEY (server env).' };
   }
@@ -48,5 +49,6 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
     await admin.from('gym_staff_links').insert({ user_id: uid, gym_id: gym.id, role: 'gym_owner', is_active: true });
   }
 
+  logAudit({ action: 'gym_provisioned', table: 'gyms', actorId: actor.id, gymId: gym.id, recordId: gym.id, values: { name, slug, plan, ownerEmail: ownerEmail || null } });
   return { ok: true, error: null, message: `${name} provisioned at ${slug}.gymflow.ng.` };
 }

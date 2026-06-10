@@ -37,10 +37,11 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
       status: 'booked', booking_date: bookingDate, booked_at: new Date().toISOString(),
     });
     if (error) return { ok: false, error: error.message };
-    await supabase.from('notifications').insert({
+    const { error: nErr } = await supabase.from('notifications').insert({
       gym_id: gym.id, user_id: user.id, type: 'class', channel: 'in_app',
       title: 'Class booked', body: `You're booked in for ${bookingDate}.`,
     });
+    if (nErr) console.warn(`[booking] notification failed: ${nErr.message}`); // booking itself succeeded
     revalidatePath('/classes'); revalidatePath('/dashboard');
     return { ok: true, error: null };
   } catch (e) {

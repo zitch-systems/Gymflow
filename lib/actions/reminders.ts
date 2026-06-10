@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 
 export type RemindResult = { ok: boolean; sent: number; error: string | null };
@@ -45,7 +45,7 @@ async function log(supabase: Sb, gymId: string, sent: number, recipients: number
 // Remind a single member from the expiring list.
 export async function remindMember(subscriptionId: string): Promise<RemindResult> {
   try {
-    const { gym } = await requireStaff();
+    const { gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
     const { data: sub } = await supabase
       .from('member_subscriptions').select('id, member_id, end_date')
@@ -64,7 +64,7 @@ export async function remindMember(subscriptionId: string): Promise<RemindResult
 // Remind everyone whose active membership lapses within the next 7 days.
 export async function remindAllDue(): Promise<RemindResult> {
   try {
-    const { gym } = await requireStaff();
+    const { gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
     const today = new Date().toISOString().slice(0, 10);
     const weekAhead = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
