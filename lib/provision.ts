@@ -27,11 +27,15 @@ export async function provisionOwner(params: { userId: string; email: string; gy
   const base = slugify(params.gymName);
   let gymId: string | null = null;
   let lastErr = '';
+  // New gyms are 'active' (the value the gyms_status_check constraint accepts and
+  // the rest of the app treats as live). The 14-day trial lives in trial_ends_at,
+  // not in status. The slug list falls back name → name-2…name-6 → random suffix.
+  const trialEndsAt = new Date(Date.now() + 14 * 86_400_000).toISOString();
   const candidates = [base, ...Array.from({ length: 5 }, (_, i) => `${base}-${i + 2}`), `${base}-${Math.random().toString(36).slice(2, 6)}`];
   for (const slug of candidates) {
     const { data, error } = await admin
       .from('gyms')
-      .insert({ name: params.gymName, slug, status: 'trial', subscription_plan: 'starter' })
+      .insert({ name: params.gymName, slug, status: 'active', subscription_plan: 'starter', trial_ends_at: trialEndsAt })
       .select('id')
       .maybeSingle();
     if (data) { gymId = data.id; break; }
