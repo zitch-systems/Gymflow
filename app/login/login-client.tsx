@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useActionState } from 'react';
+import { useState, useTransition, useActionState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, Mail, Lock, ArrowRight, Users, Shield, GraduationCap, Globe, AlertCircle } from 'lucide-react';
-import { signIn, signUp, type AuthState } from '@/lib/auth/actions';
+import { Star, Mail, Lock, ArrowRight, Users, Shield, GraduationCap, Globe, AlertCircle, MailCheck, CheckCircle2 } from 'lucide-react';
+import { signIn, signUp, resendConfirmation, type AuthState } from '@/lib/auth/actions';
 
 const ROLES = [
   { label: 'Member', href: '/dashboard', icon: Users },
@@ -15,15 +15,38 @@ const ROLES = [
 
 const initial: AuthState = { error: null };
 
+export type LoginNotice = 'check-email' | 'confirmed' | 'reset' | null;
+
+const NOTICES: Record<NonNullable<LoginNotice>, { tone: 'info' | 'success'; text: string }> = {
+  'check-email': { tone: 'info', text: 'Account created — check your email (and spam) for the confirmation link, then sign in.' },
+  confirmed: { tone: 'success', text: 'Email confirmed — sign in below.' },
+  reset: { tone: 'success', text: 'Password updated — sign in with your new password.' },
+};
+
 // revamp/login.html: brand-split layout, Sign in / Create gym tabs, email +
 // password, role quick-access. Wired to the signIn / signUp server actions.
-export function LoginClient({ initialMode = 'in' }: { initialMode?: 'in' | 'up' }) {
+export function LoginClient({ initialMode = 'in', notice = null }: { initialMode?: 'in' | 'up'; notice?: LoginNotice }) {
   const [mode, setMode] = useState<'in' | 'up'>(initialMode);
   const up = mode === 'up';
   const [inState, inAction, inPending] = useActionState(signIn, initial);
   const [upState, upAction, upPending] = useActionState(signUp, initial);
   const state = up ? upState : inState;
   const pending = up ? upPending : inPending;
+
+  // Controlled so the unconfirmed-email resend can reuse what was typed.
+  const [email, setEmail] = useState('');
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
+  const [resendPending, startResend] = useTransition();
+  function resend() {
+    const fd = new FormData();
+    fd.set('email', email);
+    startResend(async () => {
+      const res = await resendConfirmation({ error: null }, fd);
+      setResendMsg(res.error ? res.error : 'Confirmation email sent — check your inbox.');
+    });
+  }
+
+  const banner = notice ? NOTICES[notice] : null;
 
   return (
     <>
@@ -59,6 +82,18 @@ export function LoginClient({ initialMode = 'in' }: { initialMode?: 'in' | 'up' 
           <h1>{up ? 'Launch your gym' : 'Welcome back'}</h1>
           <p className="lede">{up ? 'Create your gym in one step — branded subdomain included.' : "Sign in to your gym's dashboard."}</p>
 
+          {banner && (
+            <p role="status" style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8, margin: '0 0 16px', padding: '10px 12px',
+              borderRadius: 10, fontSize: '0.86rem', lineHeight: 1.45,
+              background: banner.tone === 'success' ? 'var(--gf-success-soft, rgba(17,209,139,0.12))' : 'var(--gf-info-soft, rgba(64,128,255,0.12))',
+              color: banner.tone === 'success' ? 'var(--gf-success, #11d18b)' : 'var(--gf-info, #4080ff)',
+            }}>
+              {banner.tone === 'success' ? <CheckCircle2 size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} /> : <MailCheck size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />}
+              {banner.text}
+            </p>
+          )}
+
           <div className="tabs" role="tablist">
             <button className={!up ? 'on' : undefined} onClick={() => setMode('in')} role="tab" aria-selected={!up} type="button">Sign in</button>
             <button className={up ? 'on' : undefined} onClick={() => setMode('up')} role="tab" aria-selected={up} type="button">Create gym</button>
@@ -75,14 +110,14 @@ export function LoginClient({ initialMode = 'in' }: { initialMode?: 'in' | 'up' 
               <label className="gf-form-label">Email</label>
               <div className="gf-input-group">
                 <Mail className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="email" name="email" placeholder="you@yourgym.ng" required />
+                <input className="gf-input" type="email" name="email" placeholder="you@yourgym.ng" required value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
             </div>
             <div className="field gf-form-group">
               <label className="gf-form-label">Password</label>
               <div className="gf-input-group">
                 <Lock className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="password" name="password" placeholder="••••••••" required />
+                <input className="gf-input" type="password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} />
               </div>
             </div>
             {!up && (
@@ -93,11 +128,22 @@ export function LoginClient({ initialMode = 'in' }: { initialMode?: 'in' | 'up' 
             )}
             {state.error && (
               <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: up ? '0 0 14px' : '-8px 0 14px' }}>
-                <AlertCircle size={15} strokeWidth={2} /> {state.error}
+                <AlertCircle size={15} strokeWidth={2} style={{ flexShrink: 0 }} /> {state.error}
+              </p>
+            )}
+            {!up && inState.code === 'unconfirmed' && (
+              <p style={{ margin: '-6px 0 14px', fontSize: '0.84rem' }}>
+                {resendMsg ? (
+                  <span style={{ color: 'var(--gf-success, #11d18b)' }}>{resendMsg}</span>
+                ) : (
+                  <button type="button" className="linkish" onClick={resend} disabled={resendPending}>
+                    {resendPending ? 'Sending…' : 'Resend confirmation email'}
+                  </button>
+                )}
               </p>
             )}
             <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={pending} style={{ marginTop: up ? 4 : 0 }}>
-              {pending ? 'Please wait…' : up ? 'Launch your gym' : 'Sign in'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
+              {pending ? (up ? 'Creating your gym…' : 'Signing in…') : up ? 'Launch your gym' : 'Sign in'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
             </button>
           </form>
 
