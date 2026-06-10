@@ -31,7 +31,9 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
 
   const { data: gym, error: gymErr } = await admin
     .from('gyms')
-    .insert({ name, slug, city, subscription_plan: plan, status: 'trial' })
+    // status 'active' (the value gyms_status_check accepts); 14-day trial window
+    // is tracked in trial_ends_at, not status.
+    .insert({ name, slug, city, subscription_plan: plan, status: 'active', trial_ends_at: new Date(Date.now() + 14 * 86_400_000).toISOString() })
     .select('id')
     .single();
   if (gymErr || !gym) return { ok: false, error: gymErr?.message ?? 'Could not create gym.' };
