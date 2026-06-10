@@ -25,3 +25,13 @@ export function firstName(full: string | null | undefined, fallback = 'there'): 
   const f = (full ?? '').trim().split(/\s+/)[0];
   return f || fallback;
 }
+
+// Split a display name into first/last for writes. profiles.full_name is a
+// GENERATED column in the live DB (computed from first_name/last_name) —
+// writing it fails with `cannot insert a non-DEFAULT value into column
+// "full_name"` — so every profile write goes through this instead.
+export function splitName(full: string | null | undefined): { first_name: string | null; last_name: string | null } {
+  const parts = (full ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first_name: null, last_name: null };
+  return { first_name: parts[0], last_name: parts.slice(1).join(' ') || null };
+}

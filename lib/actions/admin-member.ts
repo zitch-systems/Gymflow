@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
+import { splitName } from '@/lib/format';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type ActionState = { ok: boolean; error: string | null; message?: string };
@@ -147,8 +148,9 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
     const { user, gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
 
+    // full_name is GENERATED in the live DB — write first/last; it derives the rest.
     const { error: pErr } = await supabase.from('profiles').insert({
-      id: newId, gym_id: gym.id, full_name: fullName, email, phone, role: 'member', is_active: true,
+      id: newId, gym_id: gym.id, ...splitName(fullName), email, phone, role: 'member', is_active: true,
     });
     if (pErr) return { ok: false, error: pErr.message };
 

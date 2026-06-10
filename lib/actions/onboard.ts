@@ -2,6 +2,7 @@
 
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { splitName } from '@/lib/format';
 import { logAudit } from '@/lib/audit';
 
 export type OnboardState = { ok: boolean; error: string | null; message?: string };
@@ -47,7 +48,8 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
     });
     if (authErr) return { ok: true, error: null, message: `Gym created, but owner invite failed: ${authErr.message}` };
     const uid = created.user.id;
-    await admin.from('profiles').upsert({ id: uid, email: ownerEmail, full_name: ownerName || null, role: 'owner', gym_id: gym.id });
+    // full_name is GENERATED in the live DB — write the split parts instead.
+    await admin.from('profiles').upsert({ id: uid, email: ownerEmail, ...splitName(ownerName), role: 'owner', gym_id: gym.id });
     await admin.from('gym_staff_links').insert({ user_id: uid, gym_id: gym.id, role: 'gym_owner', is_active: true });
   }
 

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { splitName } from '@/lib/format';
 
 export type SaveState = { ok: boolean; error: string | null };
 
@@ -13,8 +14,9 @@ export async function updateMemberProfile(_prev: SaveState, formData: FormData):
   const user = await requireAuth();
   const full_name = String(formData.get('full_name') ?? '').trim().slice(0, 120);
   if (!full_name) return { ok: false, error: 'Your name is required.' };
+  // full_name is GENERATED in the live DB — update the split parts instead.
   const patch = {
-    full_name,
+    ...splitName(full_name),
     phone: String(formData.get('phone') ?? '').trim().slice(0, 32) || null,
     date_of_birth: String(formData.get('date_of_birth') ?? '') || null,
     gender: String(formData.get('gender') ?? '').trim().slice(0, 24) || null,
@@ -41,9 +43,10 @@ export async function updateOwnProfile(_prev: SaveState, formData: FormData): Pr
   if (!full_name) return { ok: false, error: 'Name is required.' };
 
   const supabase = await createClient();
+  // full_name is GENERATED in the live DB — update the split parts instead.
   const { error } = await supabase
     .from('profiles')
-    .update({ full_name, specialisation, bio, updated_at: new Date().toISOString() })
+    .update({ ...splitName(full_name), specialisation, bio, updated_at: new Date().toISOString() })
     .eq('id', user.id);
   if (error) return { ok: false, error: error.message };
 
