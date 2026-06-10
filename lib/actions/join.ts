@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { splitName } from '@/lib/format';
 
 export type JoinState = { error: string | null };
 
@@ -19,8 +20,9 @@ async function provisionMember(params: { userId: string; email: string; gymId: s
 
   const { data: profile } = await admin.from('profiles').select('id').eq('id', params.userId).maybeSingle();
   if (!profile) {
+    // full_name is GENERATED in the live DB — write first/last, never full_name.
     const { error } = await admin.from('profiles').insert({
-      id: params.userId, email: params.email, full_name: params.fullName ?? null, role: 'member', gym_id: params.gymId,
+      id: params.userId, email: params.email, ...splitName(params.fullName), role: 'member', gym_id: params.gymId,
     });
     if (error) return { ok: false, error: error.message };
   }

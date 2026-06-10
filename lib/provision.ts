@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { splitName } from '@/lib/format';
 
 export type ProvisionResult = { ok: boolean; error?: string };
 
@@ -45,9 +46,11 @@ export async function provisionOwner(params: { userId: string; email: string; gy
   }
   if (!gymId) return { ok: false, error: lastErr };
 
+  // full_name is GENERATED (first_name || ' ' || last_name) in the live DB —
+  // writing it errors. Write the split parts; the DB derives full_name.
   const { error: profErr } = await admin
     .from('profiles')
-    .upsert({ id: params.userId, email: params.email, full_name: params.fullName ?? null, role: 'owner', gym_id: gymId });
+    .upsert({ id: params.userId, email: params.email, ...splitName(params.fullName), role: 'owner', gym_id: gymId });
   if (profErr) return { ok: false, error: profErr.message };
 
   const { error: linkErr } = await admin
