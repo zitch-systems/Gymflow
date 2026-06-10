@@ -1,4 +1,4 @@
-import { LoginClient } from './login-client';
+import { LoginClient, type LoginNotice } from './login-client';
 
 export const metadata = {
   title: 'Sign in',
@@ -12,6 +12,10 @@ export const metadata = {
 // completes and the login succeeds instead of timing out.
 export const maxDuration = 60;
 
-export default function LoginPage() {
-  return <LoginClient initialMode="in" />;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams;
+  // Post-action notices (signup → check-email, confirm link → confirmed,
+  // password reset → reset). Previously these params were silently ignored.
+  const notice: LoginNotice = sp['check-email'] ? 'check-email' : sp.confirmed ? 'confirmed' : sp.reset ? 'reset' : null;
+  return <LoginClient initialMode="in" notice={notice} />;
 }
