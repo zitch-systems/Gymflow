@@ -1,3 +1,4 @@
+import 'server-only';
 // Paystack server helpers. Uses PAYSTACK_SECRET_KEY (server-only). All calls
 // are no-throw on missing key at module load — callers check + surface errors.
 

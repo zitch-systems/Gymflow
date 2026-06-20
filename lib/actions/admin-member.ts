@@ -11,12 +11,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type ActionState = { ok: boolean; error: string | null; message?: string };
 
 const PAYMENT_METHODS = new Set(['card', 'bank_transfer', 'cash', 'crypto']);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Resolve the acting staff's gym + a member-scoped client, and verify the
 // target member actually belongs to this gym. RLS (staff_* policies) is the
 // real authority on the writes; this is the in-app guard + scoping.
 async function ctx(memberId: string) {
   const { user, gym } = await requireStaff(ADMIN_ROLES);
+  // memberId is interpolated into the PostgREST .or() filter below; reject
+  // anything that isn't a clean UUID so it can't smuggle in extra filter terms.
+  if (!UUID_RE.test(memberId)) throw new Error('Member not found in this gym.');
   const supabase = await createClient();
   const { data: link } = await supabase
     .from('gym_member_links')

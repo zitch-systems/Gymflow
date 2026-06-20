@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
+import { requireStaff, MANAGER_ROLES, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 
@@ -17,7 +17,10 @@ export async function setBookingStatus(_prev: CState, formData: FormData): Promi
   const scheduleId = String(formData.get('scheduleId') ?? '');
   if (!bookingId || !BOOKING_STATUSES.has(status)) return { ok: false, error: 'Invalid request.' };
   try {
-    const { gym } = await requireStaff();
+    // Admin-console attendance — restrict to admin staff (front desk included),
+    // not bare requireStaff() which would also let an instructor mutate bookings
+    // here. Coaches mark their own classes' attendance via the /coach surface.
+    const { gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
     const { error } = await supabase.from('class_bookings').update({ status }).eq('id', bookingId).eq('gym_id', gym.id);
     if (error) return { ok: false, error: error.message };

@@ -18,7 +18,11 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const memberId = meta.member_id as string | undefined;
   const gymId = meta.gym_id as string | undefined;
   const planId = (meta.plan_id as string | undefined) ?? null;
-  const months = Number(meta.duration_months ?? 1) || 1;
+  // Clamp to a sane whole-month range. In the normal flow duration_months is
+  // server-set at init (renew.ts) from the plan, but this helper is keyed only
+  // on metadata — clamp so a tampered/garbage value can't extend a sub by years.
+  const monthsRaw = Math.floor(Number(meta.duration_months ?? 1));
+  const months = Number.isFinite(monthsRaw) ? Math.min(Math.max(monthsRaw, 1), 36) : 1;
   if (!memberId || !gymId) return { ok: false, created: false, error: 'missing member_id/gym_id in metadata', permanent: true };
 
   let admin: ReturnType<typeof createAdminClient>;
