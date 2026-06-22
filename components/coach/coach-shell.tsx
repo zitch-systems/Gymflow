@@ -20,7 +20,9 @@ const NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/coach/settings', label: 'Settings', icon: Settings },
 ];
 
-export function CoachShell({ children }: { children: React.ReactNode }) {
+export function CoachShell({ children, gymName, userName, userInitial, sharePct }: {
+  children: React.ReactNode; gymName: string; userName: string; userInitial: string; sharePct: number | null;
+}) {
   const pathname = usePathname() ?? '';
   const isActive = (href: string) => (href === '/coach' ? pathname === '/coach' : pathname.startsWith(href));
 
@@ -33,10 +35,10 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <div className="sb-role">
-            <span className="gf-avatar gf-avatar-sm">F</span>
+            <span className="gf-avatar gf-avatar-sm">{userInitial}</span>
             <div style={{ minWidth: 0 }}>
-              <strong>Coach Femi</strong>
-              <small>Instructor · Powerhouse</small>
+              <strong>{userName}</strong>
+              <small>Instructor · {gymName}</small>
             </div>
           </div>
         </div>
@@ -53,10 +55,10 @@ export function CoachShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="gf-sidebar-footer">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-accent-soft)', color: 'var(--gf-accent-dark)' }}>F</span>
+            <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-accent-soft)', color: 'var(--gf-accent-dark)' }}>{userInitial}</span>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '0.8125rem', fontWeight: 600 }}>Coach Femi</div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--gf-text-muted)' }}>70% revenue share</div>
+              <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '0.8125rem', fontWeight: 600 }}>{userName}</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--gf-text-muted)' }}>{sharePct != null ? `${sharePct}% revenue share` : 'Instructor'}</div>
             </div>
             <form action={signOut}>
               <button type="submit" className="icon-btn" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out">

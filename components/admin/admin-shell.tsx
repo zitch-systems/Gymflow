@@ -8,7 +8,7 @@ import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
-  GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard,
+  GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode,
 } from 'lucide-react';
 
 type Item = { href: string; label: string; icon: LucideIcon; section: 'Main' | 'Admin' };
@@ -19,6 +19,7 @@ type Item = { href: string; label: string; icon: LucideIcon; section: 'Main' | '
 const NAV: Item[] = [
   { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard, section: 'Main' },
   { href: '/admin/members', label: 'Members', icon: Users, section: 'Main' },
+  { href: '/admin/invite', label: 'Invite QR', icon: QrCode, section: 'Main' },
   { href: '/admin/staff-checkin', label: 'Check-In', icon: ScanLine, section: 'Main' },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, section: 'Main' },
   { href: '/admin/classes', label: 'Classes', icon: CalendarDays, section: 'Main' },
@@ -31,7 +32,12 @@ const NAV: Item[] = [
   { href: '/admin/settings', label: 'Settings', icon: Settings, section: 'Admin' },
 ];
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+type Identity = {
+  gymName: string; gymMeta: string; gymInitial: string;
+  userName: string; userRole: string; userInitial: string;
+};
+
+export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial }: { children: React.ReactNode } & Identity) {
   const pathname = usePathname() ?? '';
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const main = NAV.filter((n) => n.section === 'Main');
@@ -55,10 +61,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <div className="sb-gym">
-            <span className="gf-avatar gf-avatar-sm">P</span>
+            <span className="gf-avatar gf-avatar-sm">{gymInitial}</span>
             <div style={{ minWidth: 0 }}>
-              <strong>Powerhouse Fitness</strong>
-              <small>Lekki · powerhouse.gymflow.ng</small>
+              <strong>{gymName}</strong>
+              <small>{gymMeta}</small>
             </div>
           </div>
         </div>
@@ -70,10 +76,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="gf-sidebar-footer">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>A</span>
+            <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}>{userInitial}</span>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '0.8125rem', fontWeight: 600 }}>Adunni O.</div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--gf-text-muted)' }}>Owner</div>
+              <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '0.8125rem', fontWeight: 600 }}>{userName}</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--gf-text-muted)' }}>{userRole}</div>
             </div>
             <form action={signOut}>
               <button type="submit" className="icon-btn" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out">

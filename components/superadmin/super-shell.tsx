@@ -21,7 +21,9 @@ const NAV: { href: string; label: string; icon: LucideIcon; section: 'Platform' 
   { href: '/superadmin/settings', label: 'Settings', icon: Settings, section: 'Operations' },
 ];
 
-export function SuperShell({ children }: { children: React.ReactNode }) {
+export function SuperShell({ children, userName, userEmail, userInitial }: {
+  children: React.ReactNode; userName: string; userEmail: string; userInitial: string;
+}) {
   const pathname = usePathname() ?? '';
   const isActive = (href: string) => (href === '/superadmin' ? pathname === '/superadmin' : pathname.startsWith(href));
   const platform = NAV.filter((n) => n.section === 'Platform');
@@ -60,10 +62,10 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="gf-sidebar-footer">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-info-soft)', color: 'var(--gf-info)' }}>S</span>
+            <span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-info-soft)', color: 'var(--gf-info)' }}>{userInitial}</span>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '0.8125rem', fontWeight: 600 }}>Superadmin</div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--gf-text-muted)' }}>platform@gymflow.ng</div>
+              <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '0.8125rem', fontWeight: 600 }}>{userName}</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--gf-text-muted)' }}>{userEmail}</div>
             </div>
             <form action={signOut}>
               <button type="submit" className="icon-btn" style={{ width: 32, height: 32 }} title="Sign out" aria-label="Sign out">
