@@ -26,6 +26,25 @@ export function firstName(full: string | null | undefined, fallback = 'there'): 
   return f || fallback;
 }
 
+// Initials for an avatar chip (first + last initial), e.g. "Adunni Okafor" → "AO".
+export function initialsOf(name: string | null | undefined, fallback = 'U'): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return fallback;
+  const a = parts[0][0] ?? '';
+  const b = parts.length > 1 ? parts[parts.length - 1][0] ?? '' : '';
+  return (a + b).toUpperCase() || fallback;
+}
+
+// Human label for a staff/role string (gym_staff_links.role / profiles.role).
+const ROLE_LABELS: Record<string, string> = {
+  gym_owner: 'Owner', owner: 'Owner', manager: 'Manager',
+  front_desk: 'Front desk', accountant: 'Accountant', instructor: 'Instructor',
+};
+export function roleLabel(role: string | null | undefined): string {
+  const r = (role ?? '').trim();
+  return ROLE_LABELS[r] ?? (r ? r.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Staff');
+}
+
 // Split a display name into first/last for writes. profiles.full_name is a
 // GENERATED column in the live DB (computed from first_name/last_name) —
 // writing it fails with `cannot insert a non-DEFAULT value into column

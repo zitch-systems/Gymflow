@@ -1,7 +1,8 @@
 import { AdminShell } from '@/components/admin/admin-shell';
 import { BillingWall } from '@/components/admin/billing-wall';
-import { requireAdminStaff } from '@/lib/auth/dal';
+import { requireAdminStaff, getProfile } from '@/lib/auth/dal';
 import { gymBillingState, isBlocked, isPlanTier } from '@/lib/platform-plans';
+import { initialsOf, roleLabel } from '@/lib/format';
 
 // The gate hits Supabase on every /admin/* request; allow headroom for a
 // resuming (auto-paused) free-tier project so it doesn't 504 the first load.
@@ -12,7 +13,7 @@ export const maxDuration = 60;
 // Instructors are routed to /coach (via /launch) — they must not see member
 // PII, payments, pricing or gym settings. Content sits inside .ds-admin.
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { gym } = await requireAdminStaff();
+  const { user, gym, role } = await requireAdminStaff();
 
   // Platform-billing gate: a gym whose free trial has lapsed (or whose GymFlow
   // subscription was cancelled) sees the access wall instead of the console. The
@@ -24,5 +25,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     return <BillingWall state={state} gymName={gym.name} currentTier={tier} />;
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  const profile = await getProfile();
+  const name = profile?.full_name?.trim() || user.email?.split('@')[0] || roleLabel(role);
+  const meta = `${gym.city ? `${gym.city} · ` : ''}${gym.slug}.gymflow.ng`;
+
+  return (
+    <AdminShell
+      gymName={gym.name}
+      gymMeta={meta}
+      gymInitial={initialsOf(gym.name, 'G')}
+      userName={name}
+      userRole={roleLabel(role)}
+      userInitial={initialsOf(name)}
+    >
+      {children}
+    </AdminShell>
+  );
 }
