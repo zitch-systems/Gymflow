@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 
 // ───────────────────────────────────────────────────────────────────────────
 // Logo3D — an animated, genuinely 3D rebuild of the GymFlow logomark
-// (public/images/logomark-v2.svg). The three bars are stacked at different
+// (public/images/logomark-v3.svg). The three bars are stacked at different
 // translateZ depths inside a `preserve-3d` scene, so the idle tumble and the
 // pointer-driven tilt reveal real parallax between them — not a flat rotation.
 //
@@ -14,13 +14,15 @@ import { useEffect, useRef } from 'react';
 // viewBox, scaled to `size`. Decorative — paired with the visible wordmark.
 // ───────────────────────────────────────────────────────────────────────────
 
-// Bars from logomark-v2.svg, with the group's translate(3,0) baked into `left`.
-// Depth grows with height so the tall volt bar pops furthest toward the viewer.
+// Three equal bars from logomark-v3.svg, dark→bright green left→right. Depth
+// grows left→right so the brightest bar sits furthest toward the viewer, giving
+// real parallax as the mark tumbles / tilts.
 const BARS = [
-  { left: 16, top: 25, w: 6.5, h: 11, color: 'rgba(255,255,255,0.92)', depth: 0.1 },
-  { left: 25, top: 17, w: 6.5, h: 19, color: '#ffffff', depth: 0.24 },
-  { left: 34, top: 9, w: 6.5, h: 27, color: '#c6f24e', depth: 0.42 },
+  { left: 12.5, grad: 'linear-gradient(180deg, #0a5e44, #0f8862)', depth: 0.12 },
+  { left: 21, grad: 'linear-gradient(180deg, #0f9f6e, #1ac98a)', depth: 0.26 },
+  { left: 29.5, grad: 'linear-gradient(180deg, #22d093, #52edb2)', depth: 0.42 },
 ] as const;
+const BAR_W = 6, BAR_H = 22, BAR_TOP = 13; // 48-unit grid, equal bars
 
 export function Logo3D({ size = 30 }: { size?: number }) {
   const sceneRef = useRef<HTMLSpanElement | null>(null);
@@ -64,19 +66,19 @@ export function Logo3D({ size = 30 }: { size?: number }) {
       <span className="logo3d-card">
         {/* spin: idle 3D float layer */}
         <span className="logo3d-spin">
-          <span className="logo3d-face" style={{ borderRadius: 13 * u }} />
+          <span className="logo3d-face" style={{ borderRadius: 11 * u }} />
           {BARS.map((b, i) => (
             <span
               key={i}
               className="logo3d-bar"
               style={{
                 left: b.left * u,
-                top: b.top * u,
-                width: b.w * u,
-                height: b.h * u,
-                borderRadius: 3.25 * u,
-                background: b.color,
-                transform: `translateZ(${b.depth * size}px) skewX(-9deg)`,
+                top: BAR_TOP * u,
+                width: BAR_W * u,
+                height: BAR_H * u,
+                borderRadius: (BAR_W / 2) * u,
+                background: b.grad,
+                transform: `translateZ(${b.depth * size}px) skewX(-7deg)`,
               }}
             />
           ))}

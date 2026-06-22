@@ -53,7 +53,7 @@ export function LoginClient({ initialMode = 'in', notice = null }: { initialMode
       <aside className="brandside">
         <div className="brandside-bg" aria-hidden />
         <Link className="brand" href="/">
-          <Image src="/images/logomark-v2.svg" alt="" width={38} height={38} className="mark-md" priority />
+          <Image src="/images/logomark-v3.svg" alt="" width={38} height={38} className="mark-md" priority />
           <span className="brand-tx lg">Gym<em>Flow</em></span>
         </Link>
         <div className="bs-quote">
@@ -76,7 +76,7 @@ export function LoginClient({ initialMode = 'in', notice = null }: { initialMode
       <main className="formside">
         <div className="formcard">
           <Link className="brand" href="/" style={{ display: 'inline-flex' }}>
-            <Image src="/images/logomark-v2.svg" alt="" width={30} height={30} className="mark-sm" />
+            <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <h1>{up ? 'Launch your gym' : 'Welcome back'}</h1>
