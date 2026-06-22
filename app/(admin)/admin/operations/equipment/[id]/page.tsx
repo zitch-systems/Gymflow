@@ -15,7 +15,7 @@ export default async function EditEquipment({ params }: { params: Promise<{ id: 
   const supabase = await createClient();
   const { data: e } = await supabase
     .from('equipment')
-    .select('id, name, category, location, status, serial_number, vendor, purchase_date, purchase_price, last_maintenance_date, next_maintenance_date, maintenance_notes')
+    .select('id, name, category, location, status, serial_number, vendor, purchase_date, purchase_price, last_maintenance_date, next_maintenance_date, maintenance_notes, photo_url')
     .eq('id', id).eq('gym_id', gym.id).maybeSingle();
   if (!e) notFound();
   return (

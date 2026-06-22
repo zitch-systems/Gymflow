@@ -18,7 +18,7 @@ export default async function AdminFacility() {
   const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
 
   const [{ data: equipment }, { data: expenses }] = await Promise.all([
-    supabase.from('equipment').select('id, name, category, status, location, last_maintenance_date, next_maintenance_date, maintenance_notes').eq('gym_id', gym.id).order('name', { ascending: true }).limit(100),
+    supabase.from('equipment').select('id, name, category, status, location, last_maintenance_date, next_maintenance_date, maintenance_notes, photo_url').eq('gym_id', gym.id).order('name', { ascending: true }).limit(100),
     supabase.from('expenses').select('id, amount, category, description, expense_date').eq('gym_id', gym.id).order('expense_date', { ascending: false }).limit(20),
   ]);
 
@@ -60,7 +60,10 @@ export default async function AdminFacility() {
                   const st = EQ_STATUS[e.status ?? 'operational'] ?? ['gf-badge-neutral', e.status ?? '—'];
                   return (
                     <tr key={e.id}>
-                      <td><div className="eq-name"><div className="ic"><Dumbbell strokeWidth={1.9} /></div><div><strong><Link href={`/admin/operations/equipment/${e.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{e.name}</Link></strong><small>{e.category ?? '—'}</small></div></div></td>
+                      <td><div className="eq-name"><div className="ic" style={e.photo_url ? { overflow: 'hidden' } : undefined}>{e.photo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={e.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : <Dumbbell strokeWidth={1.9} />}</div><div><strong><Link href={`/admin/operations/equipment/${e.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{e.name}</Link></strong><small>{e.category ?? '—'}</small></div></div></td>
                       <td style={{ color: 'var(--gf-text-secondary)' }}>{e.location ?? '—'}</td>
                       <td style={{ color: 'var(--gf-text-secondary)' }}>{e.last_maintenance_date ? fmtDate(e.last_maintenance_date) : '—'}</td>
                       <td>
