@@ -14,13 +14,13 @@ export const metadata: Metadata = {
     title: 'GymFlow',
     siteName: 'GymFlow',
     locale: 'en_NG',
+    images: [{ url: '/images/og.png', width: 1200, height: 630, alt: 'GymFlow' }],
   },
+  twitter: { card: 'summary_large_image', title: 'GymFlow', images: ['/images/og.png'] },
   // Installable PWA ("add to home screen") — manifest served by app/manifest.ts.
-  // No service worker by design: public/sw.js is a kill-switch for an old one.
-  icons: {
-    icon: [{ url: '/images/appicon-192.png', sizes: '192x192', type: 'image/png' }],
-    apple: [{ url: '/images/appicon-192.png', sizes: '192x192', type: 'image/png' }],
-  },
+  // Favicon + touch icon come from app/icon.svg and app/apple-icon.png (file
+  // conventions); PWA icons live in app/manifest.ts. No service worker by design
+  // (public/sw.js is a kill-switch for an old one).
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GymFlow' },
 };
 

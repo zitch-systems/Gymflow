@@ -92,7 +92,7 @@ export function SettingsClient({ gym, staffCount, banks }: { gym: GymProfile; st
                   {gym.logo_url
                     ? // eslint-disable-next-line @next/next/no-img-element
                       <img src={gym.logo_url} alt="Gym logo" width={56} height={56} style={{ borderRadius: 12, objectFit: 'cover', background: 'var(--gf-elevated)' }} />
-                    : <Image src="/images/logomark-v2.svg" alt="" width={56} height={56} />}
+                    : <Image src="/images/logomark-v3.svg" alt="" width={56} height={56} />}
                   <input type="file" name="logo" accept="image/*" className="gf-input" style={{ padding: 8 }} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

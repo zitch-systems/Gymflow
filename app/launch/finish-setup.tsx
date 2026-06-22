@@ -17,7 +17,7 @@ export function FinishSetup({ defaultGymName }: { defaultGymName?: string }) {
       <main className="formside">
         <div className="formcard">
           <span className="brand" style={{ display: 'inline-flex' }}>
-            <Image src="/images/logomark-v2.svg" alt="" width={30} height={30} className="mark-sm" />
+            <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </span>
           <h1>One last step</h1>

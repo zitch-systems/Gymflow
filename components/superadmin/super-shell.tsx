@@ -41,7 +41,7 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
       <aside className="gf-sidebar">
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
-            <Image src="/images/logomark-v2.svg" alt="" width={28} height={28} className="mark-sm" />
+            <Image src="/images/logomark-v3.svg" alt="" width={28} height={28} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <div className="sb-role">

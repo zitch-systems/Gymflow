@@ -31,7 +31,7 @@ export function MarketingFooter() {
       <div className="wrap foot">
         <div>
           <Link href="/" className="brand">
-            <Image src="/images/logomark-v2.svg" alt="" width={30} height={30} className="mark-sm" />
+            <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <p>Modern gym management for Nigerian fitness businesses. 41 Ogudu Road, Lagos · hello@gymflow.ng</p>
