@@ -19,7 +19,7 @@ export async function startRenewal(planId: string): Promise<RenewResult> {
 
   const { data: plan } = await supabase
     .from('membership_plans')
-    .select('id, name, price, duration_months')
+    .select('id, name, price, duration_days, duration_months')
     .eq('id', planId).eq('gym_id', gym.id).eq('is_active', true)
     .maybeSingle();
   if (!plan) return { ok: false, error: 'Plan not found.' };
@@ -28,8 +28,13 @@ export async function startRenewal(planId: string): Promise<RenewResult> {
   const res = await initTransaction({
     email: user.email ?? '',
     amountKobo: Math.round(Number(plan.price) * 100),
-    metadata: { member_id: user.id, gym_id: gym.id, plan_id: plan.id, duration_months: plan.duration_months, kind: 'membership_renewal' },
+    metadata: {
+      member_id: user.id, gym_id: gym.id, plan_id: plan.id,
+      duration_days: plan.duration_days, duration_months: plan.duration_months,
+      kind: 'membership_renewal',
+    },
     callbackUrl: site ? `${site}/dashboard/renew/callback` : undefined,
+    subaccount: gym.paystack_subaccount_code, // settle to the gym's bank when connected
   });
   return res.ok ? { ok: true, url: res.authorization_url } : { ok: false, error: res.error };
 }

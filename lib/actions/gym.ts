@@ -4,8 +4,49 @@ import { revalidatePath } from 'next/cache';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
+import { createSubaccount } from '@/lib/paystack';
 
 export type GymSaveState = { ok: boolean; error: string | null };
+
+// Save the gym's payout bank account and, when Paystack is configured, create a
+// Paystack subaccount so member dues settle to that bank directly (the platform
+// keeps platform_commission_pct). Owners/managers only (gyms_update RLS).
+export async function savePayout(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const bank_name = String(formData.get('bank_name') ?? '').trim();
+  const bank_code = String(formData.get('bank_code') ?? '').trim();
+  const account_number = String(formData.get('account_number') ?? '').trim();
+  const account_name = String(formData.get('account_name') ?? '').trim();
+  if (!bank_name || !/^\d{3,6}$/.test(bank_code) || !/^\d{10}$/.test(account_number) || !account_name) {
+    return { ok: false, error: 'Enter bank name, bank code, a 10-digit account number and the account name.' };
+  }
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    // Save the bank details first — useful even before Paystack keys are set.
+    const { error: upErr } = await supabase.from('gyms')
+      .update({ bank_name, bank_code, account_number, account_name }).eq('id', gym.id);
+    if (upErr) return { ok: false, error: upErr.message };
+
+    // With Paystack configured, (re)create the subaccount and store its code so
+    // startRenewal can route settlement to this gym.
+    if (process.env.PAYSTACK_SECRET_KEY) {
+      const sub = await createSubaccount({
+        businessName: gym.name,
+        bankCode: bank_code,
+        accountNumber: account_number,
+        percentageCharge: Number(gym.platform_commission_pct ?? 0) || 0,
+      });
+      if (!sub.ok) return { ok: false, error: `Bank saved, but connecting payouts failed: ${sub.error}` };
+      const { error: scErr } = await supabase.from('gyms').update({ paystack_subaccount_code: sub.subaccountCode }).eq('id', gym.id);
+      if (scErr) return { ok: false, error: scErr.message };
+    }
+    logAudit({ action: 'payout_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { bank_name, last4: account_number.slice(-4) } });
+    revalidatePath('/admin/settings');
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
 
 // Update the gym's public profile. RLS gyms_update_owner_only restricts this to
 // owners/managers of the gym.

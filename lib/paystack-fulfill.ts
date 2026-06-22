@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { extendDate } from '@/lib/plan-duration';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
 // `permanent` marks a failure that won't succeed on retry (e.g. unusable
@@ -23,6 +24,9 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   // on metadata — clamp so a tampered/garbage value can't extend a sub by years.
   const monthsRaw = Math.floor(Number(meta.duration_months ?? 1));
   const months = Number.isFinite(monthsRaw) ? Math.min(Math.max(monthsRaw, 1), 36) : 1;
+  // Daily/weekly plans carry duration_days (clamped) — it wins over months.
+  const daysRaw = meta.duration_days != null ? Math.floor(Number(meta.duration_days)) : 0;
+  const durationDays = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(daysRaw, 366) : null;
   if (!memberId || !gymId) return { ok: false, created: false, error: 'missing member_id/gym_id in metadata', permanent: true };
 
   let admin: ReturnType<typeof createAdminClient>;
@@ -53,7 +57,7 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
     .select('id, end_date').eq('member_id', memberId).eq('gym_id', gymId).eq('status', 'active')
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
   const base = sub?.end_date && new Date(sub.end_date) > new Date() ? new Date(sub.end_date) : new Date();
-  const newEnd = new Date(base); newEnd.setMonth(newEnd.getMonth() + months);
+  const newEnd = extendDate(base, { duration_days: durationDays, duration_months: months });
   const endIso = newEnd.toISOString().slice(0, 10);
   const { error: subErr } = sub
     ? await admin.from('member_subscriptions').update({ end_date: endIso, plan_id: planId ?? undefined, updated_at: new Date().toISOString() }).eq('id', sub.id)

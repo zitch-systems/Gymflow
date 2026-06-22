@@ -21,6 +21,7 @@ export async function initTransaction(params: {
   amountKobo: number;
   metadata: Record<string, unknown>;
   callbackUrl?: string;
+  subaccount?: string | null;
 }): Promise<InitResult> {
   try {
     const res = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
@@ -32,6 +33,9 @@ export async function initTransaction(params: {
         currency: 'NGN',
         metadata: params.metadata,
         callback_url: params.callbackUrl,
+        // When set, settle this charge to the gym's Paystack subaccount (its own
+        // bank); the platform keeps its commission and the subaccount bears fees.
+        ...(params.subaccount ? { subaccount: params.subaccount, bearer: 'subaccount' } : {}),
       }),
       cache: 'no-store',
     });
@@ -105,6 +109,38 @@ export async function disableSubscription(code: string, emailToken: string): Pro
     const json = await res.json();
     if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Disable failed' };
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export type SubaccountResult = { ok: true; subaccountCode: string } | { ok: false; error: string };
+
+// Create a Paystack subaccount for a gym so member dues settle to the gym's own
+// bank. `percentageCharge` is the platform's commission (kept by the main
+// account); the rest settles to the subaccount. Returns the subaccount_code to
+// store on the gym and pass as `subaccount` on future charges.
+export async function createSubaccount(params: {
+  businessName: string;
+  bankCode: string;
+  accountNumber: string;
+  percentageCharge: number;
+}): Promise<SubaccountResult> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/subaccount`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        business_name: params.businessName,
+        settlement_bank: params.bankCode,
+        account_number: params.accountNumber,
+        percentage_charge: params.percentageCharge,
+      }),
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Subaccount creation failed' };
+    return { ok: true, subaccountCode: json.data.subaccount_code };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

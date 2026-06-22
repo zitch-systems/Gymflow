@@ -1210,6 +1210,7 @@ export type Database = {
           created_at: string | null
           currency: string | null
           description: string | null
+          duration_days: number | null
           duration_months: number
           features: Json | null
           gym_id: string | null
@@ -1223,6 +1224,7 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           description?: string | null
+          duration_days?: number | null
           duration_months: number
           features?: Json | null
           gym_id?: string | null
@@ -1236,6 +1238,7 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           description?: string | null
+          duration_days?: number | null
           duration_months?: number
           features?: Json | null
           gym_id?: string | null
