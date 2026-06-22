@@ -1,8 +1,8 @@
 'use client';
 
-import { useActionState, useState, useTransition } from 'react';
+import { useActionState, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Save, AlertCircle, Trash2 } from 'lucide-react';
+import { Save, AlertCircle, Trash2, ImagePlus, X } from 'lucide-react';
 import { saveEquipment, deleteEquipment, type FState } from '@/lib/actions/facility';
 
 const INIT: FState = { ok: false, error: null };
@@ -12,6 +12,7 @@ type Equipment = {
   status?: string | null; serial_number?: string | null; vendor?: string | null;
   purchase_date?: string | null; purchase_price?: number | null;
   last_maintenance_date?: string | null; next_maintenance_date?: string | null; maintenance_notes?: string | null;
+  photo_url?: string | null;
 };
 
 const STATUS = [
@@ -22,9 +23,50 @@ const STATUS = [
 
 export function EquipmentForm({ equipment: e }: { equipment?: Equipment }) {
   const [state, action, pending] = useActionState(saveEquipment, INIT);
+  const [preview, setPreview] = useState<string | null>(e?.photo_url ?? null);
+  const [removed, setRemoved] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function onPick(ev: React.ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+    setPreview(URL.createObjectURL(file));
+    setRemoved(false);
+  }
+  function onRemove() {
+    setPreview(null);
+    setRemoved(true);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
   return (
     <form action={action} className="addmember">
       {e?.id && <input type="hidden" name="id" value={e.id} />}
+      {removed && <input type="hidden" name="remove_photo" value="on" />}
+
+      <div className="eq-photo">
+        <div className="eq-photo-thumb">
+          {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="" />
+          ) : (
+            <ImagePlus strokeWidth={1.5} />
+          )}
+        </div>
+        <div className="eq-photo-body">
+          <label className="gf-btn gf-btn-secondary gf-btn-sm" style={{ cursor: 'pointer' }}>
+            <ImagePlus size={15} strokeWidth={2} /> {preview ? 'Change photo' : 'Upload photo'}
+            <input ref={fileRef} type="file" name="photo" accept="image/*" onChange={onPick} hidden />
+          </label>
+          {preview && (
+            <button type="button" className="gf-btn gf-btn-ghost gf-btn-sm" onClick={onRemove}>
+              <X size={15} strokeWidth={2} /> Remove
+            </button>
+          )}
+          <p className="addmember-note">Optional — PNG, JPG or WebP, up to 2&nbsp;MB.</p>
+        </div>
+      </div>
+
       <div className="af-grid">
         <label>Name<input className="gf-input" name="name" defaultValue={e?.name ?? ''} placeholder="e.g. Treadmill #3" required /></label>
         <label>Category<input className="gf-input" name="category" defaultValue={e?.category ?? ''} placeholder="e.g. Cardio" /></label>

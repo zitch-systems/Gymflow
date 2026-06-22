@@ -22,6 +22,14 @@ export async function saveEquipment(_prev: FState, fd: FormData): Promise<FState
   let status = String(fd.get('status') ?? 'operational');
   if (!EQUIPMENT_STATUS.has(status)) status = 'operational';
   const priceRaw = fd.get('purchase_price');
+  const photo = fd.get('photo');
+  const removePhoto = fd.get('remove_photo') === 'on';
+  // Validate the photo before any DB work (the gym-assets bucket also enforces
+  // image/* and a 2 MB cap at the storage layer).
+  if (photo instanceof File && photo.size > 0) {
+    if (!photo.type.startsWith('image/')) return { ok: false, error: 'Photo must be an image.' };
+    if (photo.size > 2_000_000) return { ok: false, error: 'Photo must be under 2 MB.' };
+  }
   const row = {
     name,
     category: String(fd.get('category') ?? '').trim() || null,
@@ -38,9 +46,26 @@ export async function saveEquipment(_prev: FState, fd: FormData): Promise<FState
   try {
     const { user, gym } = await requireStaff();
     const supabase = await createClient();
+
+    // Photo upload goes to the per-gym gym-assets bucket; the storage RLS keys
+    // off the first path segment (the gym id). A new file replaces the old URL,
+    // an explicit "remove" clears it, and otherwise photo_url is left untouched
+    // so an edit without a new file keeps the existing image.
+    const patch: { photo_url?: string | null } = {};
+    if (photo instanceof File && photo.size > 0) {
+      const ext = ((photo.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
+      const path = `${gym.id}/equipment/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('gym-assets').upload(path, photo, { contentType: photo.type, upsert: true });
+      if (upErr) return { ok: false, error: upErr.message };
+      patch.photo_url = supabase.storage.from('gym-assets').getPublicUrl(path).data.publicUrl;
+    } else if (removePhoto) {
+      patch.photo_url = null;
+    }
+
+    const payload = { ...row, ...patch };
     const { error } = id
-      ? await supabase.from('equipment').update(row).eq('id', id).eq('gym_id', gym.id)
-      : await supabase.from('equipment').insert({ gym_id: gym.id, ...row });
+      ? await supabase.from('equipment').update(payload).eq('id', id).eq('gym_id', gym.id)
+      : await supabase.from('equipment').insert({ gym_id: gym.id, ...payload });
     if (error) return { ok: false, error: error.message };
     logAudit({ action: id ? 'equipment_updated' : 'equipment_created', table: 'equipment', actorId: user.id, gymId: gym.id, recordId: id, values: { name, status } });
   } catch (e) {
