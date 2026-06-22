@@ -12,7 +12,7 @@ export const maxDuration = 60;
 // and record it (idempotent) so the renewal lands even if the webhook isn't
 // configured; the webhook remains the authoritative backup.
 export default async function RenewCallback({ searchParams }: { searchParams: Promise<{ reference?: string; trxref?: string }> }) {
-  await requireMember();
+  const { user } = await requireMember();
   const sp = await searchParams;
   const reference = sp.reference ?? sp.trxref ?? '';
 
@@ -20,7 +20,14 @@ export default async function RenewCallback({ searchParams }: { searchParams: Pr
   let msg = 'We couldn’t find this payment. If you were charged, it’ll reflect shortly.';
   if (reference) {
     const v = await verifyTransaction(reference);
-    if (v.ok && v.status === 'success') {
+    // Bind the reference to the signed-in member: only fulfill a transaction
+    // whose Paystack-verified metadata names this user. Without this, any member
+    // could submit another member's reference into their own callback. (Impact is
+    // bounded — fulfillCharge derives member/gym from the metadata and is
+    // idempotent — but the reference should still belong to the caller.)
+    if (v.ok && v.status === 'success' && v.metadata?.member_id && v.metadata.member_id !== user.id) {
+      msg = 'This payment reference belongs to a different account.';
+    } else if (v.ok && v.status === 'success') {
       // The charge is confirmed at Paystack, so show success. Recording it is
       // idempotent and the webhook is the authoritative backup; if this inline
       // attempt fails we log it (the webhook retry will still land it) rather

@@ -1,14 +1,16 @@
 import { createHmac } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { fulfillCharge } from '@/lib/paystack-fulfill';
+import { isPlatformEvent, handlePlatformEvent } from '@/lib/platform-fulfill';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 // Paystack webhook. Verifies the x-paystack-signature (HMAC-SHA512 of the raw
-// body with the secret key), then on charge.success records the payment and
-// extends the member's subscription (idempotent, via the shared fulfill helper
-// which uses the service-role client).
+// body with the secret key), then routes the event:
+//   • PLATFORM (gym → GymFlow) subscription events → lib/platform-fulfill
+//   • MEMBER (member → gym) one-off charges → lib/paystack-fulfill
+// Both fulfillment paths are idempotent and use the service-role client.
 export async function POST(req: NextRequest) {
   const secret = process.env.PAYSTACK_SECRET_KEY;
   if (!secret) return NextResponse.json({ error: 'not configured' }, { status: 503 });
@@ -19,6 +21,18 @@ export async function POST(req: NextRequest) {
   if (signature !== expected) return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
 
   const event = JSON.parse(raw);
+
+  // Platform SaaS billing (subscriptions, recurring charges, dunning).
+  if (isPlatformEvent(event)) {
+    const result = await handlePlatformEvent(event);
+    if (!result.ok) {
+      console.error(`[paystack/webhook] platform ${event?.event} failed: ${result.error}`);
+      if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  // Member → gym membership charges.
   if (event?.event !== 'charge.success') return NextResponse.json({ received: true });
 
   const d = event.data ?? {};

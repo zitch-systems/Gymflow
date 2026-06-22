@@ -739,12 +739,15 @@ export type Database = {
           logo_url: string | null
           max_members: number | null
           name: string
+          paystack_customer_code: string | null
           paystack_subaccount_code: string | null
+          paystack_subscription_code: string | null
           phone: string | null
           platform_commission_pct: number
           slug: string
           state: string | null
           status: string | null
+          subscription_current_period_end: string | null
           subscription_plan: string | null
           subscription_status: string | null
           tagline: string | null
@@ -773,12 +776,15 @@ export type Database = {
           logo_url?: string | null
           max_members?: number | null
           name: string
+          paystack_customer_code?: string | null
           paystack_subaccount_code?: string | null
+          paystack_subscription_code?: string | null
           phone?: string | null
           platform_commission_pct?: number
           slug: string
           state?: string | null
           status?: string | null
+          subscription_current_period_end?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
           tagline?: string | null
@@ -807,12 +813,15 @@ export type Database = {
           logo_url?: string | null
           max_members?: number | null
           name?: string
+          paystack_customer_code?: string | null
           paystack_subaccount_code?: string | null
+          paystack_subscription_code?: string | null
           phone?: string | null
           platform_commission_pct?: number
           slug?: string
           state?: string | null
           status?: string | null
+          subscription_current_period_end?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
           tagline?: string | null

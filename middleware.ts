@@ -22,6 +22,7 @@ export const config = {
     '/dashboard/:path*',
     '/checkin', '/classes',
     '/join/:path*',
+    '/billing/:path*',
     '/admin/:path*',
     '/coach/:path*',
     '/superadmin/:path*',
