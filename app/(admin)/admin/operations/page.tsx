@@ -1,7 +1,9 @@
-import { LayoutGrid, Dumbbell, Wrench, Receipt, AlertTriangle, Check, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { LayoutGrid, Dumbbell, Wrench, Receipt, AlertTriangle, Check, Plus, Pencil } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
+import { ExpenseForm } from '@/components/admin/expense-form';
 
 export const metadata = { title: 'Facility' };
 
@@ -34,7 +36,10 @@ export default async function AdminFacility() {
 
   return (
     <>
-      <div className="page-h"><div><h1>Facility</h1><p>{gym.name} · {zones} zone{zones === 1 ? '' : 's'} · {eq.length} equipment unit{eq.length === 1 ? '' : 's'}</p></div></div>
+      <div className="page-h">
+        <div><h1>Facility</h1><p>{gym.name} · {zones} zone{zones === 1 ? '' : 's'} · {eq.length} equipment unit{eq.length === 1 ? '' : 's'}</p></div>
+        <Link href="/admin/operations/equipment/new" className="gf-btn gf-btn-primary" style={{ textDecoration: 'none' }}><Plus strokeWidth={2} size={16} /> Add equipment</Link>
+      </div>
 
       <section className="kpis">
         {KPIS.map((k) => { const Icon = k.icon; return (
@@ -44,9 +49,9 @@ export default async function AdminFacility() {
 
       <div className="grid2" style={{ gridTemplateColumns: '1fr 340px' }}>
         <div className="panel">
-          <div className="panel-h"><div><h3>Equipment</h3><div className="sub">{eq.length} unit{eq.length === 1 ? '' : 's'} · {needsService.length} flagged</div></div></div>
+          <div className="panel-h"><div><h3>Equipment</h3><div className="sub">{eq.length} unit{eq.length === 1 ? '' : 's'} · {needsService.length} flagged</div></div><Link href="/admin/operations/equipment/new" className="link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Plus strokeWidth={2} size={14} /> Add</Link></div>
           {eq.length === 0 ? (
-            <div className="empty"><div className="eic"><Dumbbell strokeWidth={1.6} /></div><h3>No equipment logged</h3><p>Add equipment to track maintenance and zones.</p></div>
+            <div className="empty"><div className="eic"><Dumbbell strokeWidth={1.6} /></div><h3>No equipment logged</h3><p>Add equipment to track maintenance and zones.</p><Link href="/admin/operations/equipment/new" className="gf-btn gf-btn-primary gf-btn-sm" style={{ textDecoration: 'none', marginTop: 12 }}><Plus strokeWidth={2} size={15} /> Add equipment</Link></div>
           ) : (
             <table className="tbl">
               <thead><tr><th>Equipment</th><th>Zone</th><th>Last serviced</th><th>Status</th></tr></thead>
@@ -55,10 +60,15 @@ export default async function AdminFacility() {
                   const st = EQ_STATUS[e.status ?? 'operational'] ?? ['gf-badge-neutral', e.status ?? '—'];
                   return (
                     <tr key={e.id}>
-                      <td><div className="eq-name"><div className="ic"><Dumbbell strokeWidth={1.9} /></div><div><strong>{e.name}</strong><small>{e.category ?? '—'}</small></div></div></td>
+                      <td><div className="eq-name"><div className="ic"><Dumbbell strokeWidth={1.9} /></div><div><strong><Link href={`/admin/operations/equipment/${e.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{e.name}</Link></strong><small>{e.category ?? '—'}</small></div></div></td>
                       <td style={{ color: 'var(--gf-text-secondary)' }}>{e.location ?? '—'}</td>
                       <td style={{ color: 'var(--gf-text-secondary)' }}>{e.last_maintenance_date ? fmtDate(e.last_maintenance_date) : '—'}</td>
-                      <td><span className={`gf-badge ${st[0]}`}>{st[1]}</span></td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                          <span className={`gf-badge ${st[0]}`}>{st[1]}</span>
+                          <Link href={`/admin/operations/equipment/${e.id}`} className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Edit equipment"><Pencil strokeWidth={1.9} size={14} /></Link>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -81,7 +91,7 @@ export default async function AdminFacility() {
             ))}
           </div>
           <div className="panel">
-            <div className="panel-h"><div><h3>Recent expenses</h3><div className="sub">{fmtNaira(spend30)} last 30 days</div></div><span className="link"><Plus strokeWidth={2} size={14} /> Log</span></div>
+            <div className="panel-h"><div><h3>Recent expenses</h3><div className="sub">{fmtNaira(spend30)} last 30 days</div></div><ExpenseForm /></div>
             {(expenses ?? []).length === 0 ? (
               <div className="sub">No expenses logged.</div>
             ) : (expenses ?? []).slice(0, 6).map((x) => (
