@@ -1,5 +1,7 @@
 import { AdminShell } from '@/components/admin/admin-shell';
+import { BillingWall } from '@/components/admin/billing-wall';
 import { requireAdminStaff } from '@/lib/auth/dal';
+import { gymBillingState, isBlocked, isPlanTier } from '@/lib/platform-plans';
 
 // The gate hits Supabase on every /admin/* request; allow headroom for a
 // resuming (auto-paused) free-tier project so it doesn't 504 the first load.
@@ -10,6 +12,17 @@ export const maxDuration = 60;
 // Instructors are routed to /coach (via /launch) — they must not see member
 // PII, payments, pricing or gym settings. Content sits inside .ds-admin.
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdminStaff();
+  const { gym } = await requireAdminStaff();
+
+  // Platform-billing gate: a gym whose free trial has lapsed (or whose GymFlow
+  // subscription was cancelled) sees the access wall instead of the console. The
+  // wall's checkout reactivates them via the webhook — no lock-out loop. past_due
+  // is not blocked (Paystack retries); the page-level banner warns instead.
+  const state = gymBillingState(gym);
+  if (isBlocked(state)) {
+    const tier = isPlanTier(gym.subscription_plan ?? '') ? (gym.subscription_plan as 'starter' | 'growth' | 'scale') : null;
+    return <BillingWall state={state} gymName={gym.name} currentTier={tier} />;
+  }
+
   return <AdminShell>{children}</AdminShell>;
 }

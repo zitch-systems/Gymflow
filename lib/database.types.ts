@@ -739,7 +739,9 @@ export type Database = {
           logo_url: string | null
           max_members: number | null
           name: string
+          paystack_customer_code: string | null
           paystack_subaccount_code: string | null
+          paystack_subscription_code: string | null
           phone: string | null
           platform_commission_pct: number
           slug: string
@@ -774,7 +776,9 @@ export type Database = {
           logo_url?: string | null
           max_members?: number | null
           name: string
+          paystack_customer_code?: string | null
           paystack_subaccount_code?: string | null
+          paystack_subscription_code?: string | null
           phone?: string | null
           platform_commission_pct?: number
           slug: string
@@ -809,7 +813,9 @@ export type Database = {
           logo_url?: string | null
           max_members?: number | null
           name?: string
+          paystack_customer_code?: string | null
           paystack_subaccount_code?: string | null
+          paystack_subscription_code?: string | null
           phone?: string | null
           platform_commission_pct?: number
           slug?: string

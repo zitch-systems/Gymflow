@@ -18,20 +18,14 @@ export default async function AdminWallet() {
 
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-  const [{ data: rowsRaw }, { data: monthRaw }] = await Promise.all([
+  const [{ data: rows }, { data: monthRows }] = await Promise.all([
     supabase.from('payments')
-      .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id, member_id, metadata')
-      .eq('gym_id', gym.id).order('payment_date', { ascending: false }).limit(80),
+      .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id, member_id')
+      .eq('gym_id', gym.id).order('payment_date', { ascending: false }).limit(60),
     supabase.from('payments')
-      .select('amount, payment_status, payment_date, metadata')
+      .select('amount, payment_status, payment_date')
       .eq('gym_id', gym.id).gte('payment_date', monthStart.toISOString()),
   ]);
-
-  // Exclude the gym's own GymFlow subscription charges — that's money paid OUT to
-  // the platform, not collections from members.
-  const isPlatform = (m: unknown) => !!m && typeof m === 'object' && (m as { kind?: string }).kind === 'platform_subscription';
-  const rows = (rowsRaw ?? []).filter((r) => !isPlatform(r.metadata));
-  const monthRows = (monthRaw ?? []).filter((r) => !isPlatform(r.metadata));
 
   const collected = (monthRows ?? []).filter((p) => p.payment_status === 'successful').reduce((s, p) => s + Number(p.amount ?? 0), 0);
   const pending = (monthRows ?? []).filter((p) => p.payment_status === 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
