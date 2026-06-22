@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
+import { HeroBackground3D } from '@/components/marketing/hero-background-3d';
 import {
   MapPin, ScanLine, CreditCard, CalendarDays, Users, BarChart3, Smartphone,
   Check, Star, ShieldCheck, Mail, MessageCircle,
@@ -22,6 +23,7 @@ export default function MarketingHome() {
           style={{ backgroundImage: 'url(/images/gym-floor.jpg)' }}
           aria-hidden
         />
+        <HeroBackground3D />
         <div className="wrap hero-in">
           <span className="eyebrow">
             <MapPin strokeWidth={1.75} /> Built in Lagos · Made for Nigerian gyms
