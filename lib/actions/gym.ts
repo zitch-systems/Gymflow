@@ -4,9 +4,22 @@ import { revalidatePath } from 'next/cache';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
-import { createSubaccount } from '@/lib/paystack';
+import { createSubaccount, resolveAccount } from '@/lib/paystack';
 
 export type GymSaveState = { ok: boolean; error: string | null };
+
+export type VerifyAccountResult = { ok: true; accountName: string } | { ok: false; error: string };
+
+// Interactive account-name lookup for the payout form (client → server, since it
+// needs the Paystack secret key). Owners/managers only.
+export async function verifyBankAccount(accountNumber: string, bankCode: string): Promise<VerifyAccountResult> {
+  if (!/^\d{10}$/.test(accountNumber) || !/^\d{3,6}$/.test(bankCode)) {
+    return { ok: false, error: 'Enter a 10-digit account number and pick a bank.' };
+  }
+  if (!process.env.PAYSTACK_SECRET_KEY) return { ok: false, error: 'Payments are not configured yet.' };
+  await requireStaff(MANAGER_ROLES);
+  return resolveAccount(accountNumber, bankCode);
+}
 
 // Save the gym's payout bank account and, when Paystack is configured, create a
 // Paystack subaccount so member dues settle to that bank directly (the platform
@@ -22,9 +35,17 @@ export async function savePayout(_prev: GymSaveState, formData: FormData): Promi
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
+    // With Paystack configured, verify the account server-side and store the
+    // canonical holder name (never trust the client's account_name).
+    let resolvedName = account_name;
+    if (process.env.PAYSTACK_SECRET_KEY) {
+      const resolved = await resolveAccount(account_number, bank_code);
+      if (!resolved.ok) return { ok: false, error: `Couldn’t verify account: ${resolved.error}` };
+      resolvedName = resolved.accountName || account_name;
+    }
     // Save the bank details first — useful even before Paystack keys are set.
     const { error: upErr } = await supabase.from('gyms')
-      .update({ bank_name, bank_code, account_number, account_name }).eq('id', gym.id);
+      .update({ bank_name, bank_code, account_number, account_name: resolvedName }).eq('id', gym.id);
     if (upErr) return { ok: false, error: upErr.message };
 
     // With Paystack configured, (re)create the subaccount and store its code so
