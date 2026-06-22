@@ -146,6 +146,55 @@ export async function createSubaccount(params: {
   }
 }
 
+export type Bank = { name: string; code: string };
+
+// List Nigerian banks/fintechs for the payout dropdown. Paginates via Paystack's
+// cursor, de-dupes by code, sorts by name. Cached a day (the list rarely
+// changes). Returns [] if Paystack isn't configured or the call fails — the
+// payout form then falls back to manual bank-code entry.
+export async function listBanks(): Promise<Bank[]> {
+  try {
+    const out: Bank[] = [];
+    const seen = new Set<string>();
+    let url: string | null = `${PAYSTACK_BASE}/bank?currency=NGN&use_cursor=true&perPage=100`;
+    for (let page = 0; url && page < 6; page++) {
+      const res: Response = await fetch(url, {
+        headers: { Authorization: `Bearer ${secret()}` },
+        next: { revalidate: 86400 },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.status || !Array.isArray(json.data)) break;
+      for (const b of json.data) {
+        if (b?.code && b?.name && !seen.has(b.code)) { seen.add(String(b.code)); out.push({ name: b.name, code: String(b.code) }); }
+      }
+      const next = json.meta?.next;
+      url = next ? `${PAYSTACK_BASE}/bank?currency=NGN&use_cursor=true&perPage=100&next=${encodeURIComponent(next)}` : null;
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+export type ResolveResult = { ok: true; accountName: string } | { ok: false; error: string };
+
+// Verify a bank account ("resolve") — returns the real account-holder name for a
+// given account number + bank code, so payouts can't be saved to a typo'd account.
+export async function resolveAccount(accountNumber: string, bankCode: string): Promise<ResolveResult> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`, {
+      headers: { Authorization: `Bearer ${secret()}` },
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Could not verify this account' };
+    return { ok: true, accountName: json.data.account_name };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export type VerifyResult =
   | { ok: true; status: string; amountKobo: number; reference: string; metadata: Record<string, unknown>; channel: string | null }
   | { ok: false; error: string };

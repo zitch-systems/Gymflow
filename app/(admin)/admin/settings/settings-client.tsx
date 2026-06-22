@@ -4,7 +4,9 @@ import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote } from 'lucide-react';
-import { updateGym, updateBranding, uploadLogo, savePayout, type GymSaveState } from '@/lib/actions/gym';
+import { updateGym, updateBranding, uploadLogo, type GymSaveState } from '@/lib/actions/gym';
+import { PayoutForm } from '@/components/admin/payout-form';
+import type { Bank } from '@/lib/paystack';
 
 const GYM_INIT: GymSaveState = { ok: false, error: null };
 const SWATCHES = ['#11d18b', '#4080ff', '#ff4560', '#c6f24e', '#b67bf3', '#f59e0b', '#06b6d4'];
@@ -35,12 +37,11 @@ export type GymProfile = {
   payouts_connected: boolean; commission_pct: number;
 };
 
-export function SettingsClient({ gym, staffCount }: { gym: GymProfile; staffCount: number }) {
+export function SettingsClient({ gym, staffCount, banks }: { gym: GymProfile; staffCount: number; banks: Bank[] }) {
   const [sec, setSec] = useState<string>('profile');
   const [gymState, gymAction, gymPending] = useActionState(updateGym, GYM_INIT);
   const [brandState, brandAction, brandPending] = useActionState(updateBranding, GYM_INIT);
   const [logoState, logoAction, logoPending] = useActionState(uploadLogo, GYM_INIT);
-  const [payoutState, payoutAction, payoutPending] = useActionState(savePayout, GYM_INIT);
 
   return (
     <>
@@ -135,29 +136,7 @@ export function SettingsClient({ gym, staffCount }: { gym: GymProfile; staffCoun
 
           {sec === 'payouts' && (
             <section className="sec on">
-              <form className="panel" action={payoutAction}>
-                <div className="panel-title">Payout account</div>
-                <div className="panel-desc">
-                  Where member dues settle. {gym.payouts_connected ? 'Connected to Paystack — collections settle to this account (T+1).' : 'Add your bank to receive member payments directly.'}
-                  {gym.commission_pct > 0 ? ` Platform fee: ${gym.commission_pct}%.` : ''}
-                </div>
-                <div style={{ marginBottom: 14 }}>
-                  <span className={`gf-badge ${gym.payouts_connected ? 'gf-badge-success' : 'gf-badge-neutral'}`}><span className="gf-dot" />{gym.payouts_connected ? 'Payouts connected' : 'Not connected'}</span>
-                </div>
-                <div className="frow">
-                  <div className="gf-form-group"><label className="gf-form-label">Bank name</label><input className="gf-input" name="bank_name" defaultValue={gym.bank_name ?? ''} placeholder="e.g. GTBank" required /></div>
-                  <div className="gf-form-group"><label className="gf-form-label">Bank code</label><input className="gf-input" name="bank_code" defaultValue={gym.bank_code ?? ''} placeholder="e.g. 058" inputMode="numeric" required /></div>
-                </div>
-                <div className="frow">
-                  <div className="gf-form-group"><label className="gf-form-label">Account number</label><input className="gf-input" name="account_number" defaultValue={gym.account_number ?? ''} placeholder="10 digits" inputMode="numeric" maxLength={10} required /></div>
-                  <div className="gf-form-group"><label className="gf-form-label">Account name</label><input className="gf-input" name="account_name" defaultValue={gym.account_name ?? ''} required /></div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
-                  <button className="gf-btn gf-btn-primary" type="submit" disabled={payoutPending}>{payoutPending ? 'Saving…' : (gym.payouts_connected ? 'Update payout account' : 'Connect payouts')}</button>
-                  {payoutState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
-                  {payoutState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{payoutState.error}</span>}
-                </div>
-              </form>
+              <PayoutForm gym={gym} banks={banks} />
             </section>
           )}
 
