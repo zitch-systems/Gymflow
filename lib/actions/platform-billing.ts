@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { requireStaff } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { initSubscription, getSubscription, disableSubscription } from '@/lib/paystack';
-import { PLATFORM_PLANS, isPlanTier, type PlanTier } from '@/lib/platform-plans';
+import { PLATFORM_PLANS, isPlanTier } from '@/lib/platform-plans';
 
 // Platform (gym → GymFlow) subscription management. OWNER-only: the dal treats
 // 'manager' as "all but billing", so paying for GymFlow is the owner's call.
@@ -68,5 +68,3 @@ export async function cancelPlatformSubscription(): Promise<void> {
   revalidatePath('/admin/billing');
   redirect('/admin/billing?billing_cancelled=1');
 }
-
-export type { PlanTier };
