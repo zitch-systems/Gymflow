@@ -3,19 +3,16 @@ import { Repeat, Users, CreditCard, Check, Pencil, PlusCircle } from 'lucide-rea
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
+import { planPeriodLabel, planCadenceLabel, monthlyEquivalent } from '@/lib/plan-duration';
 
 export const metadata = { title: 'Pricing & plans' };
-
-function periodSuffix(months: number): string {
-  if (months <= 1) return '/mo'; if (months === 3) return '/qtr'; if (months === 12) return '/yr'; return `/${months}mo`;
-}
 
 export default async function AdminPricing() {
   const { gym } = await requireStaff();
   const supabase = await createClient();
 
   const [{ data: plans }, { data: activeSubs }] = await Promise.all([
-    supabase.from('membership_plans').select('id, name, price, duration_months, description, is_active, features').eq('gym_id', gym.id).order('price', { ascending: true }),
+    supabase.from('membership_plans').select('id, name, price, duration_days, duration_months, description, is_active, features').eq('gym_id', gym.id).order('price', { ascending: true }),
     supabase.from('member_subscriptions').select('plan_id').eq('gym_id', gym.id).eq('status', 'active'),
   ]);
 
@@ -24,7 +21,7 @@ export default async function AdminPricing() {
 
   const rows = (plans ?? []).map((p) => {
     const members = countByPlan.get(p.id) ?? 0;
-    const perMonth = Number(p.price) / Math.max(1, p.duration_months);
+    const perMonth = monthlyEquivalent(Number(p.price), p);
     return { ...p, members, mrr: perMonth * members };
   });
   const subscribers = rows.reduce((s, r) => s + r.members, 0);
@@ -55,8 +52,8 @@ export default async function AdminPricing() {
                   <span className="nm">{p.name}{pop && <span className="gf-badge gf-badge-brand" style={{ marginLeft: 6 }}>Popular</span>}</span>
                   <Link href={`/admin/pricing/${p.id}/edit`} className="icon-btn" style={{ width: 32, height: 32 }} aria-label="Edit plan"><Pencil strokeWidth={1.9} /></Link>
                 </div>
-                <div className="amt">{fmtNaira(Number(p.price))}<small>{periodSuffix(p.duration_months)}</small></div>
-                <div className="desc">{p.description ?? `${p.duration_months}-month membership`}</div>
+                <div className="amt">{fmtNaira(Number(p.price))}<small>{planPeriodLabel(p)}</small></div>
+                <div className="desc">{p.description ?? planCadenceLabel(p)}</div>
                 <div className="stat">
                   <div><div className="v">{p.members}</div><div className="l">Members</div></div>
                   <div><div className="v">{fmtNaira(Math.round(p.mrr))}</div><div className="l">MRR</div></div>

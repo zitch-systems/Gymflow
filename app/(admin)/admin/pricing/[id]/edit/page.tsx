@@ -14,7 +14,7 @@ export default async function EditPlan({ params }: { params: Promise<{ id: strin
   const { gym } = await requireStaff();
   const supabase = await createClient();
   const { data: plan } = await supabase
-    .from('membership_plans').select('id, name, price, duration_months, is_active')
+    .from('membership_plans').select('id, name, price, duration_days, duration_months, is_active')
     .eq('id', id).eq('gym_id', gym.id).maybeSingle();
   if (!plan) notFound();
   return (
@@ -22,7 +22,7 @@ export default async function EditPlan({ params }: { params: Promise<{ id: strin
       <Link href="/admin/pricing" className="back-link"><ArrowLeft strokeWidth={2} size={16} /> Back to pricing</Link>
       <div className="page-h"><div><h1>Edit plan</h1><p>{plan.name}</p></div></div>
       <div className="panel" style={{ maxWidth: 640 }}>
-        <PlanForm plan={{ id: plan.id, name: plan.name, price: Number(plan.price), duration_months: plan.duration_months, is_active: plan.is_active }} />
+        <PlanForm plan={{ id: plan.id, name: plan.name, price: Number(plan.price), duration_days: plan.duration_days, duration_months: plan.duration_months, is_active: plan.is_active }} />
       </div>
     </>
   );

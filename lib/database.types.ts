@@ -745,6 +745,7 @@ export type Database = {
           slug: string
           state: string | null
           status: string | null
+          subscription_current_period_end: string | null
           subscription_plan: string | null
           subscription_status: string | null
           tagline: string | null
@@ -779,6 +780,7 @@ export type Database = {
           slug: string
           state?: string | null
           status?: string | null
+          subscription_current_period_end?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
           tagline?: string | null
@@ -813,6 +815,7 @@ export type Database = {
           slug?: string
           state?: string | null
           status?: string | null
+          subscription_current_period_end?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
           tagline?: string | null
@@ -1201,6 +1204,7 @@ export type Database = {
           created_at: string | null
           currency: string | null
           description: string | null
+          duration_days: number | null
           duration_months: number
           features: Json | null
           gym_id: string | null
@@ -1214,6 +1218,7 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           description?: string | null
+          duration_days?: number | null
           duration_months: number
           features?: Json | null
           gym_id?: string | null
@@ -1227,6 +1232,7 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           description?: string | null
+          duration_days?: number | null
           duration_months?: number
           features?: Json | null
           gym_id?: string | null

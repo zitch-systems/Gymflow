@@ -5,8 +5,22 @@ import { redirect } from 'next/navigation';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
+import { INTERVAL_PRESETS } from '@/lib/plan-duration';
 
 export type CState = { ok: boolean; error: string | null; message?: string };
+
+// Resolve the plan form's billing period into stored columns. duration_days is
+// the source of truth for daily/weekly; duration_months (NOT NULL) carries the
+// rest and stays at 1 as a harmless placeholder for day-based plans.
+function durationFromForm(fd: FormData): { duration_days: number | null; duration_months: number } {
+  const interval = String(fd.get('interval') ?? 'monthly');
+  const preset = INTERVAL_PRESETS.find((p) => p.value === interval);
+  if (preset) return { duration_days: preset.days, duration_months: preset.months ?? 1 };
+  const count = Math.max(1, Math.floor(Number(fd.get('custom_count') ?? 1)) || 1);
+  return String(fd.get('custom_unit') ?? 'months') === 'days'
+    ? { duration_days: count, duration_months: 1 }
+    : { duration_days: null, duration_months: count };
+}
 
 const BOOKING_STATUSES = new Set(['booked', 'attended', 'no_show', 'cancelled', 'waitlisted']);
 
@@ -33,7 +47,7 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
   const id = String(formData.get('id') ?? '') || null;
   const name = String(formData.get('name') ?? '').trim();
   const price = Number(formData.get('price') ?? 0);
-  const duration = Number(formData.get('duration_months') ?? 1) || 1;
+  const { duration_days, duration_months } = durationFromForm(formData);
   const isActive = formData.get('is_active') === 'on';
   if (!name) return { ok: false, error: 'Plan name is required.' };
   if (!price || price < 0) return { ok: false, error: 'Enter a valid price.' };
@@ -42,14 +56,14 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
     const supabase = await createClient();
     if (id) {
       const { error } = await supabase.from('membership_plans')
-        .update({ name, price, duration_months: duration, is_active: isActive }).eq('id', id).eq('gym_id', gym.id);
+        .update({ name, price, duration_days, duration_months, is_active: isActive }).eq('id', id).eq('gym_id', gym.id);
       if (error) return { ok: false, error: error.message };
     } else {
       const { error } = await supabase.from('membership_plans')
-        .insert({ gym_id: gym.id, name, price, duration_months: duration, currency: 'NGN', is_active: isActive });
+        .insert({ gym_id: gym.id, name, price, duration_days, duration_months, currency: 'NGN', is_active: isActive });
       if (error) return { ok: false, error: error.message };
     }
-    logAudit({ action: id ? 'plan_updated' : 'plan_created', table: 'membership_plans', actorId: user.id, gymId: gym.id, recordId: id, values: { name, price, duration } });
+    logAudit({ action: id ? 'plan_updated' : 'plan_created', table: 'membership_plans', actorId: user.id, gymId: gym.id, recordId: id, values: { name, price, duration_days, duration_months } });
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

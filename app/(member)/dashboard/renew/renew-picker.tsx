@@ -4,12 +4,9 @@ import { useState, useTransition } from 'react';
 import { CreditCard, Lock, AlertCircle } from 'lucide-react';
 import { fmtNaira } from '@/lib/format';
 import { startRenewal } from '@/lib/actions/renew';
+import { planPeriodLabel, planCadenceLabel, monthlyEquivalent } from '@/lib/plan-duration';
 
-export type Plan = { id: string; name: string; price: number; duration_months: number; description: string | null };
-
-function periodSuffix(m: number): string {
-  if (m <= 1) return '/mo'; if (m === 3) return '/qtr'; if (m === 12) return '/yr'; return `/${m}mo`;
-}
+export type Plan = { id: string; name: string; price: number; duration_days: number | null; duration_months: number; description: string | null };
 
 // Plan picker — real plans from the server page. "Pay" starts a Paystack
 // checkout (startRenewal → authorization_url); the renew callback + webhook
@@ -30,7 +27,7 @@ export function RenewPicker({ plans }: { plans: Plan[] }) {
     });
   }
 
-  const perMonth = (p: Plan) => p.price / Math.max(1, p.duration_months);
+  const perMonth = (p: Plan) => monthlyEquivalent(p.price, p);
   const baseline = plans.length ? Math.max(...plans.map(perMonth)) : 0;
   const cheapest = plans.length ? plans.reduce((b, p) => (perMonth(p) < perMonth(b) ? p : b), plans[0]).id : '';
 
@@ -44,9 +41,9 @@ export function RenewPicker({ plans }: { plans: Plan[] }) {
             <span className="rk" aria-hidden />
             <div className="info">
               <strong>{p.name}{badge && <span className={`gf-badge gf-badge-${badge.tone}`} style={{ marginLeft: 4 }}>{badge.label}</span>}</strong>
-              <small>{p.description ?? `Billed every ${p.duration_months} month${p.duration_months === 1 ? '' : 's'}`}</small>
+              <small>{p.description ?? planCadenceLabel(p)}</small>
             </div>
-            <div className="pr">{fmtNaira(p.price)}<small>{periodSuffix(p.duration_months)}</small></div>
+            <div className="pr">{fmtNaira(p.price)}<small>{planPeriodLabel(p)}</small></div>
           </button>
         );
       })}
