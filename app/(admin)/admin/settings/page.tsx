@@ -14,7 +14,14 @@ export default async function AdminSettings() {
 
   return (
     <SettingsClient
-      gym={{ name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address, brand_color: (gym as { brand_color?: string | null }).brand_color ?? null, logo_url: (gym as { logo_url?: string | null }).logo_url ?? null }}
+      gym={{
+        name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address,
+        brand_color: (gym as { brand_color?: string | null }).brand_color ?? null,
+        logo_url: (gym as { logo_url?: string | null }).logo_url ?? null,
+        bank_name: gym.bank_name, bank_code: gym.bank_code, account_number: gym.account_number, account_name: gym.account_name,
+        payouts_connected: !!gym.paystack_subaccount_code,
+        commission_pct: gym.platform_commission_pct ?? 0,
+      }}
       staffCount={count ?? 0}
     />
   );

@@ -34,6 +34,7 @@ export async function startRenewal(planId: string): Promise<RenewResult> {
       kind: 'membership_renewal',
     },
     callbackUrl: site ? `${site}/dashboard/renew/callback` : undefined,
+    subaccount: gym.paystack_subaccount_code, // settle to the gym's bank when connected
   });
   return res.ok ? { ok: true, url: res.authorization_url } : { ok: false, error: res.error };
 }
