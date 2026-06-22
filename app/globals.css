@@ -491,7 +491,9 @@ body {
 .hero { position: relative; overflow: hidden; padding: 80px 0 90px; }
 .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.20; }
 .hero-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent, var(--gf-bg) 88%), radial-gradient(ellipse 70% 60% at 50% 0%, var(--gf-brand-soft), transparent 70%); }
-.hero-in { position: relative; text-align: center; max-width: 860px; margin: 0 auto; }
+/* animated 3D scene — sits above the photo, below the copy; see HeroBackground3D */
+.hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+.hero-in { position: relative; z-index: 2; text-align: center; max-width: 860px; margin: 0 auto; }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.78rem; letter-spacing: 0.02em; color: var(--gf-brand); background: var(--gf-brand-soft); border: 1px solid var(--gf-border-glow); padding: 7px 14px; border-radius: var(--gf-radius-pill); }
 .hero h1 { font-family: var(--gf-font-display); font-size: clamp(2.4rem, 6vw, 4.2rem); font-weight: 800; line-height: 1.04; letter-spacing: -0.04em; margin: 22px auto 0; max-width: 16ch; }
 .hero h1 .g { background: linear-gradient(120deg, var(--gf-brand-light), var(--gf-accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
@@ -748,6 +750,40 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
 .brand-tx { font-family: var(--gf-font-display); font-weight: 800; letter-spacing: -0.03em; color: var(--gf-text); font-size: 1.25rem; }
 .brand-tx em { font-style: normal; color: var(--gf-brand); }
 .brand-tx.lg { font-size: 1.5rem; }
+
+/* ── Logo3D — animated 3D logomark (see components/marketing/logo-3d.tsx) ── */
+.logo3d { position: relative; display: inline-block; flex-shrink: 0; perspective: 360px; vertical-align: middle; }
+.logo3d-card {
+  position: absolute; inset: 0; transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.45s var(--gf-ease-out);
+}
+.logo3d-spin {
+  position: absolute; inset: 0; transform-style: preserve-3d;
+  animation: logo3d-float 7s var(--gf-ease-std) infinite;
+}
+.logo3d:hover .logo3d-spin { animation-play-state: paused; }
+.logo3d-face {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--gf-brand-light), var(--gf-brand) 55%, var(--gf-brand-dark));
+  box-shadow: 0 2px 12px var(--gf-brand-glow);
+  overflow: hidden;
+}
+.logo3d-face::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.28) 0%, transparent 55%);
+}
+.logo3d-bar { position: absolute; transform-origin: bottom center; box-shadow: 0 1px 3px rgba(0,0,0,0.22); }
+
+@keyframes logo3d-float {
+  0%, 100% { transform: rotateY(-17deg) rotateX(7deg) translateY(0); }
+  50%      { transform: rotateY(17deg) rotateX(-5deg) translateY(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo3d-card { transition: none; }
+  .logo3d-spin { animation: none; transform: rotateY(-12deg) rotateX(6deg); }
+}
 
 /* ── App shell (sidebar + main) ── */
 .app { display: grid; grid-template-columns: var(--gf-sidebar-w) 1fr; min-height: 100vh; }

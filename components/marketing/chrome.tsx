@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Logo3D } from '@/components/marketing/logo-3d';
 
 // Shared marketing nav + footer, recreated from revamp/marketing.html chrome.
 // `cur` highlights the active top-level link.
@@ -8,7 +9,7 @@ export function MarketingNav({ cur }: { cur?: 'features' | 'pricing' | 'about' |
   return (
     <nav className="nav">
       <Link href="/" className="brand" aria-label="GymFlow home">
-        <Image src="/images/logomark-v2.svg" alt="" width={30} height={30} className="mark-sm" priority />
+        <Logo3D size={30} />
         <span className="brand-tx">Gym<em>Flow</em></span>
       </Link>
       <div className="links">
