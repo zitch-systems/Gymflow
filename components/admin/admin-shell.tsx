@@ -8,7 +8,7 @@ import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
-  GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search,
+  GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, Sparkles,
 } from 'lucide-react';
 
 type Item = { href: string; label: string; icon: LucideIcon; section: 'Main' | 'Admin' };
@@ -27,6 +27,7 @@ const NAV: Item[] = [
   { href: '/admin/reminders', label: 'Reminders', icon: Bell, section: 'Admin' },
   { href: '/admin/operations', label: 'Facility', icon: Wrench, section: 'Admin' },
   { href: '/admin/wallet', label: 'Wallet', icon: Wallet, section: 'Admin' },
+  { href: '/admin/billing', label: 'Billing', icon: Sparkles, section: 'Admin' },
   { href: '/admin/settings', label: 'Settings', icon: Settings, section: 'Admin' },
 ];
 

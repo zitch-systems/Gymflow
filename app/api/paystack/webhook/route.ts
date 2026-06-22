@@ -1,6 +1,6 @@
 import { createHmac } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
-import { fulfillCharge } from '@/lib/paystack-fulfill';
+import { fulfillCharge, fulfillPlatformSubscription } from '@/lib/paystack-fulfill';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -22,12 +22,16 @@ export async function POST(req: NextRequest) {
   if (event?.event !== 'charge.success') return NextResponse.json({ received: true });
 
   const d = event.data ?? {};
-  const result = await fulfillCharge({
+  const charge = {
     reference: d.reference,
     amountKobo: Number(d.amount ?? 0),
     channel: d.channel ?? null,
     metadata: d.metadata ?? {},
-  });
+  };
+  // Route by intent: gym→GymFlow subscriptions vs member→gym membership dues.
+  const result = charge.metadata?.kind === 'platform_subscription'
+    ? await fulfillPlatformSubscription(charge)
+    : await fulfillCharge(charge);
 
   if (!result.ok) {
     console.error(`[paystack/webhook] fulfill failed for ${d.reference}: ${result.error}`);
