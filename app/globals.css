@@ -2238,3 +2238,20 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
 
 .gymland-by { display: block; text-align: center; margin-top: 40px; color: var(--gf-text-muted); font-size: 0.78rem; text-decoration: none; }
 .gymland-by strong { color: var(--gf-text-secondary); font-family: var(--gf-font-display); }
+
+/* Motion: scroll-reveal, 3D card tilt + hover glow, floating hero logo */
+.gl-reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.65s ease, transform 0.65s cubic-bezier(.2,.7,.2,1); }
+.gl-reveal.gl-in { opacity: 1; transform: none; }
+.gl-plans, .gl-classes { perspective: 1000px; }
+.gl-plan, .gl-class { transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+.gl-plan:hover, .gl-class:hover { box-shadow: 0 16px 38px -14px var(--gf-brand-glow); border-color: var(--gf-brand-glow); }
+.gl-hero-in { perspective: 820px; }
+.gl-logo { animation: gl-logo-float 6s ease-in-out infinite; transform-style: preserve-3d; }
+@keyframes gl-logo-float {
+  0%, 100% { transform: translateY(0) rotateX(0deg) rotateY(-9deg); }
+  50%      { transform: translateY(-7px) rotateX(7deg) rotateY(9deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gl-reveal { opacity: 1; transform: none; transition: none; }
+  .gl-logo { animation: none; }
+}

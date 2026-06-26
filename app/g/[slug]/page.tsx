@@ -8,6 +8,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtNaira } from '@/lib/format';
+import { Tilt, Reveal } from '@/components/marketing/landing-fx';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -143,21 +144,21 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
 
       {/* ── About ── */}
       {gym.description && (
-        <section className="gl-section">
+        <Reveal><section className="gl-section">
           <h2 className="gl-h2">About</h2>
           <p className="gl-about">{gym.description}</p>
-        </section>
+        </section></Reveal>
       )}
 
       {/* ── Membership plans ── */}
       {plans.length > 0 && (
-        <section className="gl-section">
+        <Reveal><section className="gl-section">
           <h2 className="gl-h2">Membership plans</h2>
           <div className="gl-plans">
             {plans.map((p) => {
               const feats = Array.isArray(p.features) ? (p.features as unknown[]).filter((f): f is string => typeof f === 'string').slice(0, 5) : [];
               return (
-                <div className="gl-plan" key={p.id}>
+                <Tilt className="gl-plan" key={p.id}>
                   <div className="gl-plan-name">{p.name}</div>
                   <div className="gl-plan-price">{p.price != null ? fmtNaira(Number(p.price)) : '—'}<small>{planPeriod(p)}</small></div>
                   {p.description && <p className="gl-plan-desc">{p.description}</p>}
@@ -165,31 +166,31 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
                     <ul className="gl-plan-feats">{feats.map((f, i) => <li key={i}><Check size={14} strokeWidth={2.5} /> {f}</li>)}</ul>
                   )}
                   <Link href={`/join/${gym.slug}`} className="gf-btn gf-btn-secondary gf-btn-sm gf-btn-full" style={{ marginTop: 'auto' }}>Choose {p.name}</Link>
-                </div>
+                </Tilt>
               );
             })}
           </div>
-        </section>
+        </section></Reveal>
       )}
 
       {/* ── Classes ── */}
       {classes.length > 0 && (
-        <section className="gl-section">
+        <Reveal><section className="gl-section">
           <h2 className="gl-h2">Classes</h2>
           <div className="gl-classes">
             {classes.map((c) => (
-              <div className="gl-class" key={c.id}>
+              <Tilt className="gl-class" key={c.id} max={9}>
                 <strong>{c.name}</strong>
                 <span>{[c.category, c.duration_minutes ? `${c.duration_minutes} min` : null, c.level && c.level !== 'all' ? c.level : null].filter(Boolean).join(' · ') || 'Group class'}</span>
-              </div>
+              </Tilt>
             ))}
           </div>
-        </section>
+        </section></Reveal>
       )}
 
       {/* ── Hours ── */}
       {openDays.length > 0 && (
-        <section className="gl-section">
+        <Reveal><section className="gl-section">
           <h2 className="gl-h2"><Clock size={17} strokeWidth={2} style={{ verticalAlign: '-3px', marginRight: 6 }} />Opening hours</h2>
           <div className="gl-hours">
             {hours.map((h) => (
@@ -199,12 +200,12 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
               </div>
             ))}
           </div>
-        </section>
+        </section></Reveal>
       )}
 
       {/* ── Contact ── */}
       {(gym.address || gym.city || gym.phone || gym.email || gym.website) && (
-        <section className="gl-section">
+        <Reveal><section className="gl-section">
           <h2 className="gl-h2">Visit & contact</h2>
           <div className="gl-contact">
             {(gym.address || gym.city) && <div className="gl-contact-row"><MapPin size={16} strokeWidth={1.9} /><span>{[gym.address, gym.city].filter(Boolean).join(', ')}</span></div>}
@@ -212,18 +213,18 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
             {gym.email && <a className="gl-contact-row" href={`mailto:${gym.email}`}><Mail size={16} strokeWidth={1.9} /><span>{gym.email}</span></a>}
             {gym.website && <a className="gl-contact-row" href={gym.website} target="_blank" rel="noreferrer"><Globe size={16} strokeWidth={1.9} /><span>{gym.website.replace(/^https?:\/\//, '')}</span></a>}
           </div>
-        </section>
+        </section></Reveal>
       )}
 
       {/* ── Footer CTA ── */}
       {!user && (
-        <section className="gl-final">
+        <Reveal><section className="gl-final">
           <h2>Ready to train with {gym.name}?</h2>
           <div className="gl-cta">
             <Link href={`/join/${gym.slug}`} className="gf-btn gf-btn-primary gf-btn-lg"><UserPlus strokeWidth={2} style={{ width: 17, height: 17 }} /> Join {gym.name}</Link>
             <Link href="/login" className="gf-btn gf-btn-secondary gf-btn-lg">I already have an account</Link>
           </div>
-        </section>
+        </section></Reveal>
       )}
 
       <a className="gymland-by" href="https://gymflow.ng" target="_blank" rel="noreferrer">Powered by <strong>GymFlow</strong></a>
