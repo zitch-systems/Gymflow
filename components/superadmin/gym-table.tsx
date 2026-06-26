@@ -61,7 +61,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
               <td style={{ textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
               <td>{memberCount.get(g.id) ?? 0}</td>
               <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
-              <td className="naira" style={{ textAlign: 'right' }}>{g.slug}</td>
+              <td className="naira" style={{ textAlign: 'right' }}><a href={`/g/${g.slug}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title="Open public page">{g.slug} ↗</a></td>
             </tr>
           );
         })}
