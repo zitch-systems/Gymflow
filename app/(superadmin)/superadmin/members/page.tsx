@@ -4,26 +4,36 @@ import { createClient } from '@/lib/supabase/server';
 
 export const metadata = { title: 'All members' };
 
-export default async function SuperMembers() {
+export default async function SuperMembers({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requirePlatformAdmin();
+  const sp = await searchParams;
+  const q = (sp.q ?? '').trim();
+  const needle = q.toLowerCase();
   const supabase = await createClient();
   const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
-  const [{ count: total }, { count: gyms }, { count: fresh }, { data: recent }] = await Promise.all([
+  const [{ count: total }, { count: gyms }, { count: fresh }, { data: links }] = await Promise.all([
     supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('gyms').select('id', { count: 'exact', head: true }),
     supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).gte('joined_at', monthAgo),
-    supabase.from('gym_member_links').select('member_id, gym_id, joined_at, status').eq('is_active', true).order('joined_at', { ascending: false }).limit(30),
+    supabase.from('gym_member_links').select('member_id, gym_id, joined_at, status').eq('is_active', true).order('joined_at', { ascending: false }).limit(200),
   ]);
 
-  const memberIds = [...new Set((recent ?? []).map((r) => r.member_id).filter(Boolean) as string[])];
-  const gymIds = [...new Set((recent ?? []).map((r) => r.gym_id).filter(Boolean) as string[])];
+  const memberIds = [...new Set((links ?? []).map((r) => r.member_id).filter(Boolean) as string[])];
+  const gymIds = [...new Set((links ?? []).map((r) => r.gym_id).filter(Boolean) as string[])];
   const [{ data: profiles }, { data: gymRows }] = await Promise.all([
     memberIds.length ? supabase.from('profiles').select('id, full_name, email').in('id', memberIds) : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string | null }[] }),
     gymIds.length ? supabase.from('gyms').select('id, name').in('id', gymIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
   ]);
   const pById = new Map((profiles ?? []).map((p) => [p.id, p]));
   const gName = new Map((gymRows ?? []).map((g) => [g.id, g.name]));
+
+  const recent = (links ?? []).filter((r) => {
+    if (!needle) return true;
+    const p = r.member_id ? pById.get(r.member_id) : null;
+    const gym = r.gym_id ? gName.get(r.gym_id) ?? '' : '';
+    return `${p?.full_name ?? ''} ${p?.email ?? ''} ${gym}`.toLowerCase().includes(needle);
+  });
 
   const KPIS = [
     { icon: Users, fg: '#11d18b', bg: '#11d18b1f', val: (total ?? 0).toLocaleString('en-NG'), lbl: 'Total members' },
@@ -42,13 +52,15 @@ export default async function SuperMembers() {
       </section>
       <div className="panel">
         <div className="panel-h"><div><h3>Recent members</h3><div className="sub">Newest across every gym</div></div></div>
-        <div className="toolbar"><div className="search"><Search strokeWidth={1.75} /><input placeholder="Search across every gym…" aria-label="Search members" /></div></div>
-        {(recent ?? []).length === 0 ? (
-          <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No members yet</h3><p>Members across all gyms appear here.</p></div>
+        <div className="toolbar"><form className="search" action="/superadmin/members" style={{ display: 'flex' }}><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Search across every gym…" aria-label="Search members" /></form></div>
+        {recent.length === 0 ? (
+          needle
+            ? <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No matching members</h3><p>Try a different name, email or gym.</p></div>
+            : <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No members yet</h3><p>Members across all gyms appear here.</p></div>
         ) : (
           <table className="gt">
             <thead><tr><th>Member</th><th>Gym</th><th style={{ textAlign: 'right' }}>Status</th></tr></thead>
-            <tbody>{(recent ?? []).map((r, i) => {
+            <tbody>{recent.map((r, i) => {
               const p = r.member_id ? pById.get(r.member_id) : null;
               const nm = p?.full_name ?? p?.email ?? 'Member';
               return (

@@ -12,31 +12,43 @@ const STATUS: Record<string, [string, string]> = {
 };
 
 // Real platform gym table — every gym (platform_admin RLS allows full read),
-// with member counts. Server component; reused on overview + /gyms.
-export async function GymTable({ limit = 50 }: { limit?: number }) {
+// with member counts. Server component; reused on overview + /gyms. The /gyms
+// page passes `q`/`status` to filter; the overview omits them (no-op).
+export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?: number; q?: string; status?: string }) {
   const supabase = await createClient();
-  const { data: gyms } = await supabase
+  const { data: allGyms } = await supabase
     .from('gyms')
     .select('id, name, slug, city, status, subscription_plan')
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  const ids = (gyms ?? []).map((g) => g.id);
+  const needle = q.trim().toLowerCase();
+  const gyms = (allGyms ?? []).filter((g) => {
+    // null status reads as "active", matching the page's KPI counting.
+    const bucket = g.status ?? 'active';
+    if (status !== 'all' && bucket !== status) return false;
+    if (needle && !`${g.name} ${g.slug} ${g.city ?? ''}`.toLowerCase().includes(needle)) return false;
+    return true;
+  });
+
+  const ids = gyms.map((g) => g.id);
   const { data: links } = ids.length
     ? await supabase.from('gym_member_links').select('gym_id').in('gym_id', ids).eq('is_active', true)
     : { data: [] as { gym_id: string | null }[] };
   const memberCount = new Map<string, number>();
   for (const l of links ?? []) if (l.gym_id) memberCount.set(l.gym_id, (memberCount.get(l.gym_id) ?? 0) + 1);
 
-  if ((gyms ?? []).length === 0) {
-    return <div className="empty"><div className="eic" /><h3>No gyms yet</h3><p>Onboard a gym to see it here.</p></div>;
+  if (gyms.length === 0) {
+    return needle || status !== 'all'
+      ? <div className="empty"><div className="eic" /><h3>No matching gyms</h3><p>Try a different search or filter.</p></div>
+      : <div className="empty"><div className="eic" /><h3>No gyms yet</h3><p>Onboard a gym to see it here.</p></div>;
   }
 
   return (
     <table className="gt">
       <thead><tr><th>Gym</th><th>Plan</th><th>Members</th><th>Status</th><th style={{ textAlign: 'right' }}>Subdomain</th></tr></thead>
       <tbody>
-        {(gyms ?? []).map((g, i) => {
+        {gyms.map((g, i) => {
           const st = STATUS[g.status ?? 'active'] ?? ['gf-badge-success', g.status ?? 'Active'];
           return (
             <tr key={g.id}>

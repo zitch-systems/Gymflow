@@ -6,8 +6,6 @@ import { fmtNaira, firstName } from '@/lib/format';
 
 export const metadata = { title: 'Today · Instructor' };
 
-const EC = [50, 64, 58, 78, 70, 92];
-
 export default async function CoachToday() {
   const { user, gym } = await requireInstructor();
   const profile = await getProfile();
@@ -16,8 +14,9 @@ export default async function CoachToday() {
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const sixWeeksStart = new Date(); sixWeeksStart.setHours(0, 0, 0, 0); sixWeeksStart.setDate(sixWeeksStart.getDate() - 6 * 7);
 
-  const [{ data: today }, { data: subs }, { data: monthSubs }] = await Promise.all([
+  const [{ data: today }, { data: subs }, { data: monthSubs }, { data: weekSubs }] = await Promise.all([
     supabase.from('instructor_sessions')
       .select('id, scheduled_at, duration_minutes, status, member_id')
       .eq('instructor_id', user.id).eq('gym_id', gym.id)
@@ -29,11 +28,24 @@ export default async function CoachToday() {
     supabase.from('instructor_subscriptions')
       .select('amount_paid, start_date')
       .eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', monthStart.toISOString().slice(0, 10)),
+    supabase.from('instructor_subscriptions')
+      .select('amount_paid, start_date')
+      .eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', sixWeeksStart.toISOString().slice(0, 10)),
   ]);
 
   const sharePct = Number(gym.instructor_revenue_share_pct ?? 70);
   const monthGross = (monthSubs ?? []).reduce((s, m) => s + Number(m.amount_paid ?? 0), 0);
   const earnings = Math.round((monthGross * sharePct) / 100);
+
+  // Real last-6-weeks earnings (PT subscription revenue × share), week 6 = now.
+  const weeks = Array.from({ length: 6 }, () => 0);
+  for (const s of weekSubs ?? []) {
+    if (!s.start_date) continue;
+    const weeksAgo = Math.floor((Date.now() - new Date(s.start_date).getTime()) / (7 * 86_400_000));
+    const bucket = 5 - Math.min(5, Math.max(0, weeksAgo));
+    weeks[bucket] += (Number(s.amount_paid ?? 0) * sharePct) / 100;
+  }
+  const maxW = Math.max(1, ...weeks);
   const clientCount = new Set((subs ?? []).map((s) => s.member_id).filter(Boolean)).size;
   const sessionsToday = (today ?? []).length;
 
@@ -91,7 +103,7 @@ export default async function CoachToday() {
           <div className="panel">
             <div className="panel-h"><div><h3>Earnings</h3><div className="sub">Last 6 weeks</div></div></div>
             <div className="ec">
-              {EC.map((h, i) => <div className="col" key={i}><div className="bar" style={{ height: `${h}%` }} /><div className="lbl">W{i + 1}</div></div>)}
+              {weeks.map((v, i) => <div className="col" key={i}><div className="bar" style={{ height: `${Math.max(3, Math.round((v / maxW) * 100))}%` }} title={fmtNaira(Math.round(v))} /><div className="lbl">W{i + 1}</div></div>)}
             </div>
           </div>
           <div className="panel">
