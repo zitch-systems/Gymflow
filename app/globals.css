@@ -489,8 +489,10 @@ body {
 
 /* ── hero (home) ── */
 .hero { position: relative; overflow: hidden; padding: 80px 0 90px; }
-.hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.20; }
-.hero-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent, var(--gf-bg) 88%), radial-gradient(ellipse 70% 60% at 50% 0%, var(--gf-brand-soft), transparent 70%); }
+.hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.38; }
+.hero-bg::after { content: ''; position: absolute; inset: 0; background:
+  linear-gradient(180deg, color-mix(in srgb, var(--gf-bg) 55%, transparent), transparent 30%, var(--gf-bg) 92%),
+  radial-gradient(ellipse 75% 65% at 50% 6%, var(--gf-brand-soft), transparent 72%); }
 /* animated 3D scene — sits above the photo, below the copy; see HeroBackground3D */
 .hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
 .hero-in { position: relative; z-index: 2; text-align: center; max-width: 860px; margin: 0 auto; }
@@ -543,6 +545,20 @@ section.blk { padding: 84px 0; }
 .step p { color: var(--gf-text-secondary); margin: 0; font-size: 0.92rem; line-height: 1.55; }
 
 /* ── gallery ── */
+/* Showcase band — large photo + copy */
+.showcase { border-top: 1px solid var(--gf-border); }
+.show-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 5vw, 64px); align-items: center; }
+.show-media { position: relative; }
+.show-img { width: 100%; height: auto; aspect-ratio: 4/5; object-fit: cover; border-radius: var(--gf-radius-lg); border: 1px solid var(--gf-border); box-shadow: var(--gf-shadow-lg); }
+.show-badge { position: absolute; left: 18px; bottom: 18px; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: var(--gf-radius-pill); background: color-mix(in srgb, var(--gf-surface) 80%, transparent); border: 1px solid var(--gf-border-glow); backdrop-filter: blur(8px); color: var(--gf-text); font-family: var(--gf-font-display); font-weight: 700; font-size: 0.82rem; box-shadow: var(--gf-shadow-md); }
+.show-badge svg { width: 17px; height: 17px; color: var(--gf-brand); }
+.show-copy h2 { font-family: var(--gf-font-display); font-size: clamp(1.7rem, 3.4vw, 2.5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; margin: 16px 0 0; }
+.show-copy p { color: var(--gf-text-secondary); font-size: 1.05rem; line-height: 1.6; margin: 16px 0 0; max-width: 46ch; }
+.show-list { list-style: none; margin: 22px 0 28px; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+.show-list li { display: flex; align-items: center; gap: 10px; color: var(--gf-text); font-weight: 500; }
+.show-list svg { width: 18px; height: 18px; color: var(--gf-brand); flex-shrink: 0; }
+@media (max-width: 860px) { .show-grid { grid-template-columns: 1fr; } .show-media { order: -1; } }
+
 .gal { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .gal div { aspect-ratio: 3/4; border-radius: var(--gf-radius); overflow: hidden; border: 1px solid var(--gf-border); }
 .gal img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s var(--gf-ease-out); }
@@ -2124,6 +2140,10 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .addmember .af-grid { gap:14px; }
 .ds-admin .addmember-note { color:var(--gf-text-muted); font-size:0.8rem; margin:4px 0 0; }
 .ds-admin .addmember-actions { display:flex; gap:10px; margin-top:10px; }
+.ds-admin .staff-creds { margin:6px 0 2px; padding:14px 16px; border-radius:var(--gf-radius-sm); background:var(--gf-brand-soft); border:1px solid var(--gf-brand-glow); }
+.ds-admin .staff-cred { display:flex; align-items:center; gap:9px; font-size:0.84rem; font-weight:600; color:var(--gf-text-secondary); }
+.ds-admin .staff-cred svg { color:var(--gf-brand); flex-shrink:0; }
+.ds-admin .staff-cred code { margin-left:auto; font-family:var(--gf-font-mono); font-size:0.9rem; font-weight:700; color:var(--gf-text); background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:6px; padding:3px 9px; user-select:all; }
 .ds-admin .eq-photo { display:flex; align-items:center; gap:14px; padding:2px 0 4px; }
 .ds-admin .eq-photo-thumb { width:72px; height:72px; border-radius:12px; background:var(--gf-elevated); border:1px solid var(--gf-border); display:grid; place-items:center; overflow:hidden; flex-shrink:0; }
 .ds-admin .eq-photo-thumb img { width:100%; height:100%; object-fit:cover; }
