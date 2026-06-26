@@ -26,16 +26,25 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
     if (!sched) return { ok: false, error: 'Class not found.' };
 
     const bookingDate = nextDateForDow(sched.day_of_week);
+    // A unique constraint covers (gym_id, class_schedule_id, member_id) regardless
+    // of date/status, so a prior (possibly cancelled) row already exists for repeat
+    // bookings. Look it up by that key and re-activate it rather than inserting a dup.
     const { data: existing } = await supabase
-      .from('class_bookings').select('id')
-      .eq('member_id', user.id).eq('class_schedule_id', scheduleId).eq('booking_date', bookingDate).neq('status', 'cancelled')
+      .from('class_bookings').select('id, status')
+      .eq('gym_id', gym.id).eq('class_schedule_id', scheduleId).eq('member_id', user.id)
       .maybeSingle();
-    if (existing) return { ok: true, error: null }; // already booked
+    if (existing && existing.status !== 'cancelled' && existing.status !== 'no_show') {
+      return { ok: true, error: null }; // already booked
+    }
 
-    const { error } = await supabase.from('class_bookings').insert({
-      gym_id: gym.id, class_schedule_id: scheduleId, class_id: sched.class_id, member_id: user.id,
-      status: 'booked', booking_date: bookingDate, booked_at: new Date().toISOString(),
-    });
+    const { error } = existing
+      ? await supabase.from('class_bookings')
+          .update({ status: 'booked', booking_date: bookingDate, booked_at: new Date().toISOString(), cancelled_at: null })
+          .eq('id', existing.id)
+      : await supabase.from('class_bookings').insert({
+          gym_id: gym.id, class_schedule_id: scheduleId, class_id: sched.class_id, member_id: user.id,
+          status: 'booked', booking_date: bookingDate, booked_at: new Date().toISOString(),
+        });
     if (error) return { ok: false, error: error.message };
     const { error: nErr } = await supabase.from('notifications').insert({
       gym_id: gym.id, user_id: user.id, type: 'class', channel: 'in_app',
