@@ -2,15 +2,15 @@ import { headers } from 'next/headers';
 import QRCode from 'qrcode';
 import { UserPlus, LogIn, CreditCard, Download, Printer } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
-import { InviteLinkButton } from '@/components/admin/invite-link';
 
-export const metadata = { title: 'Invite QR' };
+export const metadata = { title: 'Member QR codes' };
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Member onboarding QR: encodes the gym's public /join/<slug> link. A member
-// scans it to create an account, sign in, and then renew/pay — all from one
-// code the gym can print at the front desk or share online.
+const QR_OPTS = { margin: 2, width: 1024, errorCorrectionLevel: 'M' as const, color: { dark: '#0a0b0e', light: '#ffffff' } };
+
+// Three member QR codes — sign up, sign in, and payment — each encoding the
+// matching gym link. Print them at the front desk or share online.
 export default async function AdminInvite() {
   const { gym } = await requireStaff();
 
@@ -18,58 +18,45 @@ export default async function AdminInvite() {
   const host = h.get('host') ?? '';
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || (host ? `${proto}://${host}` : '');
-  const joinUrl = `${origin}/join/${gym.slug}`;
 
-  // High-res PNG (displayed small, downloads/prints crisp). Dark modules on
-  // white scan best.
-  const png = await QRCode.toDataURL(joinUrl, { margin: 2, width: 1024, errorCorrectionLevel: 'M', color: { dark: '#0a0b0e', light: '#ffffff' } });
-
-  const STEPS = [
-    { icon: UserPlus, t: 'Create an account', s: 'New members land on your gym’s sign-up page, pre-linked to you.' },
-    { icon: LogIn, t: 'Sign in', s: 'Returning members sign in and go straight to their dashboard.' },
-    { icon: CreditCard, t: 'Pay / renew', s: 'From there they pick a plan and pay with Paystack — settled to your bank.' },
+  const codes = [
+    { key: 'signup', icon: UserPlus, label: 'Sign up', sub: 'New members create an account', url: `${origin}/join/${gym.slug}` },
+    { key: 'signin', icon: LogIn, label: 'Sign in', sub: 'Returning members log in', url: `${origin}/login` },
+    { key: 'payment', icon: CreditCard, label: 'Payment', sub: 'Pick a plan & pay with Paystack', url: `${origin}/dashboard/renew` },
   ];
+  const pngs = await Promise.all(codes.map((c) => QRCode.toDataURL(c.url, QR_OPTS)));
 
   return (
     <>
       <div className="page-h">
-        <div><h1>Invite QR</h1><p>One code for members to join, sign in &amp; pay at {gym.name}.</p></div>
+        <div><h1>Member QR codes</h1><p>Three codes for sign-up, sign-in &amp; payment at {gym.name}.</p></div>
       </div>
 
-      <div className="grid2" style={{ gridTemplateColumns: 'minmax(260px, 320px) 1fr', alignItems: 'start', gap: 16 }}>
-        <div className="panel" style={{ textAlign: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 14, width: 'fit-content', margin: '0 auto', boxShadow: 'var(--gf-shadow-sm)' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={png} alt={`Sign-up QR for ${gym.name}`} width={232} height={232} style={{ display: 'block', width: 232, height: 232 }} />
-          </div>
-          <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--gf-text-muted)', wordBreak: 'break-all' }}>{joinUrl}</div>
-          <a href={`/g/${gym.slug}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: '0.78rem', fontWeight: 600, color: 'var(--gf-brand)', textDecoration: 'none' }}>View your public page ↗</a>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
-            <InviteLinkButton slug={gym.slug} />
-            <a className="gf-btn gf-btn-primary gf-btn-sm" href={png} download={`gymflow-${gym.slug}-qr.png`} style={{ textDecoration: 'none' }}>
-              <Download strokeWidth={2} size={15} /> Download QR
-            </a>
-          </div>
-        </div>
+      <div className="qr-grid">
+        {codes.map((c, i) => {
+          const Icon = c.icon;
+          return (
+            <div className="panel qr-card" key={c.key}>
+              <div className="qr-card-h">
+                <span className="ic" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}><Icon strokeWidth={1.9} /></span>
+                <div className="m"><strong>{c.label}</strong><small>{c.sub}</small></div>
+              </div>
+              <div className="qr-box">
+                {/* eslint-disable-next-line @next/next/no-img-element -- generated data-URL QR */}
+                <img src={pngs[i]} alt={`${c.label} QR for ${gym.name}`} width={200} height={200} />
+              </div>
+              <div className="qr-url">{c.url}</div>
+              <a className="gf-btn gf-btn-secondary gf-btn-sm gf-btn-full" href={pngs[i]} download={`gymflow-${gym.slug}-${c.key}-qr.png`} style={{ textDecoration: 'none' }}>
+                <Download strokeWidth={2} size={15} /> Download
+              </a>
+            </div>
+          );
+        })}
+      </div>
 
-        <div className="panel">
-          <div className="panel-h"><div><h3>How members use it</h3><div className="sub">Scan → join → pay, in one flow</div></div></div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {STEPS.map((step) => {
-              const Icon = step.icon;
-              return (
-                <div className="mt" key={step.t}>
-                  <div className="ic" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}><Icon strokeWidth={1.9} /></div>
-                  <div className="m"><strong>{step.t}</strong><small>{step.s}</small></div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, padding: '12px 14px', borderRadius: 'var(--gf-radius-sm)', background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)', fontSize: '0.85rem' }}>
-            <Printer strokeWidth={1.9} size={16} />
-            <span>Download and print it for your front desk, or share the link on WhatsApp &amp; Instagram.</span>
-          </div>
-        </div>
+      <div className="panel" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--gf-text-secondary)', fontSize: '0.88rem' }}>
+        <Printer strokeWidth={1.9} size={18} style={{ flexShrink: 0, color: 'var(--gf-brand)' }} />
+        <span>Print the codes for your front desk, or share them on WhatsApp &amp; Instagram. Sign-up links members to {gym.name}; sign-in and payment send returning members straight to their dashboard and checkout.</span>
       </div>
     </>
   );

@@ -1464,6 +1464,17 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .scan .ring i { width:44px; height:44px; color:var(--gf-brand); }
 .ds-admin .scan .door-qr { width:200px; height:200px; background:#fff; border-radius:var(--gf-radius); padding:12px; margin:0 auto 16px; box-shadow:var(--gf-shadow-sm); display:grid; place-items:center; }
 .ds-admin .scan .door-qr img { width:100%; height:100%; display:block; }
+/* Member QR codes grid (admin/invite) */
+.ds-admin .qr-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; }
+.ds-admin .qr-card { display:flex; flex-direction:column; gap:14px; }
+.ds-admin .qr-card-h { display:flex; align-items:center; gap:11px; text-align:left; }
+.ds-admin .qr-card-h .ic { width:40px; height:40px; border-radius:var(--gf-radius-xs); display:grid; place-items:center; flex-shrink:0; }
+.ds-admin .qr-card-h .ic svg { width:20px; height:20px; }
+.ds-admin .qr-card-h .m strong { font-family:var(--gf-font-display); font-weight:700; font-size:0.98rem; display:block; }
+.ds-admin .qr-card-h .m small { color:var(--gf-text-muted); font-size:0.78rem; }
+.ds-admin .qr-box { background:#fff; border-radius:var(--gf-radius); padding:12px; margin:0 auto; box-shadow:var(--gf-shadow-sm); width:fit-content; }
+.ds-admin .qr-box img { display:block; width:200px; height:200px; }
+.ds-admin .qr-url { font-size:0.72rem; color:var(--gf-text-muted); word-break:break-all; line-height:1.4; text-align:center; }
 .ds-admin .scan h2 { font-family:var(--gf-font-display); font-weight:800; font-size:1.3rem; margin:0 0 6px; }
 .ds-admin .scan p { color:var(--gf-text-secondary); font-size:0.9rem; margin:0 0 20px; }
 .ds-admin .scan .find { position:relative; max-width:340px; margin:0 auto; }
