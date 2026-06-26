@@ -5,7 +5,7 @@ import { HeroBackground3D } from '@/components/marketing/hero-background-3d';
 import { Logo3D } from '@/components/marketing/logo-3d';
 import {
   MapPin, ScanLine, CreditCard, CalendarDays, Users, BarChart3, Smartphone,
-  Check, Star, ShieldCheck, Mail, MessageCircle,
+  Check, Star, ShieldCheck, Mail, MessageCircle, Sparkles,
 } from 'lucide-react';
 
 // Marketing landing — recreates revamp/marketing.html in Next.js.
@@ -21,7 +21,7 @@ export default function MarketingHome() {
       <header className="hero">
         <div
           className="hero-bg"
-          style={{ backgroundImage: 'url(/images/gym-floor.jpg)' }}
+          style={{ backgroundImage: 'url(/images/gym-action.jpg)' }}
           aria-hidden
         />
         <HeroBackground3D />
@@ -58,6 +58,28 @@ export default function MarketingHome() {
           <span className="chip2"><ShieldCheck strokeWidth={1.75} /> Bank-grade RLS</span>
         </div>
       </div>
+
+      {/* ── Showcase ── */}
+      <section className="blk showcase">
+        <div className="wrap show-grid">
+          <div className="show-media">
+            <Image src="/images/gym-athlete.jpg" alt="Athlete training at the gym" width={720} height={900} sizes="(max-width:900px) 100vw, 50vw" className="show-img" priority={false} />
+            <div className="show-badge"><ScanLine strokeWidth={1.9} /> <span>Checked in · 7:02 AM</span></div>
+          </div>
+          <div className="show-copy">
+            <span className="eyebrow"><Sparkles strokeWidth={1.75} /> Built for the floor</span>
+            <h2>Run the front desk from your pocket</h2>
+            <p>Members scan in at the door, book the 6 AM class, and renew with Paystack — while you watch attendance and revenue update live. No spreadsheets, no WhatsApp back-and-forth.</p>
+            <ul className="show-list">
+              <li><Check strokeWidth={2.4} /> QR check-in that works offline</li>
+              <li><Check strokeWidth={2.4} /> Auto-renewing Naira subscriptions</li>
+              <li><Check strokeWidth={2.4} /> Class booking with caps &amp; waitlists</li>
+              <li><Check strokeWidth={2.4} /> Live revenue, churn &amp; attendance</li>
+            </ul>
+            <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
+          </div>
+        </div>
+      </section>
 
       {/* ── Features ── */}
       <section className="blk" id="features">
