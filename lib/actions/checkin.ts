@@ -23,7 +23,7 @@ export async function selfCheckIn(): Promise<CheckinResult> {
     gym_id: gym.id,
     check_in_method: 'self',
     checked_in_at: new Date().toISOString(),
-    status: 'checked_in',
+    status: 'active',
   });
   if (error) return { ok: false, error: error.message };
 
