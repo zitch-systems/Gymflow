@@ -67,7 +67,7 @@ export function SettingsClient({ gym, staffCount, banks }: { gym: GymProfile; st
                 <div className="panel-desc">Public details shown to members on your subdomain.</div>
                 <div className="frow">
                   <div className="gf-form-group"><label className="gf-form-label">Gym name</label><input className="gf-input" name="name" defaultValue={gym.name} required /></div>
-                  <div className="gf-form-group"><label className="gf-form-label">Subdomain</label><input className="gf-input" defaultValue={`${gym.slug}.gymflow.ng`} disabled /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">Subdomain</label><input className="gf-input" defaultValue={`${gym.slug}.gymflow.ng`} disabled /><a href={`/g/${gym.slug}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 7, fontSize: '0.78rem', fontWeight: 600, color: 'var(--gf-brand)', textDecoration: 'none' }}>View public page ↗</a></div>
                 </div>
                 <div className="frow">
                   <div className="gf-form-group"><label className="gf-form-label">Phone</label><input className="gf-input" name="phone" defaultValue={gym.phone ?? ''} /></div>

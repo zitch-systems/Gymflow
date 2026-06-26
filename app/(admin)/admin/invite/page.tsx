@@ -43,6 +43,7 @@ export default async function AdminInvite() {
             <img src={png} alt={`Sign-up QR for ${gym.name}`} width={232} height={232} style={{ display: 'block', width: 232, height: 232 }} />
           </div>
           <div style={{ marginTop: 12, fontSize: '0.8rem', color: 'var(--gf-text-muted)', wordBreak: 'break-all' }}>{joinUrl}</div>
+          <a href={`/g/${gym.slug}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: '0.78rem', fontWeight: 600, color: 'var(--gf-brand)', textDecoration: 'none' }}>View your public page ↗</a>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 14 }}>
             <InviteLinkButton slug={gym.slug} />
             <a className="gf-btn gf-btn-primary gf-btn-sm" href={png} download={`gymflow-${gym.slug}-qr.png`} style={{ textDecoration: 'none' }}>
