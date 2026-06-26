@@ -24,7 +24,7 @@ const BARS = [
 ] as const;
 const BAR_W = 6, BAR_H = 22, BAR_TOP = 13; // 48-unit grid, equal bars
 
-export function Logo3D({ size = 30 }: { size?: number }) {
+export function Logo3D({ size = 30, className }: { size?: number; className?: string }) {
   const sceneRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export function Logo3D({ size = 30 }: { size?: number }) {
   return (
     <span
       ref={sceneRef}
-      className="logo3d"
+      className={className ? `logo3d ${className}` : 'logo3d'}
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
