@@ -16,9 +16,10 @@ type Equipment = {
 };
 
 const STATUS = [
-  ['operational', 'Operational'],
+  ['active', 'Operational'],
   ['maintenance', 'Needs service'],
-  ['broken', 'Out of service'],
+  ['retired', 'Out of service'],
+  ['lost', 'Lost'],
 ] as const;
 
 export function EquipmentForm({ equipment: e }: { equipment?: Equipment }) {
@@ -72,7 +73,7 @@ export function EquipmentForm({ equipment: e }: { equipment?: Equipment }) {
         <label>Category<input className="gf-input" name="category" defaultValue={e?.category ?? ''} placeholder="e.g. Cardio" /></label>
         <label>Zone / location<input className="gf-input" name="location" defaultValue={e?.location ?? ''} placeholder="e.g. Cardio floor" /></label>
         <label>Status
-          <select className="gf-select" name="status" defaultValue={e?.status ?? 'operational'}>
+          <select className="gf-select" name="status" defaultValue={e?.status ?? 'active'}>
             {STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </label>
