@@ -81,16 +81,15 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const brand = gym.brand_color;
-  const style: CSSProperties | undefined = brand
-    ? ({
-        '--gf-brand': brand,
-        '--gf-brand-light': `color-mix(in srgb, ${brand} 72%, white)`,
-        '--gf-brand-dark': `color-mix(in srgb, ${brand} 78%, black)`,
-        '--gf-brand-soft': `color-mix(in srgb, ${brand} 14%, transparent)`,
-        '--gf-brand-glow': `color-mix(in srgb, ${brand} 32%, transparent)`,
-      } as CSSProperties)
-    : undefined;
+  // Default to GymFlow green when the gym hasn't picked a brand colour.
+  const brand = gym.brand_color || '#11d18b';
+  const style: CSSProperties = {
+    '--gf-brand': brand,
+    '--gf-brand-light': `color-mix(in srgb, ${brand} 72%, white)`,
+    '--gf-brand-dark': `color-mix(in srgb, ${brand} 78%, black)`,
+    '--gf-brand-soft': `color-mix(in srgb, ${brand} 14%, transparent)`,
+    '--gf-brand-glow': `color-mix(in srgb, ${brand} 32%, transparent)`,
+  } as CSSProperties;
 
   const openDays = hours.filter((h) => !h.is_closed && h.open_time);
   const stats = [
