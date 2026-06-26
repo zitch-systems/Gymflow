@@ -101,6 +101,14 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
 
   return (
     <main className="gymland" style={style}>
+      {/* decorative backdrop: drifting orbs, outline rings, dotted grid */}
+      <div className="gl-decor" aria-hidden>
+        <span className="gl-orb gl-orb-1" />
+        <span className="gl-orb gl-orb-2" />
+        <span className="gl-ring gl-ring-1" />
+        <span className="gl-ring gl-ring-2" />
+      </div>
+
       {/* ── Hero ── */}
       <header className="gl-hero">
         {gym.hero_image_url && (
