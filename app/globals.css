@@ -1097,7 +1097,7 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 
 /* ═══════════════ MEMBER PWA (member.css, namespaced under .ds-member) ═══════════════ */
 /* Mobile app shell adapter — replaces the prototype's device-frame chrome. */
-.ds-member { max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column;
+.ds-member { --gut: 20px; max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column;
   background: radial-gradient(ellipse 70% 40% at 50% 0%, var(--gf-brand-soft), transparent 60%), var(--gf-bg); position: relative; }
 .ds-member .view.on { flex: 1 0 auto; }
 .ds-member .tabbar { position: sticky; bottom: 0; z-index: 20; }
