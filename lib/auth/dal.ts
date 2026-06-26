@@ -55,9 +55,12 @@ export const requireMember = cache(async (): Promise<{ user: NonNullable<Awaited
   const user = await getUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // One round-trip: the membership link with its gym embedded via the
+  // gym_member_links.gym_id → gyms FK. Falls back to a separate fetch if the
+  // embed ever returns null, so it's never slower than the old two queries.
   const { data: link } = await supabase
     .from('gym_member_links')
-    .select('*')
+    .select('*, gyms(*)')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .order('joined_at', { ascending: false })
@@ -66,13 +69,14 @@ export const requireMember = cache(async (): Promise<{ user: NonNullable<Awaited
   // Signed-in but not a member here → /launch routes them to their own surface
   // (staff → /admin, instructor → /coach) instead of a /login dead-end.
   if (!link) redirect('/launch');
-  const { data: gym } = await supabase
-    .from('gyms')
-    .select('*')
-    .eq('id', (link as { gym_id: string }).gym_id)
-    .maybeSingle();
+  const { gyms: embeddedGym, ...linkRow } = link as Database['public']['Tables']['gym_member_links']['Row'] & { gyms: Gym | null };
+  let gym: Gym | null = embeddedGym ?? null;
+  if (!gym && linkRow.gym_id) {
+    const { data } = await supabase.from('gyms').select('*').eq('id', linkRow.gym_id).maybeSingle();
+    gym = (data as Gym) ?? null;
+  }
   if (!gym) redirect('/launch');
-  return { user, gym: gym as Gym, link: link as Database['public']['Tables']['gym_member_links']['Row'] };
+  return { user, gym, link: linkRow as Database['public']['Tables']['gym_member_links']['Row'] };
 });
 
 // Internal staff resolver. Cached on `roles` so requireStaff() (any role) and

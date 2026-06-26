@@ -26,7 +26,7 @@ export default function MarketingHome() {
         />
         <HeroBackground3D />
         <div className="wrap hero-in">
-          <Logo3D size={208} className="logo3d-hero" />
+          <Logo3D size={132} className="logo3d-hero" />
           <span className="eyebrow">
             <MapPin strokeWidth={1.75} /> Built in Lagos · Made for Nigerian gyms
           </span>
