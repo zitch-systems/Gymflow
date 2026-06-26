@@ -1,4 +1,6 @@
-import { ScanLine, Clock, TrendingUp, QrCode, Search } from 'lucide-react';
+import { headers } from 'next/headers';
+import QRCode from 'qrcode';
+import { ScanLine, Clock, TrendingUp, Search, Download } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { CheckInButton } from '@/components/admin/checkin-button';
@@ -10,6 +12,15 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
   const { gym } = await requireStaff();
   const supabase = await createClient();
   const sp = await searchParams;
+
+  // Real, printable door QR: members scan it to check in (?via=qr auto-checks
+  // the signed-in member into their gym).
+  const h = await headers();
+  const proto = h.get('x-forwarded-proto') ?? 'https';
+  const host = h.get('host') ?? '';
+  const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || (host ? `${proto}://${host}` : '');
+  const checkinUrl = `${origin}/checkin?via=qr&g=${gym.slug}`;
+  const doorQr = await QRCode.toDataURL(checkinUrl, { margin: 2, width: 1024, errorCorrectionLevel: 'M', color: { dark: '#0a0b0e', light: '#ffffff' } });
   const q = (sp.q ?? '').trim();
   const safe = q.replace(/[(),%*]/g, ' ').trim();
 
@@ -54,9 +65,15 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
 
       <section className="ci-grid">
         <div className="scan">
-          <div className="ring"><QrCode strokeWidth={1.75} /></div>
+          <div className="door-qr">
+            {/* eslint-disable-next-line @next/next/no-img-element -- generated data-URL QR */}
+            <img src={doorQr} alt={`Check-in QR for ${gym.name}`} width={168} height={168} />
+          </div>
           <h2>Scan or search to check in</h2>
-          <p>Members scan the door QR, or find them manually below.</p>
+          <p>Members scan this QR at the entrance, or find them manually below.</p>
+          <a className="gf-btn gf-btn-secondary gf-btn-sm" href={doorQr} download={`gymflow-${gym.slug}-checkin-qr.png`} style={{ textDecoration: 'none', marginBottom: 14 }}>
+            <Download strokeWidth={2} size={15} /> Download door QR
+          </a>
           <form className="find" method="get" action="/admin/staff-checkin"><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Type a member name…" aria-label="Find member" /></form>
           {q && (
             <div className="ci-results">

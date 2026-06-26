@@ -1,24 +1,29 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ScanLine, Check } from 'lucide-react';
+import { ScanLine, Check, Camera } from 'lucide-react';
 import { selfCheckIn } from '@/lib/actions/checkin';
+import { QrScanner } from '@/components/member/qr-scanner';
 
-// Check-in — recreates revamp/member.html "checkin": QR card + tap-to-check-in
-// → success ring. The tap calls the selfCheckIn server action (writes a
-// check_ins row); the success line shows days left on the plan.
+// Check-in — the member either scans the gym's door QR with their camera or
+// taps to self check-in. Both call the selfCheckIn server action (scoped to the
+// member's gym). Opening /checkin?via=qr (what the door QR encodes, e.g. via
+// the phone's native camera) auto-checks in.
 export default function CheckinPage() {
   const [done, setDone] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [pending, start] = useTransition();
   const router = useRouter();
+  const autoRan = useRef(false);
 
-  function check() {
+  const doCheckIn = useCallback(() => {
     start(async () => {
       const res = await selfCheckIn();
       if (res.ok) {
+        setErr(null);
         setMsg(res.daysLeft != null ? `${res.daysLeft} day${res.daysLeft === 1 ? '' : 's'} left on your plan.` : 'Checked in.');
         setDone(true);
         router.refresh();
@@ -26,7 +31,23 @@ export default function CheckinPage() {
         setErr(res.error);
       }
     });
-  }
+  }, [router]);
+
+  // Arrived via the door QR (native camera → /checkin?via=qr) → check in once.
+  useEffect(() => {
+    if (autoRan.current) return;
+    const via = new URLSearchParams(window.location.search).get('via');
+    if (via === 'qr') { autoRan.current = true; doCheckIn(); }
+  }, [doCheckIn]);
+
+  const onScanned = useCallback((text: string) => {
+    setScanning(false);
+    if (/\/checkin/i.test(text) || /[?&]via=qr/i.test(text)) {
+      doCheckIn();
+    } else {
+      setErr('That isn’t this gym’s check-in code. Scan the QR at the entrance.');
+    }
+  }, [doCheckIn]);
 
   return (
     <section className="view on" data-v="checkin">
@@ -36,25 +57,16 @@ export default function CheckinPage() {
             <strong className="htitle">Check in</strong>
           </div>
           <h2>Scan at the door</h2>
-          <p>Show this code at the entrance, or tap to self check-in.</p>
-          <div className="qr">
-            <svg viewBox="0 0 100 100" shapeRendering="crispEdges" aria-label="Check-in QR code" role="img">
-              <rect width="100" height="100" fill="#fff" />
-              <g fill="#0a0a12">
-                <rect x="8" y="8" width="24" height="24" /><rect x="12" y="12" width="16" height="16" fill="#fff" /><rect x="16" y="16" width="8" height="8" />
-                <rect x="68" y="8" width="24" height="24" /><rect x="72" y="12" width="16" height="16" fill="#fff" /><rect x="76" y="16" width="8" height="8" />
-                <rect x="8" y="68" width="24" height="24" /><rect x="12" y="72" width="16" height="16" fill="#fff" /><rect x="16" y="76" width="8" height="8" />
-                <rect x="40" y="8" width="4" height="4" /><rect x="48" y="8" width="4" height="4" /><rect x="56" y="12" width="4" height="4" />
-                <rect x="40" y="20" width="4" height="4" /><rect x="52" y="24" width="4" height="4" /><rect x="60" y="20" width="4" height="4" />
-                <rect x="40" y="40" width="4" height="4" /><rect x="48" y="44" width="4" height="4" /><rect x="56" y="40" width="4" height="4" /><rect x="64" y="48" width="4" height="4" /><rect x="72" y="40" width="4" height="4" /><rect x="84" y="44" width="4" height="4" />
-                <rect x="40" y="56" width="4" height="4" /><rect x="52" y="60" width="4" height="4" /><rect x="64" y="56" width="4" height="4" /><rect x="80" y="60" width="4" height="4" />
-                <rect x="44" y="72" width="4" height="4" /><rect x="56" y="76" width="4" height="4" /><rect x="68" y="72" width="4" height="4" /><rect x="84" y="76" width="4" height="4" />
-                <rect x="40" y="84" width="4" height="4" /><rect x="60" y="88" width="4" height="4" /><rect x="76" y="84" width="4" height="4" /><rect x="88" y="88" width="4" height="4" />
-              </g>
-            </svg>
-          </div>
-          <button className="gf-btn gf-btn-primary gf-btn-lg ci-btn" onClick={check} disabled={pending}>
-            <ScanLine strokeWidth={1.9} style={{ width: 18, height: 18 }} /> {pending ? 'Checking in…' : 'Tap to check in'}
+          <p>Scan the gym’s QR code at the entrance, or tap to self check-in.</p>
+          <button className="qr qr-tap" onClick={() => { setErr(null); setScanning(true); }} aria-label="Open camera to scan the check-in QR">
+            <Camera strokeWidth={1.4} />
+            <span>Tap to scan the door QR</span>
+          </button>
+          <button className="gf-btn gf-btn-primary gf-btn-lg ci-btn" onClick={() => { setErr(null); setScanning(true); }} disabled={pending}>
+            <Camera strokeWidth={1.9} style={{ width: 18, height: 18 }} /> Scan to check in
+          </button>
+          <button className="ci-self" onClick={doCheckIn} disabled={pending}>
+            <ScanLine strokeWidth={1.9} style={{ width: 16, height: 16 }} /> {pending ? 'Checking in…' : 'Or tap to self check-in'}
           </button>
           {err && <p style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', marginTop: 14 }}>{err}</p>}
         </div>
@@ -66,6 +78,8 @@ export default function CheckinPage() {
           <button className="gf-btn gf-btn-secondary" onClick={() => { setDone(false); setMsg(null); }}>Done</button>
         </div>
       )}
+
+      {scanning && <QrScanner onDetected={onScanned} onClose={() => setScanning(false)} />}
     </section>
   );
 }
