@@ -8,8 +8,8 @@ for what's left.
 > `revamp/*.html`, building + prerendering, tsc/lint clean. Pages use the
 > prototypes' static data. **Next track: backend** — wire Supabase (auth +
 > RLS + multi-tenant subdomains) and Paystack so the static UIs become a real
-> product. See `design/HANDOFF.md` §5 for the module list. Re-enable
-> `typedRoutes` in `next.config.ts` once routes are stable.
+> product. See `design/HANDOFF.md` §5 for the module list. `typedRoutes` is
+> enabled in `next.config.ts` (all linked routes exist).
 
 ## Surfaces — all ✅ built (static data)
 
@@ -52,8 +52,13 @@ web-session env), and no-op/guard cleanly without them:
 
 Notes:
 - `public.support_tickets` table added (RLS: platform-admin all / gym-staff own).
-- Coach 6-week earnings sparkline + superadmin MRR/plan-mix trend remain
-  illustrative (historical aggregation not yet computed).
+- Coach 6-week earnings sparkline, superadmin MRR trend + plan-mix are now
+  computed from real history (instructor_subscriptions / platform_payments / gyms).
+- Superadmin gyms/members/audit search + filter chips are wired (URL `?q`/`?f`).
+- `typedRoutes` re-enabled in `next.config.ts` (every linked route exists).
+- RLS helper functions not used by any policy (get_current_gym_id, get_my_profile_id,
+  get_user_gyms, gym_id_from_waiver, is_gym_member, is_gym_owner) had EXECUTE revoked
+  from anon/authenticated to drop their PostgREST RPC exposure.
 - **Paystack** subscription/renew + webhook → needs `SUPABASE_SERVICE_ROLE_KEY`
   (server-only) set in env; writes go through `lib/supabase/admin.ts`.
 - **Subdomain** multi-tenancy in `middleware.ts` if multi-gym selection is wanted
@@ -108,8 +113,7 @@ view as a route reproducing the matching `revamp/*.html`.
 ### Backend (separate track)
 Prototypes use fake data. To make it a real product, wire Supabase (auth + RLS
 + multi-tenant by subdomain via `proxy.ts`) and Paystack — see `design/HANDOFF.md`
-§5 for the module list. `typedRoutes` is off in `next.config.ts` until every
-linked route exists; re-enable then.
+§5 for the module list. `typedRoutes` is enabled in `next.config.ts`.
 
 ## Commands
 ```

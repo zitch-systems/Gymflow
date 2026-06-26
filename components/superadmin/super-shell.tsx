@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -10,7 +11,7 @@ import {
   LayoutDashboard, Building2, Users, TrendingUp, UserPlus, ScrollText, LifeBuoy, Settings, LogOut, Globe,
 } from 'lucide-react';
 
-const NAV: { href: string; label: string; icon: LucideIcon; section: 'Platform' | 'Operations' }[] = [
+const NAV: { href: Route; label: string; icon: LucideIcon; section: 'Platform' | 'Operations' }[] = [
   { href: '/superadmin', label: 'Overview', icon: LayoutDashboard, section: 'Platform' },
   { href: '/superadmin/gyms', label: 'Gyms', icon: Building2, section: 'Platform' },
   { href: '/superadmin/members', label: 'Members', icon: Users, section: 'Platform' },

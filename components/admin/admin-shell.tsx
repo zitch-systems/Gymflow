@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -11,7 +12,7 @@ import {
   GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode,
 } from 'lucide-react';
 
-type Item = { href: string; label: string; icon: LucideIcon; section: 'Main' | 'Admin' };
+type Item = { href: Route; label: string; icon: LucideIcon; section: 'Main' | 'Admin' };
 
 // Sidebar nav — order + labels from revamp/admin.html (Overview · Members ·
 // Check-In · Analytics · Classes · Staff | Pricing · Reminders · Facility ·

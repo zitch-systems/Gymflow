@@ -2,10 +2,9 @@ import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   reactStrictMode: true,
-  // typedRoutes turned off for now — many marketing links point at routes
-  // (/features, /about, /signup, /login, /contact, /careers, /legal, /gallery,
-  // /dashboard, /admin) that are scheduled for follow-up sessions. Re-enable
-  // once every link target has a corresponding page.tsx.
+  // Statically-typed routes: every <Link href> / router target is checked
+  // against the real route tree at build time. All linked routes now exist.
+  typedRoutes: true,
 
   // Baseline security headers applied to every response. Deliberately no strict
   // Content-Security-Policy yet — the design system leans heavily on inline

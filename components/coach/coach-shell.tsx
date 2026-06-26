@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -10,7 +11,7 @@ import {
   CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
 } from 'lucide-react';
 
-const NAV: { href: string; label: string; icon: LucideIcon }[] = [
+const NAV: { href: Route; label: string; icon: LucideIcon }[] = [
   { href: '/coach', label: 'Today', icon: CalendarCheck },
   { href: '/coach/classes', label: 'Classes', icon: CalendarDays },
   { href: '/coach/clients', label: 'Clients', icon: Users },
