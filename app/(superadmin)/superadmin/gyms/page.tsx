@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Building2, Repeat, Hourglass, AlertTriangle, Search, UserPlus } from 'lucide-react';
 import { GymTable } from '@/components/superadmin/gym-table';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
@@ -5,8 +6,14 @@ import { createClient } from '@/lib/supabase/server';
 
 export const metadata = { title: 'Gyms' };
 
-export default async function SuperGyms() {
+const FILTERS = [['all', 'All'], ['active', 'Active'], ['trial', 'Trial'], ['past_due', 'Past due']] as const;
+type FilterKey = (typeof FILTERS)[number][0];
+
+export default async function SuperGyms({ searchParams }: { searchParams: Promise<{ f?: string; q?: string }> }) {
   await requirePlatformAdmin();
+  const sp = await searchParams;
+  const filter: FilterKey = FILTERS.find(([k]) => k === sp.f)?.[0] ?? 'all';
+  const q = (sp.q ?? '').trim();
   const supabase = await createClient();
   const { data: gyms } = await supabase.from('gyms').select('status');
   const total = (gyms ?? []).length;
@@ -30,8 +37,17 @@ export default async function SuperGyms() {
         ); })}
       </section>
       <div className="panel">
-        <div className="toolbar"><div className="search"><Search strokeWidth={1.75} /><input placeholder="Search gyms…" aria-label="Search gyms" /></div><div style={{ flex: 1 }} /><span className="gf-chip active">All</span><span className="gf-chip">Active</span><span className="gf-chip">Trial</span><span className="gf-chip">Past due</span></div>
-        <GymTable limit={100} />
+        <div className="toolbar">
+          <form className="search" action="/superadmin/gyms" style={{ display: 'flex' }}>
+            {filter !== 'all' && <input type="hidden" name="f" value={filter} />}
+            <Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Search gyms…" aria-label="Search gyms" />
+          </form>
+          <div style={{ flex: 1 }} />
+          {FILTERS.map(([k, label]) => (
+            <Link key={k} href={`/superadmin/gyms?${new URLSearchParams({ ...(k !== 'all' && { f: k }), ...(q && { q }) }).toString()}`} className={filter === k ? 'gf-chip active' : 'gf-chip'} style={{ textDecoration: 'none' }}>{label}</Link>
+          ))}
+        </div>
+        <GymTable limit={200} q={q} status={filter} />
       </div>
     </>
   );
