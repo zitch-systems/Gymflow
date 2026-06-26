@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { MemberTabBar } from '@/components/member/tabbar';
+import { CameraPrime } from '@/components/member/camera-prime';
 import { requireMember } from '@/lib/auth/dal';
 
 // See app/(admin)/layout.tsx — headroom for a resuming Supabase project.
@@ -24,6 +25,7 @@ export default async function MemberLayout({ children }: { children: React.React
     <div className="ds-member" style={style}>
       {children}
       <MemberTabBar />
+      <CameraPrime />
     </div>
   );
 }

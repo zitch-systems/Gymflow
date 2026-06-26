@@ -5,6 +5,8 @@ const config: NextConfig = {
   // Statically-typed routes: every <Link href> / router target is checked
   // against the real route tree at build time. All linked routes now exist.
   typedRoutes: true,
+  // Tree-shake lucide-react per-route so pages only ship the icons they use.
+  experimental: { optimizePackageImports: ['lucide-react'] },
 
   // Baseline security headers applied to every response. Deliberately no strict
   // Content-Security-Policy yet — the design system leans heavily on inline
