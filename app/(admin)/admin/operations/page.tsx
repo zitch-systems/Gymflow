@@ -8,7 +8,8 @@ import { ExpenseForm } from '@/components/admin/expense-form';
 export const metadata = { title: 'Facility' };
 
 const EQ_STATUS: Record<string, [string, string]> = {
-  operational: ['gf-badge-success', 'OK'], maintenance: ['gf-badge-warning', 'Service'], broken: ['gf-badge-danger', 'Down'],
+  active: ['gf-badge-success', 'OK'], maintenance: ['gf-badge-warning', 'Service'],
+  retired: ['gf-badge-danger', 'Down'], lost: ['gf-badge-danger', 'Lost'],
 };
 
 export default async function AdminFacility() {
@@ -24,7 +25,7 @@ export default async function AdminFacility() {
 
   const eq = equipment ?? [];
   const zones = new Set(eq.map((e) => e.location).filter(Boolean)).size;
-  const needsService = eq.filter((e) => e.status === 'maintenance' || e.status === 'broken' || (e.next_maintenance_date && e.next_maintenance_date <= todayIso));
+  const needsService = eq.filter((e) => e.status === 'maintenance' || e.status === 'retired' || e.status === 'lost' || (e.next_maintenance_date && e.next_maintenance_date <= todayIso));
   const spend30 = (expenses ?? []).filter((e) => (e.expense_date ?? '') >= monthAgo).reduce((s, e) => s + Number(e.amount ?? 0), 0);
 
   const KPIS = [
@@ -57,7 +58,7 @@ export default async function AdminFacility() {
               <thead><tr><th>Equipment</th><th>Zone</th><th>Last serviced</th><th>Status</th></tr></thead>
               <tbody>
                 {eq.map((e) => {
-                  const st = EQ_STATUS[e.status ?? 'operational'] ?? ['gf-badge-neutral', e.status ?? '—'];
+                  const st = EQ_STATUS[e.status ?? 'active'] ?? ['gf-badge-neutral', e.status ?? '—'];
                   return (
                     <tr key={e.id}>
                       <td><div className="eq-name"><div className="ic" style={e.photo_url ? { overflow: 'hidden' } : undefined}>{e.photo_url ? (
@@ -87,7 +88,7 @@ export default async function AdminFacility() {
               <div className="mt"><div className="ic" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)' }}><Check strokeWidth={1.9} /></div><div className="m"><strong>All good</strong><small>Nothing needs service</small></div></div>
             ) : needsService.slice(0, 6).map((e) => (
               <div className="mt" key={e.id}>
-                <div className="ic" style={{ background: e.status === 'broken' ? 'var(--gf-danger-soft)' : 'var(--gf-warning-soft)', color: e.status === 'broken' ? 'var(--gf-danger)' : 'var(--gf-warning)' }}><AlertTriangle strokeWidth={1.9} /></div>
+                <div className="ic" style={{ background: e.status === 'retired' || e.status === 'lost' ? 'var(--gf-danger-soft)' : 'var(--gf-warning-soft)', color: e.status === 'retired' || e.status === 'lost' ? 'var(--gf-danger)' : 'var(--gf-warning)' }}><AlertTriangle strokeWidth={1.9} /></div>
                 <div className="m"><strong>{e.name}</strong><small>{e.location ?? e.category ?? '—'}{e.maintenance_notes ? ` · ${e.maintenance_notes}` : ''}</small></div>
                 <span className="t">{e.next_maintenance_date ? fmtDate(e.next_maintenance_date) : ''}</span>
               </div>

@@ -8,8 +8,9 @@ import { logAudit } from '@/lib/audit';
 
 export type FState = { ok: boolean; error: string | null };
 
-// equipment.status is free text the Facility page maps to OK/Service/Down.
-const EQUIPMENT_STATUS = new Set(['operational', 'maintenance', 'broken']);
+// equipment.status — constrained by equipment_status_check to these values;
+// the Facility page maps them to OK/Service/Down labels.
+const EQUIPMENT_STATUS = new Set(['active', 'maintenance', 'retired']);
 // Matches the expense_category enum labels in the DB.
 export const EXPENSE_CATEGORIES = ['utilities', 'maintenance', 'supplies', 'salaries', 'rent', 'marketing', 'equipment', 'other'] as const;
 
@@ -19,8 +20,8 @@ export async function saveEquipment(_prev: FState, fd: FormData): Promise<FState
   const id = String(fd.get('id') ?? '') || null;
   const name = String(fd.get('name') ?? '').trim();
   if (!name) return { ok: false, error: 'Equipment name is required.' };
-  let status = String(fd.get('status') ?? 'operational');
-  if (!EQUIPMENT_STATUS.has(status)) status = 'operational';
+  let status = String(fd.get('status') ?? 'active');
+  if (!EQUIPMENT_STATUS.has(status)) status = 'active';
   const priceRaw = fd.get('purchase_price');
   const photo = fd.get('photo');
   const removePhoto = fd.get('remove_photo') === 'on';
