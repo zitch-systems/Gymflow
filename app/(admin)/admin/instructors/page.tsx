@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Users, GraduationCap, Banknote, Crown, Shield, ScanLine, ChevronRight } from 'lucide-react';
+import { Users, GraduationCap, Banknote, Crown, Shield, ScanLine, ChevronRight, UserPlus } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 
@@ -49,7 +49,10 @@ export default async function AdminStaff() {
 
   return (
     <>
-      <div className="page-h"><div><h1>Staff</h1><p>{rows.length} team member{rows.length === 1 ? '' : 's'} · {instructors} instructor{instructors === 1 ? '' : 's'}</p></div></div>
+      <div className="page-h">
+        <div><h1>Staff</h1><p>{rows.length} team member{rows.length === 1 ? '' : 's'} · {instructors} instructor{instructors === 1 ? '' : 's'}</p></div>
+        <Link href="/admin/instructors/new" className="gf-btn gf-btn-primary"><UserPlus strokeWidth={1.9} size={16} /> Add staff</Link>
+      </div>
 
       <section className="kpis">
         {KPIS.map((k) => { const Icon = k.icon; return (
@@ -61,7 +64,7 @@ export default async function AdminStaff() {
         <div className="panel">
           <div className="panel-h"><div><h3>Team</h3><div className="sub">Roles &amp; access</div></div></div>
           {rows.length === 0 ? (
-            <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No staff yet</h3><p>Invite instructors and front-desk staff to your gym.</p></div>
+            <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No staff yet</h3><p>Invite instructors and front-desk staff to your gym.</p><Link href="/admin/instructors/new" className="gf-btn gf-btn-primary gf-btn-sm" style={{ marginTop: 14 }}><UserPlus strokeWidth={1.9} size={15} /> Add staff</Link></div>
           ) : (
             <table className="tbl">
               <thead><tr><th>Member</th><th>Role</th><th style={{ textAlign: 'right' }}>Status</th><th aria-hidden /></tr></thead>
