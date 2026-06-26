@@ -1203,6 +1203,23 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-member .ci-ok .ring { width: 116px; height: 116px; border-radius: 50%; background: var(--gf-brand-soft); display: grid; place-items: center; border: 2px solid var(--gf-brand-glow); animation: ci-pop .5s var(--gf-ease-spring); }
 .ds-member .ci-ok .ring i { width: 58px; height: 58px; color: var(--gf-brand); }
 @keyframes ci-pop { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+/* tappable "scan" box (replaces the static QR) + self check-in link */
+.ds-member .qr-tap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: var(--gf-brand-soft); border: 2px dashed var(--gf-brand-glow); color: var(--gf-brand); cursor: pointer; transition: all var(--gf-t-fast); padding: 18px; box-shadow: none; }
+.ds-member .qr-tap:hover { background: color-mix(in srgb, var(--gf-brand) 18%, transparent); transform: translateY(-2px); }
+.ds-member .qr-tap svg { width: 64px; height: 64px; }
+.ds-member .qr-tap span { font-family: var(--gf-font-display); font-weight: 700; font-size: 0.92rem; }
+.ds-member .ci-self { margin: 12px auto 0; display: inline-flex; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; color: var(--gf-text-muted); font-size: 0.86rem; font-weight: 600; }
+.ds-member .ci-self:hover { color: var(--gf-text); }
+.ds-member .ci-self:disabled { opacity: 0.6; cursor: default; }
+
+/* fullscreen camera scanner overlay */
+.qr-scan { position: fixed; inset: 0; z-index: 1000; background: #05060a; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.qr-scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.qr-scan-x { position: absolute; top: 16px; right: 16px; z-index: 2; width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(0,0,0,0.5); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.qr-scan-frame { position: relative; z-index: 1; width: min(68vw, 280px); aspect-ratio: 1; border-radius: 22px; box-shadow: 0 0 0 100vmax rgba(5,6,10,0.55); outline: 3px solid rgba(255,255,255,0.9); outline-offset: -3px; }
+.qr-scan-hint { position: absolute; bottom: 12%; z-index: 2; color: #fff; font-size: 0.95rem; font-weight: 600; text-align: center; padding: 0 24px; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
+.qr-scan-msg { position: relative; z-index: 2; max-width: 300px; text-align: center; color: #fff; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.qr-scan-msg p { margin: 0; line-height: 1.5; }
 .ds-member .segtabs { display: flex; gap: 22px; border-bottom: 1px solid var(--gf-border); margin-bottom: 16px; }
 .ds-member .segtabs button { border: none; background: none; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.95rem; color: var(--gf-text-muted); padding: 0 0 12px; cursor: pointer; position: relative; }
 .ds-member .segtabs button.on { color: var(--gf-text); }
@@ -1445,6 +1462,19 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .scan { background:linear-gradient(150deg,var(--gf-surface),var(--gf-elevated)); border:1px solid var(--gf-border-glow); border-radius:var(--gf-radius-lg); padding:28px; text-align:center; box-shadow:var(--gf-shadow-glow); }
 .ds-admin .scan .ring { width:96px; height:96px; border-radius:50%; background:var(--gf-brand-soft); border:2px solid var(--gf-border-glow); display:grid; place-items:center; margin:0 auto 16px; }
 .ds-admin .scan .ring i { width:44px; height:44px; color:var(--gf-brand); }
+.ds-admin .scan .door-qr { width:200px; height:200px; background:#fff; border-radius:var(--gf-radius); padding:12px; margin:0 auto 16px; box-shadow:var(--gf-shadow-sm); display:grid; place-items:center; }
+.ds-admin .scan .door-qr img { width:100%; height:100%; display:block; }
+/* Member QR codes grid (admin/invite) */
+.ds-admin .qr-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; }
+.ds-admin .qr-card { display:flex; flex-direction:column; gap:14px; }
+.ds-admin .qr-card-h { display:flex; align-items:center; gap:11px; text-align:left; }
+.ds-admin .qr-card-h .ic { width:40px; height:40px; border-radius:var(--gf-radius-xs); display:grid; place-items:center; flex-shrink:0; }
+.ds-admin .qr-card-h .ic svg { width:20px; height:20px; }
+.ds-admin .qr-card-h .m strong { font-family:var(--gf-font-display); font-weight:700; font-size:0.98rem; display:block; }
+.ds-admin .qr-card-h .m small { color:var(--gf-text-muted); font-size:0.78rem; }
+.ds-admin .qr-box { background:#fff; border-radius:var(--gf-radius); padding:12px; margin:0 auto; box-shadow:var(--gf-shadow-sm); width:fit-content; }
+.ds-admin .qr-box img { display:block; width:200px; height:200px; }
+.ds-admin .qr-url { font-size:0.72rem; color:var(--gf-text-muted); word-break:break-all; line-height:1.4; text-align:center; }
 .ds-admin .scan h2 { font-family:var(--gf-font-display); font-weight:800; font-size:1.3rem; margin:0 0 6px; }
 .ds-admin .scan p { color:var(--gf-text-secondary); font-size:0.9rem; margin:0 0 20px; }
 .ds-admin .scan .find { position:relative; max-width:340px; margin:0 auto; }
