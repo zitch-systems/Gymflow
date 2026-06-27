@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
-import { createSubaccount, resolveAccount } from '@/lib/paystack';
+import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
 
 export type GymSaveState = { ok: boolean; error: string | null };
 
@@ -55,7 +55,9 @@ export async function savePayout(_prev: GymSaveState, formData: FormData): Promi
         businessName: gym.name,
         bankCode: bank_code,
         accountNumber: account_number,
-        percentageCharge: Number(gym.platform_commission_pct ?? 0) || 0,
+        // Default to the platform commission when a gym has none set, so we
+        // never create a 0% subaccount by accident (an explicit 0 is honoured).
+        percentageCharge: gym.platform_commission_pct == null ? DEFAULT_PLATFORM_COMMISSION_PCT : Number(gym.platform_commission_pct),
       });
       if (!sub.ok) return { ok: false, error: `Bank saved, but connecting payouts failed: ${sub.error}` };
       const { error: scErr } = await supabase.from('gyms').update({ paystack_subaccount_code: sub.subaccountCode }).eq('id', gym.id);

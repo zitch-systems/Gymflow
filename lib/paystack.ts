@@ -114,6 +114,11 @@ export async function disableSubscription(code: string, emailToken: string): Pro
   }
 }
 
+// Platform's default cut of member dues routed through a gym's subaccount, as a
+// percentage. Used when a gym has no explicit platform_commission_pct set, so we
+// never silently create a 0% subaccount (which would settle 100% to the gym).
+export const DEFAULT_PLATFORM_COMMISSION_PCT = 1;
+
 export type SubaccountResult = { ok: true; subaccountCode: string } | { ok: false; error: string };
 
 // Create a Paystack subaccount for a gym so member dues settle to the gym's own

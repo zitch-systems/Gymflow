@@ -4,6 +4,7 @@ import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { splitName } from '@/lib/format';
 import { logAudit } from '@/lib/audit';
+import { DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
 
 export type OnboardState = { ok: boolean; error: string | null; message?: string };
 
@@ -34,7 +35,7 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
     .from('gyms')
     // status 'active' (the value gyms_status_check accepts); 14-day trial window
     // is tracked in trial_ends_at, not status.
-    .insert({ name, slug, city, subscription_plan: plan, status: 'active', trial_ends_at: new Date(Date.now() + 14 * 86_400_000).toISOString() })
+    .insert({ name, slug, city, subscription_plan: plan, status: 'active', platform_commission_pct: DEFAULT_PLATFORM_COMMISSION_PCT, trial_ends_at: new Date(Date.now() + 14 * 86_400_000).toISOString() })
     .select('id')
     .single();
   if (gymErr || !gym) return { ok: false, error: gymErr?.message ?? 'Could not create gym.' };
