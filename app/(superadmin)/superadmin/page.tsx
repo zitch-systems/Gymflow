@@ -11,8 +11,12 @@ export const maxDuration = 60;
 
 const PAID = ['success', 'successful', 'completed', 'paid'];
 
-export default async function SuperOverview() {
+const GYM_FILTERS = [['all', 'All'], ['active', 'Active'], ['trial', 'Trial'], ['past_due', 'Past due']] as const;
+
+export default async function SuperOverview({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
   await requirePlatformAdmin();
+  const sp = await searchParams;
+  const gymFilter = GYM_FILTERS.find(([k]) => k === sp.f)?.[0] ?? 'all';
   const supabase = await createClient();
 
   const since12 = new Date(); since12.setDate(1); since12.setMonth(since12.getMonth() - 11);
@@ -20,7 +24,7 @@ export default async function SuperOverview() {
   const [{ count: members }, { count: activeSubs }, { data: gymRows }, { data: pays }, { data: recent }] = await Promise.all([
     supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('member_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('gyms').select('id, name, status'),
+    supabase.from('gyms').select('id, name, subscription_status'),
     supabase.from('payments').select('amount, payment_date, created_at, status').gte('payment_date', since12.toISOString()).in('status', PAID),
     supabase.from('payments').select('amount, payment_date, gym_id, status').in('status', PAID).order('payment_date', { ascending: false }).limit(5),
   ]);
@@ -28,8 +32,8 @@ export default async function SuperOverview() {
   const gymList = gymRows ?? [];
   const gymName = new Map(gymList.map((g) => [g.id, g.name]));
   const gyms = gymList.length;
-  const trial = gymList.filter((g) => g.status === 'trial').length;
-  const pastDue = gymList.filter((g) => g.status === 'past_due' || g.status === 'past due').length;
+  const trial = gymList.filter((g) => (g.subscription_status ?? 'trial') === 'trial').length;
+  const pastDue = gymList.filter((g) => g.subscription_status === 'past_due').length;
 
   // Trailing-12-month revenue series from real payments.
   const months: { label: string; total: number }[] = [];
@@ -95,9 +99,13 @@ export default async function SuperOverview() {
       <div className="panel">
         <div className="panel-h">
           <div><h3>Gyms</h3><div className="sub">{gyms} total · {trial} on trial · {pastDue} past due</div></div>
-          <div style={{ display: 'flex', gap: 8 }}><span className="gf-chip active">All</span><span className="gf-chip">Active</span><span className="gf-chip">Trial</span><span className="gf-chip">Past due</span></div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {GYM_FILTERS.map(([k, label]) => (
+              <Link key={k} href={k === 'all' ? '/superadmin' : `/superadmin?f=${k}`} className={gymFilter === k ? 'gf-chip active' : 'gf-chip'} style={{ textDecoration: 'none' }}>{label}</Link>
+            ))}
+          </div>
         </div>
-        <GymTable />
+        <GymTable status={gymFilter} />
       </div>
     </>
   );

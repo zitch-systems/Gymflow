@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Users, Gauge, CalendarCheck, GraduationCap, MapPin, Clock } from 'lucide-react';
+import { ArrowLeft, Users, Gauge, CalendarCheck, GraduationCap, MapPin, Clock, Pencil } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
@@ -48,7 +48,10 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <Link href="/admin/classes" className="back-link"><ArrowLeft strokeWidth={2} size={16} /> Back to classes</Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <Link href="/admin/classes" className="back-link"><ArrowLeft strokeWidth={2} size={16} /> Back to classes</Link>
+        <Link href={`/admin/classes/${id}/edit`} className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}><Pencil strokeWidth={1.9} size={15} /> Edit class</Link>
+      </div>
 
       <div className="mdh">
         <span className="gf-avatar gf-avatar-xl">{className.charAt(0).toUpperCase()}</span>

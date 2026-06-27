@@ -102,3 +102,58 @@ export async function createClass(_prev: CState, formData: FormData): Promise<CS
   }
   redirect('/admin/classes');
 }
+
+// #4 — edit a class + its weekly schedule (owner/manager via RLS).
+export async function updateClass(_prev: CState, formData: FormData): Promise<CState> {
+  const classId = String(formData.get('class_id') ?? '');
+  const scheduleId = String(formData.get('schedule_id') ?? '');
+  const name = String(formData.get('name') ?? '').trim();
+  const category = String(formData.get('category') ?? '').trim() || null;
+  const capacity = Number(formData.get('max_capacity') ?? 0) || null;
+  const duration = Number(formData.get('duration_minutes') ?? 0) || null;
+  const dow = Number(formData.get('day_of_week') ?? -1);
+  const startTime = String(formData.get('start_time') ?? '');
+  const endTime = String(formData.get('end_time') ?? '');
+  const room = String(formData.get('room') ?? '').trim() || null;
+  if (!classId) return { ok: false, error: 'Missing class.' };
+  if (!name) return { ok: false, error: 'Class name is required.' };
+  if (Number.isNaN(dow) || dow < 0 || dow > 6) return { ok: false, error: 'Choose a day of week.' };
+  if (!startTime || !endTime) return { ok: false, error: 'Set a start and end time.' };
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const { error: cErr } = await supabase.from('classes')
+      .update({ name, category, max_capacity: capacity, duration_minutes: duration }).eq('id', classId).eq('gym_id', gym.id);
+    if (cErr) return { ok: false, error: cErr.message };
+    if (scheduleId) {
+      const { error: sErr } = await supabase.from('class_schedules')
+        .update({ day_of_week: dow, start_time: startTime, end_time: endTime, room }).eq('id', scheduleId).eq('gym_id', gym.id);
+      if (sErr) return { ok: false, error: sErr.message };
+    } else {
+      const { error: sErr } = await supabase.from('class_schedules')
+        .insert({ gym_id: gym.id, class_id: classId, day_of_week: dow, start_time: startTime, end_time: endTime, room, is_active: true });
+      if (sErr) return { ok: false, error: sErr.message };
+    }
+    logAudit({ action: 'class_updated', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId, values: { name, dow, startTime } });
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  redirect('/admin/classes');
+}
+
+// #4 — remove a class and its schedules (owner/manager via RLS).
+export async function deleteClass(_prev: CState, formData: FormData): Promise<CState> {
+  const classId = String(formData.get('class_id') ?? '');
+  if (!classId) return { ok: false, error: 'Missing class.' };
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    await supabase.from('class_schedules').delete().eq('class_id', classId).eq('gym_id', gym.id);
+    const { error } = await supabase.from('classes').delete().eq('id', classId).eq('gym_id', gym.id);
+    if (error) return { ok: false, error: error.message };
+    logAudit({ action: 'class_deleted', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId });
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  redirect('/admin/classes');
+}

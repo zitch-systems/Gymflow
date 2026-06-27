@@ -4,7 +4,7 @@ import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote } from 'lucide-react';
-import { updateGym, updateBranding, uploadLogo, type GymSaveState } from '@/lib/actions/gym';
+import { updateGym, updateBranding, uploadLogo, saveBusinessHours, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutForm } from '@/components/admin/payout-form';
 import type { Bank } from '@/lib/paystack';
 
@@ -21,9 +21,8 @@ const NAV = [
   { id: 'team', label: 'Team', icon: Users },
 ] as const;
 
-const HOURS = [
-  ['Monday – Friday', '05:00 — 22:00'], ['Saturday', '07:00 — 20:00'], ['Sunday', '08:00 — 18:00'],
-];
+// Mon-anchored display order for the editable weekly grid.
+const DAY_ORDER: [number, string][] = [[1, 'Monday'], [2, 'Tuesday'], [3, 'Wednesday'], [4, 'Thursday'], [5, 'Friday'], [6, 'Saturday'], [0, 'Sunday']];
 
 const INTEG = [
   { icon: CreditCard, name: 'Paystack', sub: 'Subscriptions & auto-debit', st: ['gf-badge-success', 'Connected'] },
@@ -37,11 +36,15 @@ export type GymProfile = {
   payouts_connected: boolean; commission_pct: number;
 };
 
-export function SettingsClient({ gym, staffCount, banks }: { gym: GymProfile; staffCount: number; banks: Bank[] }) {
+export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean };
+
+export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[] }) {
   const [sec, setSec] = useState<string>('profile');
   const [gymState, gymAction, gymPending] = useActionState(updateGym, GYM_INIT);
   const [brandState, brandAction, brandPending] = useActionState(updateBranding, GYM_INIT);
   const [logoState, logoAction, logoPending] = useActionState(uploadLogo, GYM_INIT);
+  const [hoursState, hoursAction, hoursPending] = useActionState(saveBusinessHours, GYM_INIT);
+  const hoursByDay = new Map(hours.map((h) => [h.day_of_week, h]));
 
   return (
     <>
@@ -122,15 +125,31 @@ export function SettingsClient({ gym, staffCount, banks }: { gym: GymProfile; st
 
           {sec === 'hours' && (
             <section className="sec on">
-              <div className="panel">
+              <form className="panel" action={hoursAction}>
                 <div className="panel-title">Business hours</div>
-                <div className="panel-desc">When members can check in and book.</div>
-                <div className="hours">
-                  {HOURS.map(([d, t]) => (
-                    <div className="hrow" key={d}><div className="dn">{d}</div><div className="tt">{t}</div></div>
-                  ))}
+                <div className="panel-desc">When members can check in and book. Shown on your public page.</div>
+                <div className="hours-edit">
+                  {DAY_ORDER.map(([d, label]) => {
+                    const h = hoursByDay.get(d);
+                    return (
+                      <div className="hrow-edit" key={d}>
+                        <div className="dn">{label}</div>
+                        <label className="hclosed"><input type="checkbox" name={`closed_${d}`} defaultChecked={h?.is_closed ?? false} /> Closed</label>
+                        <div className="htimes">
+                          <input className="gf-input" type="time" name={`open_${d}`} defaultValue={h?.open_time ?? '05:00'} aria-label={`${label} open`} />
+                          <span>—</span>
+                          <input className="gf-input" type="time" name={`close_${d}`} defaultValue={h?.close_time ?? '22:00'} aria-label={`${label} close`} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 18 }}>
+                  <button className="gf-btn gf-btn-primary" type="submit" disabled={hoursPending}>{hoursPending ? 'Saving…' : 'Save hours'}</button>
+                  {hoursState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
+                  {hoursState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{hoursState.error}</span>}
+                </div>
+              </form>
             </section>
           )}
 

@@ -10,7 +10,7 @@ export type FState = { ok: boolean; error: string | null };
 
 // equipment.status — constrained by equipment_status_check to these values;
 // the Facility page maps them to OK/Service/Down labels.
-const EQUIPMENT_STATUS = new Set(['active', 'maintenance', 'retired']);
+const EQUIPMENT_STATUS = new Set(['active', 'maintenance', 'retired', 'lost']);
 // Matches the expense_category enum labels in the DB.
 export const EXPENSE_CATEGORIES = ['utilities', 'maintenance', 'supplies', 'salaries', 'rent', 'marketing', 'equipment', 'other'] as const;
 

@@ -75,7 +75,7 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct 
           <span className="gf-topbar-title" style={{ fontFamily: 'var(--gf-font-display)' }}>Instructor portal</span>
           <div className="top-spacer" />
           <ThemeToggle />
-          <button className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></button>
+          <Link href="/coach/settings" className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></Link>
         </header>
         <main className="content">{children}</main>
       </div>
