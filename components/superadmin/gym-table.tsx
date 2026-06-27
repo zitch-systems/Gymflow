@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
+import { CommissionEditor } from '@/components/superadmin/commission-editor';
 
 const GRADS = [
   'linear-gradient(135deg,#11d18b,#07a86c)', 'linear-gradient(135deg,#4080ff,#2a5cc0)',
@@ -18,7 +19,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
   const supabase = await createClient();
   const { data: allGyms } = await supabase
     .from('gyms')
-    .select('id, name, slug, city, status, subscription_status, subscription_plan')
+    .select('id, name, slug, city, status, subscription_status, subscription_plan, platform_commission_pct')
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -47,7 +48,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
 
   return (
     <table className="gt">
-      <thead><tr><th>Gym</th><th>Plan</th><th>Members</th><th>Status</th><th style={{ textAlign: 'right' }}>Subdomain</th></tr></thead>
+      <thead><tr><th>Gym</th><th>Plan</th><th>Members</th><th>Commission</th><th>Status</th><th style={{ textAlign: 'right' }}>Subdomain</th></tr></thead>
       <tbody>
         {gyms.map((g, i) => {
           const st = STATUS[g.subscription_status ?? 'trial'] ?? ['gf-badge-success', g.subscription_status ?? 'Active'];
@@ -61,6 +62,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
               </td>
               <td style={{ textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
               <td>{memberCount.get(g.id) ?? 0}</td>
+              <td><CommissionEditor gymId={g.id} pct={g.platform_commission_pct ?? 0} /></td>
               <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
               <td className="naira" style={{ textAlign: 'right' }}><a href={`/g/${g.slug}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title="Open public page">{g.slug} ↗</a></td>
             </tr>
