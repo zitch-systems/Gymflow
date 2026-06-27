@@ -1,10 +1,17 @@
 import { cache } from 'react';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/lib/database.types';
 
 type Gym = Database['public']['Tables']['gyms']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
+
+// Cookie that pins which gym a multi-gym staff member is currently acting as.
+export const ACTIVE_GYM_COOKIE = 'gf-active-gym';
+async function readActiveGymCookie(): Promise<string | null> {
+  try { return (await cookies()).get(ACTIVE_GYM_COOKIE)?.value ?? null; } catch { return null; }
+}
 
 // ── Session ──────────────────────────────────────────────────────────────
 // All of these are wrapped in `cache()` so a single request that hits a layout
@@ -86,28 +93,55 @@ const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: No
   const user = await getUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
-  const { data: link } = await supabase
+  const { data: links } = await supabase
     .from('gym_staff_links')
     .select('*')
     .eq('user_id', user.id)
     .eq('is_active', true)
-    // Deterministic pick for staff linked to more than one gym (otherwise the
-    // resolved gym — and thus every scoped query — varies between requests).
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  // Signed-in but not staff (or wrong role) → /launch picks their real surface;
-  // bouncing to /login used to trap signed-in users in a redirect loop.
-  if (!link) redirect('/launch');
-  const role = (link as unknown as { role: string }).role ?? '';
-  if (roles && !roles.includes(role)) redirect('/launch');
+    // Stable order so the default pick (first eligible) is deterministic.
+    .order('created_at', { ascending: true });
+  // Only links whose role is valid for THIS surface are eligible (e.g. an
+  // instructor link is ineligible on /admin even if the user also owns a gym).
+  const all = (links ?? []) as Array<{ gym_id: string | null; role: string | null }>;
+  const eligible = (roles ? all.filter((l) => roles.includes(l.role ?? '')) : all).filter((l) => l.gym_id);
+  // Signed-in but not staff (or wrong role here) → /launch picks their real
+  // surface; bouncing to /login used to trap signed-in users in a redirect loop.
+  if (eligible.length === 0) redirect('/launch');
+  // Honour the active-gym cookie when it points at an eligible gym; else first.
+  const activeId = await readActiveGymCookie();
+  const chosen = eligible.find((l) => l.gym_id === activeId) ?? eligible[0];
+  const role = chosen.role ?? '';
   const { data: gym } = await supabase
     .from('gyms')
     .select('*')
-    .eq('id', (link as { gym_id: string }).gym_id)
+    .eq('id', chosen.gym_id as string)
     .maybeSingle();
   if (!gym) redirect('/launch');
   return { user, gym: gym as Gym, role };
+});
+
+// The set of gyms a staff member can act as on a given surface (the roles
+// filter), plus which one is currently active. Powers the gym switcher; the
+// switcher only renders when there's more than one.
+export const getStaffGyms = cache(async (roles?: readonly string[]): Promise<{ gyms: { id: string; name: string }[]; activeId: string }> => {
+  const user = await getUser();
+  if (!user) return { gyms: [], activeId: '' };
+  const supabase = await createClient();
+  const { data: links } = await supabase
+    .from('gym_staff_links')
+    .select('gym_id, role')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+  const all = (links ?? []) as Array<{ gym_id: string | null; role: string | null }>;
+  const ids = (roles ? all.filter((l) => roles.includes(l.role ?? '')) : all)
+    .map((l) => l.gym_id).filter((id): id is string => !!id);
+  if (ids.length === 0) return { gyms: [], activeId: '' };
+  const { data: gymRows } = await supabase.from('gyms').select('id, name').in('id', ids);
+  const nameById = new Map((gymRows ?? []).map((g) => [g.id, g.name]));
+  const gyms = ids.map((id) => ({ id, name: nameById.get(id) ?? 'Gym' }));
+  const activeId = await readActiveGymCookie();
+  return { gyms, activeId: gyms.find((g) => g.id === activeId)?.id ?? gyms[0].id };
 });
 
 export async function requireStaff(roles?: readonly string[]) {
@@ -120,7 +154,7 @@ export async function requireAdminStaff() {
 }
 
 // user_role enum: platform_admin | gym_owner | manager | front_desk | accountant | instructor | member
-const INSTRUCTOR_ROLES = ['instructor', 'manager', 'gym_owner'] as const;
+export const INSTRUCTOR_ROLES = ['instructor', 'manager', 'gym_owner'] as const;
 export async function requireInstructor() {
   return resolveStaff(INSTRUCTOR_ROLES);
 }

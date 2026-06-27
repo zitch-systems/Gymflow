@@ -1,6 +1,6 @@
 import { AdminShell } from '@/components/admin/admin-shell';
 import { BillingWall } from '@/components/admin/billing-wall';
-import { requireAdminStaff, getProfile } from '@/lib/auth/dal';
+import { requireAdminStaff, getProfile, getStaffGyms, ADMIN_ROLES } from '@/lib/auth/dal';
 import { gymBillingState, isBlocked, isPlanTier } from '@/lib/platform-plans';
 import { initialsOf, roleLabel } from '@/lib/format';
 
@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     return <BillingWall state={state} gymName={gym.name} currentTier={tier} />;
   }
 
-  const profile = await getProfile();
+  const [profile, staffGyms] = await Promise.all([getProfile(), getStaffGyms(ADMIN_ROLES)]);
   const name = profile?.full_name?.trim() || user.email?.split('@')[0] || roleLabel(role);
   const meta = `${gym.city ? `${gym.city} · ` : ''}${gym.slug}.gymflow.ng`;
 
@@ -37,6 +37,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       userName={name}
       userRole={roleLabel(role)}
       userInitial={initialsOf(name)}
+      gyms={staffGyms.gyms}
+      activeGymId={staffGyms.activeId}
     >
       {children}
     </AdminShell>

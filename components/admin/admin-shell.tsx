@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { GymSwitcher } from '@/components/gym-switcher';
 import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
   GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode,
@@ -36,9 +37,10 @@ const NAV: Item[] = [
 type Identity = {
   gymName: string; gymMeta: string; gymInitial: string;
   userName: string; userRole: string; userInitial: string;
+  gyms?: { id: string; name: string }[]; activeGymId?: string;
 };
 
-export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial }: { children: React.ReactNode } & Identity) {
+export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial, gyms = [], activeGymId = '' }: { children: React.ReactNode } & Identity) {
   const pathname = usePathname() ?? '';
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const main = NAV.filter((n) => n.section === 'Main');
@@ -68,6 +70,7 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
               <small>{gymMeta}</small>
             </div>
           </div>
+          <GymSwitcher gyms={gyms} activeId={activeGymId} redirectTo="/admin/dashboard" />
         </div>
         <nav className="gf-sidebar-nav">
           <span className="gf-sidebar-section">Main</span>
