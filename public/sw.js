@@ -3,11 +3,14 @@
 // Strategy:
 //  - Static assets (/_next/static, /images, fonts): stale-while-revalidate
 //    (serve from cache instantly, refresh in the background).
-//  - Page navigations: network-first with a cache fallback, then an offline
-//    page when truly offline.
+//  - Page navigations: network-first, falling back to a static offline page
+//    when truly offline. Rendered page HTML is NEVER cached — it can contain
+//    another account's authenticated content (member/coach/admin PII), and a
+//    URL-keyed cache would serve it to the next user on a shared device.
 //  - Everything else (cross-origin, non-GET, the Supabase API, Paystack):
 //    not intercepted — always hits the network.
-const VERSION = 'gf-v1';
+// Bumped to v2 to evict any v1 page cache that may hold authenticated HTML.
+const VERSION = 'gf-v2';
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGE_CACHE = `${VERSION}-pages`;
 const OFFLINE_URL = '/offline';
@@ -59,19 +62,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Page navigations → network-first, fall back to cache, then offline page.
+  // Page navigations → network-first, fall back to the static offline shell.
+  // We do NOT cache the response: page HTML may carry authenticated, account-
+  // specific content, and a URL-keyed cache would leak it across users/logins.
   if (request.mode === 'navigate') {
     event.respondWith(
       (async () => {
         try {
-          const res = await fetch(request);
-          const cache = await caches.open(PAGE_CACHE);
-          cache.put(request, res.clone());
-          return res;
+          return await fetch(request);
         } catch {
           const cache = await caches.open(PAGE_CACHE);
-          const cached = await cache.match(request);
-          return cached || (await cache.match(OFFLINE_URL)) || Response.error();
+          return (await cache.match(OFFLINE_URL)) || Response.error();
         }
       })(),
     );

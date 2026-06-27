@@ -86,6 +86,7 @@ export async function createClass(_prev: CState, formData: FormData): Promise<CS
   if (!name) return { ok: false, error: 'Class name is required.' };
   if (Number.isNaN(dow) || dow < 0 || dow > 6) return { ok: false, error: 'Choose a day of week.' };
   if (!startTime || !endTime) return { ok: false, error: 'Set a start and end time.' };
+  if (endTime <= startTime) return { ok: false, error: 'End time must be after the start time.' };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
@@ -119,6 +120,7 @@ export async function updateClass(_prev: CState, formData: FormData): Promise<CS
   if (!name) return { ok: false, error: 'Class name is required.' };
   if (Number.isNaN(dow) || dow < 0 || dow > 6) return { ok: false, error: 'Choose a day of week.' };
   if (!startTime || !endTime) return { ok: false, error: 'Set a start and end time.' };
+  if (endTime <= startTime) return { ok: false, error: 'End time must be after the start time.' };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();

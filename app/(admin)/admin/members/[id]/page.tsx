@@ -41,8 +41,13 @@ const methodLabel: Record<string, string> = {
   bank_transfer: 'Bank transfer', cash: 'Cash', crypto: 'Crypto',
 };
 
+// id is interpolated into a PostgREST .or() filter below; reject anything that
+// isn't a clean UUID so it can't smuggle in extra filter terms.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function MemberDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!UUID_RE.test(id)) notFound();
   const { gym } = await requireStaff();
   const supabase = await createClient();
 

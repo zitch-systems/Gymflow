@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useInsertionEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import jsQR from 'jsqr';
 
@@ -10,9 +10,10 @@ import jsQR from 'jsqr';
 export function QrScanner({ onDetected, onClose }: { onDetected: (text: string) => void; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // keep the latest callback without re-running the effect
+  // keep the latest callback without re-running the scanner effect — assigned
+  // off-render (an insertion effect) so we never mutate a ref during render
   const cbRef = useRef(onDetected);
-  cbRef.current = onDetected;
+  useInsertionEffect(() => { cbRef.current = onDetected; });
 
   useEffect(() => {
     let cancelled = false;

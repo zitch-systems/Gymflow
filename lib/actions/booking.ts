@@ -7,9 +7,16 @@ import { createClient } from '@/lib/supabase/server';
 export type BookState = { ok: boolean; error: string | null };
 
 // Next calendar date (YYYY-MM-DD) on or after today matching a weekday (0=Sun).
-function nextDateForDow(dow: number): string {
+// If the slot falls today but its start time has already passed, roll to next
+// week so we never book a session that already happened.
+function nextDateForDow(dow: number, startTime?: string | null): string {
   const d = new Date(); d.setHours(0, 0, 0, 0);
-  const diff = (((dow - d.getDay()) % 7) + 7) % 7;
+  let diff = (((dow - d.getDay()) % 7) + 7) % 7;
+  if (diff === 0 && startTime) {
+    const [h, m] = startTime.split(':').map(Number);
+    const start = new Date(); start.setHours(h || 0, m || 0, 0, 0);
+    if (start.getTime() <= Date.now()) diff = 7;
+  }
   d.setDate(d.getDate() + diff);
   return d.toISOString().slice(0, 10);
 }
@@ -21,11 +28,13 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
     const { user, gym } = await requireMember();
     const supabase = await createClient();
     const { data: sched } = await supabase
-      .from('class_schedules').select('id, class_id, day_of_week')
+      .from('class_schedules').select('id, class_id, day_of_week, start_time, classes(max_capacity)')
       .eq('id', scheduleId).eq('gym_id', gym.id).maybeSingle();
     if (!sched) return { ok: false, error: 'Class not found.' };
+    const cls = Array.isArray(sched.classes) ? sched.classes[0] : sched.classes;
+    const capacity = Number(cls?.max_capacity ?? 0);
 
-    const bookingDate = nextDateForDow(sched.day_of_week);
+    const bookingDate = nextDateForDow(sched.day_of_week, sched.start_time);
     // A unique constraint covers (gym_id, class_schedule_id, member_id) regardless
     // of date/status, so a prior (possibly cancelled) row already exists for repeat
     // bookings. Look it up by that key and re-activate it rather than inserting a dup.
@@ -38,6 +47,17 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
     // for a past date — falls through and gets re-activated for the next date.
     if (existing && existing.status === 'booked' && (existing.booking_date ?? '') >= bookingDate) {
       return { ok: true, error: null }; // already booked for this occurrence
+    }
+
+    // Capacity gate — count other members already booked for this occurrence and
+    // refuse to oversell. (max_capacity = 0/null means "no cap".)
+    if (capacity > 0) {
+      const { count } = await supabase
+        .from('class_bookings').select('id', { count: 'exact', head: true })
+        .eq('gym_id', gym.id).eq('class_schedule_id', scheduleId)
+        .eq('booking_date', bookingDate).eq('status', 'booked')
+        .neq('member_id', user.id);
+      if ((count ?? 0) >= capacity) return { ok: false, error: 'This class is full. Try another time.' };
     }
 
     const { error } = existing

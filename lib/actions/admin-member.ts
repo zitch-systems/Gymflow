@@ -30,7 +30,7 @@ async function ctx(memberId: string) {
     .or(`member_id.eq.${memberId},user_id.eq.${memberId}`)
     .maybeSingle();
   if (!link) throw new Error('Member not found in this gym.');
-  return { gymId: gym.id, supabase, actorId: user.id };
+  return { gymId: gym.id, supabase, actorId: user.id, isActive: link.is_active !== false };
 }
 
 // Extend the member's latest subscription by the plan duration (or create one).
@@ -62,7 +62,8 @@ async function extendSubscription(supabase: SupabaseClient, gymId: string, membe
 export async function manualCheckIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const memberId = String(formData.get('memberId') ?? '');
   try {
-    const { gymId, supabase } = await ctx(memberId);
+    const { gymId, supabase, isActive } = await ctx(memberId);
+    if (!isActive) return { ok: false, error: 'This member is suspended. Reactivate them before checking in.' };
     const { error } = await supabase.from('check_ins').insert({
       gym_id: gymId, member_id: memberId,
       checked_in_at: new Date().toISOString(), status: 'active', check_in_method: 'front_desk',

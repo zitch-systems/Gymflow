@@ -32,6 +32,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
   const gymList = gymRows ?? [];
   const gymName = new Map(gymList.map((g) => [g.id, g.name]));
   const gyms = gymList.length;
+  const activeGyms = gymList.filter((g) => (g.subscription_status ?? 'trial') === 'active').length;
   const trial = gymList.filter((g) => (g.subscription_status ?? 'trial') === 'trial').length;
   const pastDue = gymList.filter((g) => g.subscription_status === 'past_due').length;
 
@@ -54,7 +55,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
   const pts = months.map((m, i) => `${(i / (months.length - 1)) * 600},${150 - (m.total / maxT) * 138}`).join(' ');
 
   const KPIS = [
-    { icon: Building2, fg: '#11d18b', bg: '#11d18b1f', val: String(gyms), lbl: 'Active gyms' },
+    { icon: Building2, fg: '#11d18b', bg: '#11d18b1f', val: String(activeGyms), lbl: 'Active gyms' },
     { icon: Users, fg: '#4080ff', bg: '#4080ff1f', val: String(members ?? 0), lbl: 'Members platform-wide' },
     { icon: Repeat, fg: '#a8d92e', bg: '#c6f24e1f', val: String(activeSubs ?? 0), lbl: 'Active subscriptions' },
     { icon: Banknote, fg: '#ffb020', bg: '#ffb0201f', val: fmtNaira(trailingTotal), lbl: 'Revenue (12 mo)' },
