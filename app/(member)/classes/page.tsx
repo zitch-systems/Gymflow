@@ -103,7 +103,12 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                 <div key={b.id} className="bkg">
                   <div className="date"><b>{d ? d.getDate() : '—'}</b><span>{d ? SHORT[d.getDay()] : ''}</span></div>
                   <div className="m"><strong>{c?.name ?? 'Class'}</strong><small>{t ? `${t.hm} ${t.ap}` : ''}{sch?.room ? ` · ${sch.room}` : ''}</small></div>
-                  {upcoming ? <CancelButton bookingId={b.id} /> : <span className={`gf-badge ${b.status === 'attended' ? 'gf-badge-success' : 'gf-badge'}`}>{b.status === 'attended' ? 'Attended' : 'Past'}</span>}
+                  {upcoming ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {b.status === 'waitlisted' && <span className="gf-badge gf-badge-warning">Waitlist</span>}
+                      <CancelButton bookingId={b.id} />
+                    </div>
+                  ) : <span className={`gf-badge ${b.status === 'attended' ? 'gf-badge-success' : 'gf-badge'}`}>{b.status === 'attended' ? 'Attended' : 'Past'}</span>}
                 </div>
               );
             })}

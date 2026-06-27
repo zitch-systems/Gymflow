@@ -20,7 +20,7 @@ export default async function SuperRevenue() {
 
   const [{ data: gyms }, { data: platPay }, { data: memberPay }] = await Promise.all([
     supabase.from('gyms').select('subscription_plan, subscription_status'),
-    supabase.from('platform_payments').select('amount, plan, created_at').eq('payment_status', 'successful'),
+    supabase.from('platform_payments').select('amount, plan, created_at, billing_period_start').eq('payment_status', 'successful'),
     supabase.from('payments').select('amount').eq('payment_status', 'successful'),
   ]);
 
@@ -36,7 +36,11 @@ export default async function SuperRevenue() {
   }, 0);
 
   const plat = platPay ?? [];
-  const platMonth = plat.filter((p) => new Date(p.created_at ?? '') >= monthStart).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  // Bucket on the billing period, not row-insert time: the self-heal billing
+  // callback can insert a row days after the charge, which would otherwise put
+  // revenue in the wrong month.
+  const periodOf = (p: { billing_period_start?: string | null; created_at?: string | null }) => p.billing_period_start ?? p.created_at ?? '';
+  const platMonth = plat.filter((p) => new Date(periodOf(p)) >= monthStart).reduce((s, p) => s + Number(p.amount ?? 0), 0);
   const platAllTime = plat.reduce((s, p) => s + Number(p.amount ?? 0), 0);
   const memberGmv = (memberPay ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
 
@@ -50,7 +54,7 @@ export default async function SuperRevenue() {
     months.push({ label: d.toLocaleString('en-NG', { month: 'short' }), total: 0 });
   }
   for (const p of plat) {
-    const d = new Date(p.created_at ?? '');
+    const d = new Date(periodOf(p));
     const i = idx.get(`${d.getFullYear()}-${d.getMonth()}`);
     if (i != null) months[i].total += Number(p.amount ?? 0);
   }
