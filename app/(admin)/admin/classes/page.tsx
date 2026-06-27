@@ -28,17 +28,20 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
 
   const scheduleIds = (schedules ?? []).map((s) => s.id);
   const { data: bookings } = scheduleIds.length
-    ? await supabase.from('class_bookings').select('class_schedule_id').eq('gym_id', gym.id).neq('status', 'cancelled').in('class_schedule_id', scheduleIds)
-    : { data: [] as { class_schedule_id: string | null }[] };
+    ? await supabase.from('class_bookings').select('class_schedule_id, status').eq('gym_id', gym.id).neq('status', 'cancelled').in('class_schedule_id', scheduleIds)
+    : { data: [] as { class_schedule_id: string | null; status: string | null }[] };
+  // Confirmed seats fill the bar / fill-rate; waitlisted rows are tracked apart.
+  const booked = (bookings ?? []).filter((b) => b.status === 'booked');
+  const waitlistCount = (bookings ?? []).filter((b) => b.status === 'waitlisted').length;
   const bookedBy = new Map<string, number>();
-  for (const b of bookings ?? []) if (b.class_schedule_id) bookedBy.set(b.class_schedule_id, (bookedBy.get(b.class_schedule_id) ?? 0) + 1);
+  for (const b of booked) if (b.class_schedule_id) bookedBy.set(b.class_schedule_id, (bookedBy.get(b.class_schedule_id) ?? 0) + 1);
 
   const countByDow = new Map<number, number>();
   for (const s of schedules ?? []) countByDow.set(s.day_of_week, (countByDow.get(s.day_of_week) ?? 0) + 1);
   const daySlots = (schedules ?? []).filter((s) => s.day_of_week === selDow);
 
   const totalSessions = (schedules ?? []).length;
-  const totalBookings = (bookings ?? []).length;
+  const totalBookings = booked.length;
   const caps = (schedules ?? []).map((s) => { const c = Array.isArray(s.classes) ? s.classes[0] : s.classes; return c?.max_capacity ?? 0; });
   const totalCap = caps.reduce((a, b) => a + b, 0);
   const avgFill = totalCap > 0 ? Math.round((totalBookings / totalCap) * 100) : 0;
@@ -47,7 +50,7 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
     { icon: CalendarDays, fg: '#11d18b', bg: '#11d18b1f', val: String(totalSessions), lbl: 'Sessions / week' },
     { icon: Ticket, fg: '#4080ff', bg: '#4080ff1f', val: String(totalBookings), lbl: 'Bookings' },
     { icon: Gauge, fg: '#a8d92e', bg: '#c6f24e1f', val: `${avgFill}%`, lbl: 'Avg fill rate' },
-    { icon: Hourglass, fg: '#ffb020', bg: '#ffb0201f', val: '0', lbl: 'On waitlists' },
+    { icon: Hourglass, fg: '#ffb020', bg: '#ffb0201f', val: String(waitlistCount), lbl: 'On waitlists' },
   ];
 
   // Mon-anchored display order.

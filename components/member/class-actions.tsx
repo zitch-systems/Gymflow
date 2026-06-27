@@ -1,14 +1,16 @@
 'use client';
 
 import { useActionState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, Plus, X, Hourglass } from 'lucide-react';
 import { bookClass, cancelBooking, type BookState } from '@/lib/actions/booking';
 
 const INIT: BookState = { ok: false, error: null };
 
 export function BookButton({ scheduleId }: { scheduleId: string }) {
   const [state, action, pending] = useActionState(bookClass, INIT);
-  if (state.ok) return <span className="bk-done"><Check size={13} strokeWidth={2.6} /> Booked</span>;
+  if (state.ok) return state.waitlisted
+    ? <span className="bk-done"><Hourglass size={13} strokeWidth={2.6} /> Waitlisted</span>
+    : <span className="bk-done"><Check size={13} strokeWidth={2.6} /> Booked</span>;
   return (
     <form action={action} className="bk-form">
       <input type="hidden" name="scheduleId" value={scheduleId} />
