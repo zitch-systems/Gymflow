@@ -23,7 +23,9 @@ export default async function BillingCallback({ searchParams }: { searchParams: 
   let msg = 'We couldn’t find this payment. If you were charged, it’ll reflect shortly.';
   if (reference) {
     const v = await verifyTransaction(reference);
-    if (v.ok && v.status === 'success' && v.metadata?.gym_id && v.metadata.gym_id !== gym.id) {
+    // Platform checkouts always stamp gym_id at init; a verified success whose
+    // metadata is missing it (or points elsewhere) must not activate this gym.
+    if (v.ok && v.status === 'success' && v.metadata?.gym_id !== gym.id) {
       msg = 'This payment reference belongs to a different gym.';
     } else if (v.ok && v.status === 'success') {
       const f = await handlePlatformEvent({

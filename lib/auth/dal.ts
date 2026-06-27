@@ -91,6 +91,9 @@ const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: No
     .select('*')
     .eq('user_id', user.id)
     .eq('is_active', true)
+    // Deterministic pick for staff linked to more than one gym (otherwise the
+    // resolved gym — and thus every scoped query — varies between requests).
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
   // Signed-in but not staff (or wrong role) → /launch picks their real surface;
