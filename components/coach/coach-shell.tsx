@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { GymSwitcher } from '@/components/gym-switcher';
 import {
   CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
 } from 'lucide-react';
@@ -21,8 +22,9 @@ const NAV: { href: Route; label: string; icon: LucideIcon }[] = [
   { href: '/coach/settings', label: 'Settings', icon: Settings },
 ];
 
-export function CoachShell({ children, gymName, userName, userInitial, sharePct }: {
+export function CoachShell({ children, gymName, userName, userInitial, sharePct, gyms = [], activeGymId = '' }: {
   children: React.ReactNode; gymName: string; userName: string; userInitial: string; sharePct: number | null;
+  gyms?: { id: string; name: string }[]; activeGymId?: string;
 }) {
   const pathname = usePathname() ?? '';
   const isActive = (href: string) => (href === '/coach' ? pathname === '/coach' : pathname.startsWith(href));
@@ -42,6 +44,7 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct 
               <small>Instructor · {gymName}</small>
             </div>
           </div>
+          <GymSwitcher gyms={gyms} activeId={activeGymId} redirectTo="/coach" />
         </div>
         <nav className="gf-sidebar-nav">
           <span className="gf-sidebar-section">Coaching</span>

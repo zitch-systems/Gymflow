@@ -1846,6 +1846,10 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .sb-role { display:flex; align-items:center; gap:10px; margin-top:14px; padding:8px; border-radius:var(--gf-radius-sm); background:var(--gf-elevated); border:1px solid var(--gf-border); }
 .ds-admin .sb-role .gf-avatar { background:var(--gf-accent-soft); color:var(--gf-accent-dark); border-color:var(--gf-accent-glow); }
 [data-theme="dark"] .ds-admin .sb-role .gf-avatar { color:var(--gf-accent); }
+/* Multi-gym switcher (only rendered for staff linked to >1 gym). */
+.ds-admin .gym-switcher { position:relative; display:flex; align-items:center; gap:6px; margin-top:8px; padding:0 8px; border-radius:var(--gf-radius-sm); background:var(--gf-elevated); border:1px solid var(--gf-border); color:var(--gf-text-muted); }
+.ds-admin .gym-switcher select { flex:1; appearance:none; -webkit-appearance:none; background:transparent; border:0; padding:8px 4px; font:inherit; font-size:0.78rem; font-weight:600; color:var(--gf-text); cursor:pointer; }
+.ds-admin .gym-switcher select:focus-visible { outline:2px solid var(--gf-brand); outline-offset:2px; border-radius:4px; }
 .ds-admin .sb-role small { color:var(--gf-text-muted); font-size:0.66rem; display:block; }
 .ds-admin .sb-role strong { font-family:var(--gf-font-display); font-size:0.85rem; }
 .ds-admin .hdr { margin-bottom:22px; }
