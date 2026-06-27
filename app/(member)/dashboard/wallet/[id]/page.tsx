@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Share2, Check, X, Clock, Download } from 'lucide-react';
+import { ArrowLeft, Share2, Check, X, Clock } from 'lucide-react';
+import { PrintReceiptButton } from './print-button';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDateTime } from '@/lib/format';
@@ -60,7 +61,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             {rows.map(([k, v]) => (<div className="rrow" key={k}><span>{k}</span><b>{v}</b></div>))}
           </div>
         </div>
-        <button className="gf-btn gf-btn-secondary gf-btn-full"><Download strokeWidth={1.9} style={{ width: 16, height: 16 }} /> Download PDF</button>
+        <PrintReceiptButton />
       </div>
     </section>
   );

@@ -1633,6 +1633,14 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .hrow .dn { width:100px; font-family:var(--gf-font-display); font-weight:600; font-size:0.88rem; }
 .ds-admin .hrow .tt { color:var(--gf-text-secondary); font-size:0.86rem; font-variant-numeric:tabular-nums; }
 .ds-admin .hrow .tt.closed { color:var(--gf-text-muted); }
+.ds-admin .hours-edit { display:flex; flex-direction:column; }
+.ds-admin .hrow-edit { display:flex; align-items:center; gap:16px; padding:12px 0; border-top:1px solid var(--gf-border); flex-wrap:wrap; }
+.ds-admin .hrow-edit:first-child { border-top:none; }
+.ds-admin .hrow-edit .dn { width:100px; font-family:var(--gf-font-display); font-weight:600; font-size:0.88rem; }
+.ds-admin .hrow-edit .hclosed { display:inline-flex; align-items:center; gap:6px; font-size:0.82rem; color:var(--gf-text-secondary); font-weight:600; cursor:pointer; }
+.ds-admin .hrow-edit .htimes { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.ds-admin .hrow-edit .htimes .gf-input { width:auto; padding:8px 10px; }
+.ds-admin .hrow-edit .htimes span { color:var(--gf-text-muted); }
 @media (max-width:900px) {
 .ds-admin .set-wrap {grid-template-columns:1fr}
 .ds-admin .subnav {position:static;flex-direction:row;overflow-x:auto}
@@ -2312,4 +2320,12 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
 @media (prefers-reduced-motion: reduce) {
   .gl-reveal { opacity: 1; transform: none; transition: none; }
   .gl-logo, .gl-orb { animation: none; }
+}
+
+/* Print: receipt-only (Download PDF on the wallet receipt page) */
+@media print {
+  body * { visibility: hidden; }
+  .ds-member .receipt, .ds-member .receipt * { visibility: visible; }
+  .ds-member .receipt { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; }
+  .no-print, .ds-member .tabbar, .ds-member .mhead { display: none !important; }
 }

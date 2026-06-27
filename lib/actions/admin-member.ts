@@ -6,6 +6,7 @@ import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 import { splitName } from '@/lib/format';
+import { extendDate } from '@/lib/plan-duration';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type ActionState = { ok: boolean; error: string | null; message?: string };
@@ -34,8 +35,8 @@ async function ctx(memberId: string) {
 
 // Extend the member's latest subscription by the plan duration (or create one).
 async function extendSubscription(supabase: SupabaseClient, gymId: string, memberId: string, planId: string) {
-  const { data: plan } = await supabase.from('membership_plans').select('duration_months').eq('id', planId).maybeSingle();
-  const months = Number(plan?.duration_months ?? 1) || 1;
+  const { data: plan } = await supabase.from('membership_plans').select('duration_days, duration_months').eq('id', planId).maybeSingle();
+  const dur = { duration_days: plan?.duration_days ?? null, duration_months: plan?.duration_months ?? null };
   const { data: sub } = await supabase
     .from('member_subscriptions').select('id, end_date')
     .eq('gym_id', gymId).eq('member_id', memberId)
@@ -46,12 +47,12 @@ async function extendSubscription(supabase: SupabaseClient, gymId: string, membe
 
   if (sub) {
     const base = sub.end_date && new Date(sub.end_date) > today ? new Date(sub.end_date) : today;
-    const end = new Date(base); end.setMonth(end.getMonth() + months);
+    const end = extendDate(base, dur);
     const { error } = await supabase.from('member_subscriptions')
       .update({ end_date: iso(end), status: 'active', plan_id: planId }).eq('id', sub.id);
     if (error) throw new Error(error.message);
   } else {
-    const end = new Date(today); end.setMonth(end.getMonth() + months);
+    const end = extendDate(today, dur);
     const { error } = await supabase.from('member_subscriptions')
       .insert({ gym_id: gymId, member_id: memberId, plan_id: planId, start_date: iso(today), end_date: iso(end), status: 'active' });
     if (error) throw new Error(error.message);

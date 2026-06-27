@@ -93,6 +93,43 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
   }
 }
 
+// Save the gym's weekly business hours (owner/manager via gyms RLS on the same
+// gym). The form posts open/close/closed for each day 0..6; we replace the gym's
+// rows wholesale (delete + insert) so there's no dependency on a unique
+// constraint and removed days simply disappear.
+export async function saveBusinessHours(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  type Row = { gym_id: string; day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean };
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const rows: Row[] = [];
+    for (let d = 0; d <= 6; d++) {
+      const closed = formData.get(`closed_${d}`) === 'on';
+      const open = String(formData.get(`open_${d}`) ?? '').trim();
+      const close = String(formData.get(`close_${d}`) ?? '').trim();
+      if (!closed && (!open || !close)) {
+        return { ok: false, error: `Set both open and close times for day ${d}, or mark it closed.` };
+      }
+      rows.push({
+        gym_id: gym.id,
+        day_of_week: d,
+        open_time: closed ? null : open,
+        close_time: closed ? null : close,
+        is_closed: closed,
+      });
+    }
+    const { error: delErr } = await supabase.from('business_hours').delete().eq('gym_id', gym.id);
+    if (delErr) return { ok: false, error: delErr.message };
+    const { error: insErr } = await supabase.from('business_hours').insert(rows);
+    if (insErr) return { ok: false, error: insErr.message };
+    logAudit({ action: 'business_hours_updated', table: 'business_hours', actorId: user.id, gymId: gym.id, recordId: gym.id });
+    revalidatePath('/admin/settings');
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 // Upload a gym logo to the gym-assets bucket and save its public URL. The
 // storage RLS requires the path's first segment to be the gym id.
 export async function uploadLogo(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {

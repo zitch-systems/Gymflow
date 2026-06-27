@@ -30,11 +30,14 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
     // of date/status, so a prior (possibly cancelled) row already exists for repeat
     // bookings. Look it up by that key and re-activate it rather than inserting a dup.
     const { data: existing } = await supabase
-      .from('class_bookings').select('id, status')
+      .from('class_bookings').select('id, status, booking_date')
       .eq('gym_id', gym.id).eq('class_schedule_id', scheduleId).eq('member_id', user.id)
       .maybeSingle();
-    if (existing && existing.status !== 'cancelled' && existing.status !== 'no_show') {
-      return { ok: true, error: null }; // already booked
+    // Only an active booking for this (upcoming) occurrence is "already booked".
+    // A terminal historical row — attended / no_show / cancelled, or a booked row
+    // for a past date — falls through and gets re-activated for the next date.
+    if (existing && existing.status === 'booked' && (existing.booking_date ?? '') >= bookingDate) {
+      return { ok: true, error: null }; // already booked for this occurrence
     }
 
     const { error } = existing

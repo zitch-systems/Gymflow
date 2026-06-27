@@ -18,14 +18,15 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
   const supabase = await createClient();
   const { data: allGyms } = await supabase
     .from('gyms')
-    .select('id, name, slug, city, status, subscription_plan')
+    .select('id, name, slug, city, status, subscription_status, subscription_plan')
     .order('created_at', { ascending: false })
     .limit(limit);
 
   const needle = q.trim().toLowerCase();
   const gyms = (allGyms ?? []).filter((g) => {
-    // null status reads as "active", matching the page's KPI counting.
-    const bucket = g.status ?? 'active';
+    // Filter/badge on subscription_status (active/trial/past_due/cancelled);
+    // null reads as "trial", matching the KPI counting on the gyms/overview pages.
+    const bucket = g.subscription_status ?? 'trial';
     if (status !== 'all' && bucket !== status) return false;
     if (needle && !`${g.name} ${g.slug} ${g.city ?? ''}`.toLowerCase().includes(needle)) return false;
     return true;
@@ -49,7 +50,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
       <thead><tr><th>Gym</th><th>Plan</th><th>Members</th><th>Status</th><th style={{ textAlign: 'right' }}>Subdomain</th></tr></thead>
       <tbody>
         {gyms.map((g, i) => {
-          const st = STATUS[g.status ?? 'active'] ?? ['gf-badge-success', g.status ?? 'Active'];
+          const st = STATUS[g.subscription_status ?? 'trial'] ?? ['gf-badge-success', g.subscription_status ?? 'Active'];
           return (
             <tr key={g.id}>
               <td>
