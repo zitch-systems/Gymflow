@@ -1850,6 +1850,13 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .gym-switcher { position:relative; display:flex; align-items:center; gap:6px; margin-top:8px; padding:0 8px; border-radius:var(--gf-radius-sm); background:var(--gf-elevated); border:1px solid var(--gf-border); color:var(--gf-text-muted); }
 .ds-admin .gym-switcher select { flex:1; appearance:none; -webkit-appearance:none; background:transparent; border:0; padding:8px 4px; font:inherit; font-size:0.78rem; font-weight:600; color:var(--gf-text); cursor:pointer; }
 .ds-admin .gym-switcher select:focus-visible { outline:2px solid var(--gf-brand); outline-offset:2px; border-radius:4px; }
+/* Inline per-gym commission editor in the superadmin gym table. */
+.ds-admin .commission-edit { display:inline-flex; align-items:center; gap:2px; }
+.ds-admin .commission-edit input { width:48px; padding:4px 6px; font:inherit; font-size:0.8rem; text-align:right; border:1px solid var(--gf-border); border-radius:6px; background:var(--gf-surface); color:var(--gf-text); }
+.ds-admin .commission-edit input:focus-visible { outline:2px solid var(--gf-brand); outline-offset:1px; }
+.ds-admin .commission-edit .pct { color:var(--gf-text-muted); font-size:0.8rem; }
+.ds-admin .commission-edit .save { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; margin-left:4px; border:0; border-radius:6px; background:var(--gf-brand-soft); color:var(--gf-brand); cursor:pointer; }
+.ds-admin .commission-edit .save:disabled { opacity:0.5; cursor:default; }
 .ds-admin .sb-role small { color:var(--gf-text-muted); font-size:0.66rem; display:block; }
 .ds-admin .sb-role strong { font-family:var(--gf-font-display); font-size:0.85rem; }
 .ds-admin .hdr { margin-bottom:22px; }

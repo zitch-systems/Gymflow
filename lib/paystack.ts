@@ -151,6 +151,25 @@ export async function createSubaccount(params: {
   }
 }
 
+// Update an existing subaccount's commission. Paystack locks percentage_charge
+// at creation, so changing a gym's commission after the fact needs this PUT —
+// without it, edits would only ever touch our DB and not the live split.
+export async function updateSubaccountCommission(subaccountCode: string, percentageCharge: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/subaccount/${encodeURIComponent(subaccountCode)}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ percentage_charge: percentageCharge }),
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Subaccount update failed' };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export type Bank = { name: string; code: string };
 
 // List Nigerian banks/fintechs for the payout dropdown. Paginates via Paystack's
