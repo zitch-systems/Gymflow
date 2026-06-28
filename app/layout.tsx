@@ -27,8 +27,8 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: 'GymFlow', images: ['/images/og.png'] },
   // Installable PWA ("add to home screen") — manifest served by app/manifest.ts.
   // Favicon + touch icon come from app/icon.svg and app/apple-icon.png (file
-  // conventions); PWA icons live in app/manifest.ts. No service worker by design
-  // (public/sw.js is a kill-switch for an old one).
+  // conventions); PWA icons live in app/manifest.ts. Service worker is
+  // public/sw.js, registered at runtime by components/pwa-register.tsx.
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GymFlow' },
 };
 

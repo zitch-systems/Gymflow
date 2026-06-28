@@ -1,9 +1,9 @@
 import type { MetadataRoute } from 'next';
 
 // Web app manifest — makes the member app installable ("add to home screen",
-// as the marketing pages promise). Deliberately NO service worker: public/sw.js
-// is a kill-switch for an older broken worker, and installability does not
-// require one. Members install from /dashboard, so that's the start URL.
+// as the marketing pages promise). The active service worker lives in
+// public/sw.js and is registered by components/pwa-register.tsx.
+// Members install from /dashboard, so that's the start URL.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'GymFlow',

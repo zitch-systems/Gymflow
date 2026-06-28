@@ -60,9 +60,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const page = await loadGymPage(slug);
   if (!page) return { title: 'Gym not found' };
+  const { gym } = page;
+  const title = `${gym.name} — Members`;
+  const description = gym.tagline || gym.description || `Sign in or join ${gym.name}. Check in, book classes and manage your membership.`;
+  const images = gym.hero_image_url ? [{ url: gym.hero_image_url, alt: gym.name }] : [];
   return {
-    title: `${page.gym.name} — Members`,
-    description: page.gym.tagline || page.gym.description || `Sign in or join ${page.gym.name}. Check in, book classes and manage your membership.`,
+    title,
+    description,
+    openGraph: { title, description, type: 'website', images },
+    twitter: { card: images.length ? 'summary_large_image' : 'summary', title, description, images },
   };
 }
 

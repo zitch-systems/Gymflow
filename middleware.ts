@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
-    '/login', '/signup', '/forgot-password', '/reset-password',
+    '/login', '/signup', '/forgot-password', '/reset-password', '/auth/confirm',
     '/launch',
     '/dashboard/:path*',
     '/checkin', '/classes',

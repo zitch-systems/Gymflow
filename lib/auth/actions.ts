@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { provisionOwner } from '@/lib/provision';
+import { validatePassword } from '@/lib/auth/password';
 
 // `code` lets the client react to specific failures (e.g. offer a resend
 // button when the email is unconfirmed) without string-matching messages.
@@ -54,7 +55,8 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   const gymName = String(formData.get('gym') ?? '').trim();
   if (!gymName) return { error: 'Enter your gym’s name.' };
   if (!email || !password) return { error: 'Enter your email and password.' };
-  if (password.length < 8) return { error: 'Password must be at least 8 characters.' };
+  const pwErr = validatePassword(password);
+  if (pwErr) return { error: pwErr };
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -126,7 +128,7 @@ export async function requestPasswordReset(_prev: AuthState, formData: FormData)
   if (!email) return { error: 'Enter your email.' };
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/reset-password`,
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/auth/confirm?next=/reset-password`,
   });
   if (error) return { error: error.message };
   return { error: null };
@@ -134,7 +136,8 @@ export async function requestPasswordReset(_prev: AuthState, formData: FormData)
 
 export async function updatePassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const password = String(formData.get('password') ?? '');
-  if (password.length < 8) return { error: 'Password must be at least 8 characters.' };
+  const pwErr = validatePassword(password);
+  if (pwErr) return { error: pwErr };
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };

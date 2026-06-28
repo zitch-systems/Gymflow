@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { splitName } from '@/lib/format';
+import { validatePassword } from '@/lib/auth/password';
 
 export type JoinState = { error: string | null };
 
@@ -58,7 +59,8 @@ export async function joinAsNew(_prev: JoinState, formData: FormData): Promise<J
   if (!slug) return { error: 'Missing gym link — ask your gym for a fresh invite.' };
   if (!fullName) return { error: 'Enter your name.' };
   if (!email || !password) return { error: 'Enter your email and password.' };
-  if (password.length < 8) return { error: 'Password must be at least 8 characters.' };
+  const pwErr = validatePassword(password);
+  if (pwErr) return { error: pwErr };
 
   const gym = await gymBySlug(slug);
   if (!gym) return { error: 'This invite link isn’t valid — ask your gym for a fresh one.' };
