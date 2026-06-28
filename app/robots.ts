@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin', '/coach', '/superadmin', '/dashboard', '/checkin', '/classes', '/launch', '/api', '/join'],
+      disallow: ['/admin', '/coach', '/superadmin', '/dashboard', '/checkin', '/classes', '/launch', '/api', '/join', '/login', '/signup', '/forgot-password', '/reset-password', '/billing', '/offline'],
     },
     sitemap: `${SITE}/sitemap.xml`,
   };

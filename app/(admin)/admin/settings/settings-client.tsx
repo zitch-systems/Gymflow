@@ -55,9 +55,9 @@ export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProf
           {NAV.map((n) => {
             const Icon = n.icon;
             return (
-              <a key={n.id} className={sec === n.id ? 'on' : undefined} onClick={() => setSec(n.id)} role="button" tabIndex={0}>
+              <button type="button" key={n.id} className={sec === n.id ? 'on' : undefined} onClick={() => setSec(n.id)} aria-current={sec === n.id ? 'true' : undefined}>
                 <Icon strokeWidth={1.75} /> {n.label}
-              </a>
+              </button>
             );
           })}
         </nav>

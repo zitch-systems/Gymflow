@@ -104,7 +104,7 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
           <ThemeToggle />
           <Link href="/admin/members" className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></Link>
         </header>
-        <main className="content">{children}</main>
+        <main id="main-content" className="content">{children}</main>
       </div>
     </div>
   );

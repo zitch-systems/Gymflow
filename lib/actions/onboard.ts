@@ -42,16 +42,31 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
 
   // Owner account (optional): create the auth user + profile + owner staff link.
   if (ownerEmail) {
-    const { data: created, error: authErr } = await admin.auth.admin.createUser({
-      email: ownerEmail,
-      email_confirm: true,
-      user_metadata: { full_name: ownerName, gym_id: gym.id },
-    });
-    if (authErr) return { ok: true, error: null, message: `Gym created, but owner invite failed: ${authErr.message}` };
-    const uid = created.user.id;
-    // full_name is GENERATED in the live DB — write the split parts instead.
-    await admin.from('profiles').upsert({ id: uid, email: ownerEmail, ...splitName(ownerName), role: 'owner', gym_id: gym.id });
-    await admin.from('gym_staff_links').insert({ user_id: uid, gym_id: gym.id, role: 'gym_owner', is_active: true });
+    // SECURITY: if the email already maps to an account, do NOT createUser again
+    // (it errors) and do NOT rewrite that account's existing profile role/gym
+    // (service-role write that would silently repoint an existing user into this
+    // new gym as 'owner'). Only attach the owner staff link for a pre-existing
+    // account; mint a profile only for a brand-new one.
+    const { data: existing } = await admin.from('profiles').select('id, gym_id').eq('email', ownerEmail).maybeSingle();
+    let uid: string | null = null;
+    if (existing) {
+      const existingGym = (existing as { gym_id: string | null }).gym_id;
+      if (existingGym && existingGym !== gym.id) {
+        return { ok: true, error: null, message: `${name} created, but ${ownerEmail} already belongs to another gym — link them manually.` };
+      }
+      uid = (existing as { id: string }).id;
+    } else {
+      const { data: created, error: authErr } = await admin.auth.admin.createUser({
+        email: ownerEmail,
+        email_confirm: true,
+        user_metadata: { full_name: ownerName, gym_id: gym.id },
+      });
+      if (authErr || !created?.user) return { ok: true, error: null, message: `Gym created, but owner invite failed: ${authErr?.message ?? 'unknown error'}` };
+      uid = created.user.id;
+      // full_name is GENERATED in the live DB — write the split parts instead.
+      await admin.from('profiles').upsert({ id: uid, email: ownerEmail, ...splitName(ownerName), role: 'owner', gym_id: gym.id });
+    }
+    if (uid) await admin.from('gym_staff_links').upsert({ user_id: uid, gym_id: gym.id, role: 'gym_owner', is_active: true }, { onConflict: 'user_id,gym_id' });
   }
 
   logAudit({ action: 'gym_provisioned', table: 'gyms', actorId: actor.id, gymId: gym.id, recordId: gym.id, values: { name, slug, plan, ownerEmail: ownerEmail || null } });

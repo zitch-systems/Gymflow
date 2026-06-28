@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { watNow } from '@/lib/format';
 
 export type BookState = { ok: boolean; error: string | null; message?: string; waitlisted?: boolean };
 
@@ -19,14 +20,19 @@ function adminOrNull() {
 // If the slot falls today but its start time has already passed, roll to next
 // week so we never book a session that already happened.
 function nextDateForDow(dow: number, startTime?: string | null): string {
-  const d = new Date(); d.setHours(0, 0, 0, 0);
-  let diff = (((dow - d.getDay()) % 7) + 7) % 7;
+  // Anchor to WAT wall-clock (getUTC* on a +1h-shifted Date) so the booking date
+  // matches the member's local calendar day, not the UTC server day. Using local
+  // server time would book the wrong date for late-evening WAT bookings.
+  const now = watNow();
+  const d = new Date(now); d.setUTCHours(0, 0, 0, 0);
+  let diff = (((dow - d.getUTCDay()) % 7) + 7) % 7;
   if (diff === 0 && startTime) {
     const [h, m] = startTime.split(':').map(Number);
-    const start = new Date(); start.setHours(h || 0, m || 0, 0, 0);
-    if (start.getTime() <= Date.now()) diff = 7;
+    const startMins = (h || 0) * 60 + (m || 0);
+    const nowMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+    if (startMins <= nowMins) diff = 7;
   }
-  d.setDate(d.getDate() + diff);
+  d.setUTCDate(d.getUTCDate() + diff);
   return d.toISOString().slice(0, 10);
 }
 

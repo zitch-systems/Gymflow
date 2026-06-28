@@ -5,6 +5,9 @@ import { initialsOf } from '@/lib/format';
 // See app/(admin)/layout.tsx — headroom for a resuming Supabase project.
 export const maxDuration = 60;
 
+// Authenticated instructor portal — keep out of search indexes.
+export const metadata = { robots: { index: false, follow: false } };
+
 // Instructor portal shell. requireInstructor() gates the group (instructor /
 // manager / gym_owner). Reuses the .ds-admin namespace + instructor widgets.
 export default async function CoachLayout({ children }: { children: React.ReactNode }) {

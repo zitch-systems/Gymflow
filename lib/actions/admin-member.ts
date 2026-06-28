@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 import { splitName } from '@/lib/format';
 import { extendDate } from '@/lib/plan-duration';
+import { watDateISO, watDayStartUtc } from '@/lib/format';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type ActionState = { ok: boolean; error: string | null; message?: string };
@@ -35,11 +36,18 @@ async function ctx(memberId: string) {
 
 // Extend the member's latest subscription by the plan duration (or create one).
 async function extendSubscription(supabase: SupabaseClient, gymId: string, memberId: string, planId: string) {
-  const { data: plan } = await supabase.from('membership_plans').select('duration_days, duration_months').eq('id', planId).maybeSingle();
+  // Scope the plan to THIS gym — never trust a plan_id from the form to belong
+  // to the caller's gym. A foreign plan id would otherwise leak another gym's
+  // plan duration into this member's subscription.
+  const { data: plan } = await supabase.from('membership_plans').select('duration_days, duration_months').eq('id', planId).eq('gym_id', gymId).maybeSingle();
+  if (!plan) throw new Error('Plan not found in this gym.');
   const dur = { duration_days: plan?.duration_days ?? null, duration_months: plan?.duration_months ?? null };
+  // Extend the latest ACTIVE sub only (mirrors the Paystack path in
+  // paystack-fulfill.ts). Without the status filter a later-dated cancelled/
+  // expired row could be picked and silently reactivated.
   const { data: sub } = await supabase
     .from('member_subscriptions').select('id, end_date')
-    .eq('gym_id', gymId).eq('member_id', memberId)
+    .eq('gym_id', gymId).eq('member_id', memberId).eq('status', 'active')
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
 
   const today = new Date();
@@ -64,6 +72,17 @@ export async function manualCheckIn(_prev: ActionState, formData: FormData): Pro
   try {
     const { gymId, supabase, isActive } = await ctx(memberId);
     if (!isActive) return { ok: false, error: 'This member is suspended. Reactivate them before checking in.' };
+    // De-dupe same-day (WAT) check-ins so a self + front-desk check-in (or a
+    // double tap) doesn't inflate visit counts — mirrors selfCheckIn.
+    const { data: already } = await supabase.from('check_ins').select('id')
+      .eq('member_id', memberId).eq('gym_id', gymId)
+      .gte('checked_in_at', watDayStartUtc(watDateISO()))
+      .limit(1).maybeSingle();
+    if (already) {
+      revalidatePath(`/admin/members/${memberId}`);
+      revalidatePath('/admin/staff-checkin');
+      return { ok: true, error: null, message: 'Already checked in today.' };
+    }
     const { error } = await supabase.from('check_ins').insert({
       gym_id: gymId, member_id: memberId,
       checked_in_at: new Date().toISOString(), status: 'active', check_in_method: 'front_desk',
@@ -90,7 +109,7 @@ export async function recordPayment(_prev: ActionState, formData: FormData): Pro
     const { error } = await supabase.from('payments').insert({
       gym_id: gymId, member_id: memberId, plan_id: planId, amount, currency: 'NGN',
       payment_method: method, status: 'success', payment_status: 'successful',
-      payment_date: new Date().toISOString(), paystack_reference: `MANUAL-${Date.now()}`,
+      payment_date: new Date().toISOString(), paystack_reference: `MANUAL-${Date.now()}-${(globalThis.crypto as Crypto).randomUUID()}`,
     });
     if (error) return { ok: false, error: error.message };
     if (extend && planId) await extendSubscription(supabase, gymId, memberId, planId);

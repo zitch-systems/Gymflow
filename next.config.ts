@@ -8,6 +8,13 @@ const config: NextConfig = {
   // Tree-shake lucide-react per-route so pages only ship the icons they use.
   experimental: { optimizePackageImports: ['lucide-react'] },
 
+  // Serve modern formats and allow optimizing the per-gym images hosted on
+  // Supabase storage (gym logos / hero / equipment photos).
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    remotePatterns: [{ protocol: 'https', hostname: '*.supabase.co' }],
+  },
+
   // Baseline security headers applied to every response. Deliberately no strict
   // Content-Security-Policy yet — the design system leans heavily on inline
   // styles, so a CSP needs nonce wiring + testing before it can be turned on

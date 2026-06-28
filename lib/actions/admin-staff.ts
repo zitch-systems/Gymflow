@@ -50,9 +50,21 @@ export async function inviteStaff(_prev: StaffState, formData: FormData): Promis
   // password the owner can share.
   let uid: string | null = null;
   let pwd: string | undefined;
-  const { data: existing } = await admin.from('profiles').select('id').eq('email', email).maybeSingle();
+  const { data: existing } = await admin.from('profiles').select('id, gym_id').eq('email', email).maybeSingle();
   if (existing) {
     uid = (existing as { id: string }).id;
+    // SECURITY: never rewrite an existing account's profile (role/gym_id) from
+    // here. This runs with the service-role client (RLS bypassed), so an
+    // owner/manager could otherwise enter ANY existing user's email and hijack
+    // their profile — repointing their gym or downgrading their role. Access on
+    // the admin surface is granted by the gym_staff_links row below, not by
+    // profiles.role/gym_id, so the link alone is sufficient and safe. Refuse if
+    // the account already belongs to a DIFFERENT gym to avoid cross-tenant link
+    // attachment without the other gym's involvement.
+    const existingGym = (existing as { gym_id: string | null }).gym_id;
+    if (existingGym && existingGym !== gymId) {
+      return { ok: false, error: 'That email already belongs to another gym’s account. Ask them to leave it first, or use a different email.' };
+    }
   } else {
     pwd = tempPassword();
     const { data: created, error: authErr } = await admin.auth.admin.createUser({
@@ -60,12 +72,12 @@ export async function inviteStaff(_prev: StaffState, formData: FormData): Promis
     });
     if (authErr || !created?.user) return { ok: false, error: authErr?.message ?? 'Could not create the staff account.' };
     uid = created.user.id;
+    // Profile (role + gym) — only for the brand-new account we just minted.
+    // full_name is GENERATED in the DB — write split parts.
+    const { error: pErr } = await admin.from('profiles').upsert({ id: uid, email, ...splitName(fullName), role: PROFILE_ROLE[role], gym_id: gymId });
+    if (pErr) return { ok: false, error: pErr.message };
   }
   if (!uid) return { ok: false, error: 'Could not resolve the staff account.' };
-
-  // Profile (role + gym). full_name is GENERATED in the DB — write split parts.
-  const { error: pErr } = await admin.from('profiles').upsert({ id: uid, email, ...splitName(fullName), role: PROFILE_ROLE[role], gym_id: gymId });
-  if (pErr) return { ok: false, error: pErr.message };
 
   // Staff link — idempotent (reactivate/repoint if it already exists).
   const { data: link } = await admin.from('gym_staff_links').select('id').eq('user_id', uid).eq('gym_id', gymId).maybeSingle();
