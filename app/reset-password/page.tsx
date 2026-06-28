@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
           {!done ? (
             <>
               <h1>Set a new password</h1>
-              <p className="lede">Resetting for <span className="em">adunni@powerhouse.ng</span>. Choose something strong you&apos;ll remember.</p>
+              <p className="lede">Enter a new password below. Use something strong you&apos;ll remember.</p>
 
               <form action={handle}>
                 <div className="field gf-form-group">

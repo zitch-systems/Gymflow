@@ -10,7 +10,9 @@ type Plan = { id: string; name: string | null };
 
 function csvCell(v: unknown): string {
   const s = v == null ? '' : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  // Prefix formula-injection characters so spreadsheet apps don't execute them.
+  const safe = /^[=+\-@\t\r]/.test(s) ? `\t${s}` : s;
+  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 // GET /admin/members/export — CSV of the gym's members (staff only).
