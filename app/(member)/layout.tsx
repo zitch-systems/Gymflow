@@ -6,6 +6,9 @@ import { requireMember } from '@/lib/auth/dal';
 // See app/(admin)/layout.tsx — headroom for a resuming Supabase project.
 export const maxDuration = 60;
 
+// Authenticated member PWA — keep out of search indexes.
+export const metadata = { robots: { index: false, follow: false } };
+
 // Member PWA shell — the .ds-member wrapper scopes the member design system
 // and provides the mobile app frame + bottom tab bar. requireMember() gates the
 // group and resolves the gym, whose accent colour (if set) re-tints the brand
@@ -23,7 +26,7 @@ export default async function MemberLayout({ children }: { children: React.React
     : undefined;
   return (
     <div className="ds-member" style={style}>
-      {children}
+      <main id="main-content">{children}</main>
       <MemberTabBar />
       <CameraPrime />
     </div>

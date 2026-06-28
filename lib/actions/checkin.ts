@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { watDateISO, watDayStartUtc } from '@/lib/format';
 
 export type CheckinResult = { ok: true; daysLeft: number | null } | { ok: false; error: string };
 
@@ -29,8 +30,9 @@ export async function selfCheckIn(): Promise<CheckinResult> {
     return { ok: false, error: 'Your membership is suspended. Please see the front desk.' };
   }
 
-  // Require an active, non-expired subscription to check in.
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Require an active, non-expired subscription to check in. "Today" is anchored
+  // to WAT (the gym's local day), not the UTC server day.
+  const todayStr = watDateISO();
   const { data: sub } = await supabase
     .from('member_subscriptions')
     .select('end_date')
@@ -41,11 +43,11 @@ export async function selfCheckIn(): Promise<CheckinResult> {
   }
   const daysLeft = sub.end_date ? Math.max(0, Math.ceil((new Date(sub.end_date).getTime() - Date.now()) / 86_400_000)) : null;
 
-  // Already checked in today? Treat a repeat as success without a duplicate row.
+  // Already checked in today (WAT)? Treat a repeat as success without a dup row.
   const { data: existing } = await supabase
     .from('check_ins').select('id')
     .eq('member_id', user.id).eq('gym_id', gym.id)
-    .gte('checked_in_at', `${todayStr}T00:00:00.000Z`)
+    .gte('checked_in_at', watDayStartUtc(todayStr))
     .limit(1).maybeSingle();
   if (existing) { revalidatePath('/dashboard'); return { ok: true, daysLeft }; }
 

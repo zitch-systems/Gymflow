@@ -56,19 +56,25 @@ async function loadGymPage(slug: string): Promise<GymPage | null> {
   };
 }
 
+const ROOT_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const page = await loadGymPage(slug);
-  if (!page) return { title: 'Gym not found' };
+  if (!page) return { title: 'Gym not found', robots: { index: false } };
   const { gym } = page;
   const title = `${gym.name} — Members`;
   const description = gym.tagline || gym.description || `Sign in or join ${gym.name}. Check in, book classes and manage your membership.`;
-  const images = gym.hero_image_url ? [{ url: gym.hero_image_url, alt: gym.name }] : [];
+  // Point canonical at the subdomain URL — the same page is reachable at both
+  // <slug>.<root>/ and <root>/g/<slug>, which would otherwise create duplicate content.
+  const canonical = `https://${slug}.${ROOT_HOST}/`;
+  const ogImg = gym.hero_image_url || gym.logo_url || '/images/og.png';
   return {
     title,
     description,
-    openGraph: { title, description, type: 'website', images },
-    twitter: { card: images.length ? 'summary_large_image' : 'summary', title, description, images },
+    alternates: { canonical },
+    openGraph: { title: gym.name, description, type: 'website', url: canonical, images: [{ url: ogImg, alt: gym.name }] },
+    twitter: { card: 'summary_large_image', title: gym.name, description, images: [ogImg] },
   };
 }
 
@@ -98,6 +104,29 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
   } as CSSProperties;
 
   const openDays = hours.filter((h) => !h.is_closed && h.open_time);
+
+  // Local-business structured data — the gym landing is the strongest rich-result
+  // target (real local business with address, hours, contact).
+  const canonical = `https://${gym.slug}.${ROOT_HOST}/`;
+  const gymLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'HealthClub',
+    name: gym.name,
+    url: canonical,
+    image: gym.hero_image_url || gym.logo_url || undefined,
+    description: gym.description || gym.tagline || undefined,
+    telephone: gym.phone || undefined,
+    email: gym.email || undefined,
+    address: (gym.address || gym.city)
+      ? { '@type': 'PostalAddress', streetAddress: gym.address || undefined, addressLocality: gym.city || undefined, addressCountry: 'NG' }
+      : undefined,
+    openingHoursSpecification: openDays.map((h) => ({
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: DAYS[h.day_of_week],
+      opens: String(h.open_time).slice(0, 5),
+      closes: String(h.close_time ?? '').slice(0, 5),
+    })),
+  });
   const stats = [
     members > 0 ? { icon: Users, val: members >= 1000 ? `${(members / 1000).toFixed(1)}k` : String(members), lbl: members === 1 ? 'Member' : 'Members' } : null,
     classes.length > 0 ? { icon: CalendarDays, val: `${classes.length}${classes.length === 9 ? '+' : ''}`, lbl: 'Class types' } : null,
@@ -106,6 +135,7 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
 
   return (
     <main className="gymland" style={style}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: gymLd }} />
       {/* decorative backdrop: drifting orbs, outline rings, dotted grid */}
       <div className="gl-decor" aria-hidden>
         <span className="gl-orb gl-orb-1" />

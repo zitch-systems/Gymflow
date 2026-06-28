@@ -13,10 +13,10 @@ export function MarketingNav({ cur }: { cur?: 'features' | 'pricing' | 'about' |
         <span className="brand-tx">Gym<em>Flow</em></span>
       </Link>
       <div className="links">
-        <Link href="/features" className={cur === 'features' ? 'cur' : undefined}>Features</Link>
-        <Link href="/pricing" className={cur === 'pricing' ? 'cur' : undefined}>Pricing</Link>
-        <Link href="/about" className={cur === 'about' ? 'cur' : undefined}>About</Link>
-        <Link href="/contact" className={cur === 'contact' ? 'cur' : undefined}>Contact</Link>
+        <Link href="/features" aria-current={cur === 'features' ? 'page' : undefined} className={cur === 'features' ? 'cur' : undefined}>Features</Link>
+        <Link href="/pricing" aria-current={cur === 'pricing' ? 'page' : undefined} className={cur === 'pricing' ? 'cur' : undefined}>Pricing</Link>
+        <Link href="/about" aria-current={cur === 'about' ? 'page' : undefined} className={cur === 'about' ? 'cur' : undefined}>About</Link>
+        <Link href="/contact" aria-current={cur === 'contact' ? 'page' : undefined} className={cur === 'contact' ? 'cur' : undefined}>Contact</Link>
         <Link href="/login">Sign in</Link>
         <ThemeToggle size={38} />
         <Link href="/signup" className="gf-btn gf-btn-primary btnlink">Get started</Link>

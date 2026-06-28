@@ -8,6 +8,10 @@ import { initialsOf, roleLabel } from '@/lib/format';
 // resuming (auto-paused) free-tier project so it doesn't 504 the first load.
 export const maxDuration = 60;
 
+// Authenticated console — keep it out of search indexes (defence-in-depth on
+// top of the robots.txt Disallow, which is only advisory).
+export const metadata = { robots: { index: false, follow: false } };
+
 // Admin console shell — sidebar + topbar around every /admin/* route.
 // requireAdminStaff() gates the group: owner/manager/front-desk/accountant.
 // Instructors are routed to /coach (via /launch) — they must not see member

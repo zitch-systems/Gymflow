@@ -9,7 +9,9 @@ const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 function splitTime(t: string): { hm: string; ap: string } {
   const [h, m = '00'] = (t ?? '00:00').split(':');
-  const hh = parseInt(h, 10); const ap = hh < 12 ? 'AM' : 'PM'; const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  let hh = parseInt(h, 10);
+  if (Number.isNaN(hh)) hh = 0; // malformed start_time → don't render "NaN:00 PM"
+  const ap = hh < 12 ? 'AM' : 'PM'; const h12 = hh % 12 === 0 ? 12 : hh % 12;
   return { hm: `${h12}:${m.padStart(2, '0')}`, ap };
 }
 

@@ -40,7 +40,9 @@
   /* ── Text ── */
   --gf-text: #f3f3fa;
   --gf-text-secondary: #9b9bb8;
-  --gf-text-muted: #6a6a86;
+  /* Raised from #6a6a86 (3.8:1, failed WCAG AA) to ~5:1 on the dark surfaces —
+     this token labels form hints, KPI labels and table headers (required text). */
+  --gf-text-muted: #8a8aa8;
   --gf-text-subtle: #3c3c54;
 
   /* ── Semantic ── */
@@ -115,7 +117,8 @@
   --gf-border-glow: rgba(17, 209, 139, 0.12);
   --gf-text: #14121f;
   --gf-text-secondary: #55546e;
-  --gf-text-muted: #8a89a3;
+  /* Raised from #8a89a3 (3.2:1, failed WCAG AA) to ~4.6:1 on the light surfaces. */
+  --gf-text-muted: #6c6b85;
   --gf-text-subtle: #cdcde0;
   --gf-brand: #08a86c;
   --gf-brand-rgb: 8, 168, 108; /* @kind color */
@@ -465,6 +468,27 @@ body {
 
 /* Keyboard accessibility — always-visible focus ring */
 :focus-visible { outline: 2px solid var(--gf-brand); outline-offset: 2px; border-radius: 4px; }
+
+/* Skip-to-content link (WCAG 2.4.1 Bypass Blocks): visually hidden until it
+   receives keyboard focus, then pinned top-left above all chrome. Targets the
+   #main-content landmark on each surface. */
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  padding: 10px 16px;
+  margin: 8px;
+  border-radius: 8px;
+  background: var(--gf-brand);
+  color: #06121b;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-150%);
+  transition: transform 0.15s ease;
+}
+.skip-link:focus { transform: translateY(0); outline: 2px solid #fff; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .skip-link { transition: none; } }
 
 @media (prefers-reduced-motion: reduce) {
   .gf-card, .gf-btn, .gf-btn-primary { transition: none !important; transform: none !important; }
@@ -1609,11 +1633,12 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 }
 .ds-admin .set-wrap { display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start; }
 .ds-admin .subnav { position:sticky; top:88px; display:flex; flex-direction:column; gap:2px; }
-.ds-admin .subnav a { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--gf-radius-sm); color:var(--gf-text-secondary); font-family:var(--gf-font-display); font-weight:600; font-size:0.875rem; text-decoration:none; cursor:pointer; transition:all var(--gf-t); }
-.ds-admin .subnav a i { width:17px; height:17px; color:var(--gf-text-muted); }
-.ds-admin .subnav a:hover { background:var(--gf-elevated); color:var(--gf-text); }
-.ds-admin .subnav a.on { background:var(--gf-brand-soft); color:var(--gf-brand); }
-.ds-admin .subnav a.on i { color:var(--gf-brand); }
+.ds-admin .subnav a, .ds-admin .subnav button { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--gf-radius-sm); color:var(--gf-text-secondary); font-family:var(--gf-font-display); font-weight:600; font-size:0.875rem; text-decoration:none; cursor:pointer; transition:all var(--gf-t); }
+.ds-admin .subnav button { width:100%; text-align:left; background:none; border:none; }
+.ds-admin .subnav a i, .ds-admin .subnav button i { width:17px; height:17px; color:var(--gf-text-muted); }
+.ds-admin .subnav a:hover, .ds-admin .subnav button:hover { background:var(--gf-elevated); color:var(--gf-text); }
+.ds-admin .subnav a.on, .ds-admin .subnav button.on { background:var(--gf-brand-soft); color:var(--gf-brand); }
+.ds-admin .subnav a.on i, .ds-admin .subnav button.on i { color:var(--gf-brand); }
 .ds-admin .sec { display:none; }
 .ds-admin .sec.on { display:block; }
 .ds-admin .sec > .panel { margin-bottom:16px; }

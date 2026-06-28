@@ -1,16 +1,29 @@
+import { createHash, timingSafeEqual } from 'crypto';
 import { createClient as createSb } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Authorized via CRON_SECRET — Vercel Cron sends it as a Bearer token; an
-// external scheduler can pass ?secret= or the same header.
+// Constant-time compare that doesn't leak length (hash both to a fixed width
+// first) — guards the secret comparison against timing side-channels.
+function safeEqual(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a).digest();
+  const hb = createHash('sha256').update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
+
+// Authorized via CRON_SECRET — Vercel Cron sends it as a Bearer token. The
+// query-string form (?secret=) remains as a fallback for external schedulers
+// that can't set headers; prefer the header in production since query strings
+// land in access/proxy logs.
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
   const auth = req.headers.get('authorization');
-  return auth === `Bearer ${secret}` || new URL(req.url).searchParams.get('secret') === secret;
+  if (auth && safeEqual(auth, `Bearer ${secret}`)) return true;
+  const qs = new URL(req.url).searchParams.get('secret');
+  return qs != null && safeEqual(qs, secret);
 }
 
 export async function GET(req: Request) {
@@ -34,22 +47,32 @@ export async function GET(req: Request) {
       .select('id, member_id, gym_id, end_date')
       .eq('status', 'active').gte('end_date', today).lte('end_date', in3);
 
-    for (const s of subs ?? []) {
-      if (!s.member_id || !s.end_date) continue;
-      const { data: existing } = await admin.from('notifications')
-        .select('id').eq('user_id', s.member_id).eq('type', 'warning')
-        .filter('metadata->>subscription_id', 'eq', s.id)
-        .gte('created_at', cutoff).limit(1).maybeSingle();
-      if (existing) continue;
-
-      const days = Math.max(0, Math.ceil((new Date(s.end_date).getTime() - Date.now()) / 86_400_000));
-      await admin.from('notifications').insert({
-        gym_id: s.gym_id, user_id: s.member_id, type: 'warning', channel: 'in_app',
-        title: 'Membership expiring soon',
-        body: `Your membership ends in ${days} day${days === 1 ? '' : 's'}. Renew to keep training.`,
-        metadata: { kind: 'renewal_reminder', subscription_id: s.id },
-      });
-      remindersCreated++;
+    const due = (subs ?? []).filter((s) => s.member_id && s.end_date);
+    if (due.length) {
+      // Batch the dedup into ONE query (was a SELECT per subscription → N+1 that
+      // could exceed the 60s budget on large platforms), then bulk-insert.
+      const { data: dupes } = await admin.from('notifications')
+        .select('user_id, metadata->>subscription_id')
+        .eq('type', 'warning').gte('created_at', cutoff)
+        .in('user_id', due.map((s) => s.member_id as string));
+      const seen = new Set(
+        (dupes ?? []).map((d: { user_id: string | null; subscription_id?: string | null }) => `${d.user_id}:${d.subscription_id}`),
+      );
+      const rows = due
+        .filter((s) => !seen.has(`${s.member_id}:${s.id}`))
+        .map((s) => {
+          const days = Math.max(0, Math.ceil((new Date(s.end_date as string).getTime() - Date.now()) / 86_400_000));
+          return {
+            gym_id: s.gym_id, user_id: s.member_id, type: 'warning' as const, channel: 'in_app' as const,
+            title: 'Membership expiring soon',
+            body: `Your membership ends in ${days} day${days === 1 ? '' : 's'}. Renew to keep training.`,
+            metadata: { kind: 'renewal_reminder', subscription_id: s.id },
+          };
+        });
+      if (rows.length) {
+        const { error } = await admin.from('notifications').insert(rows);
+        if (!error) remindersCreated = rows.length;
+      }
     }
   }
 

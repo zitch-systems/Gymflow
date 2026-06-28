@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
@@ -8,6 +9,14 @@ import {
   Check, Star, ShieldCheck, Mail, MessageCircle, Sparkles,
 } from 'lucide-react';
 
+export const metadata: Metadata = {
+  title: 'GymFlow — Run your gym the modern way',
+  description:
+    'Check-ins, Paystack subscriptions, class booking and automated reminders — one mobile-first platform, light enough to fly on Nigerian networks.',
+  alternates: { canonical: '/' },
+  openGraph: { url: '/', title: 'GymFlow — Run your gym the modern way' },
+};
+
 // Marketing landing — recreates revamp/marketing.html in Next.js.
 // Hero (photo-led), trust strip, features (6), how-it-works (3 steps),
 // gallery (4 photos), pricing (3 tiers — Most popular middle), testimonials,
@@ -17,6 +26,7 @@ export default function MarketingHome() {
     <>
       <MarketingNav />
 
+      <main id="main-content">
       {/* ── Hero ── */}
       <header className="hero">
         <div
@@ -230,6 +240,7 @@ export default function MarketingHome() {
           </div>
         </div>
       </section>
+      </main>
 
       <MarketingFooter />
     </>

@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { fulfillCharge } from '@/lib/paystack-fulfill';
 import { isPlatformEvent, handlePlatformEvent } from '@/lib/platform-fulfill';
@@ -18,7 +18,12 @@ export async function POST(req: NextRequest) {
   const raw = await req.text();
   const signature = req.headers.get('x-paystack-signature') ?? '';
   const expected = createHmac('sha512', secret).update(raw).digest('hex');
-  if (signature !== expected) return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
+  // Constant-time compare to avoid leaking the signature byte-by-byte via timing.
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+    return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
+  }
 
   const event = JSON.parse(raw);
 

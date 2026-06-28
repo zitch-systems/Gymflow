@@ -84,7 +84,7 @@ export function SuperShell({ children, userName, userEmail, userInitial }: {
           <ThemeToggle />
           <span className="pill-plat"><Globe size={12} strokeWidth={2} /> Superadmin</span>
         </header>
-        <main className="content">{children}</main>
+        <main id="main-content" className="content">{children}</main>
       </div>
     </div>
   );

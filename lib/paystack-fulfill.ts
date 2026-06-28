@@ -37,6 +37,26 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const { data: existing } = await admin.from('payments').select('id').eq('paystack_reference', d.reference).maybeSingle();
   if (existing) return { ok: true, created: false };
 
+  // SECURITY: the duration above is read from charge metadata, which a member
+  // who crafts their own Paystack transaction can set freely (e.g. pay ₦100 but
+  // claim duration_months=36). When the metadata names a real plan in this gym,
+  // the plan's OWN duration is authoritative — derive it from the DB so a
+  // tampered metadata duration can't over-extend. We do NOT reject on amount
+  // mismatch (a legitimate price change between checkout init and fulfilment
+  // would otherwise strand a real, paid charge); the duration is what matters.
+  let planMonths = months;
+  let planDays = durationDays;
+  if (planId) {
+    const { data: plan } = await admin.from('membership_plans')
+      .select('duration_days, duration_months').eq('id', planId).eq('gym_id', gymId).maybeSingle();
+    if (plan) {
+      const pm = Math.floor(Number(plan.duration_months ?? 0));
+      const pd = plan.duration_days != null ? Math.floor(Number(plan.duration_days)) : 0;
+      planDays = Number.isFinite(pd) && pd > 0 ? Math.min(pd, 366) : null;
+      planMonths = planDays ? 0 : (Number.isFinite(pm) && pm > 0 ? Math.min(pm, 36) : 1);
+    }
+  }
+
   const { error: payErr } = await admin.from('payments').insert({
     member_id: memberId, gym_id: gymId, plan_id: planId,
     amount: d.amountKobo / 100, currency: 'NGN',
@@ -57,7 +77,7 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
     .select('id, end_date').eq('member_id', memberId).eq('gym_id', gymId).eq('status', 'active')
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
   const base = sub?.end_date && new Date(sub.end_date) > new Date() ? new Date(sub.end_date) : new Date();
-  const newEnd = extendDate(base, { duration_days: durationDays, duration_months: months });
+  const newEnd = extendDate(base, { duration_days: planDays, duration_months: planMonths });
   const endIso = newEnd.toISOString().slice(0, 10);
   const { error: subErr } = sub
     ? await admin.from('member_subscriptions').update({ end_date: endIso, plan_id: planId ?? undefined, updated_at: new Date().toISOString() }).eq('id', sub.id)

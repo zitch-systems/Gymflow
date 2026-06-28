@@ -14,6 +14,30 @@ export function fmtDateTime(iso: string | null | undefined): string {
   return new Date(iso).toLocaleString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+// ── Time zone ──────────────────────────────────────────────────────────────
+// The platform operates in Nigeria (WAT = UTC+1, no DST), but the server runtime
+// is UTC. Deriving a calendar day with `toISOString().slice(0,10)` therefore
+// mis-buckets any activity between 00:00–01:00 WAT onto the previous day — wrong
+// for "today" gates (check-in de-dupe, subscription expiry, booking dates). These
+// helpers anchor day boundaries to WAT.
+const WAT_OFFSET_MS = 60 * 60 * 1000;
+
+// "Now" as a Date whose UTC getters (getUTCDay/Hours/…) read WAT wall-clock.
+export function watNow(): Date {
+  return new Date(Date.now() + WAT_OFFSET_MS);
+}
+
+// Calendar date (YYYY-MM-DD) in WAT for a given instant (defaults to now).
+export function watDateISO(instant: Date = new Date()): string {
+  return new Date(instant.getTime() + WAT_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+// The UTC instant of WAT midnight for a WAT calendar date (YYYY-MM-DD) — use as
+// a lower bound when filtering UTC timestamps by "since the start of today (WAT)".
+export function watDayStartUtc(watDate: string): string {
+  return new Date(`${watDate}T00:00:00+01:00`).toISOString();
+}
+
 // Whole days from now until `iso` (clamped at 0).
 export function daysLeft(iso: string | null | undefined): number {
   if (!iso) return 0;

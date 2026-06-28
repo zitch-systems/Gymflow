@@ -80,7 +80,7 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
           <ThemeToggle />
           <Link href="/coach/settings" className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></Link>
         </header>
-        <main className="content">{children}</main>
+        <main id="main-content" className="content">{children}</main>
       </div>
     </div>
   );
