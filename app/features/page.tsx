@@ -9,6 +9,12 @@ import {
 export const metadata = {
   title: 'Features',
   description: 'Everything to run a modern gym — members, payments, classes and operations in one mobile-first platform.',
+  alternates: { canonical: '/features' },
+  openGraph: {
+    title: 'Features · GymFlow',
+    description: 'Everything to run a modern gym — members, payments, classes and operations in one mobile-first platform.',
+    url: '/features',
+  },
 };
 
 type Item = { icon: React.ReactNode; title: string; body: string };
@@ -66,6 +72,7 @@ export default function FeaturesPage() {
     <>
       <MarketingNav cur="features" />
 
+      <main id="main-content">
       <header className="head">
         <div className="wrap">
           <span className="eyebrow"><Sparkles strokeWidth={1.75} style={{ width: 14, height: 14 }} /> Built for the day-to-day</span>
@@ -111,6 +118,8 @@ export default function FeaturesPage() {
           </div>
         </div>
       </div>
+
+      </main>
 
       <MarketingFooter />
     </>

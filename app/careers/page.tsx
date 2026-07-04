@@ -5,6 +5,12 @@ import { Sparkles, Globe, TrendingUp, HeartPulse, BookOpen, ArrowRight } from 'l
 export const metadata = {
   title: 'Careers',
   description: 'Help us build the future of fitness in Africa. Remote-friendly, Lagos-based, real ownership.',
+  alternates: { canonical: '/careers' },
+  openGraph: {
+    title: 'Careers · GymFlow',
+    description: 'Help us build the future of fitness in Africa. Remote-friendly, Lagos-based, real ownership.',
+    url: '/careers',
+  },
 };
 
 const PERKS = [
@@ -27,6 +33,7 @@ export default function CareersPage() {
     <>
       <MarketingNav />
 
+      <main id="main-content">
       <header className="phero">
         <div className="wrap">
           <span className="eyebrow"><Sparkles strokeWidth={1.75} style={{ width: 14, height: 14 }} /> Careers</span>
@@ -83,6 +90,8 @@ export default function CareersPage() {
           </div>
         </div>
       </section>
+
+      </main>
 
       <MarketingFooter />
     </>

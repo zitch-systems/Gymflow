@@ -5,6 +5,12 @@ import { Check, Wallet } from 'lucide-react';
 export const metadata = {
   title: 'Pricing',
   description: 'Simple, Naira pricing. Cancel anytime, no setup fees, unlimited members on every plan.',
+  alternates: { canonical: '/pricing' },
+  openGraph: {
+    title: 'Pricing · GymFlow',
+    description: 'Simple, Naira pricing. Cancel anytime, no setup fees, unlimited members on every plan.',
+    url: '/pricing',
+  },
 };
 
 const TIERS = [
@@ -30,6 +36,7 @@ export default function PricingPage() {
     <>
       <MarketingNav cur="pricing" />
 
+      <main id="main-content">
       <header className="phero">
         <div className="wrap">
           <span className="eyebrow"><Wallet strokeWidth={1.75} style={{ width: 14, height: 14 }} /> Pricing</span>
@@ -72,6 +79,8 @@ export default function PricingPage() {
           </div>
         </div>
       </section>
+
+      </main>
 
       <MarketingFooter />
     </>
