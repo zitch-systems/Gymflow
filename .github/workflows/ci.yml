@@ -11,8 +11,22 @@ concurrency:
 
 jobs:
   verify:
-    name: lint · type-check · build
+    name: lint · type-check · test · build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +43,14 @@ jobs:
 
       - name: Type-check
         run: npm run type-check
+
+      - name: Test (RLS + tenant isolation)
+        run: npm test
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
 
       - name: Build
         run: npm run build
