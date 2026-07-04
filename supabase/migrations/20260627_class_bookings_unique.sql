@@ -14,7 +14,7 @@ where id in (
     select id,
            row_number() over (
              partition by gym_id, class_schedule_id, member_id
-             order by coalesce(booked_at, created_at) desc nulls last, id desc
+             order by booked_at desc nulls last, id desc
            ) as rn
     from public.class_bookings
     where gym_id is not null and class_schedule_id is not null and member_id is not null

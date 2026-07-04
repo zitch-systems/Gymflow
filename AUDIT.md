@@ -42,6 +42,8 @@ The audit found **no remotely-exploitable critical vulnerability**, but did surf
 - **Deploy:** Vercel (`vercel.json`), Vercel Cron, security headers + HSTS in `next.config.ts`.
 
 > **Architecture risk (documented, not code-fixable here):** the **base schema + core RLS policies are not in version control** — only incremental migrations are. A DR/staging rebuild from this repo would come up with RLS effectively off on the core tables. **Recommendation:** check in a `supabase db dump` baseline and add a CI `db diff` gate. This is the single most important follow-up.
+>
+> **Update (2026-07-04):** the baseline is now checked in — `supabase/migrations/00000000000000_baseline_schema.sql` reconstructs the full live schema (35 tables, 10 enums, 21 functions, 17 triggers + the `auth.users` signup trigger + the `ensure_rls` event trigger, 95 RLS policies, grants) from the catalog. It is idempotent and was verified end-to-end against a throwaway Postgres: baseline alone and baseline + all 11 incrementals both apply cleanly in `db reset` order, and the signup trigger chain populates the generated `profiles` columns. A latent bug in `20260627_class_bookings_unique.sql` (ordered by a non-existent `created_at`) was fixed in the same pass. On the live project mark it applied without running (`supabase migration repair --status applied 00000000000000`). A CI workflow (`.github/workflows/ci.yml`) now runs lint / type-check / build on every PR; a `db diff` drift gate remains a follow-up.
 
 ---
 
