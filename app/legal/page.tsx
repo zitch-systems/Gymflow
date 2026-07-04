@@ -4,6 +4,12 @@ import { Scale, Lock, FileText, ClipboardCheck, ShieldCheck, Info } from 'lucide
 export const metadata = {
   title: 'Legal',
   description: 'GymFlow privacy policy, terms of service, liability waiver template, and security overview.',
+  alternates: { canonical: '/legal' },
+  openGraph: {
+    title: 'Legal · GymFlow',
+    description: 'GymFlow privacy policy, terms of service, liability waiver template, and security overview.',
+    url: '/legal',
+  },
 };
 
 export default function LegalPage() {
@@ -11,6 +17,7 @@ export default function LegalPage() {
     <>
       <MarketingNav />
 
+      <main id="main-content">
       <header className="phero">
         <div className="wrap">
           <span className="eyebrow"><Scale strokeWidth={1.75} style={{ width: 14, height: 14 }} /> Legal</span>
@@ -91,6 +98,8 @@ export default function LegalPage() {
           </div>
         </div>
       </section>
+
+      </main>
 
       <MarketingFooter />
     </>

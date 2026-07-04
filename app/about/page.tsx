@@ -6,6 +6,12 @@ import { Building2, Zap, Feather, ShieldCheck } from 'lucide-react';
 export const metadata = {
   title: 'About',
   description: 'Built in Lagos, for the gyms that built us. GymFlow makes gym software that feels local.',
+  alternates: { canonical: '/about' },
+  openGraph: {
+    title: 'About · GymFlow',
+    description: 'Built in Lagos, for the gyms that built us. GymFlow makes gym software that feels local.',
+    url: '/about',
+  },
 };
 
 const KPIS = [
@@ -33,6 +39,7 @@ export default function AboutPage() {
     <>
       <MarketingNav cur="about" />
 
+      <main id="main-content">
       <header className="phero">
         <div className="wrap">
           <span className="eyebrow"><Building2 strokeWidth={1.75} style={{ width: 14, height: 14 }} /> Our story</span>
@@ -105,6 +112,7 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      </main>
 
       <MarketingFooter />
     </>

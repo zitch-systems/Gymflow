@@ -6,6 +6,12 @@ import { Image as ImageIcon } from 'lucide-react';
 export const metadata = {
   title: 'Gallery',
   description: 'The gyms that run on GymFlow — from boutique studios to multi-floor facilities.',
+  alternates: { canonical: '/gallery' },
+  openGraph: {
+    title: 'Gallery · GymFlow',
+    description: 'The gyms that run on GymFlow — from boutique studios to multi-floor facilities.',
+    url: '/gallery',
+  },
 };
 
 const SHOTS = [
@@ -24,6 +30,7 @@ export default function GalleryPage() {
     <>
       <MarketingNav />
 
+      <main id="main-content">
       <header className="phero">
         <div className="wrap">
           <span className="eyebrow"><ImageIcon strokeWidth={1.75} style={{ width: 14, height: 14 }} /> Gallery</span>
@@ -56,6 +63,8 @@ export default function GalleryPage() {
           </div>
         </div>
       </section>
+
+      </main>
 
       <MarketingFooter />
     </>

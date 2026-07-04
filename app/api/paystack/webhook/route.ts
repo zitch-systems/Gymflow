@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { fulfillCharge } from '@/lib/paystack-fulfill';
 import { isPlatformEvent, handlePlatformEvent } from '@/lib/platform-fulfill';
+import { handleRefundEvent, isRefundEvent } from '@/lib/paystack-refund';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -26,6 +27,18 @@ export async function POST(req: NextRequest) {
   }
 
   const event = JSON.parse(raw);
+
+  // Refunds & lost disputes → flip the corresponding payment row's status to
+  // 'refunded' (either member or platform table) and audit-log. Handled BEFORE
+  // isPlatformEvent so a member refund isn't misclassified.
+  if (isRefundEvent(event)) {
+    const result = await handleRefundEvent(event);
+    if (!result.ok) {
+      console.error(`[paystack/webhook] refund ${event?.event} failed: ${result.error}`);
+      if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
+  }
 
   // Platform SaaS billing (subscriptions, recurring charges, dunning).
   if (isPlatformEvent(event)) {

@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { extendDate } from '@/lib/plan-duration';
+import { logAudit } from '@/lib/audit';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
 // `permanent` marks a failure that won't succeed on retry (e.g. unusable
@@ -46,14 +47,17 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   // would otherwise strand a real, paid charge); the duration is what matters.
   let planMonths = months;
   let planDays = durationDays;
+  let planPriceKobo: number | null = null;
   if (planId) {
     const { data: plan } = await admin.from('membership_plans')
-      .select('duration_days, duration_months').eq('id', planId).eq('gym_id', gymId).maybeSingle();
+      .select('duration_days, duration_months, price').eq('id', planId).eq('gym_id', gymId).maybeSingle();
     if (plan) {
       const pm = Math.floor(Number(plan.duration_months ?? 0));
       const pd = plan.duration_days != null ? Math.floor(Number(plan.duration_days)) : 0;
       planDays = Number.isFinite(pd) && pd > 0 ? Math.min(pd, 366) : null;
       planMonths = planDays ? 0 : (Number.isFinite(pm) && pm > 0 ? Math.min(pm, 36) : 1);
+      const pp = Number(plan.price ?? 0);
+      if (Number.isFinite(pp) && pp > 0) planPriceKobo = Math.round(pp * 100);
     }
   }
 
@@ -90,6 +94,26 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
     // Paystack retries the whole fulfillment.
     await admin.from('payments').delete().eq('paystack_reference', d.reference);
     return { ok: false, created: false, error: `subscription extend failed: ${subErr.message}` };
+  }
+
+  // The fulfillment path deliberately does not REJECT on amount mismatch (see
+  // security note above) — but a mismatch is still worth surfacing. If the plan's
+  // priced amount differs from what the charge actually settled for, write an
+  // audit trail so an underpayment (or refund-window arbitrage) is at least
+  // observable in /superadmin/audit. Best-effort; never fails the fulfilment.
+  if (planPriceKobo && planPriceKobo !== d.amountKobo) {
+    void logAudit({
+      action: 'payment_amount_mismatch',
+      table: 'payments',
+      gymId, recordId: memberId,
+      values: {
+        paystack_reference: d.reference,
+        plan_id: planId,
+        expected_kobo: planPriceKobo,
+        received_kobo: d.amountKobo,
+        delta_kobo: d.amountKobo - planPriceKobo,
+      },
+    });
   }
 
   const { error: notifErr } = await admin.from('notifications').insert({

@@ -5,6 +5,12 @@ import { ContactForm } from '@/components/marketing/contact-form';
 export const metadata = {
   title: 'Contact',
   description: "Let's talk about your gym — pricing, migrations, or a custom plan. Our Lagos team replies within an hour.",
+  alternates: { canonical: '/contact' },
+  openGraph: {
+    title: 'Contact · GymFlow',
+    description: "Let's talk about your gym — pricing, migrations, or a custom plan. Our Lagos team replies within an hour.",
+    url: '/contact',
+  },
 };
 
 export default function ContactPage() {
@@ -12,6 +18,7 @@ export default function ContactPage() {
     <>
       <MarketingNav cur="contact" />
 
+      <main id="main-content">
       <header className="phero">
         <div className="wrap">
           <span className="eyebrow"><MessageSquare strokeWidth={1.75} style={{ width: 14, height: 14 }} /> Contact</span>
@@ -54,6 +61,8 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
+
+      </main>
 
       <MarketingFooter />
     </>
