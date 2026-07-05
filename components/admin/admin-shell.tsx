@@ -8,6 +8,7 @@ import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { GymSwitcher } from '@/components/gym-switcher';
+import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
   GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode,
@@ -42,6 +43,7 @@ type Identity = {
 
 export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial, gyms = [], activeGymId = '' }: { children: React.ReactNode } & Identity) {
   const pathname = usePathname() ?? '';
+  const nav = useMobileNav(pathname);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const main = NAV.filter((n) => n.section === 'Main');
   const admin = NAV.filter((n) => n.section === 'Admin');
@@ -56,7 +58,7 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
   };
 
   return (
-    <div className="ds-admin app">
+    <div className={`ds-admin app${nav.open ? ' nav-open' : ''}`}>
       <aside className="gf-sidebar">
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
@@ -94,8 +96,11 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
         </div>
       </aside>
 
+      <NavBackdrop open={nav.open} onClose={nav.close} />
+
       <div className="main">
         <header className="top">
+          <NavBurger open={nav.open} onClick={nav.toggle} />
           <div className="search" style={{ flex: 1, maxWidth: 460 }}>
             <Search strokeWidth={1.75} />
             <input placeholder="Search members, classes, payments…" aria-label="Search" />
