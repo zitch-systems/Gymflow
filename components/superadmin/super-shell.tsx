@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import {
   LayoutDashboard, Building2, Users, TrendingUp, UserPlus, ScrollText, LifeBuoy, Settings, LogOut, Globe,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ export function SuperShell({ children, userName, userEmail, userInitial }: {
   children: React.ReactNode; userName: string; userEmail: string; userInitial: string;
 }) {
   const pathname = usePathname() ?? '';
+  const nav = useMobileNav(pathname);
   const isActive = (href: string) => (href === '/superadmin' ? pathname === '/superadmin' : pathname.startsWith(href));
   const platform = NAV.filter((n) => n.section === 'Platform');
   const ops = NAV.filter((n) => n.section === 'Operations');
@@ -40,7 +42,7 @@ export function SuperShell({ children, userName, userEmail, userInitial }: {
   };
 
   return (
-    <div className="ds-admin app">
+    <div className={`ds-admin app${nav.open ? ' nav-open' : ''}`}>
       <aside className="gf-sidebar">
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
@@ -77,8 +79,11 @@ export function SuperShell({ children, userName, userEmail, userInitial }: {
         </div>
       </aside>
 
+      <NavBackdrop open={nav.open} onClose={nav.close} />
+
       <div className="main">
         <header className="top">
+          <NavBurger open={nav.open} onClick={nav.toggle} />
           <span className="gf-topbar-title" style={{ fontFamily: 'var(--gf-font-display)' }}>Platform console</span>
           <div className="top-spacer" />
           <ThemeToggle />

@@ -76,5 +76,12 @@ export async function GET(req: Request) {
     }
   }
 
+  // Housekeeping: rate-limit windows are minutes-to-hours; anything older
+  // than 2 days is dead weight. Best-effort.
+  if (admin) {
+    const stale = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    await admin.from('rate_limits').delete().lt('window_start', stale);
+  }
+
   return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated });
 }

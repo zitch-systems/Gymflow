@@ -224,6 +224,77 @@ export async function updateSubaccountCommission(subaccountCode: string, percent
   }
 }
 
+export type RecipientResult = { ok: true; recipientCode: string } | { ok: false; error: string };
+
+// Create a transfer recipient (NUBAN) for instructor payouts. Paystack
+// de-duplicates identical recipients server-side, so calling this twice with
+// the same account is harmless — but we still cache the code on the payout row.
+export async function createTransferRecipient(params: {
+  name: string;
+  accountNumber: string;
+  bankCode: string;
+}): Promise<RecipientResult> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/transferrecipient`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'nuban',
+        name: params.name,
+        account_number: params.accountNumber,
+        bank_code: params.bankCode,
+        currency: 'NGN',
+      }),
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Recipient creation failed' };
+    return { ok: true, recipientCode: json.data.recipient_code };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export type TransferResult =
+  | { ok: true; transferCode: string; status: string }
+  | { ok: false; error: string };
+
+// Move money from the Paystack balance to a recipient. `reference` is OUR
+// idempotency key — Paystack rejects a duplicate reference, so retrying a
+// payout can never double-pay. Status comes back 'success' (instant),
+// 'pending'/'queued' (webhook will confirm), or 'otp' (the account has
+// OTP-gated transfers enabled, which no server can complete — surface it).
+export async function initiateTransfer(params: {
+  amountKobo: number;
+  recipientCode: string;
+  reference: string;
+  reason?: string;
+}): Promise<TransferResult> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/transfer`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'balance',
+        amount: params.amountKobo,
+        recipient: params.recipientCode,
+        reference: params.reference,
+        reason: params.reason,
+        currency: 'NGN',
+      }),
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Transfer failed' };
+    if (json.data.status === 'otp') {
+      return { ok: false, error: 'This Paystack account requires an OTP for transfers. Disable "Confirm transfers with OTP" in Paystack settings to pay from the app.' };
+    }
+    return { ok: true, transferCode: json.data.transfer_code, status: json.data.status };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export type Bank = { name: string; code: string };
 
 // List Nigerian banks/fintechs for the payout dropdown. Paginates via Paystack's

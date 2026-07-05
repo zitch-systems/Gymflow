@@ -8,6 +8,7 @@ import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { GymSwitcher } from '@/components/gym-switcher';
+import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import {
   CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
 } from 'lucide-react';
@@ -27,10 +28,11 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
   gyms?: { id: string; name: string }[]; activeGymId?: string;
 }) {
   const pathname = usePathname() ?? '';
+  const nav = useMobileNav(pathname);
   const isActive = (href: string) => (href === '/coach' ? pathname === '/coach' : pathname.startsWith(href));
 
   return (
-    <div className="ds-admin app">
+    <div className={`ds-admin app${nav.open ? ' nav-open' : ''}`}>
       <aside className="gf-sidebar">
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
@@ -73,8 +75,11 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
         </div>
       </aside>
 
+      <NavBackdrop open={nav.open} onClose={nav.close} />
+
       <div className="main">
         <header className="top">
+          <NavBurger open={nav.open} onClick={nav.toggle} />
           <span className="gf-topbar-title" style={{ fontFamily: 'var(--gf-font-display)' }}>Instructor portal</span>
           <div className="top-spacer" />
           <ThemeToggle />
