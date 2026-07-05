@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "jsx": "preserve",
+    "types": ["node", "vitest/globals"],
+    "plugins": []
+  },
+  "include": ["test/**/*.ts", "vitest.config.ts"],
+  "exclude": []
+}

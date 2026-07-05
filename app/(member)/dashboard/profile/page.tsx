@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Wallet, QrCode, Bell, FileText, LifeBuoy, Settings, LogOut, ChevronRight } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { ThemeToggleRow } from '@/components/theme-toggle';
+import { FreezeRequest } from '@/components/member/freeze-request';
+import { AutoRenewRow } from '@/components/member/auto-renew-row';
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 
@@ -14,10 +16,14 @@ export default async function ProfilePage() {
   const profile = await getProfile();
   const supabase = await createClient();
 
-  const [{ count: visits }, { count: classes }] = await Promise.all([
+  const [{ count: visits }, { count: classes }, { data: sub }] = await Promise.all([
     supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id),
     supabase.from('class_bookings').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'attended'),
+    supabase.from('member_subscriptions').select('id, status, auto_debit_enabled, paystack_subscription_code').eq('member_id', user.id).eq('gym_id', gym.id)
+      .in('status', ['active', 'pause_requested', 'paused', 'past_due']).order('end_date', { ascending: false }).limit(1).maybeSingle(),
   ]);
+  const freezeStatus = (sub?.status ?? null) as 'active' | 'pause_requested' | 'paused' | null;
+  const autoRenewSubId = sub && sub.auto_debit_enabled && sub.paystack_subscription_code ? sub.id : null;
 
   const name = profile?.full_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || profile?.email || 'Member';
   const initial = name.charAt(0).toUpperCase();
@@ -54,6 +60,11 @@ export default async function ProfilePage() {
           <span className="gf-badge gf-badge-brand">3 new</span>
           <ChevronRight className="chev" strokeWidth={1.9} />
         </Link>
+      </div>
+
+      <div className="group">
+        <AutoRenewRow subId={autoRenewSubId} />
+        <FreezeRequest status={freezeStatus} />
       </div>
 
       <div className="group">

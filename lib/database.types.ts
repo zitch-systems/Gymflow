@@ -1139,7 +1139,11 @@ export type Database = {
           gym_id: string
           id: string
           member_id: string
+          paused_at: string | null
+          pause_reason: string | null
           payment_method: string | null
+          paystack_customer_code: string | null
+          paystack_email_token: string | null
           paystack_subscription_code: string | null
           plan_id: string | null
           start_date: string
@@ -1153,7 +1157,11 @@ export type Database = {
           gym_id: string
           id?: string
           member_id: string
+          paused_at?: string | null
+          pause_reason?: string | null
           payment_method?: string | null
+          paystack_customer_code?: string | null
+          paystack_email_token?: string | null
           paystack_subscription_code?: string | null
           plan_id?: string | null
           start_date?: string
@@ -1167,7 +1175,11 @@ export type Database = {
           gym_id?: string
           id?: string
           member_id?: string
+          paused_at?: string | null
+          pause_reason?: string | null
           payment_method?: string | null
+          paystack_customer_code?: string | null
+          paystack_email_token?: string | null
           paystack_subscription_code?: string | null
           plan_id?: string | null
           start_date?: string
@@ -1217,6 +1229,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          paystack_plan_code: string | null
           price: number
           updated_at: string | null
         }
@@ -1231,6 +1244,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          paystack_plan_code?: string | null
           price: number
           updated_at?: string | null
         }
@@ -1245,6 +1259,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          paystack_plan_code?: string | null
           price?: number
           updated_at?: string | null
         }

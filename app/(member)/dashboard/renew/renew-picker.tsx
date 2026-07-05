@@ -1,18 +1,22 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { CreditCard, Lock, AlertCircle } from 'lucide-react';
+import { CreditCard, Lock, AlertCircle, Repeat } from 'lucide-react';
 import { fmtNaira } from '@/lib/format';
 import { startRenewal } from '@/lib/actions/renew';
+import { startAutoRenewal } from '@/lib/actions/member-billing';
 import { planPeriodLabel, planCadenceLabel, monthlyEquivalent } from '@/lib/plan-duration';
 
 export type Plan = { id: string; name: string; price: number; duration_days: number | null; duration_months: number; description: string | null };
 
 // Plan picker — real plans from the server page. "Pay" starts a Paystack
 // checkout (startRenewal → authorization_url); the renew callback + webhook
-// record the payment and extend the subscription.
+// record the payment and extend the subscription. The auto-renew toggle
+// switches to startAutoRenewal, which creates a Paystack Subscription for
+// recurring billing (member-sub-fulfill.ts handles the recurring events).
 export function RenewPicker({ plans }: { plans: Plan[] }) {
   const [picked, setPicked] = useState(plans[0]?.id ?? '');
+  const [autoRenew, setAutoRenew] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const sel = plans.find((p) => p.id === picked) ?? plans[0];
@@ -21,7 +25,7 @@ export function RenewPicker({ plans }: { plans: Plan[] }) {
     if (!sel) return;
     setErr(null);
     start(async () => {
-      const res = await startRenewal(sel.id);
+      const res = autoRenew ? await startAutoRenewal(sel.id) : await startRenewal(sel.id);
       if (res.ok) window.location.href = res.url; // → Paystack checkout
       else setErr(res.error);
     });
@@ -47,6 +51,11 @@ export function RenewPicker({ plans }: { plans: Plan[] }) {
           </button>
         );
       })}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 4px 4px', cursor: 'pointer', fontSize: '0.86rem' }}>
+        <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} style={{ margin: 0 }} />
+        <Repeat strokeWidth={1.9} size={15} />
+        <span>Auto-renew every period (cancel anytime from your profile)</span>
+      </label>
       {err && <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '12px 0 0' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
       <button className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" style={{ marginTop: 8 }} onClick={pay} disabled={!sel || pending}>
         <CreditCard strokeWidth={1.9} style={{ width: 18, height: 18 }} /> {pending ? 'Starting checkout…' : `Pay ${sel ? fmtNaira(sel.price) : ''} with Paystack`}

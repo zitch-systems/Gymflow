@@ -78,6 +78,60 @@ export async function initSubscription(params: {
   }
 }
 
+// Create a Paystack Plan. Member auto-billing lazy-creates one per
+// membership_plans row on first opt-in and caches the code. Paystack Plan
+// intervals are fixed to a small vocabulary — we pick the closest match to
+// the membership plan's duration.
+export type PlanInterval = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'biannually' | 'annually';
+export type CreatePlanResult = { ok: true; planCode: string } | { ok: false; error: string };
+
+export async function createPlan(params: {
+  name: string;
+  amountKobo: number;
+  interval: PlanInterval;
+}): Promise<CreatePlanResult> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/plan`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: params.name,
+        amount: params.amountKobo,
+        interval: params.interval,
+        currency: 'NGN',
+      }),
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Paystack plan creation failed' };
+    return { ok: true, planCode: json.data.plan_code };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// Map a membership plan's duration to a Paystack interval. Paystack only bills
+// on its own fixed schedule (daily/weekly/monthly/quarterly/biannually/annually)
+// — we snap to the closest match. Returns null when no reasonable match exists,
+// so the caller can refuse to enable auto-renew for that plan.
+export function planIntervalFor(durationDays: number | null, durationMonths: number | null): PlanInterval | null {
+  if (durationDays && durationDays > 0) {
+    if (durationDays <= 1) return 'daily';
+    if (durationDays <= 10) return 'weekly';
+    if (durationDays <= 45) return 'monthly';
+    if (durationDays <= 100) return 'quarterly';
+    if (durationDays <= 200) return 'biannually';
+    return 'annually';
+  }
+  if (durationMonths && durationMonths > 0) {
+    if (durationMonths === 1) return 'monthly';
+    if (durationMonths <= 3) return 'quarterly';
+    if (durationMonths <= 6) return 'biannually';
+    return 'annually';
+  }
+  return null;
+}
+
 export type SubscriptionInfo = { subscriptionCode: string; emailToken: string; status: string };
 
 // Fetch a subscription — needed to get the email_token required to disable it.
