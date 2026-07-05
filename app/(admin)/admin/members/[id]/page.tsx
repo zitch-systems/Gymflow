@@ -8,6 +8,7 @@ import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
 import { MemberActions } from '@/components/admin/member-actions';
+import { FreezeActions } from '@/components/admin/freeze-actions';
 
 export const metadata = { title: 'Member' };
 export const dynamic = 'force-dynamic';
@@ -141,6 +142,13 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
         memberId={id}
         isActive={Boolean(link.is_active)}
         plans={(plans ?? []).map((p) => ({ id: p.id, name: p.name ?? 'Plan', price: Number(p.price ?? 0) }))}
+      />
+
+      <FreezeActions
+        sub={(() => {
+          const s = subList.find((x) => x.status === 'pause_requested' || x.status === 'paused');
+          return s ? { id: s.id, status: s.status ?? '', paused_at: s.paused_at, pause_reason: s.pause_reason } : null;
+        })()}
       />
 
       <div className="md-grid">

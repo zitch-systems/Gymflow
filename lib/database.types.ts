@@ -1139,6 +1139,8 @@ export type Database = {
           gym_id: string
           id: string
           member_id: string
+          paused_at: string | null
+          pause_reason: string | null
           payment_method: string | null
           paystack_subscription_code: string | null
           plan_id: string | null
@@ -1153,6 +1155,8 @@ export type Database = {
           gym_id: string
           id?: string
           member_id: string
+          paused_at?: string | null
+          pause_reason?: string | null
           payment_method?: string | null
           paystack_subscription_code?: string | null
           plan_id?: string | null
@@ -1167,6 +1171,8 @@ export type Database = {
           gym_id?: string
           id?: string
           member_id?: string
+          paused_at?: string | null
+          pause_reason?: string | null
           payment_method?: string | null
           paystack_subscription_code?: string | null
           plan_id?: string | null

@@ -11,10 +11,15 @@ export const pool = new Pool({ connectionString: url, max: 4 });
 // Run a block inside a transaction with the given Supabase-shaped auth context.
 // `role` selects the Postgres role that PostgREST would set (anon /
 // authenticated / service_role); `uid` sets request.jwt.claim.sub so
-// auth.uid() inside policies resolves to that user. Always rolls back so
-// tests never mutate seeded state.
+// auth.uid() inside policies resolves to that user.
+//
+// Default: rolls back so tests never mutate seeded state (right for isolation
+// tests that just probe RLS). Pass `commit: true` when the test needs the
+// write to survive so a follow-up assertion or query can observe it (right for
+// state-machine tests like freeze). Either way the caller's role is restored
+// to the connection default before the client returns to the pool.
 export async function withSession<T>(
-  ctx: { role: 'anon' | 'authenticated' | 'service_role'; uid?: string },
+  ctx: { role: 'anon' | 'authenticated' | 'service_role'; uid?: string; commit?: boolean },
   fn: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
   const client = await pool.connect();
@@ -25,10 +30,14 @@ export async function withSession<T>(
     if (ctx.uid) await client.query(`select set_config('request.jwt.claim.sub', $1, true)`, [ctx.uid]);
     await client.query(`select set_config('request.jwt.claim.role', $1, true)`, [ctx.role]);
     await client.query(`SET LOCAL ROLE ${ctx.role}`);
-    return await fn(client);
-  } finally {
-    // ROLLBACK also drops the SET LOCAL role.
+    const out = await fn(client);
+    if (ctx.commit) await client.query('COMMIT');
+    else await client.query('ROLLBACK');
+    return out;
+  } catch (e) {
     try { await client.query('ROLLBACK'); } catch { /* connection may already be broken */ }
+    throw e;
+  } finally {
     client.release();
   }
 }
