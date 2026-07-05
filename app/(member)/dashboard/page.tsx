@@ -29,8 +29,11 @@ export default async function MemberHome() {
   const today = now.toISOString().slice(0, 10);
 
   const [{ data: sub }, { count: unread }, { data: allCheckins }, { count: classesAttended }, { data: nextBooking }] = await Promise.all([
+    // Include past_due so the dunning banner renders when Paystack failed the
+    // last auto-charge; downstream code treats past_due as "still has access"
+    // until the invoice.payment_failed grace window closes.
     supabase.from('member_subscriptions').select('status, start_date, end_date, plan_id')
-      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active').order('end_date', { ascending: false }).limit(1).maybeSingle(),
+      .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due']).order('end_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
     supabase.from('check_ins').select('checked_in_at, checked_out_at, check_in_method')
       .eq('member_id', user.id).eq('gym_id', gym.id).gte('checked_in_at', since).order('checked_in_at', { ascending: false }),
@@ -83,6 +86,7 @@ export default async function MemberHome() {
   const planName = plan?.name ?? 'Membership';
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
   const isActive = remaining > 0;
+  const isPastDue = sub?.status === 'past_due';
   const unreadCount = unread ?? 0;
   const recent = checkins.slice(0, 3);
 
@@ -99,6 +103,24 @@ export default async function MemberHome() {
           <Bell strokeWidth={1.9} />{unreadCount > 0 && <span className="nub">{unreadCount > 99 ? '99+' : unreadCount}</span>}
         </Link>
       </div>
+
+      {isPastDue && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'var(--gf-danger-soft)', color: 'var(--gf-danger)',
+            border: '1px solid var(--gf-danger)', borderRadius: 12,
+            padding: '10px 14px', margin: '0 0 12px', fontSize: '0.86rem',
+          }}
+        >
+          <CreditCard strokeWidth={2} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <strong>Auto-renew payment failed.</strong> Update your card to keep training.
+          </div>
+          <Link href="/dashboard/renew" className="gf-btn gf-btn-primary gf-btn-sm">Fix payment</Link>
+        </div>
+      )}
 
       <div className="home-grid">
         <div className="col-a">

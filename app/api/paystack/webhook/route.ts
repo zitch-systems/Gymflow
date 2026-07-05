@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { fulfillCharge } from '@/lib/paystack-fulfill';
 import { isPlatformEvent, handlePlatformEvent } from '@/lib/platform-fulfill';
 import { handleRefundEvent, isRefundEvent } from '@/lib/paystack-refund';
+import { isMemberSubEvent, handleMemberSubEvent } from '@/lib/member-sub-fulfill';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -35,6 +36,19 @@ export async function POST(req: NextRequest) {
     const result = await handleRefundEvent(event);
     if (!result.ok) {
       console.error(`[paystack/webhook] refund ${event?.event} failed: ${result.error}`);
+      if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  // Member auto-recurring billing (member Paystack Subscriptions). Must run
+  // BEFORE isPlatformEvent — both flows use subscription.* / invoice.* events
+  // and the member check is authoritative (looks up subscription_code /
+  // customer_code in member_subscriptions).
+  if (await isMemberSubEvent(event)) {
+    const result = await handleMemberSubEvent(event);
+    if (!result.ok) {
+      console.error(`[paystack/webhook] member sub ${event?.event} failed: ${result.error}`);
       if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
     }
     return NextResponse.json({ received: true });

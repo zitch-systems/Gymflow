@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
 import { MemberActions } from '@/components/admin/member-actions';
 import { FreezeActions } from '@/components/admin/freeze-actions';
+import { AutoRenewAction } from '@/components/admin/auto-renew-action';
 
 export const metadata = { title: 'Member' };
 export const dynamic = 'force-dynamic';
@@ -149,6 +150,11 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
           const s = subList.find((x) => x.status === 'pause_requested' || x.status === 'paused');
           return s ? { id: s.id, status: s.status ?? '', paused_at: s.paused_at, pause_reason: s.pause_reason } : null;
         })()}
+      />
+
+      <AutoRenewAction
+        subId={activeSub?.id ?? null}
+        on={Boolean(activeSub?.auto_debit_enabled && activeSub?.paystack_subscription_code)}
       />
 
       <div className="md-grid">
