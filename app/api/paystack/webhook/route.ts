@@ -4,6 +4,7 @@ import { fulfillCharge } from '@/lib/paystack-fulfill';
 import { isPlatformEvent, handlePlatformEvent } from '@/lib/platform-fulfill';
 import { handleRefundEvent, isRefundEvent } from '@/lib/paystack-refund';
 import { isMemberSubEvent, handleMemberSubEvent } from '@/lib/member-sub-fulfill';
+import { isTransferEvent, handleTransferEvent } from '@/lib/transfer-fulfill';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -36,6 +37,17 @@ export async function POST(req: NextRequest) {
     const result = await handleRefundEvent(event);
     if (!result.ok) {
       console.error(`[paystack/webhook] refund ${event?.event} failed: ${result.error}`);
+      if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  // Instructor payout transfers (transfer.success/failed/reversed). Cheap
+  // name check, no overlap with the charge/subscription flows.
+  if (isTransferEvent(event)) {
+    const result = await handleTransferEvent(event);
+    if (!result.ok) {
+      console.error(`[paystack/webhook] transfer ${event?.event} failed: ${result.error}`);
       if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
     }
     return NextResponse.json({ received: true });

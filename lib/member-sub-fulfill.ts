@@ -39,12 +39,23 @@ export async function isMemberSubEvent(event: Json): Promise<boolean> {
   const data = (event.data as Json) ?? {};
   const meta = (data.metadata as Json) ?? {};
 
-  // charge.success carries our metadata directly.
-  if (name === 'charge.success' && str(meta.kind) === 'member_subscription') return true;
+  // charge.success carries our metadata directly on the FIRST charge.
+  if (name === 'charge.success') {
+    if (str(meta.kind) === 'member_subscription') return true;
+    // Any OTHER explicit kind (membership_renewal, platform_subscription)
+    // belongs to a different flow — without this, a one-off renewal from a
+    // member who ALSO has auto-renew would match the customer_code lookup
+    // below and get misrouted to the recurring handler.
+    if (str(meta.kind)) return false;
+    // Metadata-less charge.success is only ours if it's a subscription cycle,
+    // and Paystack always attaches the plan object to those.
+    if (!str((data.plan as Json)?.plan_code)) return false;
+  } else if (!name.startsWith('subscription.') && !name.startsWith('invoice.')) {
+    return false;
+  }
 
-  // subscription.* / invoice.* events don't echo metadata. We match by
-  // subscription_code or customer_code against member_subscriptions.
-  if (!name.startsWith('subscription.') && !name.startsWith('invoice.') && name !== 'charge.success') return false;
+  // No metadata to go on — match by subscription_code / customer_code
+  // against member_subscriptions.
 
   const subCode = str(data.subscription_code) ?? str((data.subscription as Json)?.subscription_code);
   const custCode = str((data.customer as Json)?.customer_code);

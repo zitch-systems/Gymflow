@@ -1671,6 +1671,24 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          count: number
+          key: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          key: string
+          window_start?: string
+        }
+        Update: {
+          count?: number
+          key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       reminder_logs: {
         Row: {
           action: string
@@ -2144,6 +2162,10 @@ export type Database = {
     }
     Functions: {
       can_see_profile: { Args: { target_user_id: string }; Returns: boolean }
+      rate_limit_hit: {
+        Args: { p_key: string; p_max: number; p_window_seconds: number }
+        Returns: boolean
+      }
       expire_subscriptions: { Args: never; Returns: number }
       get_current_gym_id: { Args: never; Returns: string }
       get_my_profile_id: { Args: never; Returns: string }

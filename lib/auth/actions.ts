@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { provisionOwner } from '@/lib/provision';
 import { validatePassword } from '@/lib/auth/password';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 // `code` lets the client react to specific failures (e.g. offer a resend
 // button when the email is unconfirmed) without string-matching messages.
@@ -57,6 +58,17 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   if (!email || !password) return { error: 'Enter your email and password.' };
   const pwErr = validatePassword(password);
   if (pwErr) return { error: pwErr };
+
+  // Signup auto-confirms via the service role (below), which bypasses
+  // Supabase's own email rate limit — so this action is the platform's most
+  // abusable endpoint and gets its own throttle. Must run BEFORE
+  // supabase.auth.signUp so a blocked attempt leaves no half-created user.
+  const ip = await clientIp();
+  const [ipOk, emailOk] = await Promise.all([
+    rateLimit(`signup:ip:${ip}`, 5, 3600),
+    rateLimit(`signup:email:${email.toLowerCase()}`, 3, 3600),
+  ]);
+  if (!ipOk || !emailOk) return { error: 'Too many sign-up attempts. Please wait an hour and try again.' };
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -126,6 +138,14 @@ export async function signOut() {
 export async function requestPasswordReset(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get('email') ?? '').trim();
   if (!email) return { error: 'Enter your email.' };
+  // Each call sends a real email — throttle per target address (defends the
+  // victim's inbox) and per caller IP (defends the send quota).
+  const ip = await clientIp();
+  const [ipOk, emailOk] = await Promise.all([
+    rateLimit(`pwreset:ip:${ip}`, 8, 3600),
+    rateLimit(`pwreset:email:${email.toLowerCase()}`, 3, 3600),
+  ]);
+  if (!ipOk || !emailOk) return { error: 'Too many reset requests. Please wait an hour and try again.' };
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/auth/confirm?next=/reset-password`,

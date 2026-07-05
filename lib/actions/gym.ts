@@ -5,6 +5,7 @@ import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
+import { rateLimit } from '@/lib/rate-limit';
 
 export type GymSaveState = { ok: boolean; error: string | null };
 
@@ -17,7 +18,12 @@ export async function verifyBankAccount(accountNumber: string, bankCode: string)
     return { ok: false, error: 'Enter a 10-digit account number and pick a bank.' };
   }
   if (!process.env.PAYSTACK_SECRET_KEY) return { ok: false, error: 'Payments are not configured yet.' };
-  await requireStaff(MANAGER_ROLES);
+  const { user } = await requireStaff(MANAGER_ROLES);
+  // Each call resolves a real account name at Paystack — throttle per user so
+  // the endpoint can't be scripted into an account-name enumeration oracle.
+  if (!(await rateLimit(`verify-bank:user:${user.id}`, 10, 600))) {
+    return { ok: false, error: 'Too many lookups — wait a few minutes and try again.' };
+  }
   return resolveAccount(accountNumber, bankCode);
 }
 

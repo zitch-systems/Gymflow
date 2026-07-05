@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Users, GraduationCap, Banknote, Crown, Shield, ScanLine, ChevronRight, UserPlus } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { PayoutQueue, type QueuedPayout } from '@/components/admin/payout-queue';
 
 export const metadata = { title: 'Staff' };
 
@@ -20,16 +21,37 @@ export default async function AdminStaff() {
   const { gym } = await requireStaff();
   const supabase = await createClient();
 
-  const { data: staff } = await supabase
-    .from('gym_staff_links')
-    .select('user_id, role, is_active, joined_at')
-    .eq('gym_id', gym.id).eq('is_active', true);
+  const [{ data: staff }, { data: openPayouts }] = await Promise.all([
+    supabase.from('gym_staff_links')
+      .select('user_id, role, is_active, joined_at')
+      .eq('gym_id', gym.id).eq('is_active', true),
+    supabase.from('instructor_payouts')
+      .select('id, instructor_id, amount, status, requested_at, bank_name, account_name, account_number, notes')
+      .eq('gym_id', gym.id).in('status', ['requested', 'approved'])
+      .order('requested_at', { ascending: true }),
+  ]);
 
-  const ids = [...new Set((staff ?? []).map((s) => s.user_id).filter(Boolean) as string[])];
+  const ids = [...new Set([
+    ...(staff ?? []).map((s) => s.user_id),
+    ...(openPayouts ?? []).map((p) => p.instructor_id),
+  ].filter(Boolean) as string[])];
   const { data: profiles } = ids.length
     ? await supabase.from('profiles').select('id, full_name, email').in('id', ids)
     : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
   const pById = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+  const queue: QueuedPayout[] = (openPayouts ?? []).map((p) => {
+    const prof = pById.get(p.instructor_id);
+    return {
+      id: p.id,
+      instructorName: prof?.full_name ?? prof?.email ?? 'Instructor',
+      amount: Number(p.amount ?? 0),
+      status: p.status ?? 'requested',
+      requestedAt: p.requested_at,
+      bank: [p.bank_name, p.account_name, p.account_number ? `····${String(p.account_number).slice(-4)}` : null].filter(Boolean).join(' · '),
+      notes: p.notes,
+    };
+  });
 
   const rows = (staff ?? []).map((s) => {
     const p = pById.get(s.user_id);
@@ -59,6 +81,8 @@ export default async function AdminStaff() {
           <div className="kpi" key={k.lbl}><div className="kpi-top"><div className="kpi-ic" style={{ background: k.bg, color: k.fg }}><Icon strokeWidth={1.9} /></div></div><div className="kpi-val">{k.val}</div><div className="kpi-lbl">{k.lbl}</div></div>
         ); })}
       </section>
+
+      <PayoutQueue payouts={queue} />
 
       <div className="grid2">
         <div className="panel">
