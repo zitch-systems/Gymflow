@@ -1164,6 +1164,7 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 /* Mobile app shell adapter — replaces the prototype's device-frame chrome. */
 .ds-member { --gut: 20px; max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column;
   background: radial-gradient(ellipse 70% 40% at 50% 0%, var(--gf-brand-soft), transparent 60%), var(--gf-bg); position: relative; }
+.ds-member main { flex: 1; display: flex; flex-direction: column; }
 .ds-member .view.on { flex: 1 0 auto; }
 .ds-member .tabbar { position: sticky; bottom: 0; z-index: 20; }
 @media (min-width: 520px) { .ds-member { border-left: 1px solid var(--gf-border); border-right: 1px solid var(--gf-border); } }
@@ -1285,9 +1286,9 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .qr-scan-msg { position: relative; z-index: 2; max-width: 300px; text-align: center; color: #fff; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
 .qr-scan-msg p { margin: 0; line-height: 1.5; }
 .ds-member .segtabs { display: flex; gap: 22px; border-bottom: 1px solid var(--gf-border); margin-bottom: 16px; }
-.ds-member .segtabs button { border: none; background: none; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.95rem; color: var(--gf-text-muted); padding: 0 0 12px; cursor: pointer; position: relative; }
-.ds-member .segtabs button.on { color: var(--gf-text); }
-.ds-member .segtabs button.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px; background: var(--gf-brand); }
+.ds-member .segtabs button, .ds-member .segtabs a { border: none; background: none; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.95rem; color: var(--gf-text-muted); padding: 0 0 12px; cursor: pointer; position: relative; text-decoration: none; }
+.ds-member .segtabs button.on, .ds-member .segtabs a.on { color: var(--gf-text); }
+.ds-member .segtabs button.on::after, .ds-member .segtabs a.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px; background: var(--gf-brand); }
 .ds-member .calstrip { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; margin-bottom: 18px; }
 .ds-member .cday { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 9px 0 8px; border-radius: var(--gf-radius-sm); border: 1px solid transparent; background: var(--gf-surface); cursor: pointer; transition: all var(--gf-t-fast); position: relative; }
 .ds-member .cday:hover { border-color: var(--gf-border-light); }
