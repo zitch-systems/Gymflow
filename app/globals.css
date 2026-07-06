@@ -1164,8 +1164,8 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 /* Mobile app shell adapter — replaces the prototype's device-frame chrome. */
 .ds-member { --gut: 20px; max-width: 480px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column;
   background: radial-gradient(ellipse 70% 40% at 50% 0%, var(--gf-brand-soft), transparent 60%), var(--gf-bg); position: relative; }
-.ds-member main { flex: 1; display: flex; flex-direction: column; }
-.ds-member .view.on { flex: 1 0 auto; }
+.ds-member main { flex: 1; }
+.ds-member .view.on { flex: 1 0 auto; min-height: calc(100dvh - 72px); }
 .ds-member .tabbar { position: sticky; bottom: 0; z-index: 20; }
 @media (min-width: 520px) { .ds-member { border-left: 1px solid var(--gf-border); border-right: 1px solid var(--gf-border); } }
 .ds-member .view { display: none; padding: 6px var(--gut) 30px; }
