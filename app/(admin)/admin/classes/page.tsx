@@ -18,8 +18,17 @@ function splitTime(t: string): { hm: string; ap: string } {
 export default async function AdminClasses({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
   const { gym } = await requireStaff();
   const sp = await searchParams;
-  const todayDow = new Date().getDay();
+  const today = new Date();
+  const todayDow = today.getDay();
   const selDow = sp.d != null && !Number.isNaN(Number(sp.d)) ? Number(sp.d) : todayDow;
+  // This week's date for each weekday (Mon-anchored), shown big in the day cards
+  // like revamp/admin-classes.html ("MON 26 · 4 classes").
+  const monday = new Date(today); monday.setDate(today.getDate() - ((todayDow + 6) % 7));
+  const domByDow = new Map<number, number>();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday); d.setDate(monday.getDate() + i);
+    domByDow.set(d.getDay(), d.getDate());
+  }
 
   const supabase = await createClient();
   const { data: schedules } = await supabase
@@ -73,8 +82,8 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
 
       <div className="days">
         {order.map((dow) => (
-          <Link key={dow} href={`/admin/classes?d=${dow}`} className={`day${selDow === dow ? ' on' : ''}`} style={{ textDecoration: 'none' }}>
-            <div className="dn">{DOW[dow]}</div><div className="dd">{countByDow.get(dow) ?? 0}</div><div className="dc">class{(countByDow.get(dow) ?? 0) === 1 ? '' : 'es'}</div>
+          <Link key={dow} href={`/admin/classes?d=${dow}`} className={`day${selDow === dow ? ' on' : ''}`}>
+            <div className="dn">{DOW[dow]}</div><div className="dd">{domByDow.get(dow)}</div><div className="dc">{countByDow.get(dow) ?? 0} class{(countByDow.get(dow) ?? 0) === 1 ? '' : 'es'}</div>
           </Link>
         ))}
       </div>
