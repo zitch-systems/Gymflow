@@ -19,7 +19,7 @@ export async function reset() {
   await asSuperuser(async (c) => {
     for (const t of [
       'public.payments', 'public.member_subscriptions', 'public.memberships',
-      'public.check_ins', 'public.gym_member_links', 'public.gym_staff_links',
+      'public.checkin_codes', 'public.check_ins', 'public.gym_member_links', 'public.gym_staff_links',
       'public.membership_plans', 'public.profiles', 'public.gyms',
     ]) await c.query(`delete from ${t}`);
     await c.query(`delete from auth.users`);
