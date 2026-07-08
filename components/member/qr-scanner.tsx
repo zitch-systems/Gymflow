@@ -2,7 +2,6 @@
 
 import { useEffect, useInsertionEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import jsQR from 'jsqr';
 
 // Camera QR scanner overlay. Uses the native BarcodeDetector when available
 // (Android/Chromium) and falls back to jsQR decoding canvas frames (iOS Safari,
@@ -24,6 +23,17 @@ export function QrScanner({ onDetected, onClose }: { onDetected: (text: string) 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const BD = (window as any).BarcodeDetector;
     const detector = BD ? new BD({ formats: ['qr_code'] }) : null;
+    // jsQR (~55KB gzip) is only the fallback for browsers without a native
+    // BarcodeDetector — load it lazily when the scanner opens, and only on
+    // those browsers, so it never weighs down the /checkin tab switch. A
+    // failed chunk load (offline, stale deploy) must surface as an error,
+    // not spin the camera forever while every decode attempt silently throws.
+    const jsQRP = detector
+      ? null
+      : import('jsqr').then((m) => m.default).catch(() => {
+          if (!cancelled) setError('Couldn’t load the scanner. Check your connection and try again, or use “Tap to self check-in”.');
+          return null;
+        });
 
     async function tick() {
       if (cancelled || detected) return;
@@ -41,6 +51,8 @@ export function QrScanner({ onDetected, onClose }: { onDetected: (text: string) 
             if (ctx) {
               ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
               const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const jsQR = await jsQRP!;
+              if (!jsQR) return; // chunk failed to load — error state is showing
               const res = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
               if (res) text = res.data;
             }

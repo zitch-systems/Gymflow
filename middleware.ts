@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { updateSession } from '@/lib/supabase/middleware';
+import { hasSessionCookie, updateSession } from '@/lib/supabase/middleware';
 
 // Production root domain. Gym tenants live at <slug>.<root>. Overridable so
 // staging/custom domains work; falls back to the public site host, then gymflow.ng.
@@ -40,8 +40,25 @@ export async function middleware(request: NextRequest) {
   // Apex/marketing home reads no session — skip the auth round-trip.
   if (pathname === '/') return NextResponse.next();
 
+  // Anonymous hit on a gated surface → proper 307 to /login before any HTML
+  // streams. The layouts stream their shells now (for instant tap feedback),
+  // so they can no longer set an early redirect status themselves; without
+  // this, a signed-out request would get a 200 skeleton before the page
+  // gate's client-side redirect kicked in. Zero network cost — a cookie check.
+  if (GATED_RE.test(pathname) && !hasSessionCookie(request)) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
   return updateSession(request);
 }
+
+// Every route group whose layout/pages require a signed-in user. /join and the
+// auth pages are public; /launch redirects signed-out users itself but is
+// included since it needs a session to do anything useful.
+const GATED_RE = /^\/(dashboard|classes|checkin|admin|coach|superadmin|billing|launch)(\/|$)/;
 
 // Runs on the home route (for the subdomain rewrite) and on the auth-dependent
 // routes (for session refresh). Marketing pages and /api/* are excluded — those

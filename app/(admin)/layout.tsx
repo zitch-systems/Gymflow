@@ -17,6 +17,11 @@ export const metadata = { robots: { index: false, follow: false } };
 // Instructors are routed to /coach (via /launch) — they must not see member
 // PII, payments, pricing or gym settings. Content sits inside .ds-admin.
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Kick these off before awaiting the gate — they only depend on the cached
+  // getUser()/links fetch, so they overlap the gate's gym lookup instead of
+  // serializing an extra round trip after it.
+  const profileP = getProfile().catch(() => null);
+  const staffGymsP = getStaffGyms(ADMIN_ROLES).catch(() => ({ gyms: [], activeId: '' }));
   const { user, gym, role } = await requireAdminStaff();
 
   // Platform-billing gate: a gym whose free trial has lapsed (or whose GymFlow
@@ -29,7 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     return <BillingWall state={state} gymName={gym.name} currentTier={tier} />;
   }
 
-  const [profile, staffGyms] = await Promise.all([getProfile(), getStaffGyms(ADMIN_ROLES)]);
+  const [profile, staffGyms] = await Promise.all([profileP, staffGymsP]);
   const name = profile?.full_name?.trim() || user.email?.split('@')[0] || roleLabel(role);
   const meta = `${gym.city ? `${gym.city} · ` : ''}${gym.slug}.gymflow.ng`;
 

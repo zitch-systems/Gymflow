@@ -42,21 +42,25 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
   try {
     const { user, gym } = await requireMember();
     const supabase = await createClient();
-    const { data: sched } = await supabase
-      .from('class_schedules').select('id, class_id, day_of_week, start_time, classes(max_capacity)')
-      .eq('id', scheduleId).eq('gym_id', gym.id).maybeSingle();
+    // The schedule row and the member's prior booking row are independent
+    // lookups — fetch them in parallel instead of serializing two round trips.
+    const [{ data: sched }, { data: existing }] = await Promise.all([
+      supabase
+        .from('class_schedules').select('id, class_id, day_of_week, start_time, classes(max_capacity)')
+        .eq('id', scheduleId).eq('gym_id', gym.id).maybeSingle(),
+      // A unique constraint covers (gym_id, class_schedule_id, member_id) regardless
+      // of date/status, so a prior (possibly cancelled) row already exists for repeat
+      // bookings. Look it up by that key and re-activate it rather than inserting a dup.
+      supabase
+        .from('class_bookings').select('id, status, booking_date')
+        .eq('gym_id', gym.id).eq('class_schedule_id', scheduleId).eq('member_id', user.id)
+        .maybeSingle(),
+    ]);
     if (!sched) return { ok: false, error: 'Class not found.' };
     const cls = Array.isArray(sched.classes) ? sched.classes[0] : sched.classes;
     const capacity = Number(cls?.max_capacity ?? 0);
 
     const bookingDate = nextDateForDow(sched.day_of_week, sched.start_time);
-    // A unique constraint covers (gym_id, class_schedule_id, member_id) regardless
-    // of date/status, so a prior (possibly cancelled) row already exists for repeat
-    // bookings. Look it up by that key and re-activate it rather than inserting a dup.
-    const { data: existing } = await supabase
-      .from('class_bookings').select('id, status, booking_date')
-      .eq('gym_id', gym.id).eq('class_schedule_id', scheduleId).eq('member_id', user.id)
-      .maybeSingle();
     // Already holding a spot (or a waitlist place) for this upcoming occurrence?
     // A terminal historical row — attended / no_show / cancelled, or a row for a
     // past date — falls through and gets re-activated for the next date.
@@ -90,6 +94,9 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
         });
     if (error) return { ok: false, error: error.message };
 
+    // The notification insert stays BEFORE revalidatePath on purpose: the
+    // revalidated pages recompute the unread-bell count, so deferring this
+    // write (e.g. into after()) would ship a payload that misses it.
     const body = waitlisted
       ? `This class is full — you’re on the waitlist for ${bookingDate}. We’ll let you know if a spot opens.`
       : `You're booked in for ${bookingDate}.`;
@@ -125,7 +132,9 @@ export async function cancelBooking(_prev: BookState, formData: FormData): Promi
 
     // Freeing a confirmed seat promotes the longest-waiting member off the
     // waitlist for the same occurrence (service role: other members' rows are
-    // outside this member's RLS).
+    // outside this member's RLS). This runs BEFORE the response on purpose:
+    // deferring it (e.g. into after()) opens a window where a new booking is
+    // counted against pre-promotion occupancy and the class overbooks.
     if (row.status === 'booked' && row.gym_id && row.class_schedule_id && row.booking_date) {
       const admin = adminOrNull();
       if (admin) {

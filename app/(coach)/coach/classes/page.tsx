@@ -1,15 +1,11 @@
 import { CalendarX } from 'lucide-react';
 import { requireInstructor } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { splitTime } from '@/lib/format';
 
 export const metadata = { title: 'Classes · Instructor' };
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-function splitTime(t: string): { hm: string; ap: string } {
-  const [h, m = '00'] = (t ?? '00:00').split(':');
-  const hh = parseInt(h, 10); const ap = hh < 12 ? 'AM' : 'PM'; const h12 = hh % 12 === 0 ? 12 : hh % 12;
-  return { hm: `${h12}:${m.padStart(2, '0')}`, ap };
-}
 
 export default async function CoachClasses() {
   const { user, gym } = await requireInstructor();

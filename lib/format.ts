@@ -14,6 +14,17 @@ export function fmtDateTime(iso: string | null | undefined): string {
   return new Date(iso).toLocaleString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+// Split a Postgres time ("17:30:00") into a 12-hour display pair for the
+// timetable cards ("5:30" + "PM"). Malformed input renders as 12:00 AM rather
+// than "NaN:00".
+export function splitTime(t: string | null | undefined): { hm: string; ap: string } {
+  const [h, m = '00'] = (t ?? '00:00').split(':');
+  let hh = parseInt(h, 10);
+  if (Number.isNaN(hh)) hh = 0;
+  const ap = hh < 12 ? 'AM' : 'PM'; const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  return { hm: `${h12}:${m.padStart(2, '0')}`, ap };
+}
+
 // ── Time zone ──────────────────────────────────────────────────────────────
 // The platform operates in Nigeria (WAT = UTC+1, no DST), but the server runtime
 // is UTC. Deriving a calendar day with `toISOString().slice(0,10)` therefore

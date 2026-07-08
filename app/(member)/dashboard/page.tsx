@@ -16,8 +16,11 @@ export const maxDuration = 60;
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // Mon..Sun
 
 export default async function MemberHome() {
+  // getProfile only depends on the request-cached getUser(), so starting it
+  // before the gate overlaps its query with the membership/gym lookup.
+  const profileP = getProfile().catch(() => null);
   const { user, gym } = await requireMember();
-  const profile = await getProfile();
+  const profile = await profileP;
   const supabase = await createClient();
 
   const now = new Date();

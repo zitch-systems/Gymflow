@@ -41,11 +41,11 @@ export async function requireAuth() {
 // ── Role gates ───────────────────────────────────────────────────────────
 // Routes are flat (no /[slug]); we resolve the user's gym from their links.
 //
-// Each gate is cached() so the layout + page only pay for one resolution per
-// request (a page like /admin/members runs requireStaff() in both the layout
-// AND the page — previously that was two full auth+link+gym round-trip sets).
-// Inside, the auth check reuses the cached getUser() rather than calling
-// supabase.auth.getUser() again. Link + gym stay as two plain queries (not a
+// Dedupe happens on the PRIMITIVES (getUser / fetchStaffLinks / gymById are
+// cache()d, argument-free or keyed by string id) rather than on the gate
+// functions themselves — so a layout calling requireAdminStaff() and its page
+// calling requireStaff() still share one auth check, one links query and one
+// gym lookup per request. Link + gym stay as two plain queries (not a
 // PostgREST embed) because the embed failed silently once when FKs were missing
 // on gym_staff_links (commit 81ab48e); the FK exists now but the explicit form
 // is robust and the queries are indexed point-lookups.
@@ -86,24 +86,41 @@ export const requireMember = cache(async (): Promise<{ user: NonNullable<Awaited
   return { user, gym, link: linkRow as Database['public']['Tables']['gym_member_links']['Row'] };
 });
 
-// Internal staff resolver. Cached on `roles` so requireStaff() (any role) and
-// the role-restricted variants each get a cache slot, and all dedupe the
-// layout/page double-call.
-const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: NonNullable<Awaited<ReturnType<typeof getUser>>>; gym: Gym; role: string }> => {
+// One staff-links fetch per request, shared by EVERY gate variant. The old
+// resolver was cache()d on its `roles` argument — but cache() keys on argument
+// identity, so a layout calling requireAdminStaff() (ADMIN_ROLES) and a page
+// calling requireStaff() (undefined) landed in different slots and the
+// links + gym queries ran twice per navigation. Caching the raw fetch (no
+// args) and filtering roles in memory restores real per-request dedupe.
+const fetchStaffLinks = cache(async () => {
   const user = await getUser();
-  if (!user) redirect('/login');
+  if (!user) return null;
   const supabase = await createClient();
-  const { data: links } = await supabase
+  const { data } = await supabase
     .from('gym_staff_links')
     .select('*')
     .eq('user_id', user.id)
     .eq('is_active', true)
     // Stable order so the default pick (first eligible) is deterministic.
     .order('created_at', { ascending: true });
+  return { user, links: (data ?? []) as Array<{ gym_id: string | null; role: string | null }> };
+});
+
+// Gym rows dedupe by id (cache() compares string args by value), so the
+// layout's gate and the page's gate share one lookup.
+const gymById = cache(async (id: string): Promise<Gym | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from('gyms').select('*').eq('id', id).maybeSingle();
+  return (data as Gym) ?? null;
+});
+
+// Internal staff resolver — plain function; everything it awaits is cached.
+async function resolveStaff(roles?: readonly string[]): Promise<{ user: NonNullable<Awaited<ReturnType<typeof getUser>>>; gym: Gym; role: string }> {
+  const staff = await fetchStaffLinks();
+  if (!staff) redirect('/login');
   // Only links whose role is valid for THIS surface are eligible (e.g. an
   // instructor link is ineligible on /admin even if the user also owns a gym).
-  const all = (links ?? []) as Array<{ gym_id: string | null; role: string | null }>;
-  const eligible = (roles ? all.filter((l) => roles.includes(l.role ?? '')) : all).filter((l) => l.gym_id);
+  const eligible = (roles ? staff.links.filter((l) => roles.includes(l.role ?? '')) : staff.links).filter((l) => l.gym_id);
   // Signed-in but not staff (or wrong role here) → /launch picks their real
   // surface; bouncing to /login used to trap signed-in users in a redirect loop.
   if (eligible.length === 0) redirect('/launch');
@@ -111,32 +128,22 @@ const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: No
   const activeId = await readActiveGymCookie();
   const chosen = eligible.find((l) => l.gym_id === activeId) ?? eligible[0];
   const role = chosen.role ?? '';
-  const { data: gym } = await supabase
-    .from('gyms')
-    .select('*')
-    .eq('id', chosen.gym_id as string)
-    .maybeSingle();
+  const gym = await gymById(chosen.gym_id as string);
   if (!gym) redirect('/launch');
-  return { user, gym: gym as Gym, role };
-});
+  return { user: staff.user, gym, role };
+}
 
 // The set of gyms a staff member can act as on a given surface (the roles
 // filter), plus which one is currently active. Powers the gym switcher; the
 // switcher only renders when there's more than one.
 export const getStaffGyms = cache(async (roles?: readonly string[]): Promise<{ gyms: { id: string; name: string }[]; activeId: string }> => {
-  const user = await getUser();
-  if (!user) return { gyms: [], activeId: '' };
-  const supabase = await createClient();
-  const { data: links } = await supabase
-    .from('gym_staff_links')
-    .select('gym_id, role')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .order('created_at', { ascending: true });
-  const all = (links ?? []) as Array<{ gym_id: string | null; role: string | null }>;
-  const ids = (roles ? all.filter((l) => roles.includes(l.role ?? '')) : all)
+  // Reuses the request-cached links fetch instead of re-querying gym_staff_links.
+  const staff = await fetchStaffLinks();
+  if (!staff) return { gyms: [], activeId: '' };
+  const ids = (roles ? staff.links.filter((l) => roles.includes(l.role ?? '')) : staff.links)
     .map((l) => l.gym_id).filter((id): id is string => !!id);
   if (ids.length === 0) return { gyms: [], activeId: '' };
+  const supabase = await createClient();
   const { data: gymRows } = await supabase.from('gyms').select('id, name').in('id', ids);
   const nameById = new Map((gymRows ?? []).map((g) => [g.id, g.name]));
   const gyms = ids.map((id) => ({ id, name: nameById.get(id) ?? 'Gym' }));
@@ -144,7 +151,12 @@ export const getStaffGyms = cache(async (roles?: readonly string[]): Promise<{ g
   return { gyms, activeId: gyms.find((g) => g.id === activeId)?.id ?? gyms[0].id };
 });
 
-export async function requireStaff(roles?: readonly string[]) {
+// Bare requireStaff() means "admin-console staff", NOT "any staff role":
+// with no filter, a user holding an older instructor link at another gym
+// would have eligible[0] resolve to THAT gym — an admin page would then
+// render gym X's data inside gym Y's shell, and an instructor-role link
+// would reach member PII that ADMIN_ROLES deliberately excludes.
+export async function requireStaff(roles: readonly string[] = ADMIN_ROLES) {
   return resolveStaff(roles);
 }
 

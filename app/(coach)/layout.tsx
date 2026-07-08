@@ -11,8 +11,12 @@ export const metadata = { robots: { index: false, follow: false } };
 // Instructor portal shell. requireInstructor() gates the group (instructor /
 // manager / gym_owner). Reuses the .ds-admin namespace + instructor widgets.
 export default async function CoachLayout({ children }: { children: React.ReactNode }) {
+  // Start these before the gate so they overlap its gym lookup (they only
+  // depend on the request-cached getUser()/links fetch).
+  const profileP = getProfile().catch(() => null);
+  const staffGymsP = getStaffGyms(INSTRUCTOR_ROLES).catch(() => ({ gyms: [], activeId: '' }));
   const { user, gym } = await requireInstructor();
-  const [profile, staffGyms] = await Promise.all([getProfile(), getStaffGyms(INSTRUCTOR_ROLES)]);
+  const [profile, staffGyms] = await Promise.all([profileP, staffGymsP]);
   const name = profile?.full_name?.trim() || user.email?.split('@')[0] || 'Instructor';
   const sharePct = (gym as { instructor_revenue_share_pct?: number | null }).instructor_revenue_share_pct ?? null;
   return (

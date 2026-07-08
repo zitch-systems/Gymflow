@@ -1,26 +1,19 @@
 import Link from 'next/link';
-import { CalendarDays, Ticket, Gauge, Hourglass, CalendarX, Plus } from 'lucide-react';
+import { CalendarDays, Ticket, Gauge, Hourglass, Plus } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { splitTime } from '@/lib/format';
+import { ClassesWeek, type AdminDay, type AdminSlot } from '@/components/admin/classes-week';
 
 export const metadata = { title: 'Classes' };
 
 const DOW = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
-function splitTime(t: string): { hm: string; ap: string } {
-  const [h, m = '00'] = (t ?? '00:00').split(':');
-  let hh = parseInt(h, 10);
-  if (Number.isNaN(hh)) hh = 0; // malformed start_time → don't render "NaN:00 PM"
-  const ap = hh < 12 ? 'AM' : 'PM'; const h12 = hh % 12 === 0 ? 12 : hh % 12;
-  return { hm: `${h12}:${m.padStart(2, '0')}`, ap };
-}
-
-export default async function AdminClasses({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
+// The ?d= day selection is read client-side by ClassesWeek via useSearchParams.
+export default async function AdminClasses() {
   const { gym } = await requireStaff();
-  const sp = await searchParams;
   const today = new Date();
   const todayDow = today.getDay();
-  const selDow = sp.d != null && !Number.isNaN(Number(sp.d)) ? Number(sp.d) : todayDow;
   // This week's date for each weekday (Mon-anchored), shown big in the day cards
   // like revamp/admin-classes.html ("MON 26 · 4 classes").
   const monday = new Date(today); monday.setDate(today.getDate() - ((todayDow + 6) % 7));
@@ -49,7 +42,6 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
 
   const countByDow = new Map<number, number>();
   for (const s of schedules ?? []) countByDow.set(s.day_of_week, (countByDow.get(s.day_of_week) ?? 0) + 1);
-  const daySlots = (schedules ?? []).filter((s) => s.day_of_week === selDow);
 
   const totalSessions = (schedules ?? []).length;
   const totalBookings = booked.length;
@@ -64,8 +56,19 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
     { icon: Hourglass, fg: '#ffb020', bg: '#ffb0201f', val: String(waitlistCount), lbl: 'On waitlists' },
   ];
 
-  // Mon-anchored display order.
+  // Mon-anchored display order; slots for the whole week go to the client
+  // component so day selection is instant local state, not a server round trip.
   const order = [1, 2, 3, 4, 5, 6, 0];
+  const days: AdminDay[] = order.map((dow) => ({ dow, name: DOW[dow], dom: domByDow.get(dow), count: countByDow.get(dow) ?? 0 }));
+  const slots: AdminSlot[] = (schedules ?? []).map((s) => {
+    const c = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+    const { hm, ap } = splitTime(s.start_time);
+    return {
+      id: s.id, dow: s.day_of_week, hm, ap,
+      name: c?.name ?? 'Class', instructor: c?.instructor ?? 'TBA', room: s.room ?? null,
+      booked: bookedBy.get(s.id) ?? 0, cap: c?.max_capacity ?? 0,
+    };
+  });
 
   return (
     <>
@@ -80,37 +83,7 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
         ); })}
       </section>
 
-      <div className="days">
-        {order.map((dow) => (
-          <Link key={dow} href={`/admin/classes?d=${dow}`} className={`day${selDow === dow ? ' on' : ''}`}>
-            <div className="dn">{DOW[dow]}</div><div className="dd">{domByDow.get(dow)}</div><div className="dc">{countByDow.get(dow) ?? 0} class{(countByDow.get(dow) ?? 0) === 1 ? '' : 'es'}</div>
-          </Link>
-        ))}
-      </div>
-
-      {daySlots.length === 0 ? (
-        <div className="panel"><div className="empty"><div className="eic"><CalendarX strokeWidth={1.6} /></div><h3>No classes that day</h3><p>Add a class to publish it on the timetable.</p></div></div>
-      ) : (
-        <div className="cls-list">
-          {daySlots.map((s) => {
-            const c = Array.isArray(s.classes) ? s.classes[0] : s.classes;
-            const cap = c?.max_capacity ?? 0;
-            const booked = bookedBy.get(s.id) ?? 0;
-            const pct = cap > 0 ? Math.min(100, Math.round((booked / cap) * 100)) : 0;
-            const { hm, ap } = splitTime(s.start_time);
-            return (
-              <Link className="clx" key={s.id} href={`/admin/classes/${s.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div className="tm"><b>{hm}</b><span>{ap}</span></div>
-                <div className="info"><strong>{c?.name ?? 'Class'}</strong><small>{c?.instructor ?? 'TBA'}{s.room ? ` · ${s.room}` : ''}</small></div>
-                <div className="cap">
-                  <div className="lbl"><span>{booked}/{cap || '—'} booked</span><span>{cap > 0 ? `${pct}%` : ''}</span></div>
-                  <div className="track"><div className={`fill${pct >= 90 ? ' warn' : ''}`} style={{ width: `${pct}%` }} /></div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      <ClassesWeek days={days} slots={slots} todayDow={todayDow} />
     </>
   );
 }

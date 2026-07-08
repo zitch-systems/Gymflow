@@ -1575,7 +1575,7 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .ci-grid {grid-template-columns:1fr}
 }
 .ds-admin .days { display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap; }
-.ds-admin .day { flex:1; min-width:84px; padding:12px; border-radius:var(--gf-radius-sm); background:var(--gf-surface); border:1px solid var(--gf-border); text-align:center; cursor:pointer; transition:all var(--gf-t); }
+.ds-admin .day { flex:1; min-width:84px; padding:12px; border-radius:var(--gf-radius-sm); background:var(--gf-surface); border:1px solid var(--gf-border); text-align:center; cursor:pointer; transition:all var(--gf-t); font:inherit; }
 .ds-admin .day:hover { border-color:var(--gf-border-light); }
 .ds-admin .day.on { background:var(--gf-brand-soft); border-color:var(--gf-brand-glow); }
 .ds-admin .day .dn { font-family:var(--gf-font-display); font-weight:700; font-size:0.78rem; color:var(--gf-text-muted); }
@@ -1846,7 +1846,7 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .grid2 {grid-template-columns:1fr}
 }
 .ds-admin .daypick { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
-.ds-admin .day { flex:1; min-width:84px; text-align:center; padding:12px 8px; border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); background:var(--gf-surface); cursor:pointer; transition:all var(--gf-t); }
+.ds-admin .day { flex:1; min-width:84px; text-align:center; padding:12px 8px; border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); background:var(--gf-surface); cursor:pointer; transition:all var(--gf-t); font:inherit; }
 .ds-admin .day.on { background:var(--gf-brand-soft); border-color:var(--gf-brand); }
 .ds-admin .day b { font-family:var(--gf-font-display); font-weight:800; font-size:1.1rem; display:block; }
 .ds-admin .day.on b { color:var(--gf-brand); }
@@ -2408,3 +2408,16 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
   .ds-member .receipt { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; }
   .no-print, .ds-member .tabbar, .ds-member .mhead { display: none !important; }
 }
+
+/* ═══════════════ LOADING SKELETONS ═══════════════ */
+/* Route-level loading.tsx placeholders — paint instantly on navigation while
+   the dynamic RSC payload streams. Shapes reuse surface tokens so the swap to
+   real content is low-jank. */
+.gf-skel { position: relative; overflow: hidden; background: var(--gf-elevated); border-radius: var(--gf-radius-sm); }
+.gf-skel::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--gf-text) 7%, transparent), transparent);
+  animation: gf-skel-sweep 1.2s ease-in-out infinite;
+}
+@keyframes gf-skel-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .gf-skel::after { animation: none; } }
