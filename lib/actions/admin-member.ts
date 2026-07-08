@@ -67,21 +67,40 @@ async function extendSubscription(supabase: SupabaseClient, gymId: string, membe
   }
 }
 
+// The member's open visit today (WAT): checked in, not yet checked out — the
+// row check-out closes. Mirrors openVisit in lib/actions/checkin.ts.
+async function openVisit(supabase: SupabaseClient, gymId: string, memberId: string) {
+  const { data } = await supabase.from('check_ins').select('id')
+    .eq('member_id', memberId).eq('gym_id', gymId)
+    .eq('status', 'active').is('checked_out_at', null)
+    .gte('checked_in_at', watDayStartUtc(watDateISO()))
+    .order('checked_in_at', { ascending: false })
+    .limit(1).maybeSingle();
+  return data;
+}
+
+// Close an open visit: stamp checked_out_at, flip status to 'completed'. The
+// used_at-style IS NULL guard makes a concurrent double check-out a no-op.
+async function closeVisit(supabase: SupabaseClient, visitId: string) {
+  const { error } = await supabase.from('check_ins')
+    .update({ checked_out_at: new Date().toISOString(), status: 'completed' })
+    .eq('id', visitId).is('checked_out_at', null);
+  if (error) throw new Error(error.message);
+}
+
 export async function manualCheckIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const memberId = String(formData.get('memberId') ?? '');
   try {
     const { gymId, supabase, isActive } = await ctx(memberId);
     if (!isActive) return { ok: false, error: 'This member is suspended. Reactivate them before checking in.' };
-    // De-dupe same-day (WAT) check-ins so a self + front-desk check-in (or a
-    // double tap) doesn't inflate visit counts — mirrors selfCheckIn.
-    const { data: already } = await supabase.from('check_ins').select('id')
-      .eq('member_id', memberId).eq('gym_id', gymId)
-      .gte('checked_in_at', watDayStartUtc(watDateISO()))
-      .limit(1).maybeSingle();
+    // De-dupe while the member is inside so a self + front-desk check-in (or a
+    // double tap) doesn't inflate visit counts — mirrors selfCheckIn. A visit
+    // closed by check-out earlier today doesn't block re-entry.
+    const already = await openVisit(supabase, gymId, memberId);
     if (already) {
       revalidatePath(`/admin/members/${memberId}`);
       revalidatePath('/admin/staff-checkin');
-      return { ok: true, error: null, message: 'Already checked in today.' };
+      return { ok: true, error: null, message: 'Already checked in.' };
     }
     const { error } = await supabase.from('check_ins').insert({
       gym_id: gymId, member_id: memberId,
@@ -91,6 +110,77 @@ export async function manualCheckIn(_prev: ActionState, formData: FormData): Pro
     revalidatePath(`/admin/members/${memberId}`);
     revalidatePath('/admin/staff-checkin');
     return { ok: true, error: null, message: 'Checked in.' };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function manualCheckOut(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const memberId = String(formData.get('memberId') ?? '');
+  try {
+    const { gymId, supabase } = await ctx(memberId);
+    const open = await openVisit(supabase, gymId, memberId);
+    if (!open) return { ok: false, error: 'Not checked in right now.' };
+    await closeVisit(supabase, open.id);
+    revalidatePath(`/admin/members/${memberId}`);
+    revalidatePath('/admin/staff-checkin');
+    return { ok: true, error: null, message: 'Checked out.' };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// Redeem a front-desk code the member generated on their check-in page (see
+// generateCheckinCode in lib/actions/checkin.ts): checks the member in, or out
+// if they're already inside. Codes are single-use — burning one is an UPDATE
+// guarded by used_at IS NULL, so of two concurrent redeems exactly one wins.
+export async function redeemCheckinCode(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const code = String(formData.get('code') ?? '').replace(/\D/g, '');
+  if (code.length !== 6) return { ok: false, error: 'Enter the 6-digit code.' };
+  try {
+    const { gym } = await requireStaff(ADMIN_ROLES);
+    const supabase = await createClient();
+    const nowIso = new Date().toISOString();
+
+    const { data: match } = await supabase.from('checkin_codes')
+      .select('id, member_id')
+      .eq('gym_id', gym.id).eq('code', code)
+      .is('used_at', null).gt('expires_at', nowIso)
+      .order('created_at', { ascending: false })
+      .limit(1).maybeSingle();
+    if (!match) return { ok: false, error: 'Invalid or expired code. Ask the member for a fresh one.' };
+
+    const { data: burned } = await supabase.from('checkin_codes')
+      .update({ used_at: nowIso }).eq('id', match.id).is('used_at', null).select('id');
+    if (!burned?.length) return { ok: false, error: 'That code was just used. Ask the member for a fresh one.' };
+
+    const memberId = match.member_id;
+    const [{ data: profile }, { data: link }] = await Promise.all([
+      supabase.from('profiles').select('full_name, email').eq('id', memberId).maybeSingle(),
+      supabase.from('gym_member_links').select('is_active').eq('gym_id', gym.id)
+        .or(`member_id.eq.${memberId},user_id.eq.${memberId}`).maybeSingle(),
+    ]);
+    const name = profile?.full_name ?? profile?.email ?? 'Member';
+
+    const open = await openVisit(supabase, gym.id, memberId);
+    if (open) {
+      await closeVisit(supabase, open.id);
+      revalidatePath('/admin/staff-checkin');
+      revalidatePath(`/admin/members/${memberId}`);
+      return { ok: true, error: null, message: `${name} checked out.` };
+    }
+
+    if (link && link.is_active === false) {
+      return { ok: false, error: `${name} is suspended. Reactivate them before checking in.` };
+    }
+    const { error } = await supabase.from('check_ins').insert({
+      gym_id: gym.id, member_id: memberId,
+      checked_in_at: nowIso, status: 'active', check_in_method: 'code',
+    });
+    if (error) return { ok: false, error: error.message };
+    revalidatePath('/admin/staff-checkin');
+    revalidatePath(`/admin/members/${memberId}`);
+    return { ok: true, error: null, message: `${name} checked in.` };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

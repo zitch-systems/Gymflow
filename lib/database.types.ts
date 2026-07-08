@@ -148,6 +148,51 @@ export type Database = {
           },
         ]
       }
+      checkin_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          gym_id: string
+          id: string
+          member_id: string
+          used_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          gym_id: string
+          id?: string
+          member_id: string
+          used_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          gym_id?: string
+          id?: string
+          member_id?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_codes_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkin_codes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_bookings: {
         Row: {
           booked_at: string | null

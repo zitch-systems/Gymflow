@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft, watDateISO, watDayStartUtc } from '@/lib/format';
 import { MemberActions } from '@/components/admin/member-actions';
 import { FreezeActions } from '@/components/admin/freeze-actions';
 import { AutoRenewAction } from '@/components/admin/auto-renew-action';
@@ -39,8 +39,8 @@ function duration(a: string | null, b: string | null): string | null {
 }
 
 const methodLabel: Record<string, string> = {
-  qr: 'QR scan', manual: 'Manual', front_desk: 'Front desk', card: 'Card',
-  bank_transfer: 'Bank transfer', cash: 'Cash', crypto: 'Crypto',
+  qr: 'QR scan', manual: 'Manual', front_desk: 'Front desk', self: 'Self', code: 'Front-desk code',
+  card: 'Card', bank_transfer: 'Bank transfer', cash: 'Cash', crypto: 'Crypto',
 };
 
 // id is interpolated into a PostgREST .or() filter below; reject anything that
@@ -71,6 +71,10 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
   const pays = payments ?? [];
   const cins = checkIns ?? [];
   const subList = subs ?? [];
+
+  // Currently inside? (open visit today, WAT) — flips Quick actions to "Check out".
+  const dayStartIso = watDayStartUtc(watDateISO());
+  const checkedIn = cins.some((c) => c.status === 'active' && !c.checked_out_at && (c.checked_in_at ?? '') >= dayStartIso);
 
   const name = profile.full_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email || 'Member';
   const initial = name.charAt(0).toUpperCase();
@@ -142,6 +146,7 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
       <MemberActions
         memberId={id}
         isActive={Boolean(link.is_active)}
+        checkedIn={checkedIn}
         plans={(plans ?? []).map((p) => ({ id: p.id, name: p.name ?? 'Plan', price: Number(p.price ?? 0) }))}
       />
 

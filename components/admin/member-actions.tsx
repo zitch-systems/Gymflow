@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useActionState } from 'react';
-import { ScanLine, CreditCard, RefreshCw, UserX, UserCheck, Check, AlertCircle } from 'lucide-react';
-import { manualCheckIn, recordPayment, renewMembership, setMemberActive, type ActionState } from '@/lib/actions/admin-member';
+import { ScanLine, LogOut, CreditCard, RefreshCw, UserX, UserCheck, Check, AlertCircle } from 'lucide-react';
+import { manualCheckIn, manualCheckOut, recordPayment, renewMembership, setMemberActive, type ActionState } from '@/lib/actions/admin-member';
 
 const INIT: ActionState = { ok: false, error: null };
 type Plan = { id: string; name: string; price: number };
 
-export function MemberActions({ memberId, plans, isActive }: { memberId: string; plans: Plan[]; isActive: boolean }) {
+export function MemberActions({ memberId, plans, isActive, checkedIn = false }: { memberId: string; plans: Plan[]; isActive: boolean; checkedIn?: boolean }) {
   const [panel, setPanel] = useState<null | 'pay' | 'renew'>(null);
-  const [ci, ciAction, ciPending] = useActionState(manualCheckIn, INIT);
+  // Check-in / check-out toggles with the member's live state (open visit today).
+  const [ci, ciAction, ciPending] = useActionState(checkedIn ? manualCheckOut : manualCheckIn, INIT);
   const [pay, payAction, payPending] = useActionState(recordPayment, INIT);
   const [ren, renAction, renPending] = useActionState(renewMembership, INIT);
   const [st, stAction, stPending] = useActionState(setMemberActive, INIT);
@@ -23,7 +24,10 @@ export function MemberActions({ memberId, plans, isActive }: { memberId: string;
       <div className="act-bar">
         <form action={ciAction}>
           <input type="hidden" name="memberId" value={memberId} />
-          <button className="gf-btn gf-btn-secondary gf-btn-sm" disabled={ciPending}><ScanLine strokeWidth={1.9} size={15} /> {ciPending ? 'Checking in…' : 'Check in'}</button>
+          <button className="gf-btn gf-btn-secondary gf-btn-sm" disabled={ciPending}>
+            {checkedIn ? <LogOut strokeWidth={1.9} size={15} /> : <ScanLine strokeWidth={1.9} size={15} />}
+            {ciPending ? (checkedIn ? ' Checking out…' : ' Checking in…') : (checkedIn ? ' Check out' : ' Check in')}
+          </button>
         </form>
         <button type="button" className={`gf-btn gf-btn-secondary gf-btn-sm${panel === 'pay' ? ' on' : ''}`} onClick={() => setPanel(panel === 'pay' ? null : 'pay')}><CreditCard strokeWidth={1.9} size={15} /> Record payment</button>
         {plans.length > 0 && <button type="button" className={`gf-btn gf-btn-secondary gf-btn-sm${panel === 'renew' ? ' on' : ''}`} onClick={() => setPanel(panel === 'renew' ? null : 'renew')}><RefreshCw strokeWidth={1.9} size={15} /> Renew</button>}

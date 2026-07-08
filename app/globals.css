@@ -1288,6 +1288,10 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-member .ci-self { margin: 12px auto 0; display: inline-flex; align-items: center; gap: 7px; background: none; border: none; cursor: pointer; color: var(--gf-text-muted); font-size: 0.86rem; font-weight: 600; }
 .ds-member .ci-self:hover { color: var(--gf-text); }
 .ds-member .ci-self:disabled { opacity: 0.6; cursor: default; }
+/* front-desk code panel — the 6 digits the member reads to reception */
+.ds-member .ci-code { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 10px auto 0; }
+.ds-member .ci-code-digits { font-family: var(--gf-font-display); font-weight: 800; font-size: 2.6rem; letter-spacing: 0.14em; font-variant-numeric: tabular-nums; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 14px 26px; box-shadow: var(--gf-shadow); }
+.ds-member .ci-code-exp { color: var(--gf-text-muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
 
 /* fullscreen camera scanner overlay */
 .qr-scan { position: fixed; inset: 0; z-index: 1000; background: #05060a; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -1558,6 +1562,13 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .scan .find :is(i, svg) { position:absolute; left:14px; top:50%; transform:translateY(-50%); width:18px; height:18px; color:var(--gf-text-muted); }
 .ds-admin .scan .find input { width:100%; background:var(--gf-bg); border:1.5px solid var(--gf-border); color:var(--gf-text); border-radius:var(--gf-radius-sm); padding:13px 14px 13px 42px; font-family:var(--gf-font-body); font-size:0.95rem; outline:none; }
 .ds-admin .scan .find input:focus { border-color:var(--gf-brand); box-shadow:0 0 0 3px var(--gf-brand-soft); }
+/* front-desk code entry — redeem the member's 6-digit code */
+.ds-admin .code-redeem { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; max-width:340px; margin:0 auto 14px; }
+.ds-admin .code-redeem input { flex:1; min-width:150px; background:var(--gf-bg); border:1.5px solid var(--gf-border); color:var(--gf-text); border-radius:var(--gf-radius-sm); padding:9px 12px; font-family:var(--gf-font-body); font-size:0.92rem; font-variant-numeric:tabular-nums; letter-spacing:0.08em; outline:none; }
+.ds-admin .code-redeem input:focus { border-color:var(--gf-brand); box-shadow:0 0 0 3px var(--gf-brand-soft); }
+.ds-admin .code-redeem-msg { flex-basis:100%; margin:0; font-size:0.78rem; }
+.ds-admin .code-redeem-msg.err { color:var(--gf-danger); }
+.ds-admin .code-redeem-msg.ok { color:var(--gf-success); }
 .ds-admin .sug { margin-top:10px; display:flex; flex-direction:column; gap:6px; text-align:left; max-width:340px; margin-left:auto; margin-right:auto; }
 .ds-admin .sug button { display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--gf-surface); border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); color:var(--gf-text); font-family:var(--gf-font-body); font-size:0.86rem; cursor:pointer; transition:all var(--gf-t); }
 .ds-admin .sug button:hover { border-color:var(--gf-brand); }
