@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Bell, Wallet, Repeat, CreditCard, ChevronRight, ArrowDownLeft, Plus, Receipt } from 'lucide-react';
+import { Bell, Wallet, Repeat, CreditCard, ChevronRight, ArrowDownLeft, Receipt } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
@@ -100,8 +100,8 @@ export default async function WalletPage() {
           </div>
         )) : (
           <div className="row" style={{ padding: '14px 0' }}>
-            <span className="ic" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Plus strokeWidth={1.9} /></span>
-            <div className="m"><strong>No saved cards</strong><small>A card is saved the first time you pay</small></div>
+            <span className="ic" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><CreditCard strokeWidth={1.9} /></span>
+            <div className="m"><strong>No saved cards</strong><small>A card is saved automatically the first time you pay with Paystack</small></div>
           </div>
         )}
       </div>

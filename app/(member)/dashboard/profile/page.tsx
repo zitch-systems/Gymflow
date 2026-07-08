@@ -69,7 +69,7 @@ export default async function ProfilePage() {
 
       <div className="group">
         <ThemeToggleRow />
-        <Link href="/legal#waiver" className="row">
+        <Link href="/dashboard/documents" className="row">
           <span className="ic"><FileText strokeWidth={1.9} /></span>
           <div className="m"><strong>Waiver &amp; documents</strong></div>
           <ChevronRight className="chev" strokeWidth={1.9} />
