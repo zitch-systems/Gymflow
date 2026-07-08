@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ScanLine, Check, Camera, Hash } from 'lucide-react';
+import { ScanLine, Check, Camera, Hash, Clock, LogOut } from 'lucide-react';
 import { selfCheckIn, selfCheckOut, generateCheckinCode, checkinState } from '@/lib/actions/checkin';
 import { QrScanner } from '@/components/member/qr-scanner';
 
@@ -13,14 +13,72 @@ import { QrScanner } from '@/components/member/qr-scanner';
 // Opening /checkin?via=qr (what the door QR encodes, e.g. via the phone's
 // native camera) auto-runs the appropriate direction.
 
-type Props = { initialCheckedIn: boolean; checkedInAt: string | null };
+export type VisitRow = {
+  id: string;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
+  status: string | null;
+  check_in_method: string | null;
+};
+
+type Props = { initialCheckedIn: boolean; checkedInAt: string | null; history: VisitRow[] };
+
+const METHOD_LABEL: Record<string, string> = {
+  self: 'Self', qr: 'QR scan', front_desk: 'Front desk', code: 'Front-desk code', manual: 'Manual',
+};
 
 function timeOf(iso: string | null): string | null {
   if (!iso) return null;
   return new Date(iso).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-export function CheckinClient({ initialCheckedIn, checkedInAt }: Props) {
+function dayOf(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function durationOf(a: string | null, b: string | null): string | null {
+  if (!a || !b) return null;
+  const m = Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
+  if (m <= 0) return null;
+  const h = Math.floor(m / 60);
+  return h ? `${h}h ${m % 60}m` : `${m}m`;
+}
+
+function VisitHistory({ history }: { history: VisitRow[] }) {
+  if (!history.length) return null;
+  return (
+    <div className="ci-history">
+      <div className="ci-history-h">Recent visits</div>
+      <div className="ci-history-list">
+        {history.map((v) => {
+          const inT = timeOf(v.checked_in_at);
+          const outT = timeOf(v.checked_out_at);
+          const dur = durationOf(v.checked_in_at, v.checked_out_at);
+          const stillIn = v.status === 'active' && !v.checked_out_at;
+          return (
+            <div className="ci-history-row" key={v.id}>
+              <span className="ci-history-ic"><ScanLine strokeWidth={1.8} /></span>
+              <div className="ci-history-m">
+                <strong>{dayOf(v.checked_in_at)}</strong>
+                <small>
+                  {inT ?? '—'}{outT ? ` – ${outT}` : ''}
+                  {dur ? ` · ${dur}` : ''}
+                  {v.check_in_method ? ` · ${METHOD_LABEL[v.check_in_method] ?? v.check_in_method}` : ''}
+                </small>
+              </div>
+              {stillIn
+                ? <span className="ci-history-badge in">In gym</span>
+                : <span className="ci-history-time"><Clock strokeWidth={1.8} /> {outT ?? inT ?? ''}</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props) {
   const [checkedIn, setCheckedIn] = useState(initialCheckedIn);
   const [done, setDone] = useState<null | 'in' | 'out'>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -178,13 +236,15 @@ export function CheckinClient({ initialCheckedIn, checkedInAt }: Props) {
           <Camera strokeWidth={1.9} style={{ width: 18, height: 18 }} /> Scan to check {checkedIn ? 'out' : 'in'}
         </button>
         <button className="ci-self" onClick={checkedIn ? doCheckOut : doCheckIn} disabled={pending}>
-          <ScanLine strokeWidth={1.9} style={{ width: 16, height: 16 }} />
+          {checkedIn ? <LogOut strokeWidth={1.9} style={{ width: 16, height: 16 }} /> : <ScanLine strokeWidth={1.9} style={{ width: 16, height: 16 }} />}
           {pending ? (checkedIn ? 'Checking out…' : 'Checking in…') : `Or tap to self check-${checkedIn ? 'out' : 'in'}`}
         </button>
         <button className="ci-self" onClick={getCode} disabled={pending}>
           <Hash strokeWidth={1.9} style={{ width: 16, height: 16 }} /> No camera? Get a code for the front desk
         </button>
         {err && <p style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', marginTop: 14 }}>{err}</p>}
+
+        <VisitHistory history={history} />
       </div>
 
       {scanning && <QrScanner onDetected={onScanned} onClose={() => setScanning(false)} />}
