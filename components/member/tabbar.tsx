@@ -7,7 +7,7 @@ import { Home, CalendarDays, ScanLine, Wallet, User } from 'lucide-react';
 const TABS = [
   { href: '/dashboard', label: 'Home', icon: Home, match: (p: string) => p === '/dashboard' },
   { href: '/classes', label: 'Schedule', icon: CalendarDays, match: (p: string) => p.startsWith('/classes') },
-  { href: '/checkin', label: 'Check in', icon: ScanLine, match: (p: string) => p.startsWith('/checkin') },
+  { href: '/checkin', label: 'Check in/out', icon: ScanLine, match: (p: string) => p.startsWith('/checkin') },
   { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet, match: (p: string) => p.startsWith('/dashboard/wallet') || p.startsWith('/dashboard/renew') },
   { href: '/dashboard/profile', label: 'Profile', icon: User, match: (p: string) => p.startsWith('/dashboard/profile') || p.startsWith('/dashboard/inbox') },
 ] as const;

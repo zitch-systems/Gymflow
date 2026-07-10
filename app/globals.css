@@ -1510,6 +1510,8 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-member .tabbar a { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--gf-text-muted); font-family: var(--gf-font-display); font-size: 0.66rem; font-weight: 600; cursor: pointer; transition: color var(--gf-t); padding: 4px 0; flex: 1; position: relative; text-decoration: none; }
 .ds-member .tabbar a svg { width: 23px; height: 23px; }
 .ds-member .tabbar a.on { color: var(--gf-brand); }
+/* Keep multi-word labels (e.g. "Check in/out") on a single line. */
+.ds-member .tabbar :is(a, button) { white-space: nowrap; }
 
 /* ═══════════════ ADMIN/INSTRUCTOR/SUPERADMIN content (namespaced .ds-admin) ═══════════════ */
 .ds-admin .page-h { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
