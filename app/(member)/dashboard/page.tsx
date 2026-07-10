@@ -16,8 +16,9 @@ export const maxDuration = 60;
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // Mon..Sun
 
 export default async function MemberHome() {
-  const { user, gym } = await requireMember();
-  const profile = await getProfile();
+  // Parallel: getProfile() only needs the cached getUser(), so its query
+  // overlaps the membership-link resolution instead of waiting behind it.
+  const [{ user, gym }, profile] = await Promise.all([requireMember(), getProfile()]);
   const supabase = await createClient();
 
   const now = new Date();

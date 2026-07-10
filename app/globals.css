@@ -1045,6 +1045,14 @@ body { position: relative; }
 .gfui-spin { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--gf-border); border-top-color: var(--gf-brand); animation: gfui-rot .7s linear infinite; }
 @keyframes gfui-rot { to { transform: rotate(360deg); } }
 
+/* route-transition skeletons (loading.tsx) */
+.gf-skel { position: relative; overflow: hidden; border-radius: var(--gf-radius-sm); background: var(--gf-elevated); border: 1px solid var(--gf-border); }
+.gf-skel::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+                  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--gf-text) 5%, transparent), transparent);
+                  animation: gf-skel-sweep 1.3s ease infinite; }
+@keyframes gf-skel-sweep { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .gf-skel::after { animation: none; } }
+
 /* ═══════════════ MARKETING SATELLITES (features/about/contact/careers/legal/gallery inline styles) ═══════════════ */
   .nav { position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:20px; padding:16px clamp(20px,5vw,56px); background:color-mix(in srgb,var(--gf-bg) 80%,transparent); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-bottom:1px solid var(--gf-border); }
   .nav .links { display:flex; align-items:center; gap:6px; margin-left:auto; }

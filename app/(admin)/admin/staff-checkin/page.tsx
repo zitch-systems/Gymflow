@@ -22,26 +22,29 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
   const host = h.get('host') ?? '';
   const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || (host ? `${proto}://${host}` : '');
   const checkinUrl = `${origin}/checkin?via=qr&g=${gym.slug}`;
-  const doorQr = await QRCode.toDataURL(checkinUrl, { margin: 2, width: 1024, errorCorrectionLevel: 'M', color: { dark: '#0a0b0e', light: '#ffffff' } });
   const q = (sp.q ?? '').trim();
   const safe = q.replace(/[(),%*]/g, ' ').trim();
 
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
-  const { data: feed } = await supabase
-    .from('check_ins')
-    .select('id, checked_in_at, checked_out_at, check_in_method, member_id')
-    .eq('gym_id', gym.id)
-    .order('checked_in_at', { ascending: false })
-    .limit(12);
-
-  // Members currently inside: open visits (no check-out yet) since the start
-  // of today (WAT) — powers the KPI and flips result buttons to "Check out".
-  const { data: openRows } = await supabase
-    .from('check_ins')
-    .select('member_id')
-    .eq('gym_id', gym.id)
-    .eq('status', 'active').is('checked_out_at', null)
-    .gte('checked_in_at', watDayStartUtc(watDateISO()));
+  // QR render + the two independent check-in queries in parallel (previously
+  // three sequential awaits).
+  const [doorQr, { data: feed }, { data: openRows }] = await Promise.all([
+    QRCode.toDataURL(checkinUrl, { margin: 2, width: 1024, errorCorrectionLevel: 'M', color: { dark: '#0a0b0e', light: '#ffffff' } }),
+    supabase
+      .from('check_ins')
+      .select('id, checked_in_at, checked_out_at, check_in_method, member_id')
+      .eq('gym_id', gym.id)
+      .order('checked_in_at', { ascending: false })
+      .limit(12),
+    // Members currently inside: open visits (no check-out yet) since the start
+    // of today (WAT) — powers the KPI and flips result buttons to "Check out".
+    supabase
+      .from('check_ins')
+      .select('member_id')
+      .eq('gym_id', gym.id)
+      .eq('status', 'active').is('checked_out_at', null)
+      .gte('checked_in_at', watDayStartUtc(watDateISO())),
+  ]);
   const inGymIds = new Set((openRows ?? []).map((o) => o.member_id).filter(Boolean) as string[]);
 
   const todayRows = (feed ?? []).filter((c) => c.checked_in_at && new Date(c.checked_in_at) >= dayStart);
