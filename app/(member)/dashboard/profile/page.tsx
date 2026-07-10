@@ -23,6 +23,7 @@ export default async function ProfilePage() {
       .in('status', ['active', 'pause_requested', 'paused', 'past_due']).order('end_date', { ascending: false }).limit(1).maybeSingle(),
   ]);
   const freezeStatus = (sub?.status ?? null) as 'active' | 'pause_requested' | 'paused' | null;
+  const freezeEnabled = (gym as { member_freeze_enabled?: boolean }).member_freeze_enabled !== false;
   const autoRenewSubId = sub && sub.auto_debit_enabled && sub.paystack_subscription_code ? sub.id : null;
 
   const name = profile?.full_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || profile?.email || 'Member';
@@ -64,7 +65,7 @@ export default async function ProfilePage() {
 
       <div className="group">
         <AutoRenewRow subId={autoRenewSubId} />
-        <FreezeRequest status={freezeStatus} />
+        <FreezeRequest status={freezeStatus} enabled={freezeEnabled} />
       </div>
 
       <div className="group">

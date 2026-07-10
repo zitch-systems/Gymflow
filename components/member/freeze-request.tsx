@@ -6,16 +6,20 @@ import { requestFreeze, type ActionState } from '@/lib/actions/freeze';
 
 const INIT: ActionState = { ok: false, error: null };
 
-// Member-side freeze row for /dashboard/profile. Renders one of four states:
-//   • active     — "Freeze membership" trigger + inline reason form
-//   • pause_requested — "Freeze pending" info row (no action)
-//   • paused    — "Frozen" info row (staff must resume)
-//   • no sub    — nothing rendered
-export function FreezeRequest({ status }: { status: 'active' | 'pause_requested' | 'paused' | null }) {
+// Member-side freeze row for /dashboard/profile. Renders one of several states:
+//   • active + enabled   — "Freeze membership" trigger + inline reason form
+//   • active + disabled  — nothing (gym doesn't offer self-service freezes)
+//   • pause_requested    — "Freeze pending" info row (no action)
+//   • paused             — "Frozen" info row (staff must resume)
+//   • no sub             — nothing rendered
+// `enabled` reflects the gym's member_freeze_enabled setting; a member who is
+// already pending/frozen still sees their status even if it was since disabled.
+export function FreezeRequest({ status, enabled = true }: { status: 'active' | 'pause_requested' | 'paused' | null; enabled?: boolean }) {
   const [state, action, pending] = useActionState(requestFreeze, INIT);
   const [open, setOpen] = useState(false);
 
   if (!status) return null;
+  if (status === 'active' && !enabled) return null;
 
   if (status === 'pause_requested') {
     return (
