@@ -89,6 +89,7 @@ export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props)
   const [pending, start] = useTransition();
   const router = useRouter();
   const autoRan = useRef(false);
+  const autoScanned = useRef(false);
 
   const doCheckIn = useCallback(() => {
     start(async () => {
@@ -124,6 +125,21 @@ export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props)
     const via = new URLSearchParams(window.location.search).get('via');
     if (via === 'qr') { autoRan.current = true; (initialCheckedIn ? doCheckOut : doCheckIn)(); }
   }, [doCheckIn, doCheckOut, initialCheckedIn]);
+
+  // Pop the camera open as soon as the member lands on the page so scanning is
+  // one step, not two. Skipped for the door-QR path (?via=qr auto-runs check-in
+  // without a camera) — the member can dismiss the popup with its X button, and
+  // this only fires once so closing it doesn't immediately re-open it.
+  useEffect(() => {
+    if (autoScanned.current) return;
+    if (new URLSearchParams(window.location.search).get('via') === 'qr') return;
+    autoScanned.current = true;
+    // Opening on mount needs an effect: `window` is unavailable during SSR, so a
+    // lazy useState initialiser would hydrate to a different value. One-shot, so
+    // no cascading re-render loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setScanning(true);
+  }, []);
 
   const onScanned = useCallback((text: string) => {
     setScanning(false);
