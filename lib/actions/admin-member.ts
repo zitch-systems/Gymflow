@@ -68,6 +68,17 @@ async function extendSubscription(supabase: SupabaseClient, gymId: string, membe
   }
 }
 
+// True when the member has an active subscription that hasn't expired today
+// (WAT). Mirrors the gate in selfCheckIn (lib/actions/checkin.ts) so a lapsed
+// membership can't sneak in through the front-desk code or manual check-in.
+async function hasActiveSub(supabase: SupabaseClient, gymId: string, memberId: string) {
+  const { data: sub } = await supabase
+    .from('member_subscriptions').select('end_date')
+    .eq('gym_id', gymId).eq('member_id', memberId).eq('status', 'active')
+    .order('end_date', { ascending: false }).limit(1).maybeSingle();
+  return Boolean(sub && (sub.end_date ?? '') >= watDateISO());
+}
+
 // The member's open visit today (WAT): checked in, not yet checked out — the
 // row check-out closes. Mirrors openVisit in lib/actions/checkin.ts.
 async function openVisit(supabase: SupabaseClient, gymId: string, memberId: string) {
@@ -102,6 +113,9 @@ export async function manualCheckIn(_prev: ActionState, formData: FormData): Pro
       revalidatePath(`/admin/members/${memberId}`);
       revalidatePath('/admin/staff-checkin');
       return { ok: true, error: null, message: 'Already checked in.' };
+    }
+    if (!(await hasActiveSub(supabase, gymId, memberId))) {
+      return { ok: false, error: 'Membership isn’t active. Renew before checking in.' };
     }
     const { error } = await supabase.from('check_ins').insert({
       gym_id: gymId, member_id: memberId,
@@ -173,6 +187,9 @@ export async function redeemCheckinCode(_prev: ActionState, formData: FormData):
 
     if (link && link.is_active === false) {
       return { ok: false, error: `${name} is suspended. Reactivate them before checking in.` };
+    }
+    if (!(await hasActiveSub(supabase, gym.id, memberId))) {
+      return { ok: false, error: `${name}’s membership isn’t active. Renew before checking in.` };
     }
     const { error } = await supabase.from('check_ins').insert({
       gym_id: gym.id, member_id: memberId,
