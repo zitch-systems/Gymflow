@@ -40,7 +40,7 @@ export default async function RenewPage() {
       {(plans ?? []).length === 0 ? (
         <div className="empty"><div className="eic" /><h3>No plans available</h3><p>This gym hasn&apos;t published any plans yet.</p></div>
       ) : (
-        <RenewPicker plans={(plans ?? []) as Plan[]} />
+        <RenewPicker plans={(plans ?? []) as Plan[]} currentEnd={remaining > 0 ? (sub?.end_date ?? null) : null} />
       )}
     </section>
   );

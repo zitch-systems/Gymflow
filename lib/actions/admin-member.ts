@@ -6,7 +6,7 @@ import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 import { splitName } from '@/lib/format';
-import { extendDate } from '@/lib/plan-duration';
+import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -54,7 +54,8 @@ async function extendSubscription(supabase: SupabaseClient, gymId: string, membe
   const iso = (d: Date) => d.toISOString().slice(0, 10);
 
   if (sub) {
-    const base = sub.end_date && new Date(sub.end_date) > today ? new Date(sub.end_date) : today;
+    // Stack onto the current period when it's still running — see renewalBase().
+    const base = renewalBase(sub.end_date, today);
     const end = extendDate(base, dur);
     const { error } = await supabase.from('member_subscriptions')
       .update({ end_date: iso(end), status: 'active', plan_id: planId }).eq('id', sub.id);

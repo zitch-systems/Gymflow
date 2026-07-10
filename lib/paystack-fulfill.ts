@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { extendDate } from '@/lib/plan-duration';
+import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { logAudit } from '@/lib/audit';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
@@ -80,7 +80,9 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const { data: sub } = await admin.from('member_subscriptions')
     .select('id, end_date').eq('member_id', memberId).eq('gym_id', gymId).eq('status', 'active')
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
-  const base = sub?.end_date && new Date(sub.end_date) > new Date() ? new Date(sub.end_date) : new Date();
+  // Stack onto the current period when one is still running (buy = next period),
+  // else start today. Shared rule — see renewalBase().
+  const base = renewalBase(sub?.end_date);
   const newEnd = extendDate(base, { duration_days: planDays, duration_months: planMonths });
   const endIso = newEnd.toISOString().slice(0, 10);
   const { error: subErr } = sub

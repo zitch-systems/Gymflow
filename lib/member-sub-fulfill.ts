@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { extendDate } from '@/lib/plan-duration';
+import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { logAudit } from '@/lib/audit';
 import type { Database } from '@/lib/database.types';
 
@@ -161,8 +161,8 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   }
 
   // Extend from the later of {current end_date, today}. Recurring charges
-  // should push forward; they should never shorten.
-  const base = sub.end_date && new Date(sub.end_date) > new Date() ? new Date(sub.end_date) : new Date();
+  // should push forward; they should never shorten. Shared rule — renewalBase().
+  const base = renewalBase(sub.end_date);
   const newEnd = extendDate(base, extendBy).toISOString().slice(0, 10);
 
   const { error: subErr } = await admin.from('member_subscriptions').update({
