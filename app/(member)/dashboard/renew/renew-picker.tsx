@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { CreditCard, Lock, AlertCircle, Repeat } from 'lucide-react';
-import { fmtNaira } from '@/lib/format';
+import { CreditCard, Lock, AlertCircle, Repeat, CalendarClock } from 'lucide-react';
+import { fmtNaira, fmtDate } from '@/lib/format';
 import { startRenewal } from '@/lib/actions/renew';
 import { startAutoRenewal } from '@/lib/actions/member-billing';
-import { planPeriodLabel, planCadenceLabel, monthlyEquivalent } from '@/lib/plan-duration';
+import { planPeriodLabel, planCadenceLabel, monthlyEquivalent, projectRenewalEnd } from '@/lib/plan-duration';
 
 export type Plan = { id: string; name: string; price: number; duration_days: number | null; duration_months: number; description: string | null };
 
@@ -14,12 +14,19 @@ export type Plan = { id: string; name: string; price: number; duration_days: num
 // record the payment and extend the subscription. The auto-renew toggle
 // switches to startAutoRenewal, which creates a Paystack Subscription for
 // recurring billing (member-sub-fulfill.ts handles the recurring events).
-export function RenewPicker({ plans }: { plans: Plan[] }) {
+// `currentEnd` is the member's current subscription end date (ISO, or null when
+// lapsed/none). A purchase always stacks onto the NEXT period — see
+// projectRenewalEnd — so we preview the resulting coverage for the picked plan,
+// making clear the member is buying the next period, not the one they're in.
+export function RenewPicker({ plans, currentEnd = null }: { plans: Plan[]; currentEnd?: string | null }) {
   const [picked, setPicked] = useState(plans[0]?.id ?? '');
   const [autoRenew, setAutoRenew] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const sel = plans.find((p) => p.id === picked) ?? plans[0];
+
+  const activeUntil = currentEnd && new Date(currentEnd).getTime() > Date.now() ? currentEnd : null;
+  const projectedEnd = sel ? projectRenewalEnd(currentEnd, sel) : null;
 
   function pay() {
     if (!sel) return;
@@ -51,6 +58,16 @@ export function RenewPicker({ plans }: { plans: Plan[] }) {
           </button>
         );
       })}
+      {sel && projectedEnd && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, margin: '14px 2px 2px', padding: '11px 13px', borderRadius: 'var(--gf-radius-sm)', background: 'var(--gf-brand-soft)', border: '1px solid var(--gf-border-glow)', fontSize: '0.83rem', lineHeight: 1.45 }}>
+        <CalendarClock strokeWidth={1.9} size={16} style={{ flexShrink: 0, marginTop: 1, color: 'var(--gf-brand)' }} />
+          <span>
+            {activeUntil
+              ? <>You&rsquo;re covered through <strong>{fmtDate(activeUntil)}</strong>. This {sel.name} starts the next period and extends you to <strong>{fmtDate(projectedEnd.toISOString().slice(0, 10))}</strong>.</>
+              : <>This {sel.name} covers you through <strong>{fmtDate(projectedEnd.toISOString().slice(0, 10))}</strong>.</>}
+          </span>
+        </div>
+      )}
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 4px 4px', cursor: 'pointer', fontSize: '0.86rem' }}>
         <input type="checkbox" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} style={{ margin: 0 }} />
         <Repeat strokeWidth={1.9} size={15} />

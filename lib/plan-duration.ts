@@ -56,6 +56,28 @@ export function planCadenceLabel(p: PlanDuration): string {
   return `Billed every ${m} month${m === 1 ? '' : 's'}`;
 }
 
+// The date a renewal's new period must extend FROM. When a member buys while
+// their current subscription is still running, the new period is stacked onto
+// the END of the current one — so they pay for the NEXT period, never the one
+// they're already inside. A lapsed/expired member (no future end date) starts
+// from `now`. This is the single source of truth shared by every fulfilment
+// path (one-off checkout, recurring auto-debit, admin assign) so the rule can't
+// drift between them.
+export function renewalBase(endDate: string | Date | null | undefined, now: Date = new Date()): Date {
+  if (endDate != null) {
+    const end = endDate instanceof Date ? endDate : new Date(endDate);
+    if (!Number.isNaN(end.getTime()) && end.getTime() > now.getTime()) return end;
+  }
+  return now;
+}
+
+// The end date a renewal would produce: stack onto the current period (if any
+// still runs) and add one billing period of `p`. Pure — used both to write the
+// new end_date and to preview the coverage window in the renew UI.
+export function projectRenewalEnd(currentEnd: string | Date | null | undefined, p: PlanDuration, now: Date = new Date()): Date {
+  return extendDate(renewalBase(currentEnd, now), p);
+}
+
 // Extend `from` by one billing period. Days are exact; months are calendar
 // months (so a monthly plan on the 31st lands on the right day). Returns a
 // new Date — the caller decides how to serialise it.
