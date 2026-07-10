@@ -13,8 +13,9 @@ export const maxDuration = 60;
 const initialOf = (name: string) => name.charAt(0).toUpperCase();
 
 export default async function AdminDashboard() {
-  const { gym } = await requireStaff();
-  const profile = await getProfile();
+  // Parallel: both resolve the same cached getUser(), so this costs one auth
+  // round-trip instead of two sequential ones.
+  const [{ gym }, profile] = await Promise.all([requireStaff(), getProfile()]);
   const supabase = await createClient();
 
   const now = new Date();
@@ -50,17 +51,21 @@ export default async function AdminDashboard() {
   const feedIds = (feed ?? []).map((f) => f.member_id).filter(Boolean) as string[];
   const expIds = (expiring ?? []).map((e) => e.member_id).filter(Boolean) as string[];
   const allIds = [...new Set([...recentIds, ...feedIds, ...expIds])];
-  const { data: profiles } = allIds.length
-    ? await supabase.from('profiles').select('id, full_name, first_name, last_name, email').in('id', allIds)
-    : { data: [] as { id: string; full_name: string | null; first_name: string | null; last_name: string | null; email: string | null }[] };
+  // Second batch in one round-trip set: names, recent subscriptions and plans
+  // only depend on the first batch (previously three sequential awaits).
+  const [{ data: profiles }, { data: recentSubs }, { data: plans }] = await Promise.all([
+    allIds.length
+      ? supabase.from('profiles').select('id, full_name, first_name, last_name, email').in('id', allIds)
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null; first_name: string | null; last_name: string | null; email: string | null }[] }),
+    recentIds.length
+      ? supabase.from('member_subscriptions').select('member_id, plan_id, status, end_date').eq('gym_id', gym.id).in('member_id', recentIds)
+      : Promise.resolve({ data: [] as { member_id: string; plan_id: string | null; status: string | null; end_date: string | null }[] }),
+    supabase.from('membership_plans').select('id, name, price').eq('gym_id', gym.id),
+  ]);
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Member']));
   const emailById = new Map((profiles ?? []).map((p) => [p.id, p.email ?? '—']));
 
   // ── Recent members table (plan/status via their latest subscription) ──
-  const { data: recentSubs } = recentIds.length
-    ? await supabase.from('member_subscriptions').select('member_id, plan_id, status, end_date').eq('gym_id', gym.id).in('member_id', recentIds)
-    : { data: [] as { member_id: string; plan_id: string | null; status: string | null; end_date: string | null }[] };
-  const { data: plans } = await supabase.from('membership_plans').select('id, name, price').eq('gym_id', gym.id);
   const planById = new Map((plans ?? []).map((p) => [p.id, p]));
   const subByMember = new Map((recentSubs ?? []).map((s) => [s.member_id, s]));
 

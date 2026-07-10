@@ -12,8 +12,8 @@ export const metadata = { title: 'Profile' };
 // Profile — recreates revamp/member.html "profile": hero, lifetime stats,
 // grouped menus. Identity + visit/class counts are wired to Supabase.
 export default async function ProfilePage() {
-  const { user, gym, link } = await requireMember();
-  const profile = await getProfile();
+  // Parallel — see app/(member)/dashboard/page.tsx.
+  const [{ user, gym, link }, profile] = await Promise.all([requireMember(), getProfile()]);
   const supabase = await createClient();
 
   const [{ count: visits }, { count: classes }, { data: sub }] = await Promise.all([
