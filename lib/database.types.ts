@@ -783,6 +783,7 @@ export type Database = {
           landing_enabled: boolean
           logo_url: string | null
           max_members: number | null
+          member_freeze_enabled: boolean
           name: string
           paystack_customer_code: string | null
           paystack_subaccount_code: string | null
@@ -820,6 +821,7 @@ export type Database = {
           landing_enabled?: boolean
           logo_url?: string | null
           max_members?: number | null
+          member_freeze_enabled?: boolean
           name: string
           paystack_customer_code?: string | null
           paystack_subaccount_code?: string | null
@@ -857,6 +859,7 @@ export type Database = {
           landing_enabled?: boolean
           logo_url?: string | null
           max_members?: number | null
+          member_freeze_enabled?: boolean
           name?: string
           paystack_customer_code?: string | null
           paystack_subaccount_code?: string | null
@@ -1185,7 +1188,9 @@ export type Database = {
           id: string
           member_id: string
           paused_at: string | null
+          pause_end: string | null
           pause_reason: string | null
+          pause_start: string | null
           payment_method: string | null
           paystack_customer_code: string | null
           paystack_email_token: string | null
@@ -1203,7 +1208,9 @@ export type Database = {
           id?: string
           member_id: string
           paused_at?: string | null
+          pause_end?: string | null
           pause_reason?: string | null
+          pause_start?: string | null
           payment_method?: string | null
           paystack_customer_code?: string | null
           paystack_email_token?: string | null
@@ -1221,7 +1228,9 @@ export type Database = {
           id?: string
           member_id?: string
           paused_at?: string | null
+          pause_end?: string | null
           pause_reason?: string | null
+          pause_start?: string | null
           payment_method?: string | null
           paystack_customer_code?: string | null
           paystack_email_token?: string | null
@@ -1327,7 +1336,9 @@ export type Database = {
           gym_id: string | null
           id: string
           member_id: string | null
+          pause_end: string | null
           pause_reason: string | null
+          pause_start: string | null
           paused_at: string | null
           payment_method: string | null
           plan_id: string | null
@@ -1343,7 +1354,9 @@ export type Database = {
           gym_id?: string | null
           id?: string
           member_id?: string | null
+          pause_end?: string | null
           pause_reason?: string | null
+          pause_start?: string | null
           paused_at?: string | null
           payment_method?: string | null
           plan_id?: string | null
@@ -1359,7 +1372,9 @@ export type Database = {
           gym_id?: string | null
           id?: string
           member_id?: string | null
+          pause_end?: string | null
           pause_reason?: string | null
+          pause_start?: string | null
           paused_at?: string | null
           payment_method?: string | null
           plan_id?: string | null

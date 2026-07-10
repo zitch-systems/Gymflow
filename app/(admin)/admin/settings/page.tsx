@@ -40,6 +40,7 @@ export default async function AdminSettings() {
         bank_name: gym.bank_name, bank_code: gym.bank_code, account_number: gym.account_number, account_name: gym.account_name,
         payouts_connected: !!gym.paystack_subaccount_code,
         commission_pct: gym.platform_commission_pct ?? 0,
+        member_freeze_enabled: (gym as { member_freeze_enabled?: boolean }).member_freeze_enabled !== false,
       }}
       staffCount={count ?? 0}
     />

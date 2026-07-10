@@ -163,6 +163,24 @@ export async function uploadLogo(_prev: GymSaveState, formData: FormData): Promi
   }
 }
 
+// Toggle whether members can request a freeze themselves. Owners/managers only.
+// Staff can always freeze manually from the member page regardless of this flag.
+export async function updateFreezePolicy(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const enabled = formData.get('member_freeze_enabled') === 'on';
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const { error } = await supabase.from('gyms').update({ member_freeze_enabled: enabled }).eq('id', gym.id);
+    if (error) return { ok: false, error: error.message };
+    logAudit({ action: 'gym_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { member_freeze_enabled: enabled } });
+    revalidatePath('/admin/settings');
+    revalidatePath('/dashboard/profile');
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 // Save the gym's accent colour (applied across the member app).

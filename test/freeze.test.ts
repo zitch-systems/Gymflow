@@ -154,4 +154,52 @@ describe('membership freeze', () => {
     expect(mirror.paused_at).not.toBeNull();
     expect(mirror.pause_reason).toBe('Travel');
   });
+
+  it('sync trigger propagates the pause_start/pause_end window to the mirror', async () => {
+    await asSuperuser((c) => c.query(
+      `update public.member_subscriptions
+       set status = 'paused', paused_at = now(),
+           pause_start = current_date, pause_end = current_date + 14
+       where id = $1`,
+      [subId],
+    ));
+    const mirror = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `select pause_start, pause_end from public.memberships where id = $1`,
+        [subId],
+      );
+      return rows[0];
+    });
+    expect(mirror.pause_start).not.toBeNull();
+    expect(mirror.pause_end).not.toBeNull();
+    // Window spans 14 days.
+    const days = Math.round((new Date(mirror.pause_end).getTime() - new Date(mirror.pause_start).getTime()) / 86400000);
+    expect(days).toBe(14);
+  });
+
+  it('gyms.member_freeze_enabled defaults to true and is toggleable', async () => {
+    const enabled = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `select member_freeze_enabled from public.gyms where id = $1`,
+        [IDS.gymA],
+      );
+      return rows[0].member_freeze_enabled;
+    });
+    expect(enabled).toBe(true);
+
+    await asSuperuser((c) => c.query(
+      `update public.gyms set member_freeze_enabled = false where id = $1`, [IDS.gymA],
+    ));
+    const after = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `select member_freeze_enabled from public.gyms where id = $1`, [IDS.gymA],
+      );
+      return rows[0].member_freeze_enabled;
+    });
+    expect(after).toBe(false);
+    // Restore so later suites see the default.
+    await asSuperuser((c) => c.query(
+      `update public.gyms set member_freeze_enabled = true where id = $1`, [IDS.gymA],
+    ));
+  });
 });

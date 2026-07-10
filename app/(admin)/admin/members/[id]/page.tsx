@@ -152,8 +152,10 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
 
       <FreezeActions
         sub={(() => {
-          const s = subList.find((x) => x.status === 'pause_requested' || x.status === 'paused');
-          return s ? { id: s.id, status: s.status ?? '', paused_at: s.paused_at, pause_reason: s.pause_reason } : null;
+          // Prefer a request/paused row; otherwise offer to freeze the active sub.
+          const s = subList.find((x) => x.status === 'pause_requested' || x.status === 'paused')
+            ?? (isActive ? activeSub : null);
+          return s ? { id: s.id, status: s.status ?? '', paused_at: s.paused_at, pause_reason: s.pause_reason, pause_start: s.pause_start, pause_end: s.pause_end } : null;
         })()}
       />
 

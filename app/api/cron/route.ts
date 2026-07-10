@@ -76,6 +76,27 @@ export async function GET(req: Request) {
     }
   }
 
+  // Auto-resume freezes whose scheduled window has ended: restore status and
+  // credit the frozen days (pause_start → pause_end) to end_date so the member
+  // gets back exactly the time they were paused.
+  let freezesResumed = 0;
+  if (admin) {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: due } = await admin.from('member_subscriptions')
+      .select('id, end_date, pause_start, pause_end')
+      .eq('status', 'paused').not('pause_end', 'is', null).lte('pause_end', today);
+    for (const s of due ?? []) {
+      const start = s.pause_start ?? s.pause_end!;
+      const days = Math.max(0, Math.round((Date.parse(s.pause_end! + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 86_400_000));
+      const base = new Date((s.end_date ?? today) + 'T00:00:00Z');
+      base.setUTCDate(base.getUTCDate() + days);
+      const { error } = await admin.from('member_subscriptions')
+        .update({ status: 'active', paused_at: null, pause_reason: null, pause_start: null, pause_end: null, end_date: base.toISOString().slice(0, 10) })
+        .eq('id', s.id);
+      if (!error) freezesResumed++;
+    }
+  }
+
   // Housekeeping: rate-limit windows are minutes-to-hours; anything older
   // than 2 days is dead weight. Best-effort.
   if (admin) {
@@ -83,5 +104,5 @@ export async function GET(req: Request) {
     await admin.from('rate_limits').delete().lt('window_start', stale);
   }
 
-  return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated });
+  return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated, freezesResumed });
 }

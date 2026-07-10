@@ -3,8 +3,8 @@
 import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote } from 'lucide-react';
-import { updateGym, updateBranding, uploadLogo, saveBusinessHours, type GymSaveState } from '@/lib/actions/gym';
+import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake } from 'lucide-react';
+import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutForm } from '@/components/admin/payout-form';
 import type { Bank } from '@/lib/paystack';
 
@@ -15,6 +15,7 @@ const NAV = [
   { id: 'profile', label: 'Gym profile', icon: Building2 },
   { id: 'branding', label: 'Branding', icon: Palette },
   { id: 'hours', label: 'Business hours', icon: Clock },
+  { id: 'membership', label: 'Membership', icon: Snowflake },
   { id: 'payouts', label: 'Payouts', icon: Banknote },
   { id: 'notif', label: 'Notifications', icon: Bell },
   { id: 'integ', label: 'Integrations', icon: Plug },
@@ -34,6 +35,7 @@ export type GymProfile = {
   name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
   bank_name: string | null; bank_code: string | null; account_number: string | null; account_name: string | null;
   payouts_connected: boolean; commission_pct: number;
+  member_freeze_enabled: boolean;
 };
 
 export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean };
@@ -44,6 +46,7 @@ export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProf
   const [brandState, brandAction, brandPending] = useActionState(updateBranding, GYM_INIT);
   const [logoState, logoAction, logoPending] = useActionState(uploadLogo, GYM_INIT);
   const [hoursState, hoursAction, hoursPending] = useActionState(saveBusinessHours, GYM_INIT);
+  const [freezeState, freezeAction, freezePending] = useActionState(updateFreezePolicy, GYM_INIT);
   const hoursByDay = new Map(hours.map((h) => [h.day_of_week, h]));
 
   return (
@@ -148,6 +151,27 @@ export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProf
                   <button className="gf-btn gf-btn-primary" type="submit" disabled={hoursPending}>{hoursPending ? 'Saving…' : 'Save hours'}</button>
                   {hoursState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
                   {hoursState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{hoursState.error}</span>}
+                </div>
+              </form>
+            </section>
+          )}
+
+          {sec === 'membership' && (
+            <section className="sec on">
+              <form className="panel" action={freezeAction}>
+                <div className="panel-title">Membership freezes</div>
+                <div className="panel-desc">Control whether members can pause their own membership from the app. Staff can always freeze a membership manually from the member page.</div>
+                <label className="set-row" style={{ cursor: 'pointer' }}>
+                  <div className="m">
+                    <strong>Allow members to request freezes</strong>
+                    <small>Members see a “Freeze membership” option in their profile. Requests still need staff approval.</small>
+                  </div>
+                  <input type="checkbox" name="member_freeze_enabled" defaultChecked={gym.member_freeze_enabled} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+                  <button className="gf-btn gf-btn-primary" type="submit" disabled={freezePending}>{freezePending ? 'Saving…' : 'Save changes'}</button>
+                  {freezeState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
+                  {freezeState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{freezeState.error}</span>}
                 </div>
               </form>
             </section>
