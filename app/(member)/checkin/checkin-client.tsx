@@ -251,12 +251,12 @@ export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props)
         <button className="gf-btn gf-btn-primary gf-btn-lg ci-btn" onClick={() => { setErr(null); setScanning(true); }} disabled={pending}>
           <Camera strokeWidth={1.9} style={{ width: 18, height: 18 }} /> Scan to check {checkedIn ? 'out' : 'in'}
         </button>
+        <button className="gf-btn gf-btn-secondary gf-btn-lg ci-btn" onClick={getCode} disabled={pending}>
+          <Hash strokeWidth={1.9} style={{ width: 18, height: 18 }} /> {pending ? 'One sec…' : `Get front-desk check-${checkedIn ? 'out' : 'in'} code`}
+        </button>
         <button className="ci-self" onClick={checkedIn ? doCheckOut : doCheckIn} disabled={pending}>
           {checkedIn ? <LogOut strokeWidth={1.9} style={{ width: 16, height: 16 }} /> : <ScanLine strokeWidth={1.9} style={{ width: 16, height: 16 }} />}
           {pending ? (checkedIn ? 'Checking out…' : 'Checking in…') : `Or tap to self check-${checkedIn ? 'out' : 'in'}`}
-        </button>
-        <button className="ci-self" onClick={getCode} disabled={pending}>
-          <Hash strokeWidth={1.9} style={{ width: 16, height: 16 }} /> No camera? Get a code for the front desk
         </button>
         {err && <p style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', marginTop: 14 }}>{err}</p>}
 
