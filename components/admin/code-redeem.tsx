@@ -22,7 +22,7 @@ export function CodeRedeem() {
         required
       />
       <button className="gf-btn gf-btn-primary gf-btn-sm" disabled={pending} type="submit">
-        <KeyRound size={14} strokeWidth={2} /> {pending ? '…' : 'Redeem'}
+        <KeyRound size={14} strokeWidth={2} /> {pending ? '…' : 'Check in/out with code'}
       </button>
       {state.error && <p className="code-redeem-msg err" role="alert">{state.error}</p>}
       {state.ok && state.message && <p className="code-redeem-msg ok" role="status">{state.message}</p>}
