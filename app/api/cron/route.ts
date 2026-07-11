@@ -97,6 +97,27 @@ export async function GET(req: Request) {
     }
   }
 
+  // Auto-close stale visits: a member who forgot to check out shouldn't
+  // stay "in gym" indefinitely (breaks the front desk's "in gym now" count
+  // and stops them re-entering the next day). Cap the session at 6h from
+  // check-in so session-length analytics aren't skewed by wall-clock delta.
+  let staleVisitsClosed = 0;
+  if (admin) {
+    const sixHoursAgoIso = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+    const { data: stale } = await admin.from('check_ins')
+      .select('id, checked_in_at')
+      .eq('status', 'active').is('checked_out_at', null).lt('checked_in_at', sixHoursAgoIso)
+      .limit(500);
+    for (const v of stale ?? []) {
+      if (!v.checked_in_at) continue;
+      const closedAt = new Date(new Date(v.checked_in_at).getTime() + 6 * 60 * 60 * 1000).toISOString();
+      const { error } = await admin.from('check_ins')
+        .update({ checked_out_at: closedAt, status: 'completed' })
+        .eq('id', v.id).is('checked_out_at', null);
+      if (!error) staleVisitsClosed++;
+    }
+  }
+
   // Housekeeping: rate-limit windows are minutes-to-hours; anything older
   // than 2 days is dead weight. Best-effort.
   if (admin) {
@@ -104,5 +125,5 @@ export async function GET(req: Request) {
     await admin.from('rate_limits').delete().lt('window_start', stale);
   }
 
-  return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated, freezesResumed });
+  return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated, freezesResumed, staleVisitsClosed });
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ScanLine, Check, Camera, Hash, Clock, LogOut } from 'lucide-react';
+import { ScanLine, Check, Camera, Hash, Clock, LogOut, AlertCircle, X } from 'lucide-react';
 import { selfCheckIn, selfCheckOut, generateCheckinCode, checkinState } from '@/lib/actions/checkin';
 import { QrScanner } from '@/components/member/qr-scanner';
 
@@ -78,6 +78,34 @@ function VisitHistory({ history }: { history: VisitRow[] }) {
   );
 }
 
+// Modal popup for check-in / check-out errors. Server messages read like
+// full sentences ("Your membership isn't active. Renew to check in."), so the
+// body is the message verbatim — the header just frames it as an action block.
+function ErrorPopup({ message, onClose }: { message: string; onClose: () => void }) {
+  return (
+    <div className="gfui-bg open" role="dialog" aria-modal="true" aria-labelledby="ci-err-title" onClick={onClose}>
+      <div className="gfui-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="gfui-h">
+          <div className="gfui-ic danger"><AlertCircle strokeWidth={2} /></div>
+          <div className="gfui-tt">
+            <h3 id="ci-err-title">Can’t do that yet</h3>
+            <p>Here’s why.</p>
+          </div>
+          <button type="button" className="gfui-x" onClick={onClose} aria-label="Close">
+            <X strokeWidth={2} />
+          </button>
+        </div>
+        <div className="gfui-b">
+          <p className="gfui-text">{message}</p>
+        </div>
+        <div className="gfui-f">
+          <button type="button" className="gf-btn gf-btn-primary" onClick={onClose}>Got it</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props) {
   const [checkedIn, setCheckedIn] = useState(initialCheckedIn);
   const [done, setDone] = useState<null | 'in' | 'out'>(null);
@@ -114,6 +142,13 @@ export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props)
         router.refresh();
       } else {
         setErr(res.error);
+        // Reconcile: server says the member isn't inside — auto-checkout ran,
+        // or the visit was already closed elsewhere. UI shouldn't insist they
+        // are still checked in; flip and refetch history.
+        if (/not checked in/i.test(res.error)) {
+          setCheckedIn(false);
+          router.refresh();
+        }
       }
     });
   }, [router]);
@@ -226,8 +261,8 @@ export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props)
             </button>
           )}
           <button className="ci-self" onClick={() => setCode(null)}>Back</button>
-          {err && <p style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', marginTop: 14 }}>{err}</p>}
         </div>
+        {err && <ErrorPopup message={err} onClose={() => setErr(null)} />}
       </section>
     );
   }
@@ -258,12 +293,11 @@ export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props)
           {checkedIn ? <LogOut strokeWidth={1.9} style={{ width: 16, height: 16 }} /> : <ScanLine strokeWidth={1.9} style={{ width: 16, height: 16 }} />}
           {pending ? (checkedIn ? 'Checking out…' : 'Checking in…') : `Or tap to self check-${checkedIn ? 'out' : 'in'}`}
         </button>
-        {err && <p style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', marginTop: 14 }}>{err}</p>}
-
         <VisitHistory history={history} />
       </div>
 
       {scanning && <QrScanner onDetected={onScanned} onClose={() => setScanning(false)} />}
+      {err && <ErrorPopup message={err} onClose={() => setErr(null)} />}
     </section>
   );
 }
