@@ -39,20 +39,36 @@ type Identity = {
   gymName: string; gymMeta: string; gymInitial: string;
   userName: string; userRole: string; userInitial: string;
   gyms?: { id: string; name: string }[]; activeGymId?: string;
+  pendingFreezes?: number;
 };
 
-export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial, gyms = [], activeGymId = '' }: { children: React.ReactNode } & Identity) {
+export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial, gyms = [], activeGymId = '', pendingFreezes = 0 }: { children: React.ReactNode } & Identity) {
   const pathname = usePathname() ?? '';
   const nav = useMobileNav(pathname);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const main = NAV.filter((n) => n.section === 'Main');
   const admin = NAV.filter((n) => n.section === 'Admin');
 
+  // Sidebar per-item counter (freeze requests on Members today; more surfaces
+  // can plug in here). Rendered as a small warning pill so staff can see there
+  // is something waiting without opening the tab.
+  const badgeFor = (href: string): number => href === '/admin/members' ? pendingFreezes : 0;
+
   const navLink = (n: Item) => {
     const Icon = n.icon;
+    const count = badgeFor(n.href);
     return (
       <Link key={n.href} href={n.href} className={`gf-nav-item${isActive(n.href) ? ' active' : ''}`}>
         <Icon size={17} strokeWidth={1.75} /><span>{n.label}</span>
+        {count > 0 && (
+          <span
+            className="gf-badge gf-badge-warning"
+            style={{ marginLeft: 'auto', padding: '2px 7px', fontSize: '0.7rem', minWidth: 20, textAlign: 'center' }}
+            aria-label={`${count} pending`}
+          >
+            {count > 99 ? '99+' : count}
+          </span>
+        )}
       </Link>
     );
   };

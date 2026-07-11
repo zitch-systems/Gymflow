@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Users, Clock, UserX, UserPlus, Search, Download, ChevronRight } from 'lucide-react';
+import { Users, Clock, UserX, UserPlus, Search, Download, ChevronRight, Snowflake } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
@@ -12,7 +12,7 @@ type Row = {
   plan: string; status: [string, string]; joined: string; renews: string; value: string;
 };
 
-const FILTERS = [['all', 'All'], ['active', 'Active'], ['expiring', 'Expiring'], ['expired', 'Expired']] as const;
+const FILTERS = [['all', 'All'], ['active', 'Active'], ['expiring', 'Expiring'], ['expired', 'Expired'], ['freeze', 'Freeze requests']] as const;
 type FilterKey = (typeof FILTERS)[number][0];
 
 export default async function AdminMembers({ searchParams }: { searchParams: Promise<{ f?: string; q?: string }> }) {
@@ -46,7 +46,7 @@ export default async function AdminMembers({ searchParams }: { searchParams: Pro
   const subByMember = new Map((subs ?? []).map((s) => [s.member_id, s]));
 
   const today = new Date().toISOString().slice(0, 10);
-  let active = 0, expiring = 0, lapsed = 0, fresh = 0;
+  let active = 0, expiring = 0, lapsed = 0, fresh = 0, freezePending = 0;
   const monthAgo = new Date(Date.now() - 30 * 86_400_000);
 
   const all: (Row & { bucket: FilterKey })[] = (links ?? []).map((l) => {
@@ -58,9 +58,14 @@ export default async function AdminMembers({ searchParams }: { searchParams: Pro
     const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
     const isActive = sub?.status === 'active' && (sub.end_date ?? '') >= today;
     const expSoon = isActive && remaining <= 7;
+    const pending = sub?.status === 'pause_requested';
     let status: [string, string];
     let bucket: FilterKey;
-    if (expSoon) { status = ['gf-badge-warning', 'Expiring']; bucket = 'expiring'; expiring++; }
+    // Pending freeze wins the status pill so the row is obvious in the "All"
+    // list too; the row still counts toward its underlying active/expiring
+    // bucket via the KPI cards below.
+    if (pending) { status = ['gf-badge-warning', 'Freeze pending']; bucket = 'freeze'; freezePending++; }
+    else if (expSoon) { status = ['gf-badge-warning', 'Expiring']; bucket = 'expiring'; expiring++; }
     else if (isActive) { status = ['gf-badge-success', 'Active']; bucket = 'active'; active++; }
     else { status = ['gf-badge-danger', 'Expired']; bucket = 'expired'; lapsed++; }
     if (l.joined_at && new Date(l.joined_at) >= monthAgo) fresh++;
@@ -88,12 +93,13 @@ export default async function AdminMembers({ searchParams }: { searchParams: Pro
     { icon: Clock, fg: '#ffb020', bg: '#ffb0201f', val: String(expiring), lbl: 'Expiring this week' },
     { icon: UserX, fg: '#ff4560', bg: '#ff45601f', val: String(lapsed), lbl: 'Lapsed' },
     { icon: UserPlus, fg: '#4080ff', bg: '#4080ff1f', val: String(fresh), lbl: 'New this month' },
+    { icon: Snowflake, fg: '#4dc4ff', bg: '#4dc4ff1f', val: String(freezePending), lbl: 'Freeze requests' },
   ];
 
   return (
     <>
       <div className="page-h">
-        <div><h1>Members</h1><p>{active} active · {expiring} expiring this week · {lapsed} lapsed</p></div>
+        <div><h1>Members</h1><p>{active} active · {expiring} expiring this week · {lapsed} lapsed{freezePending ? ` · ${freezePending} freeze request${freezePending === 1 ? '' : 's'}` : ''}</p></div>
         <div className="seg">
           {FILTERS.map(([k, label]) => (
             <Link key={k} href={`/admin/members?${new URLSearchParams({ ...(k !== 'all' && { f: k }), ...(q && { q: sp.q ?? '' }) })}`} className={filter === k ? 'on' : ''} style={{ textDecoration: 'none' }}>{label}</Link>
