@@ -19,11 +19,12 @@ export default async function ProfilePage() {
   const [{ count: visits }, { count: classes }, { data: sub }] = await Promise.all([
     supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id),
     supabase.from('class_bookings').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'attended'),
-    supabase.from('member_subscriptions').select('id, status, auto_debit_enabled, paystack_subscription_code').eq('member_id', user.id).eq('gym_id', gym.id)
+    supabase.from('member_subscriptions').select('id, status, end_date, auto_debit_enabled, paystack_subscription_code').eq('member_id', user.id).eq('gym_id', gym.id)
       .in('status', ['active', 'pause_requested', 'paused', 'past_due']).order('end_date', { ascending: false }).limit(1).maybeSingle(),
   ]);
   const freezeStatus = (sub?.status ?? null) as 'active' | 'pause_requested' | 'paused' | null;
   const freezeEnabled = (gym as { member_freeze_enabled?: boolean }).member_freeze_enabled !== false;
+  const subEndDate = sub?.end_date ?? null;
   const autoRenewSubId = sub && sub.auto_debit_enabled && sub.paystack_subscription_code ? sub.id : null;
 
   const name = profile?.full_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || profile?.email || 'Member';
@@ -65,7 +66,7 @@ export default async function ProfilePage() {
 
       <div className="group">
         <AutoRenewRow subId={autoRenewSubId} />
-        <FreezeRequest status={freezeStatus} enabled={freezeEnabled} />
+        <FreezeRequest status={freezeStatus} enabled={freezeEnabled} subEndDate={subEndDate} />
       </div>
 
       <div className="group">

@@ -38,6 +38,12 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 const daysBetween = (a: string, b: string) =>
   Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000);
 
+// Minimum days that must remain on the membership to accept a freeze request.
+// A freeze doesn't buy new days — resume just credits back the pause window —
+// so freezing right before expiry gives the member nothing back. Mirrors the
+// admin "Expiring" cutoff used on /admin/members.
+const MIN_DAYS_TO_FREEZE = 7;
+
 async function currentMemberSub(userId: string, gymId: string) {
   // Prefer an active/pause_requested/paused sub; ignore expired history.
   const admin = createAdminClient();
@@ -53,9 +59,12 @@ async function currentMemberSub(userId: string, gymId: string) {
 }
 
 // Member requests a freeze. Only allowed when the gym permits member freezes and
-// the member has an active sub.
+// the member has an active sub with meaningful time left. The requested window
+// is stored on the sub so the admin's approval form pre-fills the same dates.
 export async function requestFreeze(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const reason = String(formData.get('reason') ?? '').slice(0, 500);
+  const win = readWindow(formData);
+  if ('error' in win) return { ok: false, error: win.error };
   try {
     const { user, gym } = await requireMember();
     if ((gym as { member_freeze_enabled?: boolean }).member_freeze_enabled === false) {
@@ -68,11 +77,22 @@ export async function requestFreeze(_prev: ActionState, formData: FormData): Pro
         ? 'Freeze already requested — waiting for staff approval.'
         : 'Membership is already paused.' };
     }
+    // Reject freezes on lapsed or nearly-lapsed memberships — a freeze that
+    // starts after expiry credits nothing back, and one with <7 days left
+    // usually means the member should renew instead.
+    if (!sub.end_date || daysBetween(todayIso(), sub.end_date) < MIN_DAYS_TO_FREEZE) {
+      return { ok: false, error: 'Your membership has too little time left to freeze. Renew first.' };
+    }
+    // The freeze can't start after the membership ends — the days you'd get
+    // back would land on an expired plan.
+    if (daysBetween(todayIso(), win.start) > daysBetween(todayIso(), sub.end_date)) {
+      return { ok: false, error: 'Freeze start date is after your membership ends. Pick an earlier date.' };
+    }
 
     const admin = createAdminClient();
     const { error } = await admin
       .from('member_subscriptions')
-      .update({ status: 'pause_requested', pause_reason: reason || null })
+      .update({ status: 'pause_requested', pause_reason: reason || null, pause_start: win.start, pause_end: win.end })
       .eq('id', sub.id);
     if (error) return { ok: false, error: error.message };
 
@@ -80,7 +100,7 @@ export async function requestFreeze(_prev: ActionState, formData: FormData): Pro
       action: 'membership_freeze_requested',
       table: 'member_subscriptions',
       actorId: user.id, gymId: gym.id, recordId: sub.id,
-      values: { reason: reason || null },
+      values: { reason: reason || null, pause_start: win.start, pause_end: win.end },
     });
     revalidatePath('/dashboard');
     revalidatePath('/dashboard/profile');
