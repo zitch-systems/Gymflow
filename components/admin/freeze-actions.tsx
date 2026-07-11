@@ -20,19 +20,23 @@ const fmtDate = (s: string | null) =>
   s ? new Date(s + (s.length === 10 ? 'T00:00:00Z' : '')).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
 
 // From/to date pickers shared by the "freeze" and "approve" forms. `from`
-// defaults to today, `to` to 30 days out.
-function DateWindow() {
+// defaults to today, `to` to 30 days out. When approving a pending request the
+// member's requested window is passed in and pre-fills the inputs so staff can
+// confirm-or-tweak instead of re-entering.
+function DateWindow({ start, end }: { start?: string | null; end?: string | null } = {}) {
   const today = new Date();
   const in30 = new Date(today.getTime() + 30 * 86_400_000);
+  const startValue = start && start >= iso(today) ? start : iso(today);
+  const endValue = end && end > startValue ? end : iso(in30);
   return (
     <div className="frow" style={{ marginBottom: 10 }}>
       <div className="gf-form-group">
         <label className="gf-form-label" style={{ fontSize: 12 }}>Freeze from</label>
-        <input className="gf-input" type="date" name="pauseStart" defaultValue={iso(today)} min={iso(today)} required />
+        <input className="gf-input" type="date" name="pauseStart" defaultValue={startValue} min={iso(today)} required />
       </div>
       <div className="gf-form-group">
         <label className="gf-form-label" style={{ fontSize: 12 }}>Resume on</label>
-        <input className="gf-input" type="date" name="pauseEnd" defaultValue={iso(in30)} min={iso(new Date(today.getTime() + 86_400_000))} required />
+        <input className="gf-input" type="date" name="pauseEnd" defaultValue={endValue} min={iso(new Date(today.getTime() + 86_400_000))} required />
       </div>
     </div>
   );
@@ -81,11 +85,13 @@ export function FreezeActions({ sub }: { sub: FreezeState | null }) {
       {sub.status === 'pause_requested' && (
         <>
           <p style={{ margin: '0 0 12px', color: 'var(--gf-muted)' }}>
-            Member has requested a freeze{sub.pause_reason ? <>: <em>&ldquo;{sub.pause_reason}&rdquo;</em></> : '.'} Set the freeze period to approve.
+            Member has requested a freeze{sub.pause_reason ? <>: <em>&ldquo;{sub.pause_reason}&rdquo;</em></> : '.'}
+            {sub.pause_start && sub.pause_end ? <> They asked for <strong>{fmtDate(sub.pause_start)} → {fmtDate(sub.pause_end)}</strong>.</> : null}
+            {' '}Confirm or adjust the window to approve.
           </p>
           <form action={approveAction} style={{ marginBottom: 10 }}>
             <input type="hidden" name="subId" value={sub.id} />
-            <DateWindow />
+            <DateWindow start={sub.pause_start} end={sub.pause_end} />
             <button className="gf-btn gf-btn-primary gf-btn-sm" disabled={approvePending}>
               <Pause strokeWidth={1.9} size={15} /> {approvePending ? 'Approving…' : 'Approve freeze'}
             </button>
