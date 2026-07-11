@@ -3,6 +3,7 @@ import { BillingWall } from '@/components/admin/billing-wall';
 import { requireAdminStaff, getProfile, getStaffGyms, ADMIN_ROLES } from '@/lib/auth/dal';
 import { gymBillingState, isBlocked, isPlanTier } from '@/lib/platform-plans';
 import { initialsOf, roleLabel } from '@/lib/format';
+import { createClient } from '@/lib/supabase/server';
 
 // The gate hits Supabase on every /admin/* request; allow headroom for a
 // resuming (auto-paused) free-tier project so it doesn't 504 the first load.
@@ -29,9 +30,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     return <BillingWall state={state} gymName={gym.name} currentTier={tier} />;
   }
 
-  const [profile, staffGyms] = await Promise.all([getProfile(), getStaffGyms(ADMIN_ROLES)]);
+  const supabase = await createClient();
+  // Pending freeze requests — surfaced as a badge on the Members nav item so
+  // staff can see "there's a request waiting" without opening every profile.
+  const [profile, staffGyms, freezeCountRes] = await Promise.all([
+    getProfile(),
+    getStaffGyms(ADMIN_ROLES),
+    supabase.from('member_subscriptions').select('id', { head: true, count: 'exact' })
+      .eq('gym_id', gym.id).eq('status', 'pause_requested'),
+  ]);
   const name = profile?.full_name?.trim() || user.email?.split('@')[0] || roleLabel(role);
   const meta = `${gym.city ? `${gym.city} · ` : ''}${gym.slug}.gymflow.ng`;
+  const pendingFreezes = freezeCountRes.count ?? 0;
 
   return (
     <AdminShell
@@ -43,6 +53,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       userInitial={initialsOf(name)}
       gyms={staffGyms.gyms}
       activeGymId={staffGyms.activeId}
+      pendingFreezes={pendingFreezes}
     >
       {children}
     </AdminShell>
