@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   ArrowRight, LogIn, UserPlus, Dumbbell, MapPin, Phone, Mail, Globe,
-  Clock, Check, CalendarDays, Sparkles,
+  Clock, Check, CalendarDays, Sparkles, QrCode, CalendarCheck, Wallet, Smartphone,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -147,11 +147,12 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
       </div>
 
       {/* ── Hero ── */}
-      <header className="gl-hero">
-        {gym.hero_image_url && (
-          // eslint-disable-next-line @next/next/no-img-element -- per-gym remote hero image
-          <img className="gl-hero-bg" src={gym.hero_image_url} alt="" aria-hidden />
-        )}
+      <header className="gl-hero gl-hero-photo">
+        {/* Gym's own hero photo when set, else a bundled gym backdrop so the
+            page never looks empty. A dark scrim keeps the text legible. */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- per-gym remote or bundled hero image */}
+        <img className="gl-hero-bg" src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" aria-hidden />
+        <div className="gl-hero-scrim" aria-hidden />
         <div className="gl-hero-in">
           <span className="gl-logo">
             {gym.logo_url ? (
@@ -194,6 +195,25 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
           <p className="gl-about">{gym.description}</p>
         </section></Reveal>
       )}
+
+      {/* ── Member features (always shown — the membership experience) ── */}
+      <Reveal><section className="gl-section">
+        <h2 className="gl-h2">Your membership, in your pocket</h2>
+        <div className="gl-features">
+          {[
+            { icon: QrCode, title: 'Tap to check in', body: `Scan or read out a code at the door — no cards, no queues. ${gym.name} sees you the moment you arrive.` },
+            { icon: CalendarCheck, title: 'Book classes', body: 'Reserve your spot in seconds and get a reminder before it starts, so you never miss a session.' },
+            { icon: Wallet, title: 'Manage your plan', body: 'Renew, view receipts and track your membership status — all self-service, all from your phone.' },
+            { icon: Smartphone, title: 'Add to home screen', body: 'Install it like an app. It works offline and feels like it was built just for this gym.' },
+          ].map((f) => { const Icon = f.icon; return (
+            <Tilt className="gl-feature" key={f.title} max={7}>
+              <span className="gl-feature-ic"><Icon strokeWidth={1.8} /></span>
+              <strong>{f.title}</strong>
+              <p>{f.body}</p>
+            </Tilt>
+          ); })}
+        </div>
+      </section></Reveal>
 
       {/* ── Membership plans ── */}
       {plans.length > 0 && (
