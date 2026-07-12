@@ -14,7 +14,14 @@ import {
   GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode,
 } from 'lucide-react';
 
-type Item = { href: Route; label: string; icon: LucideIcon; section: 'Main' | 'Admin' };
+// `roles`, when set, limits the nav item to those staff roles. Owners/managers
+// see everything (they're a superset). Unrestricted items show for all admin
+// staff (front desk, accountant included). This mirrors the role gates on the
+// underlying pages/actions — it's the visible half of the RBAC alignment.
+type Item = { href: Route; label: string; icon: LucideIcon; section: 'Main' | 'Admin'; roles?: readonly string[] };
+
+const MANAGER = ['gym_owner', 'owner', 'manager'] as const;
+const FINANCE = ['gym_owner', 'owner', 'manager', 'accountant'] as const;
 
 // Sidebar nav — order + labels from revamp/admin.html (Overview · Members ·
 // Check-In · Analytics · Classes · Staff | Pricing · Reminders · Facility ·
@@ -23,31 +30,32 @@ const NAV: Item[] = [
   { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard, section: 'Main' },
   { href: '/admin/members', label: 'Members', icon: Users, section: 'Main' },
   { href: '/admin/invite', label: 'Invite QR', icon: QrCode, section: 'Main' },
-  { href: '/admin/staff-checkin', label: 'Check-In', icon: ScanLine, section: 'Main' },
-  { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, section: 'Main' },
+  { href: '/admin/staff-checkin', label: 'Check-in/out', icon: ScanLine, section: 'Main' },
+  { href: '/admin/analytics', label: 'Analytics', icon: BarChart3, section: 'Main', roles: FINANCE },
   { href: '/admin/classes', label: 'Classes', icon: CalendarDays, section: 'Main' },
-  { href: '/admin/instructors', label: 'Staff', icon: GraduationCap, section: 'Main' },
-  { href: '/admin/pricing', label: 'Pricing', icon: Tag, section: 'Admin' },
-  { href: '/admin/reminders', label: 'Reminders', icon: Bell, section: 'Admin' },
+  { href: '/admin/instructors', label: 'Staff', icon: GraduationCap, section: 'Main', roles: MANAGER },
+  { href: '/admin/pricing', label: 'Pricing', icon: Tag, section: 'Admin', roles: MANAGER },
+  { href: '/admin/reminders', label: 'Reminders', icon: Bell, section: 'Admin', roles: MANAGER },
   { href: '/admin/operations', label: 'Facility', icon: Wrench, section: 'Admin' },
-  { href: '/admin/wallet', label: 'Wallet', icon: Wallet, section: 'Admin' },
-  { href: '/admin/billing', label: 'Billing', icon: CreditCard, section: 'Admin' },
-  { href: '/admin/settings', label: 'Settings', icon: Settings, section: 'Admin' },
+  { href: '/admin/wallet', label: 'Wallet', icon: Wallet, section: 'Admin', roles: FINANCE },
+  { href: '/admin/billing', label: 'Billing', icon: CreditCard, section: 'Admin', roles: FINANCE },
+  { href: '/admin/settings', label: 'Settings', icon: Settings, section: 'Admin', roles: MANAGER },
 ];
 
 type Identity = {
   gymName: string; gymMeta: string; gymInitial: string;
-  userName: string; userRole: string; userInitial: string;
+  userName: string; userRole: string; userInitial: string; roleKey?: string;
   gyms?: { id: string; name: string }[]; activeGymId?: string;
   pendingFreezes?: number;
 };
 
-export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial, gyms = [], activeGymId = '', pendingFreezes = 0 }: { children: React.ReactNode } & Identity) {
+export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial, roleKey = '', gyms = [], activeGymId = '', pendingFreezes = 0 }: { children: React.ReactNode } & Identity) {
   const pathname = usePathname() ?? '';
   const nav = useMobileNav(pathname);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
-  const main = NAV.filter((n) => n.section === 'Main');
-  const admin = NAV.filter((n) => n.section === 'Admin');
+  const canSee = (n: Item) => !n.roles || n.roles.includes(roleKey);
+  const main = NAV.filter((n) => n.section === 'Main' && canSee(n));
+  const admin = NAV.filter((n) => n.section === 'Admin' && canSee(n));
 
   // Sidebar per-item counter (freeze requests on Members today; more surfaces
   // can plug in here). Rendered as a small warning pill so staff can see there

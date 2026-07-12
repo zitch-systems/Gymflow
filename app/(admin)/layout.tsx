@@ -1,5 +1,6 @@
 import { AdminShell } from '@/components/admin/admin-shell';
 import { BillingWall } from '@/components/admin/billing-wall';
+import { OnboardingBanner } from '@/components/admin/onboarding-banner';
 import { requireAdminStaff, getProfile, getStaffGyms, ADMIN_ROLES } from '@/lib/auth/dal';
 import { gymBillingState, isBlocked, isPlanTier } from '@/lib/platform-plans';
 import { initialsOf, roleLabel } from '@/lib/format';
@@ -50,11 +51,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       gymInitial={initialsOf(gym.name, 'G')}
       userName={name}
       userRole={roleLabel(role)}
+      roleKey={role}
       userInitial={initialsOf(name)}
       gyms={staffGyms.gyms}
       activeGymId={staffGyms.activeId}
       pendingFreezes={pendingFreezes}
     >
+      <OnboardingBanner gymId={gym.id} />
       {children}
     </AdminShell>
   );

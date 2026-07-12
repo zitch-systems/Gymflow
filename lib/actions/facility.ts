@@ -2,11 +2,19 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 
 export type FState = { ok: boolean; error: string | null };
+
+// Only accept a strict YYYY-MM-DD date; anything else (empty, partial, a
+// locale-formatted value) becomes null so a malformed string can never reach
+// Postgres and throw `22007 invalid input syntax for type date`.
+function cleanDate(v: FormDataEntryValue | null): string | null {
+  const s = String(v ?? '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
 
 // equipment.status — constrained by equipment_status_check to these values;
 // the Facility page maps them to OK/Service/Down labels.
@@ -38,14 +46,14 @@ export async function saveEquipment(_prev: FState, fd: FormData): Promise<FState
     status,
     serial_number: String(fd.get('serial_number') ?? '').trim() || null,
     vendor: String(fd.get('vendor') ?? '').trim() || null,
-    purchase_date: String(fd.get('purchase_date') ?? '') || null,
-    purchase_price: priceRaw && Number(priceRaw) > 0 ? Number(priceRaw) : null,
-    last_maintenance_date: String(fd.get('last_maintenance_date') ?? '') || null,
-    next_maintenance_date: String(fd.get('next_maintenance_date') ?? '') || null,
+    purchase_date: cleanDate(fd.get('purchase_date')),
+    purchase_price: priceRaw && Number.isFinite(Number(priceRaw)) && Number(priceRaw) > 0 ? Number(priceRaw) : null,
+    last_maintenance_date: cleanDate(fd.get('last_maintenance_date')),
+    next_maintenance_date: cleanDate(fd.get('next_maintenance_date')),
     maintenance_notes: String(fd.get('maintenance_notes') ?? '').trim() || null,
   };
   try {
-    const { user, gym } = await requireStaff();
+    const { user, gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
 
     // Photo upload goes to the per-gym gym-assets bucket; the storage RLS keys
@@ -80,7 +88,7 @@ export async function deleteEquipment(_prev: FState, fd: FormData): Promise<FSta
   const id = String(fd.get('id') ?? '');
   if (!id) return { ok: false, error: 'Missing equipment id.' };
   try {
-    const { user, gym } = await requireStaff();
+    const { user, gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
     const { error } = await supabase.from('equipment').delete().eq('id', id).eq('gym_id', gym.id);
     if (error) return { ok: false, error: error.message };
@@ -98,14 +106,14 @@ export async function logExpense(_prev: FState, fd: FormData): Promise<FState> {
   if (!(EXPENSE_CATEGORIES as readonly string[]).includes(category)) return { ok: false, error: 'Choose a valid category.' };
   if (!amount || amount <= 0) return { ok: false, error: 'Enter a valid amount.' };
   try {
-    const { user, gym } = await requireStaff();
+    const { user, gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
     const { error } = await supabase.from('expenses').insert({
       gym_id: gym.id,
       category,
       amount,
       description: String(fd.get('description') ?? '').trim() || null,
-      expense_date: String(fd.get('expense_date') ?? '') || new Date().toISOString().slice(0, 10),
+      expense_date: cleanDate(fd.get('expense_date')) ?? new Date().toISOString().slice(0, 10),
       created_by: user.id,
     });
     if (error) return { ok: false, error: error.message };

@@ -4,9 +4,10 @@ import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake } from 'lucide-react';
-import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, type GymSaveState } from '@/lib/actions/gym';
+import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutForm } from '@/components/admin/payout-form';
 import type { Bank } from '@/lib/paystack';
+import { fmt12Hr } from '@/lib/format';
 
 const GYM_INIT: GymSaveState = { ok: false, error: null };
 const SWATCHES = ['#11d18b', '#4080ff', '#ff4560', '#c6f24e', '#b67bf3', '#f59e0b', '#06b6d4'];
@@ -35,20 +36,21 @@ export type GymProfile = {
   name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
   tagline: string | null; description: string | null; city: string | null; state: string | null; website: string | null; amenities: string[] | null;
   bank_name: string | null; bank_code: string | null; account_number: string | null; account_name: string | null;
-  payouts_connected: boolean; commission_pct: number;
+  payouts_connected: boolean; payouts_locked: boolean; commission_pct: number;
   member_freeze_enabled: boolean;
+  notif_class_reminders: boolean; notif_renewal_nudges: boolean; notif_payment_receipts: boolean;
 };
 
-export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean };
+export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
 
-export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[] }) {
+export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutRequests }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; pendingPayoutRequests: number }) {
   const [sec, setSec] = useState<string>('profile');
   const [gymState, gymAction, gymPending] = useActionState(updateGym, GYM_INIT);
   const [brandState, brandAction, brandPending] = useActionState(updateBranding, GYM_INIT);
   const [logoState, logoAction, logoPending] = useActionState(uploadLogo, GYM_INIT);
   const [hoursState, hoursAction, hoursPending] = useActionState(saveBusinessHours, GYM_INIT);
   const [freezeState, freezeAction, freezePending] = useActionState(updateFreezePolicy, GYM_INIT);
-  const hoursByDay = new Map(hours.map((h) => [h.day_of_week, h]));
+  const [notifState, notifAction, notifPending] = useActionState(updateNotifications, GYM_INIT);
 
   return (
     <>
@@ -139,22 +141,11 @@ export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProf
             <section className="sec on">
               <form className="panel" action={hoursAction}>
                 <div className="panel-title">Business hours</div>
-                <div className="panel-desc">When members can check in and book. Shown on your public page.</div>
+                <div className="panel-desc">When members can check in and book. Times display in AM/PM. Pick <em>Open all day</em> for one range, or <em>Split sessions</em> to open only for morning, afternoon, or evening slots.</div>
                 <div className="hours-edit">
-                  {DAY_ORDER.map(([d, label]) => {
-                    const h = hoursByDay.get(d);
-                    return (
-                      <div className="hrow-edit" key={d}>
-                        <div className="dn">{label}</div>
-                        <label className="hclosed"><input type="checkbox" name={`closed_${d}`} defaultChecked={h?.is_closed ?? false} /> Closed</label>
-                        <div className="htimes">
-                          <input className="gf-input" type="time" name={`open_${d}`} defaultValue={h?.open_time ?? '05:00'} aria-label={`${label} open`} />
-                          <span>—</span>
-                          <input className="gf-input" type="time" name={`close_${d}`} defaultValue={h?.close_time ?? '22:00'} aria-label={`${label} close`} />
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {DAY_ORDER.map(([d, label]) => (
+                    <DayHoursEditor key={d} d={d} label={label} rows={hours.filter((h) => h.day_of_week === d)} />
+                  ))}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 18 }}>
                   <button className="gf-btn gf-btn-primary" type="submit" disabled={hoursPending}>{hoursPending ? 'Saving…' : 'Save hours'}</button>
@@ -188,19 +179,39 @@ export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProf
 
           {sec === 'payouts' && (
             <section className="sec on">
+              {pendingPayoutRequests > 0 && (
+                <div className="panel" style={{ borderColor: 'var(--gf-warning)', background: 'var(--gf-warning-soft, rgba(245,158,11,0.08))', marginBottom: 12 }}>
+                  <div className="panel-title" style={{ color: 'var(--gf-warning)' }}>Change pending review</div>
+                  <div className="panel-desc">You have {pendingPayoutRequests} payout-account change request{pendingPayoutRequests === 1 ? '' : 's'} awaiting platform review. Your current bank stays active until it&rsquo;s approved.</div>
+                </div>
+              )}
               <PayoutForm gym={gym} banks={banks} />
             </section>
           )}
 
           {sec === 'notif' && (
             <section className="sec on">
-              <div className="panel">
+              <form className="panel" action={notifAction}>
                 <div className="panel-title">Notifications</div>
-                <div className="panel-desc">Automated reminders sent to members.</div>
-                <div className="set-row"><div className="m"><strong>Class reminders</strong><small>WhatsApp + push, 1 hour before</small></div><span className="gf-badge gf-badge-success">On</span></div>
-                <div className="set-row"><div className="m"><strong>Renewal nudges</strong><small>Email + WhatsApp before expiry</small></div><span className="gf-badge gf-badge-success">On</span></div>
-                <div className="set-row"><div className="m"><strong>Payment receipts</strong><small>Emailed on every charge</small></div><span className="gf-badge gf-badge-success">On</span></div>
-              </div>
+                <div className="panel-desc">Automated reminders sent to members. Toggle a channel off to stop those messages platform-wide for this gym.</div>
+                <label className="set-row" style={{ cursor: 'pointer' }}>
+                  <div className="m"><strong>Class reminders</strong><small>WhatsApp + push, 1 hour before</small></div>
+                  <input type="checkbox" name="notif_class_reminders" defaultChecked={gym.notif_class_reminders} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
+                </label>
+                <label className="set-row" style={{ cursor: 'pointer' }}>
+                  <div className="m"><strong>Renewal nudges</strong><small>Email + WhatsApp before expiry</small></div>
+                  <input type="checkbox" name="notif_renewal_nudges" defaultChecked={gym.notif_renewal_nudges} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
+                </label>
+                <label className="set-row" style={{ cursor: 'pointer' }}>
+                  <div className="m"><strong>Payment receipts</strong><small>Emailed on every charge</small></div>
+                  <input type="checkbox" name="notif_payment_receipts" defaultChecked={gym.notif_payment_receipts} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+                  <button className="gf-btn gf-btn-primary" type="submit" disabled={notifPending}>{notifPending ? 'Saving…' : 'Save changes'}</button>
+                  {notifState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
+                  {notifState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{notifState.error}</span>}
+                </div>
+              </form>
             </section>
           )}
 
@@ -235,5 +246,85 @@ export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProf
         </div>
       </div>
     </>
+  );
+}
+
+// Per-day hours editor. Three modes:
+//   'single' — one open/close range that runs all day (the default).
+//   'split'  — up to three named sessions (morning/afternoon/evening), each
+//              individually toggleable and time-picked.
+//   'closed' — no rows saved for the day.
+// Times are stored as 24h "HH:MM" but a live AM/PM read-out sits next to each
+// picker so owners always see the format members will actually see.
+type SessionKey = 'morning' | 'afternoon' | 'evening';
+const SESSIONS: { key: SessionKey; label: string; open: string; close: string }[] = [
+  { key: 'morning',   label: 'Morning',   open: '05:00', close: '12:00' },
+  { key: 'afternoon', label: 'Afternoon', open: '12:00', close: '17:00' },
+  { key: 'evening',   label: 'Evening',   open: '17:00', close: '22:00' },
+];
+
+function DayHoursEditor({ d, label, rows }: { d: number; label: string; rows: BusinessHour[] }) {
+  const singleRow = rows.find((r) => r.session === 'all');
+  const splitRows = new Map(rows.filter((r) => r.session !== 'all').map((r) => [r.session as SessionKey, r]));
+  const initialMode: 'single' | 'split' | 'closed' =
+    rows.length && rows.every((r) => r.is_closed) ? 'closed'
+    : splitRows.size > 0 ? 'split'
+    : 'single';
+
+  const [mode, setMode] = useState<'single' | 'split' | 'closed'>(initialMode);
+  const [singleOpen, setSingleOpen] = useState(singleRow?.open_time ?? (d === 0 || d === 6 ? '07:00' : '05:00'));
+  const [singleClose, setSingleClose] = useState(singleRow?.close_time ?? (d === 0 || d === 6 ? '20:00' : '22:00'));
+
+  return (
+    <div className="hrow-edit hrow-multi" data-mode={mode}>
+      <div className="dn">{label}</div>
+      <input type="hidden" name={`mode_${d}`} value={mode} />
+      <div className="hmode" role="tablist" aria-label={`${label} hours mode`}>
+        <button type="button" className={mode === 'single' ? 'on' : undefined} onClick={() => setMode('single')} role="tab" aria-selected={mode === 'single'}>Open all day</button>
+        <button type="button" className={mode === 'split'  ? 'on' : undefined} onClick={() => setMode('split')}  role="tab" aria-selected={mode === 'split'}>Split sessions</button>
+        <button type="button" className={mode === 'closed' ? 'on' : undefined} onClick={() => setMode('closed')} role="tab" aria-selected={mode === 'closed'}>Closed</button>
+      </div>
+
+      {mode === 'single' && (
+        <div className="htimes">
+          <input className="gf-input" type="time" name={`open_${d}`}  value={singleOpen}  onChange={(e) => setSingleOpen(e.target.value)}  aria-label={`${label} open`} />
+          <span className="hampm">{fmt12Hr(singleOpen)}</span>
+          <span>—</span>
+          <input className="gf-input" type="time" name={`close_${d}`} value={singleClose} onChange={(e) => setSingleClose(e.target.value)} aria-label={`${label} close`} />
+          <span className="hampm">{fmt12Hr(singleClose)}</span>
+        </div>
+      )}
+
+      {mode === 'split' && (
+        <div className="hsessions">
+          {SESSIONS.map((s) => (
+            <SplitRow key={s.key} d={d} spec={s} row={splitRows.get(s.key)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SplitRow({ d, spec, row }: { d: number; spec: { key: SessionKey; label: string; open: string; close: string }; row: BusinessHour | undefined }) {
+  const [enabled, setEnabled] = useState(!!row);
+  const [open, setOpen] = useState(row?.open_time ?? spec.open);
+  const [close, setClose] = useState(row?.close_time ?? spec.close);
+  return (
+    <div className="hsession" data-enabled={enabled}>
+      <label className="hs-tog">
+        <input type="checkbox" name={`enabled_${d}_${spec.key}`} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        {spec.label}
+      </label>
+      {enabled && (
+        <div className="htimes">
+          <input className="gf-input" type="time" name={`open_${d}_${spec.key}`}  value={open}  onChange={(e) => setOpen(e.target.value)}  aria-label={`${spec.label} open`} />
+          <span className="hampm">{fmt12Hr(open)}</span>
+          <span>—</span>
+          <input className="gf-input" type="time" name={`close_${d}_${spec.key}`} value={close} onChange={(e) => setClose(e.target.value)} aria-label={`${spec.label} close`} />
+          <span className="hampm">{fmt12Hr(close)}</span>
+        </div>
+      )}
+    </div>
   );
 }

@@ -97,3 +97,67 @@ export async function inviteStaff(_prev: StaffState, formData: FormData): Promis
     tempPassword: pwd,
   };
 }
+
+// Activate or deactivate a staff member's access to the caller's gym. Flips
+// gym_staff_links.is_active — a deactivated staffer keeps their account but
+// loses admin/coach access (requireStaff filters on is_active). Owner/manager
+// only; the gym owner's own link can't be deactivated, and you can't deactivate
+// yourself (avoids locking the last manager out).
+export async function setStaffActive(_prev: StaffState, formData: FormData): Promise<StaffState> {
+  const targetUserId = String(formData.get('user_id') ?? '');
+  const active = formData.get('active') === 'on' || String(formData.get('active')) === 'true';
+  if (!targetUserId) return { ok: false, error: 'Missing staff member.' };
+  let actorId: string, gymId: string;
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    actorId = user.id; gymId = gym.id;
+  } catch {
+    return { ok: false, error: 'Only an owner or manager can manage staff.' };
+  }
+  if (targetUserId === actorId) return { ok: false, error: 'You can’t change your own access.' };
+  let admin: ReturnType<typeof createAdminClient>;
+  try { admin = createAdminClient(); } catch (e) { return { ok: false, error: (e as Error).message }; }
+
+  const { data: link } = await admin.from('gym_staff_links').select('id, role').eq('user_id', targetUserId).eq('gym_id', gymId).maybeSingle();
+  if (!link) return { ok: false, error: 'That person isn’t staff at this gym.' };
+  if ((link as { role: string }).role === 'gym_owner') return { ok: false, error: 'The gym owner’s access can’t be changed here.' };
+
+  const { error } = await admin.from('gym_staff_links').update({ is_active: active }).eq('id', (link as { id: string }).id);
+  if (error) return { ok: false, error: error.message };
+  logAudit({ action: active ? 'staff_activated' : 'staff_deactivated', table: 'gym_staff_links', actorId, gymId, recordId: targetUserId });
+  revalidatePath('/admin/instructors');
+  return { ok: true, error: null, message: active ? 'Staff access restored.' : 'Staff access revoked.' };
+}
+
+// Change a staff member's role (elevate/demote) at the caller's gym. Owner/
+// manager only; can't assign gym_owner and can't change the existing owner.
+// Also keeps profiles.role roughly aligned so downstream role reads agree.
+export async function setStaffRole(_prev: StaffState, formData: FormData): Promise<StaffState> {
+  const targetUserId = String(formData.get('user_id') ?? '');
+  const role = String(formData.get('role') ?? '');
+  if (!targetUserId) return { ok: false, error: 'Missing staff member.' };
+  if (!STAFF_ROLES.has(role)) return { ok: false, error: 'Choose a valid role.' };
+  let actorId: string, gymId: string;
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    actorId = user.id; gymId = gym.id;
+  } catch {
+    return { ok: false, error: 'Only an owner or manager can manage staff.' };
+  }
+  if (targetUserId === actorId) return { ok: false, error: 'You can’t change your own role.' };
+  let admin: ReturnType<typeof createAdminClient>;
+  try { admin = createAdminClient(); } catch (e) { return { ok: false, error: (e as Error).message }; }
+
+  const { data: link } = await admin.from('gym_staff_links').select('id, role').eq('user_id', targetUserId).eq('gym_id', gymId).maybeSingle();
+  if (!link) return { ok: false, error: 'That person isn’t staff at this gym.' };
+  if ((link as { role: string }).role === 'gym_owner') return { ok: false, error: 'The gym owner’s role can’t be changed here.' };
+
+  const { error } = await admin.from('gym_staff_links').update({ role: role as never }).eq('id', (link as { id: string }).id);
+  if (error) return { ok: false, error: error.message };
+  // Keep the account's profile role aligned for this gym (only if the profile
+  // points at this gym — never touch a profile that belongs elsewhere).
+  await admin.from('profiles').update({ role: PROFILE_ROLE[role] as never }).eq('id', targetUserId).eq('gym_id', gymId);
+  logAudit({ action: 'staff_role_changed', table: 'gym_staff_links', actorId, gymId, recordId: targetUserId, values: { role } });
+  revalidatePath('/admin/instructors');
+  return { ok: true, error: null, message: 'Role updated.' };
+}

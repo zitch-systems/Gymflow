@@ -9,7 +9,7 @@ import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import {
-  LayoutDashboard, Building2, Users, TrendingUp, UserPlus, ScrollText, LifeBuoy, Settings, LogOut, Globe,
+  LayoutDashboard, Building2, Users, TrendingUp, UserPlus, ScrollText, LifeBuoy, Settings, LogOut, Globe, Banknote,
 } from 'lucide-react';
 
 const NAV: { href: Route; label: string; icon: LucideIcon; section: 'Platform' | 'Operations' }[] = [
@@ -18,6 +18,7 @@ const NAV: { href: Route; label: string; icon: LucideIcon; section: 'Platform' |
   { href: '/superadmin/members', label: 'Members', icon: Users, section: 'Platform' },
   { href: '/superadmin/revenue', label: 'Revenue', icon: TrendingUp, section: 'Platform' },
   { href: '/superadmin/onboard', label: 'Onboard', icon: UserPlus, section: 'Operations' },
+  { href: '/superadmin/payout-approvals' as Route, label: 'Payout approvals', icon: Banknote, section: 'Operations' },
   { href: '/superadmin/audit', label: 'Audit log', icon: ScrollText, section: 'Operations' },
   { href: '/superadmin/support', label: 'Support', icon: LifeBuoy, section: 'Operations' },
   { href: '/superadmin/settings', label: 'Settings', icon: Settings, section: 'Operations' },

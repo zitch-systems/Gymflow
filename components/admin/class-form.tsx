@@ -36,11 +36,25 @@ export function ClassForm({ klass }: { klass?: ClassFormValues }) {
           <label>Category<input className="gf-input" name="category" placeholder="Cardio" defaultValue={klass?.category ?? ''} /></label>
           <label>Capacity<input className="gf-input" type="number" name="max_capacity" min="1" placeholder="20" defaultValue={klass?.max_capacity ?? ''} /></label>
           <label>Duration (min)<input className="gf-input" type="number" name="duration_minutes" min="5" placeholder="45" defaultValue={klass?.duration_minutes ?? ''} /></label>
-          <label>Day<select className="gf-input" name="day_of_week" defaultValue={String(klass?.day_of_week ?? 1)}>{DAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-          <label>Room<input className="gf-input" name="room" placeholder="Studio A" defaultValue={klass?.room ?? ''} /></label>
+          {editing
+            ? <label>Day<select className="gf-input" name="day_of_week" defaultValue={String(klass.day_of_week ?? 1)}>{DAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+            : <label>Room<input className="gf-input" name="room" placeholder="Studio A" /></label>}
+          {editing && <label>Room<input className="gf-input" name="room" placeholder="Studio A" defaultValue={klass.room ?? ''} /></label>}
           <label>Start time<input className="gf-input" type="time" name="start_time" defaultValue={hm(klass?.start_time)} required /></label>
           <label>End time<input className="gf-input" type="time" name="end_time" defaultValue={hm(klass?.end_time)} required /></label>
         </div>
+        {!editing && (
+          <fieldset className="class-days">
+            <legend>Days <span>— the class runs at the same time on each selected day</span></legend>
+            <div className="class-days-grid">
+              {DAYS.map(([v, l]) => (
+                <label key={v} className="class-day-chip">
+                  <input type="checkbox" name={`day_${v}`} defaultChecked={v === '1'} /> {l.slice(0, 3)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
         {state.error && <p className="act-fb err"><AlertCircle size={15} strokeWidth={2} /> {state.error}</p>}
         <div className="addmember-actions">
           <button className="gf-btn gf-btn-primary" disabled={pending} type="submit"><Save size={16} strokeWidth={2} /> {pending ? (editing ? 'Saving…' : 'Creating…') : (editing ? 'Save changes' : 'Create class')}</button>

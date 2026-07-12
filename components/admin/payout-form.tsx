@@ -9,7 +9,7 @@ const INIT: GymSaveState = { ok: false, error: null };
 
 type PayoutGym = {
   bank_name: string | null; bank_code: string | null; account_number: string | null; account_name: string | null;
-  payouts_connected: boolean; commission_pct: number;
+  payouts_connected: boolean; payouts_locked: boolean; commission_pct: number;
 };
 
 // Payout setup. When the Paystack bank list is available it's a searchable
@@ -55,6 +55,9 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
       <div className="panel-desc">
         Where member dues settle. {gym.payouts_connected ? 'Connected to Paystack — collections settle to this account (T+1).' : 'Add your bank to receive member payments directly — no Paystack account needed, just your bank.'}
         {gym.commission_pct > 0 ? ` Platform fee: ${gym.commission_pct}%.` : ''}
+        {gym.payouts_locked && (
+          <><br /><em>Bank on file is locked. Submitting a new account raises a change request for platform review — your current bank stays active until it&rsquo;s approved. The account holder&rsquo;s name must match your business name unless the platform overrides it.</em></>
+        )}
       </div>
       <div style={{ marginBottom: 14 }}>
         <span className={`gf-badge ${gym.payouts_connected ? 'gf-badge-success' : 'gf-badge-neutral'}`}><span className="gf-dot" />{gym.payouts_connected ? 'Payouts connected' : 'Not connected'}</span>
@@ -111,7 +114,7 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
         <button className="gf-btn gf-btn-primary" type="submit" disabled={!canSubmit}>
-          {savePending ? 'Saving…' : (gym.payouts_connected ? 'Update payout account' : 'Connect payouts')}
+          {savePending ? 'Saving…' : gym.payouts_locked ? 'Request account change' : gym.payouts_connected ? 'Update payout account' : 'Connect payouts'}
         </button>
         {saveState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
         {saveState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{saveState.error}</span>}

@@ -9,6 +9,32 @@ export function fmtDate(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// "HH:MM" (24h) → "H:MM AM/PM". Business hours are stored 24h in Postgres; the
+// admin editor and the public landing page both display 12h with an AM/PM
+// suffix, which is what Nigerian gym members expect.
+export function fmt12Hr(hhmm: string | null | undefined): string {
+  if (!hhmm) return '—';
+  const [hStr, mStr] = String(hhmm).split(':');
+  const h = Number(hStr); const m = Number(mStr ?? '0');
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return String(hhmm);
+  const suffix = h < 12 ? 'AM' : 'PM';
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+// Normalize a business/account name for case- and punctuation-insensitive
+// comparison (e.g. "Powerhouse Fitness Ltd." vs "POWERHOUSE FITNESS LTD").
+// Strips common company suffixes so an account holder name like "Powerhouse
+// Fitness" still matches the gym registered as "Powerhouse Fitness Ltd".
+export function normalizeBusinessName(name: string | null | undefined): string {
+  return String(name ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(ltd|limited|nig|nigeria|plc|inc|llc|gmbh|co|company|and|the)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });

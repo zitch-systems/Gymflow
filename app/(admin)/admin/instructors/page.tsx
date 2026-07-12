@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { Users, GraduationCap, Banknote, Crown, Shield, ScanLine, ChevronRight, UserPlus } from 'lucide-react';
-import { requireStaff } from '@/lib/auth/dal';
+import { Users, GraduationCap, Banknote, Crown, Shield, ScanLine, UserPlus } from 'lucide-react';
+import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { PayoutQueue, type QueuedPayout } from '@/components/admin/payout-queue';
+import { StaffManager, type StaffRow } from '@/components/admin/staff-manager';
 
 export const metadata = { title: 'Staff' };
 
@@ -18,13 +19,14 @@ const ROLE_META: Record<string, { icon: typeof Crown; fg: string; bg: string; de
 };
 
 export default async function AdminStaff() {
-  const { gym } = await requireStaff();
+  const { user: me, gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
 
   const [{ data: staff }, { data: openPayouts }] = await Promise.all([
+    // All staff — active AND deactivated — so managers can reactivate.
     supabase.from('gym_staff_links')
       .select('user_id, role, is_active, joined_at')
-      .eq('gym_id', gym.id).eq('is_active', true),
+      .eq('gym_id', gym.id),
     supabase.from('instructor_payouts')
       .select('id, instructor_id, amount, status, requested_at, bank_name, account_name, account_number, notes')
       .eq('gym_id', gym.id).in('status', ['requested', 'approved'])
@@ -53,17 +55,18 @@ export default async function AdminStaff() {
     };
   });
 
-  const rows = (staff ?? []).map((s) => {
+  const rows: StaffRow[] = (staff ?? []).map((s) => {
     const p = pById.get(s.user_id);
     const name = p?.full_name ?? p?.email ?? 'Staff';
-    return { id: s.user_id, name, initial: name.charAt(0).toUpperCase(), role: s.role as string };
+    return { id: s.user_id, name, email: p?.email ?? null, initial: name.charAt(0).toUpperCase(), role: s.role as string, isActive: s.is_active !== false };
   });
+  const activeRows = rows.filter((r) => r.isActive);
 
-  const roleCounts = rows.reduce<Record<string, number>>((acc, r) => { acc[r.role] = (acc[r.role] ?? 0) + 1; return acc; }, {});
+  const roleCounts = activeRows.reduce<Record<string, number>>((acc, r) => { acc[r.role] = (acc[r.role] ?? 0) + 1; return acc; }, {});
   const instructors = roleCounts['instructor'] ?? 0;
 
   const KPIS = [
-    { icon: Users, fg: '#11d18b', bg: '#11d18b1f', val: String(rows.length), lbl: 'Team members' },
+    { icon: Users, fg: '#11d18b', bg: '#11d18b1f', val: String(activeRows.length), lbl: 'Team members' },
     { icon: GraduationCap, fg: '#a8d92e', bg: '#c6f24e1f', val: String(instructors), lbl: 'Instructors' },
     { icon: Shield, fg: '#4080ff', bg: '#4080ff1f', val: String(roleCounts['manager'] ?? 0), lbl: 'Managers' },
     { icon: Crown, fg: '#ffb020', bg: '#ffb0201f', val: String(roleCounts['gym_owner'] ?? 0), lbl: 'Owners' },
@@ -72,7 +75,7 @@ export default async function AdminStaff() {
   return (
     <>
       <div className="page-h">
-        <div><h1>Staff</h1><p>{rows.length} team member{rows.length === 1 ? '' : 's'} · {instructors} instructor{instructors === 1 ? '' : 's'}</p></div>
+        <div><h1>Staff</h1><p>{activeRows.length} team member{activeRows.length === 1 ? '' : 's'} · {instructors} instructor{instructors === 1 ? '' : 's'}</p></div>
         <Link href="/admin/instructors/new" className="gf-btn gf-btn-primary"><UserPlus strokeWidth={1.9} size={16} /> Add staff</Link>
       </div>
 
@@ -85,26 +88,7 @@ export default async function AdminStaff() {
       <PayoutQueue payouts={queue} />
 
       <div className="grid2">
-        <div className="panel">
-          <div className="panel-h"><div><h3>Team</h3><div className="sub">Roles &amp; access</div></div></div>
-          {rows.length === 0 ? (
-            <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No staff yet</h3><p>Invite instructors and front-desk staff to your gym.</p><Link href="/admin/instructors/new" className="gf-btn gf-btn-primary gf-btn-sm" style={{ marginTop: 14 }}><UserPlus strokeWidth={1.9} size={15} /> Add staff</Link></div>
-          ) : (
-            <table className="tbl">
-              <thead><tr><th>Member</th><th>Role</th><th style={{ textAlign: 'right' }}>Status</th><th aria-hidden /></tr></thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="rowlink">
-                    <td><Link href={`/admin/instructors/${r.id}`} className="who"><span className="gf-avatar gf-avatar-sm">{r.initial}</span><div><strong>{r.name}</strong></div></Link></td>
-                    <td><span className="role-chip" style={{ background: 'var(--gf-elevated)' }}>{ROLE_LABEL[r.role] ?? r.role}</span></td>
-                    <td style={{ textAlign: 'right' }}><span className="gf-badge gf-badge-success">Active</span></td>
-                    <td style={{ textAlign: 'right', width: 36 }}><Link href={`/admin/instructors/${r.id}`} className="row-chev" aria-label={`View ${r.name}`}><ChevronRight strokeWidth={2} size={16} /></Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <StaffManager rows={rows} currentUserId={me.id} roleLabels={ROLE_LABEL} />
 
         <div className="panel">
           <div className="panel-h"><div><h3>Roles</h3><div className="sub">Access levels in use</div></div></div>
