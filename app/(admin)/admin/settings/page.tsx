@@ -35,6 +35,12 @@ export default async function AdminSettings() {
       hours={hours}
       gym={{
         name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address,
+        tagline: (gym as { tagline?: string | null }).tagline ?? null,
+        description: (gym as { description?: string | null }).description ?? null,
+        city: (gym as { city?: string | null }).city ?? null,
+        state: (gym as { state?: string | null }).state ?? null,
+        website: (gym as { website?: string | null }).website ?? null,
+        amenities: (gym as { amenities?: string[] | null }).amenities ?? null,
         brand_color: (gym as { brand_color?: string | null }).brand_color ?? null,
         logo_url: (gym as { logo_url?: string | null }).logo_url ?? null,
         bank_name: gym.bank_name, bank_code: gym.bank_code, account_number: gym.account_number, account_name: gym.account_name,

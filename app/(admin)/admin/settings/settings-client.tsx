@@ -33,6 +33,7 @@ const INTEG = [
 
 export type GymProfile = {
   name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
+  tagline: string | null; description: string | null; city: string | null; state: string | null; website: string | null; amenities: string[] | null;
   bank_name: string | null; bank_code: string | null; account_number: string | null; account_name: string | null;
   payouts_connected: boolean; commission_pct: number;
   member_freeze_enabled: boolean;
@@ -70,16 +71,24 @@ export function SettingsClient({ gym, staffCount, banks, hours }: { gym: GymProf
             <section className="sec on">
               <form className="panel" action={gymAction}>
                 <div className="panel-title">Gym profile</div>
-                <div className="panel-desc">Public details shown to members on your subdomain.</div>
+                <div className="panel-desc">Public details shown to members on your subdomain. Membership prices live under Pricing and classes under Classes.</div>
                 <div className="frow">
                   <div className="gf-form-group"><label className="gf-form-label">Gym name</label><input className="gf-input" name="name" defaultValue={gym.name} required /></div>
                   <div className="gf-form-group"><label className="gf-form-label">Subdomain</label><input className="gf-input" defaultValue={`${gym.slug}.gymflow.ng`} disabled /><a href={`/g/${gym.slug}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 7, fontSize: '0.78rem', fontWeight: 600, color: 'var(--gf-brand)', textDecoration: 'none' }}>View public page ↗</a></div>
+                </div>
+                <div className="gf-form-group"><label className="gf-form-label">Tagline</label><input className="gf-input" name="tagline" defaultValue={gym.tagline ?? ''} placeholder="One line shown under your gym name" maxLength={120} /></div>
+                <div className="gf-form-group"><label className="gf-form-label">About</label><textarea className="gf-input" name="description" defaultValue={gym.description ?? ''} rows={4} placeholder="Tell members what makes your gym different." style={{ resize: 'vertical', minHeight: 92 }} /></div>
+                <div className="frow">
+                  <div className="gf-form-group"><label className="gf-form-label">City</label><input className="gf-input" name="city" defaultValue={gym.city ?? ''} /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">State</label><input className="gf-input" name="state" defaultValue={gym.state ?? ''} /></div>
                 </div>
                 <div className="frow">
                   <div className="gf-form-group"><label className="gf-form-label">Phone</label><input className="gf-input" name="phone" defaultValue={gym.phone ?? ''} /></div>
                   <div className="gf-form-group"><label className="gf-form-label">Email</label><input className="gf-input" name="email" type="email" defaultValue={gym.email ?? ''} /></div>
                 </div>
-                <div className="gf-form-group" style={{ marginBottom: 18 }}><label className="gf-form-label">Address</label><input className="gf-input" name="address" defaultValue={gym.address ?? ''} /></div>
+                <div className="gf-form-group"><label className="gf-form-label">Address</label><input className="gf-input" name="address" defaultValue={gym.address ?? ''} /></div>
+                <div className="gf-form-group"><label className="gf-form-label">Website</label><input className="gf-input" name="website" type="url" defaultValue={gym.website ?? ''} placeholder="https://" /></div>
+                <div className="gf-form-group" style={{ marginBottom: 18 }}><label className="gf-form-label">Amenities</label><input className="gf-input" name="amenities" defaultValue={(gym.amenities ?? []).join(', ')} placeholder="Free parking, Sauna, 24/7 access" /><small style={{ display: 'block', marginTop: 6, color: 'var(--gf-text-muted)', fontSize: '0.78rem' }}>Separate each with a comma. Shown as tags on your public page.</small></div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <button className="gf-btn gf-btn-primary" type="submit" disabled={gymPending}>{gymPending ? 'Saving…' : 'Save changes'}</button>
                   {gymState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}

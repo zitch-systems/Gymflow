@@ -2416,6 +2416,11 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .gl-class strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 0.98rem; }
 .gl-class span { color: var(--gf-text-muted); font-size: 0.8rem; text-transform: capitalize; }
 
+.gl-amenities { display: flex; flex-wrap: wrap; gap: 10px; }
+.gl-amenity { display: inline-flex; align-items: center; gap: 7px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: 999px; padding: 9px 15px; font-size: 0.88rem; font-weight: 500; color: var(--gf-text-secondary); transition: border-color 0.25s ease, color 0.25s ease; }
+.gl-amenity:hover { border-color: var(--gf-brand-glow); color: var(--gf-text); }
+.gl-amenity svg { color: var(--gf-brand); flex-shrink: 0; }
+
 .gl-hours { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); overflow: hidden; }
 .gl-hours-row { display: flex; justify-content: space-between; padding: 12px 18px; font-size: 0.92rem; }
 .gl-hours-row + .gl-hours-row { border-top: 1px solid var(--gf-border); }
