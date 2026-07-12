@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fmtNaira } from '@/lib/format';
+import { fmtNaira, fmt12Hr } from '@/lib/format';
 import { Tilt, Reveal } from '@/components/marketing/landing-fx';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ type Gym = {
 };
 type Plan = { id: string; name: string; price: number | null; currency: string | null; duration_months: number | null; duration_days: number | null; description: string | null; features: unknown };
 type Klass = { id: string; name: string; category: string | null; duration_minutes: number | null; level: string | null; description: string | null };
-type Hours = { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean | null };
+type Hours = { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean | null; session: string | null };
 
 type GymPage = { gym: Gym; plans: Plan[]; classes: Klass[]; hours: Hours[] };
 
@@ -44,7 +44,7 @@ async function loadGymPage(slug: string): Promise<GymPage | null> {
   const [plansRes, classesRes, hoursRes] = await Promise.all([
     db.from('membership_plans').select('id, name, price, currency, duration_months, duration_days, description, features').eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
     db.from('classes').select('id, name, category, duration_minutes, level, description').eq('gym_id', gym.id).eq('is_active', true).order('name', { ascending: true }).limit(9),
-    db.from('business_hours').select('day_of_week, open_time, close_time, is_closed').eq('gym_id', gym.id).order('day_of_week', { ascending: true }),
+    db.from('business_hours').select('day_of_week, open_time, close_time, is_closed, session').eq('gym_id', gym.id).order('day_of_week', { ascending: true }).order('open_time', { ascending: true }),
   ]);
 
   return {
@@ -246,19 +246,37 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
       )}
 
       {/* ── Hours ── */}
-      {openDays.length > 0 && (
-        <Reveal><section className="gl-section">
-          <h2 className="gl-h2"><Clock size={17} strokeWidth={2} style={{ verticalAlign: '-3px', marginRight: 6 }} />Opening hours</h2>
-          <div className="gl-hours">
-            {hours.map((h) => (
-              <div className="gl-hours-row" key={h.day_of_week}>
-                <span>{DAYS[h.day_of_week] ?? ''}</span>
-                <span>{h.is_closed || !h.open_time ? 'Closed' : `${String(h.open_time).slice(0, 5)} – ${String(h.close_time ?? '').slice(0, 5)}`}</span>
-              </div>
-            ))}
-          </div>
-        </section></Reveal>
-      )}
+      {openDays.length > 0 && (() => {
+        // Group rows by day so a day with morning + evening sessions renders as
+        // a single row with both ranges listed. Days with no rows are treated
+        // as closed. Rendered in AM/PM per Nigerian gym conventions.
+        const byDay = new Map<number, typeof hours>();
+        for (const h of hours) {
+          const list = byDay.get(h.day_of_week) ?? [];
+          list.push(h);
+          byDay.set(h.day_of_week, list);
+        }
+        return (
+          <Reveal><section className="gl-section">
+            <h2 className="gl-h2"><Clock size={17} strokeWidth={2} style={{ verticalAlign: '-3px', marginRight: 6 }} />Opening hours</h2>
+            <div className="gl-hours">
+              {[1, 2, 3, 4, 5, 6, 0].map((d) => {
+                const rows = (byDay.get(d) ?? []).filter((r) => !r.is_closed && r.open_time);
+                return (
+                  <div className="gl-hours-row" key={d}>
+                    <span>{DAYS[d]}</span>
+                    <span>
+                      {rows.length === 0
+                        ? 'Closed'
+                        : rows.map((r) => `${fmt12Hr(String(r.open_time).slice(0, 5))} – ${fmt12Hr(String(r.close_time ?? '').slice(0, 5))}`).join(' · ')}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section></Reveal>
+        );
+      })()}
 
       {/* ── Contact ── */}
       {(gym.address || gym.city || gym.phone || gym.email || gym.website) && (

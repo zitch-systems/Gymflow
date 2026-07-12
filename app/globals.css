@@ -1514,6 +1514,23 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-member .tabbar :is(a, button) { white-space: nowrap; }
 
 /* ═══════════════ ADMIN/INSTRUCTOR/SUPERADMIN content (namespaced .ds-admin) ═══════════════ */
+.onboarding-banner { background: linear-gradient(180deg, var(--gf-brand-soft) 0%, transparent 100%); border: 1px solid var(--gf-brand-glow); border-radius: var(--gf-radius); padding: 16px 18px; margin-bottom: 22px; }
+.onboarding-banner .ob-in { display: flex; flex-direction: column; gap: 12px; }
+.onboarding-banner .ob-head { display: flex; align-items: flex-start; gap: 10px; }
+.onboarding-banner .ob-head strong { display: block; font-family: var(--gf-font-display); font-weight: 700; font-size: 1rem; }
+.onboarding-banner .ob-sub { display: block; font-size: 0.84rem; color: var(--gf-text-secondary); margin-top: 2px; }
+.onboarding-banner .ob-sub a { color: var(--gf-brand); font-weight: 600; text-decoration: none; }
+.onboarding-banner .ob-sub a:hover { text-decoration: underline; }
+.onboarding-banner svg { color: var(--gf-brand); flex-shrink: 0; }
+.onboarding-banner .ob-progress { position: relative; height: 6px; background: var(--gf-elevated); border-radius: 999px; overflow: hidden; }
+.onboarding-banner .ob-progress > span { position: absolute; inset: 0 auto 0 0; background: var(--gf-brand); border-radius: inherit; transition: width 0.3s ease; }
+.onboarding-banner .ob-steps { list-style: none; padding: 0; margin: 4px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 18px; }
+.onboarding-banner .ob-steps li { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--gf-text-secondary); }
+.onboarding-banner .ob-steps li a { color: var(--gf-text); text-decoration: none; font-weight: 500; }
+.onboarding-banner .ob-steps li a:hover { color: var(--gf-brand); text-decoration: underline; }
+.onboarding-banner .ob-steps li.done { color: var(--gf-text-muted); text-decoration: line-through; }
+.onboarding-banner .ob-steps li.done svg { color: var(--gf-success); }
+
 .ds-admin .page-h { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
 .ds-admin .page-h h1 { font-family:var(--gf-font-display); font-size:clamp(1.5rem,2.4vw,2rem); font-weight:800; letter-spacing:-0.03em; margin:0; }
 .ds-admin .page-h p { margin:5px 0 0; color:var(--gf-text-secondary); font-size:0.9rem; }
@@ -1752,6 +1769,18 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .hrow-edit .htimes { display:flex; align-items:center; gap:8px; margin-left:auto; }
 .ds-admin .hrow-edit .htimes .gf-input { width:auto; padding:8px 10px; }
 .ds-admin .hrow-edit .htimes span { color:var(--gf-text-muted); }
+.ds-admin .hrow-edit .htimes .hampm { color:var(--gf-text-secondary); font-size:0.78rem; font-weight:600; min-width:52px; }
+.ds-admin .hrow-multi { align-items:flex-start; flex-direction:column; gap:10px; padding:16px 0; }
+.ds-admin .hrow-multi .dn { width:auto; }
+.ds-admin .hrow-multi .hmode { display:inline-flex; background:var(--gf-elevated); border:1px solid var(--gf-border); border-radius:var(--gf-radius-pill); padding:3px; gap:2px; flex-wrap:wrap; }
+.ds-admin .hrow-multi .hmode button { padding:6px 12px; border-radius:999px; background:transparent; border:none; color:var(--gf-text-secondary); font-size:0.82rem; font-weight:600; cursor:pointer; }
+.ds-admin .hrow-multi .hmode button.on { background:var(--gf-brand); color:#fff; }
+.ds-admin .hrow-multi .htimes { margin-left:0; flex-wrap:wrap; }
+.ds-admin .hrow-multi .hsessions { display:flex; flex-direction:column; gap:10px; width:100%; }
+.ds-admin .hrow-multi .hsession { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:8px 12px; background:var(--gf-elevated); border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); }
+.ds-admin .hrow-multi .hsession[data-enabled="false"] { opacity:0.7; }
+.ds-admin .hrow-multi .hs-tog { display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:0.86rem; min-width:110px; cursor:pointer; }
+.ds-admin .hrow-multi .hs-tog input { accent-color:var(--gf-brand); }
 @media (max-width:900px) {
 .ds-admin .set-wrap {grid-template-columns:1fr}
 .ds-admin .subnav {position:static;flex-direction:row;overflow-x:auto}

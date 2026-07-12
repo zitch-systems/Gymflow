@@ -1,38 +1,72 @@
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { listBanks } from '@/lib/paystack';
+import { listBanks, type Bank } from '@/lib/paystack';
 import { SettingsClient } from './settings-client';
 
 export const metadata = { title: 'Settings' };
 
+// Load the Paystack bank list defensively — a network blip or missing key
+// shouldn't wipe out the whole settings page (which was crashing to the app
+// error boundary and blocking logo/accent saves).
+async function safeListBanks(): Promise<Bank[]> {
+  try {
+    return await listBanks();
+  } catch (e) {
+    console.error('[settings] listBanks failed', e);
+    return [];
+  }
+}
+
 export default async function AdminSettings() {
   const { gym } = await requireStaff();
   const supabase = await createClient();
-  const [{ count }, banks, { data: hoursRows }] = await Promise.all([
+  const [{ count }, banks, { data: hoursRows }, { count: pendingPayoutCount }] = await Promise.all([
     supabase.from('gym_staff_links')
       .select('id', { count: 'exact', head: true })
       .eq('gym_id', gym.id).eq('is_active', true),
-    listBanks(),
-    supabase.from('business_hours').select('day_of_week, open_time, close_time, is_closed').eq('gym_id', gym.id),
+    safeListBanks(),
+    supabase.from('business_hours').select('day_of_week, open_time, close_time, is_closed, session').eq('gym_id', gym.id),
+    supabase.from('payout_change_requests' as never)
+      .select('id', { count: 'exact', head: true })
+      .eq('gym_id', gym.id).eq('status', 'pending'),
   ]);
 
   // Default-open weekdays / shorter weekends when a gym hasn't set hours yet.
-  const byDay = new Map((hoursRows ?? []).map((h) => [h.day_of_week, h]));
-  const hours = Array.from({ length: 7 }, (_, d) => {
-    const row = byDay.get(d);
-    const weekend = d === 0 || d === 6;
-    return {
-      day_of_week: d,
-      open_time: (row?.open_time ?? (weekend ? '07:00' : '05:00')).slice(0, 5),
-      close_time: (row?.close_time ?? (weekend ? '20:00' : '22:00')).slice(0, 5),
-      is_closed: row?.is_closed ?? false,
+  // Each day can now carry multiple rows (one per session); default to a single
+  // "all-day" row if the gym has no hours saved.
+  type Row = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
+  const byDay = new Map<number, Row[]>();
+  for (const r of (hoursRows ?? []) as unknown as { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean | null; session?: string | null }[]) {
+    const row: Row = {
+      day_of_week: r.day_of_week,
+      open_time: (r.open_time ?? '05:00').slice(0, 5),
+      close_time: (r.close_time ?? '22:00').slice(0, 5),
+      is_closed: !!r.is_closed,
+      session: (r.session as Row['session']) ?? 'all',
     };
-  });
+    const list = byDay.get(r.day_of_week) ?? [];
+    list.push(row);
+    byDay.set(r.day_of_week, list);
+  }
+  const hours: Row[] = [];
+  for (let d = 0; d < 7; d++) {
+    const rows = byDay.get(d);
+    if (rows && rows.length) { hours.push(...rows); continue; }
+    const weekend = d === 0 || d === 6;
+    hours.push({
+      day_of_week: d,
+      open_time: weekend ? '07:00' : '05:00',
+      close_time: weekend ? '20:00' : '22:00',
+      is_closed: false,
+      session: 'all',
+    });
+  }
 
   return (
     <SettingsClient
       banks={banks}
       hours={hours}
+      pendingPayoutRequests={pendingPayoutCount ?? 0}
       gym={{
         name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address,
         tagline: (gym as { tagline?: string | null }).tagline ?? null,
@@ -45,8 +79,12 @@ export default async function AdminSettings() {
         logo_url: (gym as { logo_url?: string | null }).logo_url ?? null,
         bank_name: gym.bank_name, bank_code: gym.bank_code, account_number: gym.account_number, account_name: gym.account_name,
         payouts_connected: !!gym.paystack_subaccount_code,
+        payouts_locked: (gym as { payouts_locked?: boolean }).payouts_locked ?? false,
         commission_pct: gym.platform_commission_pct ?? 0,
         member_freeze_enabled: (gym as { member_freeze_enabled?: boolean }).member_freeze_enabled !== false,
+        notif_class_reminders:  (gym as { notif_class_reminders?: boolean }).notif_class_reminders !== false,
+        notif_renewal_nudges:   (gym as { notif_renewal_nudges?: boolean }).notif_renewal_nudges !== false,
+        notif_payment_receipts: (gym as { notif_payment_receipts?: boolean }).notif_payment_receipts !== false,
       }}
       staffCount={count ?? 0}
     />
