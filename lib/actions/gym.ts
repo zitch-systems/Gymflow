@@ -82,16 +82,26 @@ export async function savePayout(_prev: GymSaveState, formData: FormData): Promi
 export async function updateGym(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
   const name = String(formData.get('name') ?? '').trim();
   if (!name) return { ok: false, error: 'Gym name is required.' };
+  // Amenities post as a comma-separated string; store as a trimmed, de-duped array.
+  const amenities = Array.from(new Set(
+    String(formData.get('amenities') ?? '').split(',').map((a) => a.trim()).filter(Boolean),
+  )).slice(0, 30);
   const patch = {
     name,
+    tagline: String(formData.get('tagline') ?? '').trim() || null,
+    description: String(formData.get('description') ?? '').trim() || null,
+    city: String(formData.get('city') ?? '').trim() || null,
+    state: String(formData.get('state') ?? '').trim() || null,
     phone: String(formData.get('phone') ?? '').trim() || null,
     email: String(formData.get('email') ?? '').trim() || null,
     address: String(formData.get('address') ?? '').trim() || null,
+    website: String(formData.get('website') ?? '').trim() || null,
+    amenities,
   };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
-    const { error } = await supabase.from('gyms').update(patch).eq('id', gym.id);
+    const { error } = await supabase.from('gyms').update(patch as never).eq('id', gym.id);
     if (error) return { ok: false, error: error.message };
     logAudit({ action: 'gym_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: patch });
     revalidatePath('/admin/settings');

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   ArrowRight, LogIn, UserPlus, Dumbbell, MapPin, Phone, Mail, Globe,
-  Clock, Check, Users, CalendarDays, Sparkles,
+  Clock, Check, CalendarDays, Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -16,13 +16,14 @@ export const maxDuration = 60;
 type Gym = {
   id: string; name: string; slug: string; logo_url: string | null; tagline: string | null;
   hero_image_url: string | null; brand_color: string | null; description: string | null;
-  city: string | null; address: string | null; phone: string | null; email: string | null; website: string | null;
+  city: string | null; state: string | null; address: string | null; phone: string | null; email: string | null; website: string | null;
+  amenities: string[] | null;
 };
 type Plan = { id: string; name: string; price: number | null; currency: string | null; duration_months: number | null; duration_days: number | null; description: string | null; features: unknown };
 type Klass = { id: string; name: string; category: string | null; duration_minutes: number | null; level: string | null; description: string | null };
 type Hours = { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean | null };
 
-type GymPage = { gym: Gym; plans: Plan[]; classes: Klass[]; hours: Hours[]; members: number };
+type GymPage = { gym: Gym; plans: Plan[]; classes: Klass[]; hours: Hours[] };
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -40,11 +41,10 @@ async function loadGymPage(slug: string): Promise<GymPage | null> {
   if (!gymRow) return null;
   const gym = gymRow as unknown as Gym;
 
-  const [plansRes, classesRes, hoursRes, membersRes] = await Promise.all([
+  const [plansRes, classesRes, hoursRes] = await Promise.all([
     db.from('membership_plans').select('id, name, price, currency, duration_months, duration_days, description, features').eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
     db.from('classes').select('id, name, category, duration_minutes, level, description').eq('gym_id', gym.id).eq('is_active', true).order('name', { ascending: true }).limit(9),
     db.from('business_hours').select('day_of_week, open_time, close_time, is_closed').eq('gym_id', gym.id).order('day_of_week', { ascending: true }),
-    db.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('is_active', true),
   ]);
 
   return {
@@ -52,7 +52,6 @@ async function loadGymPage(slug: string): Promise<GymPage | null> {
     plans: (plansRes.data as Plan[] | null) ?? [],
     classes: (classesRes.data as Klass[] | null) ?? [],
     hours: (hoursRes.data as Hours[] | null) ?? [],
-    members: membersRes.count ?? 0,
   };
 }
 
@@ -88,7 +87,8 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
   const { slug } = await params;
   const page = await loadGymPage(slug);
   if (!page) notFound();
-  const { gym, plans, classes, hours, members } = page;
+  const { gym, plans, classes, hours } = page;
+  const amenities = (gym.amenities ?? []).filter((a) => typeof a === 'string' && a.trim());
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -127,11 +127,13 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
       closes: String(h.close_time ?? '').slice(0, 5),
     })),
   });
+  // Member counts are deliberately not shown on the public page — a low count
+  // reads as unpopular. Surface what the gym offers instead (classes, plans).
   const stats = [
-    members > 0 ? { icon: Users, val: members >= 1000 ? `${(members / 1000).toFixed(1)}k` : String(members), lbl: members === 1 ? 'Member' : 'Members' } : null,
     classes.length > 0 ? { icon: CalendarDays, val: `${classes.length}${classes.length === 9 ? '+' : ''}`, lbl: 'Class types' } : null,
     plans.length > 0 ? { icon: Sparkles, val: String(plans.length), lbl: plans.length === 1 ? 'Plan' : 'Plans' } : null,
-  ].filter(Boolean) as { icon: typeof Users; val: string; lbl: string }[];
+    amenities.length > 0 ? { icon: Check, val: String(amenities.length), lbl: 'Amenities' } : null,
+  ].filter(Boolean) as { icon: typeof CalendarDays; val: string; lbl: string }[];
 
   return (
     <main className="gymland" style={style}>
@@ -160,7 +162,7 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
             )}
           </span>
           <h1 className="gl-name">{gym.name}</h1>
-          {gym.city && <p className="gl-loc"><MapPin size={14} strokeWidth={2} /> {gym.city}</p>}
+          {(gym.city || gym.state) && <p className="gl-loc"><MapPin size={14} strokeWidth={2} /> {[gym.city, gym.state].filter(Boolean).join(', ')}</p>}
           <p className="gl-tag">{gym.tagline || 'Check in, book classes and manage your membership — all from your phone.'}</p>
 
           {user ? (
@@ -226,6 +228,18 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
                 <strong>{c.name}</strong>
                 <span>{[c.category, c.duration_minutes ? `${c.duration_minutes} min` : null, c.level && c.level !== 'all' ? c.level : null].filter(Boolean).join(' · ') || 'Group class'}</span>
               </Tilt>
+            ))}
+          </div>
+        </section></Reveal>
+      )}
+
+      {/* ── Amenities ── */}
+      {amenities.length > 0 && (
+        <Reveal><section className="gl-section">
+          <h2 className="gl-h2">Amenities</h2>
+          <div className="gl-amenities">
+            {amenities.map((a, i) => (
+              <span className="gl-amenity" key={i}><Check size={15} strokeWidth={2.5} /> {a}</span>
             ))}
           </div>
         </section></Reveal>

@@ -1,4 +1,8 @@
-import { LoginClient, type LoginNotice } from './login-client';
+import { headers } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { gymSlugFromHost } from '@/lib/tenant';
+import { LoginClient, type LoginNotice, type LoginGym } from './login-client';
 
 export const metadata = {
   title: 'Sign in',
@@ -12,10 +16,34 @@ export const metadata = {
 // completes and the login succeeds instead of timing out.
 export const maxDuration = 60;
 
+// This route is host-agnostic (middleware only rewrites `/`), so on a gym
+// subdomain it must read the host itself to render the gym-branded member
+// sign-in instead of the platform (owner) login.
+export const dynamic = 'force-dynamic';
+
+// Load the branding for a gym subdomain, so <slug>.gymflow.ng/login is the
+// gym's own sign-in — logo, colour, and a Join link — not the platform login.
+async function loadGym(slug: string): Promise<LoginGym | null> {
+  const cols = 'name, slug, logo_url, tagline, brand_color';
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.from('gyms').select(cols).eq('slug', slug).maybeSingle();
+    return (data as unknown as LoginGym) ?? null;
+  } catch {
+    const supabase = await createClient();
+    const { data } = await supabase.from('gyms').select(cols).eq('slug', slug).maybeSingle();
+    return (data as unknown as LoginGym) ?? null;
+  }
+}
+
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   // Post-action notices (signup → check-email, confirm link → confirmed,
   // password reset → reset). Previously these params were silently ignored.
   const notice: LoginNotice = sp['check-email'] ? 'check-email' : sp.confirmed ? 'confirmed' : sp.reset ? 'reset' : null;
-  return <LoginClient initialMode="in" notice={notice} />;
+
+  const slug = gymSlugFromHost((await headers()).get('host'));
+  const gym = slug ? await loadGym(slug) : null;
+
+  return <LoginClient initialMode="in" notice={notice} gym={gym} />;
 }
