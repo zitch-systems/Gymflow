@@ -32,6 +32,15 @@ const INTEG = [
   { icon: Mail, name: 'Email (Resend)', sub: 'Transactional email', st: ['gf-badge-success', 'Connected'] },
 ];
 
+// HR / payroll systems. These sync staff records and payroll for the gym's
+// team. Each needs the provider's API credentials to be enabled per gym, so
+// they start disconnected and route to the platform team to switch on.
+const HR_INTEG = [
+  { name: 'BambooHR', sub: 'Staff records & time off', domain: 'bamboohr.com' },
+  { name: 'SeamlessHR', sub: 'HR & payroll (Africa)', domain: 'seamlesshr.com' },
+  { name: 'Workday', sub: 'Enterprise HCM & payroll', domain: 'workday.com' },
+];
+
 export type GymProfile = {
   name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
   tagline: string | null; description: string | null; city: string | null; state: string | null; website: string | null; amenities: string[] | null;
@@ -230,6 +239,27 @@ export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutReq
                     </div>
                   );
                 })}
+              </div>
+
+              <div className="panel" style={{ marginTop: 16 }}>
+                <div className="panel-title">HR &amp; payroll</div>
+                <div className="panel-desc">Sync your team&rsquo;s records and payroll with your HR system. Connecting a provider needs its API credentials enabled for {gym.name} — request setup and our team will switch it on.</div>
+                {HR_INTEG.map((it) => (
+                  <div className="integ" key={it.name}>
+                    <div className="ig" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Plug strokeWidth={1.75} /></div>
+                    <div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                      <span className="gf-badge gf-badge-neutral"><span className="gf-dot" />Not connected</span>
+                      <a
+                        className="gf-btn gf-btn-secondary gf-btn-sm"
+                        href={`mailto:support@gymflow.ng?subject=${encodeURIComponent(`Connect ${it.name} for ${gym.name}`)}&body=${encodeURIComponent(`We'd like to connect ${it.name} to our GymFlow gym "${gym.name}" (${gym.slug}). Please help us enable it.`)}`}
+                        style={{ textDecoration: 'none' }}
+                      >
+                        Request setup
+                      </a>
+                    </div>
+                  </div>
+                ))}
               </div>
             </section>
           )}

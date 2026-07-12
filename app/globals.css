@@ -2421,6 +2421,13 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .gl-hero-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.2; z-index: 0; }
 .gl-hero-bg::after, .gl-hero-bg ~ .gl-hero-in { position: relative; }
 .gl-hero-in { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; }
+
+/* Photo hero — a real background image (gym's own or a bundled backdrop) with a
+   dark scrim so the logo/name/CTAs stay legible on any photo. */
+.gl-hero-photo { padding-top: 92px; padding-bottom: 72px; }
+.gl-hero-photo .gl-hero-bg { opacity: 0.42; }
+.gl-hero-scrim { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gf-bg) 55%, transparent) 0%, color-mix(in srgb, var(--gf-bg) 78%, transparent) 55%, var(--gf-bg) 100%); }
 .gl-logo { display: inline-flex; align-items: center; justify-content: center; width: 84px; height: 84px; border-radius: 22px;
   background: var(--gf-brand-soft); color: var(--gf-brand); border: 1px solid var(--gf-brand-glow); margin-bottom: 18px; overflow: hidden; box-shadow: var(--gf-shadow-md); }
 .gl-logo img { width: 100%; height: 100%; object-fit: cover; }
@@ -2440,6 +2447,13 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .gl-section { max-width: 760px; margin: 0 auto; padding: 40px 22px 0; }
 .gl-h2 { font-family: var(--gf-font-display); font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 18px; }
 .gl-about { color: var(--gf-text-secondary); font-size: 1.02rem; line-height: 1.65; margin: 0; }
+
+.gl-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.gl-feature { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 22px 20px; display: flex; flex-direction: column; gap: 8px; transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+.gl-feature:hover { box-shadow: 0 16px 38px -14px var(--gf-brand-glow); border-color: var(--gf-brand-glow); }
+.gl-feature-ic { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: var(--gf-brand-soft); color: var(--gf-brand); margin-bottom: 4px; }
+.gl-feature strong { font-family: var(--gf-font-display); font-weight: 600; font-size: 1.02rem; }
+.gl-feature p { color: var(--gf-text-secondary); font-size: 0.88rem; line-height: 1.55; margin: 0; }
 
 .gl-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 .gl-plan { display: flex; flex-direction: column; gap: 10px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 22px; }
