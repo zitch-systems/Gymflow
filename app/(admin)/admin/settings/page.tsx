@@ -1,4 +1,4 @@
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { listBanks, type Bank } from '@/lib/paystack';
 import { SettingsClient } from './settings-client';
@@ -18,7 +18,7 @@ async function safeListBanks(): Promise<Bank[]> {
 }
 
 export default async function AdminSettings() {
-  const { gym } = await requireStaff();
+  const { gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
   const [{ count }, banks, { data: hoursRows }, { count: pendingPayoutCount }] = await Promise.all([
     supabase.from('gym_staff_links')

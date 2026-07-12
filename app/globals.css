@@ -1781,6 +1781,17 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .hrow-multi .hsession[data-enabled="false"] { opacity:0.7; }
 .ds-admin .hrow-multi .hs-tog { display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:0.86rem; min-width:110px; cursor:pointer; }
 .ds-admin .hrow-multi .hs-tog input { accent-color:var(--gf-brand); }
+
+.ds-admin .class-days { border:none; margin:14px 0 0; padding:0; }
+.ds-admin .class-days legend { font-size:0.82rem; font-weight:600; padding:0; margin-bottom:8px; }
+.ds-admin .class-days legend span { color:var(--gf-text-muted); font-weight:400; }
+.ds-admin .class-days-grid { display:flex; flex-wrap:wrap; gap:8px; }
+.ds-admin .class-day-chip { display:inline-flex; align-items:center; gap:7px; padding:8px 13px; border:1px solid var(--gf-border); border-radius:var(--gf-radius-pill); font-size:0.85rem; font-weight:600; cursor:pointer; user-select:none; }
+.ds-admin .class-day-chip:has(input:checked) { border-color:var(--gf-brand); background:var(--gf-brand-soft); color:var(--gf-brand); }
+.ds-admin .class-day-chip input { accent-color:var(--gf-brand); }
+
+.ds-admin .staff-role-sel { width:auto; min-width:130px; padding:6px 10px; font-size:0.82rem; }
+.ds-admin .staff-tbl td { vertical-align:middle; }
 @media (max-width:900px) {
 .ds-admin .set-wrap {grid-template-columns:1fr}
 .ds-admin .subnav {position:static;flex-direction:row;overflow-x:auto}

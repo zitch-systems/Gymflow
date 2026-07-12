@@ -73,18 +73,27 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
   redirect('/admin/pricing');
 }
 
-// #4 — create a class + its weekly schedule (owner/manager via RLS).
+// #4 — create a class + its weekly schedule (owner/manager via RLS). The class
+// can run on several days at the same time slot: the form posts one `day_<n>`
+// checkbox per selected weekday, and we write one class_schedules row per day.
 export async function createClass(_prev: CState, formData: FormData): Promise<CState> {
   const name = String(formData.get('name') ?? '').trim();
   const category = String(formData.get('category') ?? '').trim() || null;
   const capacity = Number(formData.get('max_capacity') ?? 0) || null;
   const duration = Number(formData.get('duration_minutes') ?? 0) || null;
-  const dow = Number(formData.get('day_of_week') ?? -1);
   const startTime = String(formData.get('start_time') ?? '');
   const endTime = String(formData.get('end_time') ?? '');
   const room = String(formData.get('room') ?? '').trim() || null;
+  // Collect every ticked weekday (day_0 … day_6). Fall back to a single
+  // day_of_week field for backward compatibility with any old form.
+  const days: number[] = [];
+  for (let d = 0; d <= 6; d++) if (formData.get(`day_${d}`) === 'on') days.push(d);
+  if (days.length === 0) {
+    const single = Number(formData.get('day_of_week') ?? -1);
+    if (!Number.isNaN(single) && single >= 0 && single <= 6) days.push(single);
+  }
   if (!name) return { ok: false, error: 'Class name is required.' };
-  if (Number.isNaN(dow) || dow < 0 || dow > 6) return { ok: false, error: 'Choose a day of week.' };
+  if (days.length === 0) return { ok: false, error: 'Choose at least one day of the week.' };
   if (!startTime || !endTime) return { ok: false, error: 'Set a start and end time.' };
   if (endTime <= startTime) return { ok: false, error: 'End time must be after the start time.' };
   try {
@@ -94,10 +103,10 @@ export async function createClass(_prev: CState, formData: FormData): Promise<CS
     const { error: cErr } = await supabase.from('classes')
       .insert({ id: classId, gym_id: gym.id, name, category, max_capacity: capacity, duration_minutes: duration, is_active: true });
     if (cErr) return { ok: false, error: cErr.message };
-    const { error: sErr } = await supabase.from('class_schedules')
-      .insert({ gym_id: gym.id, class_id: classId, day_of_week: dow, start_time: startTime, end_time: endTime, room, is_active: true });
+    const rows = days.map((day_of_week) => ({ gym_id: gym.id, class_id: classId, day_of_week, start_time: startTime, end_time: endTime, room, is_active: true }));
+    const { error: sErr } = await supabase.from('class_schedules').insert(rows);
     if (sErr) return { ok: false, error: sErr.message };
-    logAudit({ action: 'class_created', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId, values: { name, dow, startTime } });
+    logAudit({ action: 'class_created', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId, values: { name, days, startTime } });
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

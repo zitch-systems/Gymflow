@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Repeat, Users, CreditCard, Check, Pencil, PlusCircle } from 'lucide-react';
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { planPeriodLabel, planCadenceLabel, monthlyEquivalent } from '@/lib/plan-duration';
@@ -8,7 +8,7 @@ import { planPeriodLabel, planCadenceLabel, monthlyEquivalent } from '@/lib/plan
 export const metadata = { title: 'Pricing & plans' };
 
 export default async function AdminPricing() {
-  const { gym } = await requireStaff();
+  const { gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
 
   const [{ data: plans }, { data: activeSubs }] = await Promise.all([

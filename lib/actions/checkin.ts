@@ -142,6 +142,24 @@ export async function generateCheckinCode(): Promise<CodeResult> {
     return { ok: false, error: 'Your membership is suspended. Please see the front desk.' };
   }
 
+  // Require an active, non-expired subscription to generate a code — the same
+  // gate selfCheckIn enforces. A member without a paid, current subscription
+  // can't produce a front-desk code (which would otherwise let reception check
+  // them in and bypass payment). Members already inside can still check OUT: an
+  // open visit today keeps code generation available so they aren't trapped.
+  const todayStr = watDateISO();
+  const openToday = await openVisit(supabase, gym.id, user.id);
+  if (!openToday) {
+    const { data: sub } = await supabase
+      .from('member_subscriptions')
+      .select('end_date')
+      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+      .order('end_date', { ascending: false }).limit(1).maybeSingle();
+    if (!sub || (sub.end_date ?? '') < todayStr) {
+      return { ok: false, error: 'Your membership isn’t active. Renew to check in.' };
+    }
+  }
+
   // One live code per member — void previous ones so reception can never be
   // holding two working codes for the same person.
   await supabase.from('checkin_codes')

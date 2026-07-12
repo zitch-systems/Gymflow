@@ -51,6 +51,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       gymInitial={initialsOf(gym.name, 'G')}
       userName={name}
       userRole={roleLabel(role)}
+      roleKey={role}
       userInitial={initialsOf(name)}
       gyms={staffGyms.gyms}
       activeGymId={staffGyms.activeId}

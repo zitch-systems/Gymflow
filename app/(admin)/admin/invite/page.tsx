@@ -1,7 +1,7 @@
-import { headers } from 'next/headers';
 import QRCode from 'qrcode';
 import { UserPlus, LogIn, CreditCard, Download, Printer } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
+import { ROOT_DOMAIN } from '@/lib/tenant';
 
 export const metadata = { title: 'Member QR codes' };
 export const dynamic = 'force-dynamic';
@@ -14,10 +14,10 @@ const QR_OPTS = { margin: 2, width: 1024, errorCorrectionLevel: 'M' as const, co
 export default async function AdminInvite() {
   const { gym } = await requireStaff();
 
-  const h = await headers();
-  const host = h.get('host') ?? '';
-  const proto = h.get('x-forwarded-proto') ?? 'https';
-  const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || (host ? `${proto}://${host}` : '');
+  // QR codes point at the gym's own branded subdomain (<slug>.gymflow.ng), so
+  // sign-in shows the gym-branded member login and every link stays on the
+  // gym's domain rather than the apex or a preview host.
+  const origin = `https://${gym.slug}.${ROOT_DOMAIN}`;
 
   const codes = [
     { key: 'signup', icon: UserPlus, label: 'Sign up', sub: 'New members create an account', url: `${origin}/join/${gym.slug}` },
