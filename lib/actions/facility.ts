@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 
 export type FState = { ok: boolean; error: string | null };
@@ -55,18 +57,19 @@ export async function saveEquipment(_prev: FState, fd: FormData): Promise<FState
   try {
     const { user, gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
+    // Storage write via the service-role client (caller already authorized by
+    // requireStaff; path is server-controlled). Avoids the storage-RLS failure
+    // the user-scoped client hits when its token doesn't reach storage.
+    let storage: SupabaseClient = supabase;
+    try { storage = createAdminClient(); } catch { /* no service key — user client */ }
 
-    // Photo upload goes to the per-gym gym-assets bucket; the storage RLS keys
-    // off the first path segment (the gym id). A new file replaces the old URL,
-    // an explicit "remove" clears it, and otherwise photo_url is left untouched
-    // so an edit without a new file keeps the existing image.
     const patch: { photo_url?: string | null } = {};
     if (photo instanceof File && photo.size > 0) {
       const ext = ((photo.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
       const path = `${gym.id}/equipment/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('gym-assets').upload(path, photo, { contentType: photo.type, upsert: true });
+      const { error: upErr } = await storage.storage.from('gym-assets').upload(path, photo, { contentType: photo.type, upsert: true });
       if (upErr) return { ok: false, error: upErr.message };
-      patch.photo_url = supabase.storage.from('gym-assets').getPublicUrl(path).data.publicUrl;
+      patch.photo_url = storage.storage.from('gym-assets').getPublicUrl(path).data.publicUrl;
     } else if (removePhoto) {
       patch.photo_url = null;
     }

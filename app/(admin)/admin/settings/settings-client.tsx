@@ -54,8 +54,8 @@ export type GymProfile = {
 
 export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
 
-export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutRequests }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; pendingPayoutRequests: number }) {
-  const [sec, setSec] = useState<string>('profile');
+export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutRequests, initialSection = 'profile' }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; pendingPayoutRequests: number; initialSection?: string }) {
+  const [sec, setSec] = useState<string>(initialSection);
   const [gymState, gymAction, gymPending] = useActionState(updateGym, GYM_INIT);
   const [brandState, brandAction, brandPending] = useActionState(updateBranding, GYM_INIT);
   const [logoState, logoAction, logoPending] = useActionState(uploadLogo, GYM_INIT);

@@ -175,13 +175,13 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
         {/* Gym's own hero photo when set, else a bundled gym backdrop so the
             page never looks empty. A dark scrim keeps the text legible. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- per-gym remote or bundled hero image */}
-        <img className="gl-hero-bg" src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" aria-hidden />
+        <img className="gl-hero-bg" src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" aria-hidden fetchPriority="high" decoding="async" />
         <div className="gl-hero-scrim" aria-hidden />
         <div className="gl-hero-in">
           <span className="gl-logo">
             {gym.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element -- per-gym remote logo
-              <img src={gym.logo_url} alt={gym.name} />
+              <img src={gym.logo_url} alt="" />
             ) : (
               <Dumbbell strokeWidth={1.9} />
             )}
@@ -256,7 +256,7 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
           <div className="gl-gallery">
             {gallery.map((url, i) => (
               // eslint-disable-next-line @next/next/no-img-element -- per-gym remote gallery image
-              <img className="gl-gallery-img" src={url} alt={`${gym.name} photo ${i + 1}`} key={url} loading="lazy" />
+              <img className="gl-gallery-img" src={url} alt={`${gym.name} photo ${i + 1}`} key={url} loading="lazy" decoding="async" width={800} height={600} />
             ))}
           </div>
         </section></Reveal>

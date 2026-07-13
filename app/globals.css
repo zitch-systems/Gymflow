@@ -2519,8 +2519,138 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
   50%      { transform: translateY(-7px) rotateX(7deg) rotateY(9deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .gl-reveal { opacity: 1; transform: none; transition: none; }
-  .gl-logo, .gl-orb { animation: none; }
+  .gl-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .gl-orb { animation: none !important; }
+  .gl-logo { animation: none !important; transform: rotateY(-9deg); }
+  .gl-social:hover, .gl-feature:hover, .gl-plan:hover, .gl-class:hover, .gl-amenity:hover { transform: none; }
+  .gymland *, .gymland *::before, .gymland *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* ═══════════ gymland landing: responsive + a11y + perf polish (append after line 2524) ═══════════ */
+
+/* Keyboard focus — this page had ZERO :focus-visible rules (WCAG 2.4.7). Theme-aware, scoped to .gymland. */
+.gymland a:focus-visible,
+.gymland button:focus-visible {
+  outline: 2px solid var(--gf-brand);
+  outline-offset: 2px;
+  border-radius: var(--gf-radius-sm);
+}
+.gl-social:focus-visible { color: var(--gf-brand); border-color: var(--gf-brand-glow); }
+
+/* Photo-hero legibility: dim the photo more where text sits + a theme-matched shadow floor,
+   and lift the two low-emphasis lines one contrast tier (WCAG 1.4.3, content-dependent contrast). */
+.gl-hero-photo .gl-hero-scrim {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--gf-bg) 70%, transparent) 0%,
+    color-mix(in srgb, var(--gf-bg) 85%, transparent) 52%,
+    var(--gf-bg) 100%);
+}
+.gl-hero-photo .gl-name,
+.gl-hero-photo .gl-tag,
+.gl-hero-photo .gl-loc { text-shadow: 0 1px 3px color-mix(in srgb, var(--gf-bg) 72%, transparent); }
+.gl-hero-photo .gl-loc { color: var(--gf-text-secondary); }
+.gl-hero-photo .gl-tag { color: var(--gf-text); }
+
+/* Type polish + guard against a long single-word gym name forcing horizontal scroll. */
+.gymland { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+.gl-name, .gl-h2, .gl-final h2 { text-wrap: balance; }
+.gl-tag, .gl-about, .gl-feature p, .gl-plan-desc { text-wrap: pretty; }
+.gl-name { overflow-wrap: anywhere; }
+
+/* Isolate the blur-heavy animated backdrop so its repaints don't invalidate foreground content. */
+.gl-decor { contain: layout paint; }
+.gl-orb { will-change: transform; contain: layout paint; }
+
+/* Touch devices: reset sticky-hover transforms/shadows that otherwise linger after a tap. */
+@media (hover: none) {
+  .gl-social:hover { transform: none; }
+  .gl-feature:hover,
+  .gl-plan:hover,
+  .gl-class:hover { box-shadow: none; border-color: var(--gf-border); }
+  .gl-amenity:hover { border-color: var(--gf-border); color: var(--gf-text-secondary); }
+}
+
+/* ── Desktop / large (≥1024px): fix the feature orphan, tame plan stretch, add breathing room ── */
+@media (min-width: 1024px) {
+  /* widen ONLY the card-grid sections; keep prose narrow for a readable measure */
+  .gl-section:has(.gl-features),
+  .gl-section:has(.gl-plans),
+  .gl-section:has(.gl-gallery),
+  .gl-section:has(.gl-classes) { max-width: 1080px; }
+  .gl-section:has(.gl-about) { max-width: 720px; }
+
+  .gl-section { padding-top: 84px; padding-left: 32px; padding-right: 32px; }
+  .gl-final { margin-top: 104px; padding: 64px 32px; }
+  .gymland-by { margin-top: 56px; }
+
+  /* the feature set is a fixed array of 4 → pin 4-up so there's never a stretched orphan */
+  .gl-features { grid-template-columns: repeat(4, 1fr); }
+  /* plans are dynamic → cap track width so leftover cards stay card-sized, and centre the row */
+  .gl-plans { grid-template-columns: repeat(auto-fit, minmax(240px, 300px)); justify-content: center; }
+  .gl-gallery { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+  /* hero scales continuously past its frozen 2.8rem clamp ceiling */
+  .gl-hero-photo { padding-top: 124px; padding-bottom: 100px; }
+  .gl-hero-in { max-width: 720px; }
+  .gl-name { font-size: clamp(2.8rem, 4.2vw, 3.6rem); }
+  .gl-tag { max-width: 46ch; }
+  .gl-hero-photo .gl-hero-bg { opacity: 0.5; object-position: center 40%; }
+  .gl-hero::after { width: 620px; height: 440px; }
+
+  /* pull the day/time pair back together instead of floating at opposite 760px edges */
+  .gl-hours { max-width: 560px; }
+}
+
+/* ── Ultrawide (≥1600px): keep the photo/content proportion intentional ── */
+@media (min-width: 1600px) {
+  .gl-section:has(.gl-features),
+  .gl-section:has(.gl-plans),
+  .gl-section:has(.gl-gallery),
+  .gl-section:has(.gl-classes) { max-width: 1160px; }
+  .gl-hero-photo { padding-top: 148px; padding-bottom: 120px; }
+  .gl-name { font-size: clamp(3.2rem, 3.4vw, 4rem); }
+}
+
+/* ── Mobile (≤600px): tighten the desktop-tuned rhythm, single-column grids, bigger touch targets ── */
+@media (max-width: 600px) {
+  .gl-hero { padding-left: 16px; padding-right: 16px; padding-bottom: 44px; }
+  .gl-hero-photo { padding-top: 60px; padding-bottom: 48px; }
+  .gl-section { padding-left: 16px; padding-right: 16px; padding-top: 34px; }
+  .gl-final { padding: 34px 16px; margin-top: 40px; }
+
+  /* every card grid becomes a clean full-width single column */
+  .gl-features, .gl-plans, .gl-gallery, .gl-classes { grid-template-columns: 1fr; }
+
+  /* keep all three stats on one balanced row (no 2+1 orphan) */
+  .gl-stats { gap: 10px; margin-top: 24px; }
+  .gl-stat { flex: 1 1 30%; min-width: 84px; padding: 12px 10px; }
+
+  /* 44px comfortable touch targets for the social row */
+  .gl-socials { gap: 8px; }
+  .gl-social { width: 44px; height: 44px; border-radius: 12px; }
+
+  /* a multi-session day's time range drops to its own line instead of overflowing */
+  .gl-hours-row { flex-wrap: wrap; gap: 2px 12px; }
+  .gl-hours-row span:last-child { flex: 1 1 100%; text-align: left; }
+
+  /* lighter, cheaper backdrop on low-end phones */
+  .gl-ring { display: none; }
+  .gl-orb-1 { width: 240px; height: 240px; filter: blur(28px); opacity: 0.3; }
+  .gl-orb-2 { display: none; }
+}
+
+/* ── Small phones (≤400px): stack CTAs, shrink oversized display type ── */
+@media (max-width: 400px) {
+  .gl-hero-photo { padding-top: 48px; padding-bottom: 40px; }
+  .gl-name { font-size: clamp(1.6rem, 8vw, 1.9rem); line-height: 1.1; }
+  .gl-cta { flex-direction: column; gap: 10px; }
+  .gl-cta .gf-btn { width: 100%; justify-content: center; }
+  .gl-stat b { font-size: 1.3rem; }
+  .gl-plan-price { font-size: 1.5rem; }
 }
 
 /* Print: receipt-only (Download PDF on the wallet receipt page) */
