@@ -1,4 +1,4 @@
-import { Banknote, ArrowDownLeft, ArrowUpRight, CreditCard } from 'lucide-react';
+import { Banknote, ArrowDownLeft, ArrowUpRight, CreditCard, Download } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
@@ -62,7 +62,12 @@ export default async function AdminWallet() {
       </div>
 
       <div className="panel">
-        <div className="panel-h"><div><h3>Transactions</h3><div className="sub">All settlements &amp; payments</div></div></div>
+        <div className="panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div><h3>Transactions</h3><div className="sub">All settlements &amp; payments</div></div>
+          <a className="gf-btn gf-btn-secondary gf-btn-sm" href="/admin/wallet/export" style={{ textDecoration: 'none', flexShrink: 0 }} title="Accounting-ready CSV with VAT breakdown">
+            <Download strokeWidth={1.9} size={15} /> Accounting CSV
+          </a>
+        </div>
         {(rows ?? []).length === 0 ? (
           <div className="empty"><div className="eic"><CreditCard strokeWidth={1.6} /></div><h3>No payments yet</h3><p>Member renewals and purchases will show here.</p></div>
         ) : (
