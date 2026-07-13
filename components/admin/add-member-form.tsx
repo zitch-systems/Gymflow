@@ -15,7 +15,7 @@ export function AddMemberForm({ plans }: { plans: Plan[] }) {
       <div className="af-grid">
         <label>Full name *<input name="full_name" className="gf-input" placeholder="e.g. Ada Obi" required /></label>
         <label>Email<input name="email" type="email" className="gf-input" placeholder="ada@email.com" /></label>
-        <label>Phone<input name="phone" className="gf-input" placeholder="0801 234 5678" /></label>
+        <label>Phone *<input name="phone" type="tel" inputMode="tel" className="gf-input" placeholder="0801 234 5678" required /></label>
         <label>Starting plan (optional)
           <select name="planId" className="gf-input" defaultValue="">
             <option value="">— no membership yet —</option>

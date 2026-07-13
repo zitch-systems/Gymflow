@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
-import { splitName } from '@/lib/format';
+import { splitName, normalizeNgPhone } from '@/lib/format';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -272,9 +272,10 @@ export async function setMemberActive(_prev: ActionState, formData: FormData): P
 export async function addMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const fullName = String(formData.get('full_name') ?? '').trim().slice(0, 120);
   const email = String(formData.get('email') ?? '').trim().slice(0, 254) || null;
-  const phone = String(formData.get('phone') ?? '').trim().slice(0, 32) || null;
+  const phone = normalizeNgPhone(String(formData.get('phone') ?? ''));
   const planId = String(formData.get('planId') ?? '') || null;
   if (!fullName) return { ok: false, error: 'Enter the member’s name.' };
+  if (!phone) return { ok: false, error: 'Enter a valid phone number (e.g. 080 1234 5678).' };
 
   const newId = (globalThis.crypto as Crypto).randomUUID();
   try {

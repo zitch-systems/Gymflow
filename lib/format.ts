@@ -104,3 +104,15 @@ export function splitName(full: string | null | undefined): { first_name: string
   if (parts.length === 0) return { first_name: null, last_name: null };
   return { first_name: parts[0], last_name: parts.slice(1).join(' ') || null };
 }
+
+// Normalize a Nigerian mobile number to canonical 11-digit local form
+// (0XXXXXXXXXX). Accepts common inputs — spaces/dashes, a +234/234 country
+// code, or a leading-zero-less 10-digit number. Returns null when it isn't a
+// valid NG mobile (must be 11 digits, 0 then 7/8/9), so callers can reject it.
+export function normalizeNgPhone(input: string | null | undefined): string | null {
+  if (!input) return null;
+  let d = input.replace(/[^\d+]/g, '').replace(/^\+/, '');
+  if (d.startsWith('234')) d = `0${d.slice(3)}`;
+  else if (d.length === 10 && /^[789]/.test(d)) d = `0${d}`; // 803… → 0803…
+  return /^0[789]\d{9}$/.test(d) ? d : null;
+}

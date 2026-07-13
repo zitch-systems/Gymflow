@@ -34,7 +34,8 @@ export default async function Launch() {
   // anyone else gets the one-field setup form.
   const meta = (user.user_metadata as Record<string, unknown> | null) ?? {};
   const joinSlug = String(meta.join_gym_slug ?? '').trim();
-  if (joinSlug && (await healJoin(user.id, user.email ?? '', joinSlug))) redirect('/dashboard');
+  const joinPhone = meta.phone != null ? String(meta.phone) : null;
+  if (joinSlug && (await healJoin(user.id, user.email ?? '', joinSlug, joinPhone))) redirect('/dashboard');
 
   const gymName = String(meta.gym_name ?? '').trim();
   if (gymName) {
