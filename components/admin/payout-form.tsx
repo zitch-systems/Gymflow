@@ -28,9 +28,12 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
   // Any edit invalidates a prior verification — force a re-check before connect.
-  function pickBank(name: string) {
-    setBankName(name);
-    setBankCode(banks.find((b) => b.name.toLowerCase() === name.toLowerCase())?.code ?? '');
+  // Pick by the bank's Paystack code (from the <select>) so a valid code is
+  // always set — the old free-text datalist left bank_code empty unless the
+  // typed text matched a list entry exactly, which disabled the submit button.
+  function pickBankByCode(code: string) {
+    setBankCode(code);
+    setBankName(banks.find((b) => b.code === code)?.name ?? '');
     setVerified(false); setAccountName(''); setVerifyError(null);
   }
   function onAccountNumber(v: string) {
@@ -75,9 +78,10 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
           <div className="frow">
             <div className="gf-form-group">
               <label className="gf-form-label">Bank</label>
-              <input className="gf-input" list="gf-bank-list" value={bankName} onChange={(e) => pickBank(e.target.value)} placeholder="Search your bank…" autoComplete="off" />
-              <datalist id="gf-bank-list">{banks.map((b) => <option key={b.code} value={b.name} />)}</datalist>
-              {bankName && !bankCode && <span className="gf-form-hint" style={{ color: 'var(--gf-warning)' }}>Pick a bank from the list.</span>}
+              <select className="gf-select" value={bankCode} onChange={(e) => pickBankByCode(e.target.value)}>
+                <option value="">Select your bank…</option>
+                {banks.map((b, i) => <option key={`${b.code}-${i}`} value={b.code}>{b.name}</option>)}
+              </select>
             </div>
             <div className="gf-form-group">
               <label className="gf-form-label">Account number</label>
