@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtNaira, fmt12Hr } from '@/lib/format';
 import { Tilt, Reveal } from '@/components/marketing/landing-fx';
 import { InstagramEmbeds } from '@/components/marketing/instagram-embeds';
+import { LandingTrackers } from '@/components/marketing/landing-trackers';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -21,6 +22,7 @@ type Gym = {
   amenities: string[] | null;
   social_links: Record<string, string> | null; gallery_urls: string[] | null;
   instagram_posts: string[] | null;
+  integrations: Record<string, string> | null;
 };
 type Plan = { id: string; name: string; price: number | null; currency: string | null; duration_months: number | null; duration_days: number | null; description: string | null; features: unknown };
 type Klass = { id: string; name: string; category: string | null; duration_minutes: number | null; level: string | null; description: string | null };
@@ -117,6 +119,7 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
   const gallery = (gym.gallery_urls ?? []).filter((u) => typeof u === 'string' && u.trim());
   const igPosts = (gym.instagram_posts ?? []).filter((u) => typeof u === 'string' && u.trim()).slice(0, 6);
   const igHandle = (gym.social_links ?? {}).instagram;
+  const integ = gym.integrations ?? {};
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -390,6 +393,8 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
       )}
 
       <a className="gymland-by" href="https://gymflow.ng" target="_blank" rel="noreferrer">Powered by <strong>GymFlow</strong></a>
+
+      <LandingTrackers ga4={integ.ga4} metaPixel={integ.meta_pixel} chatProvider={integ.chat_provider} chatId={integ.chat_id} />
     </main>
   );
 }

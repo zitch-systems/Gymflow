@@ -252,6 +252,52 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
   }
 }
 
+// Marketing/tracking + live-chat IDs for the public landing page. These are all
+// public client-side identifiers (no secrets), validated to fixed shapes so the
+// landing page can only ever interpolate a clean ID into a known script
+// template — never raw markup. Empty fields clear that integration.
+export async function updateMarketing(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const raw = {
+    ga4: String(formData.get('ga4') ?? '').trim(),
+    meta_pixel: String(formData.get('meta_pixel') ?? '').trim(),
+    chat_provider: String(formData.get('chat_provider') ?? '').trim(),
+    chat_id: String(formData.get('chat_id') ?? '').trim(),
+  };
+  // Validate each public ID's shape; reject rather than store something the
+  // landing script can't use. All are optional.
+  const integrations: Record<string, string> = {};
+  if (raw.ga4) {
+    if (!/^G-[A-Z0-9]{4,20}$/i.test(raw.ga4)) return { ok: false, error: 'Google Analytics ID should look like G-XXXXXXX.' };
+    integrations.ga4 = raw.ga4.toUpperCase();
+  }
+  if (raw.meta_pixel) {
+    if (!/^\d{6,20}$/.test(raw.meta_pixel)) return { ok: false, error: 'Meta Pixel ID should be the numeric ID (6–20 digits).' };
+    integrations.meta_pixel = raw.meta_pixel;
+  }
+  if (raw.chat_provider && raw.chat_id) {
+    if (raw.chat_provider !== 'crisp' && raw.chat_provider !== 'tawk') return { ok: false, error: 'Pick a supported live-chat provider.' };
+    // Crisp: a UUID website ID. Tawk.to: "propertyId/widgetId" (hex segments).
+    const ok = raw.chat_provider === 'crisp'
+      ? /^[0-9a-f-]{20,40}$/i.test(raw.chat_id)
+      : /^[0-9a-f]{16,30}\/[0-9a-z]{5,20}$/i.test(raw.chat_id);
+    if (!ok) return { ok: false, error: raw.chat_provider === 'crisp' ? 'Crisp Website ID looks off — copy it from Crisp → Settings → Setup.' : 'Tawk.to ID should look like propertyId/widgetId.' };
+    integrations.chat_provider = raw.chat_provider;
+    integrations.chat_id = raw.chat_id;
+  }
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const value = Object.keys(integrations).length ? integrations : null;
+    const { error } = await supabase.from('gyms').update({ integrations: value } as never).eq('id', gym.id);
+    if (error) return { ok: false, error: error.message };
+    logAudit({ action: 'gym_integrations_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: integrations });
+    try { revalidatePath('/admin/settings'); revalidatePath(`/g/${gym.slug}`); } catch { /* stale-cache tolerable */ }
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 // Upload one or more photos to the gym's public gallery. Appends their public
 // URLs to gyms.gallery_urls (capped). Owner/manager; mirrors uploadLogo's
 // storage handling (gym-assets bucket, first path segment = gym id for RLS).

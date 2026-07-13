@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, type LucideIcon } from 'lucide-react';
-import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, type GymSaveState } from '@/lib/actions/gym';
+import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
 import { GalleryManager } from '@/components/admin/gallery-manager';
 import type { Bank } from '@/lib/paystack';
@@ -108,6 +108,7 @@ export type GymProfile = {
   name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
   tagline: string | null; description: string | null; city: string | null; state: string | null; website: string | null; amenities: string[] | null;
   social_links: Record<string, string> | null; gallery_urls: string[] | null; instagram_posts: string[] | null;
+  integrations: Record<string, string> | null;
   bank_name: string | null; bank_code: string | null; account_number: string | null; account_name: string | null;
   payouts_connected: boolean; payouts_locked: boolean; commission_pct: number;
   member_freeze_enabled: boolean;
@@ -139,6 +140,7 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
   const [hoursState, hoursAction, hoursPending] = useActionState(saveBusinessHours, GYM_INIT);
   const [freezeState, freezeAction, freezePending] = useActionState(updateFreezePolicy, GYM_INIT);
   const [notifState, notifAction, notifPending] = useActionState(updateNotifications, GYM_INIT);
+  const [mktState, mktAction, mktPending] = useActionState(updateMarketing, GYM_INIT);
 
   return (
     <>
@@ -343,6 +345,46 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                   );
                 })}
               </div>
+
+              <form className="panel" action={mktAction} style={{ marginTop: 16 }}>
+                <div className="panel-title">Marketing, tracking &amp; live chat</div>
+                <div className="panel-desc">Add these to your public gym page ({gym.slug}.gymflow.ng) to measure sign-ups and chat with visitors. All are optional and use public IDs only — paste and save.</div>
+
+                <div className="frow" style={{ marginTop: 12 }}>
+                  <div className="gf-form-group">
+                    <label className="gf-form-label">Google Analytics (GA4) ID</label>
+                    <input className="gf-input" name="ga4" defaultValue={gym.integrations?.ga4 ?? ''} placeholder="G-XXXXXXX" />
+                    <small className="gf-form-hint" style={{ color: 'var(--gf-text-muted)' }}>Analytics → Admin → Data streams.</small>
+                  </div>
+                  <div className="gf-form-group">
+                    <label className="gf-form-label">Meta (Facebook) Pixel ID</label>
+                    <input className="gf-input" name="meta_pixel" defaultValue={gym.integrations?.meta_pixel ?? ''} placeholder="123456789012345" inputMode="numeric" />
+                    <small className="gf-form-hint" style={{ color: 'var(--gf-text-muted)' }}>Events Manager → your pixel’s numeric ID.</small>
+                  </div>
+                </div>
+
+                <div className="frow">
+                  <div className="gf-form-group">
+                    <label className="gf-form-label">Live chat provider</label>
+                    <select className="gf-select" name="chat_provider" defaultValue={gym.integrations?.chat_provider ?? ''}>
+                      <option value="">None</option>
+                      <option value="crisp">Crisp</option>
+                      <option value="tawk">Tawk.to</option>
+                    </select>
+                  </div>
+                  <div className="gf-form-group">
+                    <label className="gf-form-label">Chat widget ID</label>
+                    <input className="gf-input" name="chat_id" defaultValue={gym.integrations?.chat_id ?? ''} placeholder="Crisp Website ID or Tawk propertyId/widgetId" />
+                    <small className="gf-form-hint" style={{ color: 'var(--gf-text-muted)' }}>Crisp: Settings → Setup. Tawk.to: Admin → Channels → Chat Widget.</small>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+                  <button className="gf-btn gf-btn-primary" type="submit" disabled={mktPending}>{mktPending ? 'Saving…' : 'Save changes'}</button>
+                  {mktState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
+                  {mktState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{mktState.error}</span>}
+                </div>
+              </form>
 
               <RequestSetupPanel
                 title="Access control & entry hardware"
