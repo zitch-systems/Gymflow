@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtNaira, fmt12Hr } from '@/lib/format';
 import { Tilt, Reveal } from '@/components/marketing/landing-fx';
+import { InstagramEmbeds } from '@/components/marketing/instagram-embeds';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -19,6 +20,7 @@ type Gym = {
   city: string | null; state: string | null; address: string | null; phone: string | null; email: string | null; website: string | null;
   amenities: string[] | null;
   social_links: Record<string, string> | null; gallery_urls: string[] | null;
+  instagram_posts: string[] | null;
 };
 type Plan = { id: string; name: string; price: number | null; currency: string | null; duration_months: number | null; duration_days: number | null; description: string | null; features: unknown };
 type Klass = { id: string; name: string; category: string | null; duration_minutes: number | null; level: string | null; description: string | null };
@@ -113,6 +115,8 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
     .map((s) => ({ ...s, value: (gym.social_links ?? {})[s.key] }))
     .filter((s): s is typeof s & { value: string } => typeof s.value === 'string' && s.value.trim().length > 0);
   const gallery = (gym.gallery_urls ?? []).filter((u) => typeof u === 'string' && u.trim());
+  const igPosts = (gym.instagram_posts ?? []).filter((u) => typeof u === 'string' && u.trim()).slice(0, 6);
+  const igHandle = (gym.social_links ?? {}).instagram;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -259,6 +263,22 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
               <img className="gl-gallery-img" src={url} alt={`${gym.name} photo ${i + 1}`} key={url} loading="lazy" decoding="async" width={800} height={600} />
             ))}
           </div>
+        </section></Reveal>
+      )}
+
+      {/* ── On Instagram (curated posts embedded via Instagram's official embed) ── */}
+      {igPosts.length > 0 && (
+        <Reveal><section className="gl-section">
+          <div className="gl-ig-head">
+            <h2 className="gl-h2" style={{ margin: 0 }}>On Instagram</h2>
+            {igHandle && (
+              <a className="gl-ig-follow" href={igHandle.startsWith('http') ? igHandle : `https://instagram.com/${igHandle.trim().replace(/^@+/, '')}`} target="_blank" rel="noreferrer">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden><path d={SOCIALS[0].path} /></svg>
+                Follow @{igHandle.trim().replace(/^@+/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/.*$/, '')}
+              </a>
+            )}
+          </div>
+          <InstagramEmbeds urls={igPosts} />
         </section></Reveal>
       )}
 

@@ -217,6 +217,14 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
     const v = String(formData.get(`social_${k}`) ?? '').trim().slice(0, 200);
     if (v) social_links[k] = v;
   }
+  // Curated Instagram posts — one permalink per line. Keep only well-formed
+  // instagram.com post/reel/tv links (de-duped, capped) so the landing page's
+  // official embed always has valid URLs to render.
+  const instagram_posts = Array.from(new Set(
+    String(formData.get('instagram_posts') ?? '')
+      .split(/[\n,]+/).map((s) => s.trim())
+      .filter((u) => /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels|tv)\/[A-Za-z0-9_-]+/i.test(u)),
+  )).slice(0, 6);
   const patch = {
     name,
     tagline: String(formData.get('tagline') ?? '').trim() || null,
@@ -229,6 +237,7 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
     website: String(formData.get('website') ?? '').trim() || null,
     amenities,
     social_links,
+    instagram_posts: instagram_posts.length ? instagram_posts : null,
   };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
