@@ -7,7 +7,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
 import { rateLimit } from '@/lib/rate-limit';
-import { normalizeBusinessName } from '@/lib/format';
 
 export type GymSaveState = { ok: boolean; error: string | null };
 
@@ -37,91 +36,12 @@ export async function verifyBankAccount(accountNumber: string, bankCode: string)
   return resolveAccount(accountNumber, bankCode);
 }
 
-// Payout account write:
-//   First-time setup (no bank on file) — verifies against Paystack, creates the
-//     subaccount, sets payouts_locked=true so future edits require review.
-//   Change (locked) — creates a payout_change_request row for a platform admin
-//     to approve. If the resolved holder name doesn't match the gym's business
-//     name, the request is still created but flagged as name_matches=false;
-//     approval requires the admin to tick "allow name mismatch".
-//   Change (name mismatch override on gyms) — behaves like first-time setup,
-//     so a gym whose registered account holder legitimately differs (e.g. a
-//     personal bank account for a sole trader) isn't stuck submitting requests
-//     forever. The override itself is set by a platform admin.
-// Owners/managers only.
-export async function savePayout(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
-  const bank_name = String(formData.get('bank_name') ?? '').trim();
-  const bank_code = String(formData.get('bank_code') ?? '').trim();
-  const account_number = String(formData.get('account_number') ?? '').trim();
-  const account_name = String(formData.get('account_name') ?? '').trim();
-  if (!bank_name || !/^\d{3,6}$/.test(bank_code) || !/^\d{10}$/.test(account_number) || !account_name) {
-    return { ok: false, error: 'Enter bank name, bank code, a 10-digit account number and the account name.' };
-  }
-  try {
-    const { user, gym } = await requireStaff(MANAGER_ROLES);
-    const supabase = await createClient();
-
-    // Verification is best-effort: try to resolve the holder name at Paystack,
-    // but a failure (unresolvable account, Paystack hiccup) does NOT block the
-    // save — the gym can set any account, keeping the name they entered.
-    let resolvedName = account_name;
-    let paystackVerified = false;
-    if (process.env.PAYSTACK_SECRET_KEY) {
-      const resolved = await resolveAccount(account_number, bank_code);
-      if (resolved.ok) { resolvedName = resolved.accountName || account_name; paystackVerified = true; }
-    }
-
-    const nameMatches = normalizeBusinessName(resolvedName) === normalizeBusinessName(gym.name);
-    const locked = (gym as { payouts_locked?: boolean }).payouts_locked === true;
-
-    // Locked: any change goes through the approval queue instead of applying.
-    if (locked) {
-      // Generated types don't include payout_change_requests yet — assert the
-      // table name so both the query builder and the untyped row payload compile.
-      const { error: reqErr } = await supabase.from('payout_change_requests' as never).insert({
-        gym_id: gym.id,
-        requested_by: user.id,
-        bank_name, bank_code, account_number,
-        account_name: resolvedName,
-        name_matches: nameMatches,
-        status: 'pending',
-      } as never);
-      if (reqErr) return { ok: false, error: reqErr.message };
-      logAudit({ action: 'payout_change_requested', table: 'payout_change_requests', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { bank_name, last4: account_number.slice(-4) } });
-      try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
-      return { ok: true, error: null };
-    }
-
-    // Not locked yet — first-time setup. Save whatever account the gym entered
-    // (any account is allowed). The name-match is still recorded on locked
-    // change requests for the platform's audit trail, but it no longer blocks
-    // the initial save; ongoing CHANGES route through the approval queue (above).
-    const { error: upErr } = await supabase.from('gyms')
-      .update({ bank_name, bank_code, account_number, account_name: resolvedName, payouts_locked: true } as never)
-      .eq('id', gym.id);
-    if (upErr) return { ok: false, error: upErr.message };
-
-    // Only wire up the Paystack subaccount when the account actually resolved —
-    // creating a subaccount with an unverifiable account would fail anyway. An
-    // unverified bank is still saved so the gym has its details on file.
-    if (process.env.PAYSTACK_SECRET_KEY && paystackVerified) {
-      const sub = await createSubaccount({
-        businessName: gym.name,
-        bankCode: bank_code,
-        accountNumber: account_number,
-        percentageCharge: gym.platform_commission_pct == null ? DEFAULT_PLATFORM_COMMISSION_PCT : Number(gym.platform_commission_pct),
-      });
-      if (!sub.ok) return { ok: false, error: `Bank saved, but connecting payouts failed: ${sub.error}` };
-      const { error: scErr } = await supabase.from('gyms').update({ paystack_subaccount_code: sub.subaccountCode }).eq('id', gym.id);
-      if (scErr) return { ok: false, error: scErr.message };
-    }
-    logAudit({ action: 'payout_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { bank_name, last4: account_number.slice(-4) } });
-    try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
-    return { ok: true, error: null };
-  } catch (e) {
-    return { ok: false, error: (e as Error).message };
-  }
-}
+// NOTE: the old savePayout action (single bank-on-file + locked change-request
+// flow) was superseded by lib/actions/payout-accounts.ts (multiple accounts,
+// self-service active switch) and removed as dead code — its locked branch
+// inserted into payout_change_requests through the user client, the source of
+// the "new row violates row-level security policy" error. reviewPayoutRequest
+// below stays so platform admins can drain any legacy pending requests.
 
 // Platform-admin review of a pending payout change request. Approve writes the
 // new bank into the gym row and (with Paystack keys) rebuilds the subaccount.

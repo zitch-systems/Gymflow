@@ -112,7 +112,10 @@ export function splitName(full: string | null | undefined): { first_name: string
 export function normalizeNgPhone(input: string | null | undefined): string | null {
   if (!input) return null;
   let d = input.replace(/[^\d+]/g, '').replace(/^\+/, '');
-  if (d.startsWith('234')) d = `0${d.slice(3)}`;
-  else if (d.length === 10 && /^[789]/.test(d)) d = `0${d}`; // 803… → 0803…
+  if (d.startsWith('234')) {
+    // "+234 803…" and the common redundant-zero paste "+234 0803…" both work.
+    const rest = d.slice(3);
+    d = rest.startsWith('0') ? rest : `0${rest}`;
+  } else if (d.length === 10 && /^[789]/.test(d)) d = `0${d}`; // 803… → 0803…
   return /^0[789]\d{9}$/.test(d) ? d : null;
 }
