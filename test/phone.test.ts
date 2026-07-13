@@ -14,6 +14,10 @@ describe('normalizeNgPhone', () => {
     expect(normalizeNgPhone('+2348031234567')).toBe('08031234567');
     expect(normalizeNgPhone('2348031234567')).toBe('08031234567');
   });
+  it('handles the redundant zero after the country code (+234 0803…)', () => {
+    expect(normalizeNgPhone('+234 0803 123 4567')).toBe('08031234567');
+    expect(normalizeNgPhone('23408031234567')).toBe('08031234567');
+  });
   it('adds the leading 0 to a 10-digit number', () => {
     expect(normalizeNgPhone('8031234567')).toBe('08031234567');
   });

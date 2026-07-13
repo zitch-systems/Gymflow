@@ -7,9 +7,18 @@ import Script from 'next/script';
 // fixed shape server-side (no quotes/angle-brackets possible), so interpolating
 // it into these fixed templates has no injection surface. Renders nothing when
 // a given integration isn't configured.
-export function LandingTrackers({ ga4, metaPixel, chatProvider, chatId }: {
+export function LandingTrackers({ ga4: ga4Raw, metaPixel: metaPixelRaw, chatProvider, chatId: chatIdRaw }: {
   ga4?: string | null; metaPixel?: string | null; chatProvider?: string | null; chatId?: string | null;
 }) {
+  // Re-validate at render (defense in depth): updateMarketing enforces these
+  // shapes at save time, but the values round-trip through the DB — a row
+  // edited by any other path must still never reach the script templates.
+  const ga4 = ga4Raw && /^G-[A-Z0-9]{4,20}$/i.test(ga4Raw) ? ga4Raw : null;
+  const metaPixel = metaPixelRaw && /^\d{6,20}$/.test(metaPixelRaw) ? metaPixelRaw : null;
+  const chatId = chatIdRaw && (
+    (chatProvider === 'crisp' && /^[0-9a-f-]{20,40}$/i.test(chatIdRaw)) ||
+    (chatProvider === 'tawk' && /^[0-9a-f]{16,30}\/[0-9a-z]{5,20}$/i.test(chatIdRaw))
+  ) ? chatIdRaw : null;
   return (
     <>
       {ga4 && (
