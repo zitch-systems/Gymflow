@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import Link from 'next/link';
-import { Mail, Lock, User, ArrowRight, AlertCircle, Dumbbell } from 'lucide-react';
+import { Mail, Lock, User, Phone, ArrowRight, AlertCircle, Dumbbell } from 'lucide-react';
 import { joinAsNew, joinAsCurrent, type JoinState } from '@/lib/actions/join';
 
 const initial: JoinState = { error: null };
@@ -50,6 +50,13 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail }: { slug: str
                 <div className="gf-input-group">
                   <User className="gf-input-icon" strokeWidth={1.75} />
                   <input className="gf-input" name="full_name" placeholder="Tunde Adeyemi" required />
+                </div>
+              </div>
+              <div className="field gf-form-group">
+                <label className="gf-form-label">Phone number</label>
+                <div className="gf-input-group">
+                  <Phone className="gf-input-icon" strokeWidth={1.75} />
+                  <input className="gf-input" type="tel" name="phone" placeholder="080 1234 5678" inputMode="tel" autoComplete="tel" required />
                 </div>
               </div>
               <div className="field gf-form-group">

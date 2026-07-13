@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { splitName } from '@/lib/format';
+import { splitName, normalizeNgPhone } from '@/lib/format';
 import { validatePassword } from '@/lib/auth/password';
 
 export type JoinState = { error: string | null };
@@ -11,7 +11,7 @@ export type JoinState = { error: string | null };
 // Link an auth user to a gym as a member (idempotent). Service-role: the
 // joining user has no privileges on the gym yet. Never demotes an existing
 // profile's role — staff joining another gym as a member keep their role.
-async function provisionMember(params: { userId: string; email: string; gymId: string; fullName?: string | null }): Promise<{ ok: boolean; error?: string }> {
+async function provisionMember(params: { userId: string; email: string; gymId: string; fullName?: string | null; phone?: string | null }): Promise<{ ok: boolean; error?: string }> {
   let admin: ReturnType<typeof createAdminClient>;
   try { admin = createAdminClient(); } catch (e) { return { ok: false, error: (e as Error).message }; }
 
@@ -19,13 +19,16 @@ async function provisionMember(params: { userId: string; email: string; gymId: s
     .from('gym_member_links').select('id').eq('user_id', params.userId).eq('gym_id', params.gymId).limit(1).maybeSingle();
   if (existing) return { ok: true };
 
-  const { data: profile } = await admin.from('profiles').select('id').eq('id', params.userId).maybeSingle();
+  const { data: profile } = await admin.from('profiles').select('id, phone').eq('id', params.userId).maybeSingle();
   if (!profile) {
     // full_name is GENERATED in the live DB — write first/last, never full_name.
     const { error } = await admin.from('profiles').insert({
-      id: params.userId, email: params.email, ...splitName(params.fullName), role: 'member', gym_id: params.gymId,
+      id: params.userId, email: params.email, ...splitName(params.fullName), phone: params.phone ?? null, role: 'member', gym_id: params.gymId,
     });
     if (error) return { ok: false, error: error.message };
+  } else if (params.phone && !(profile as { phone?: string | null }).phone) {
+    // Existing profile with no phone on file (e.g. a prior partial signup) — backfill it.
+    await admin.from('profiles').update({ phone: params.phone }).eq('id', params.userId);
   }
 
   const { error: linkErr } = await admin.from('gym_member_links').insert({
@@ -56,8 +59,10 @@ export async function joinAsNew(_prev: JoinState, formData: FormData): Promise<J
   const fullName = String(formData.get('full_name') ?? '').trim();
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
+  const phone = normalizeNgPhone(String(formData.get('phone') ?? ''));
   if (!slug) return { error: 'Missing gym link — ask your gym for a fresh invite.' };
   if (!fullName) return { error: 'Enter your name.' };
+  if (!phone) return { error: 'Enter a valid phone number (e.g. 080 1234 5678).' };
   if (!email || !password) return { error: 'Enter your email and password.' };
   const pwErr = validatePassword(password);
   if (pwErr) return { error: pwErr };
@@ -71,7 +76,7 @@ export async function joinAsNew(_prev: JoinState, formData: FormData): Promise<J
     password,
     options: {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/login?confirmed=1`,
-      data: { full_name: fullName, join_gym_slug: slug },
+      data: { full_name: fullName, phone, join_gym_slug: slug },
     },
   });
   if (error) return { error: error.message };
@@ -92,7 +97,7 @@ export async function joinAsNew(_prev: JoinState, formData: FormData): Promise<J
     } catch { /* no service key — email-confirmation path */ }
   }
 
-  const prov = await provisionMember({ userId: data.user.id, email, gymId: gym.id, fullName });
+  const prov = await provisionMember({ userId: data.user.id, email, gymId: gym.id, fullName, phone });
   if (!prov.ok) console.error(`[join] provisioning failed for ${data.user.id}: ${prov.error}`); // /launch self-heals via join_gym_slug
 
   if (session) redirect('/dashboard');
@@ -117,9 +122,9 @@ export async function joinAsCurrent(_prev: JoinState, formData: FormData): Promi
 }
 
 // Shared with /launch's self-heal for accounts whose join provisioning failed.
-export async function healJoin(userId: string, email: string, slug: string): Promise<boolean> {
+export async function healJoin(userId: string, email: string, slug: string, phone?: string | null): Promise<boolean> {
   const gym = await gymBySlug(slug);
   if (!gym) return false;
-  const prov = await provisionMember({ userId, email, gymId: gym.id });
+  const prov = await provisionMember({ userId, email, gymId: gym.id, phone: normalizeNgPhone(phone) });
   return prov.ok;
 }
