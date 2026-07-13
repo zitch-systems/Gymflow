@@ -31,7 +31,10 @@ export default async function AdminPricing() {
 
   return (
     <>
-      <div className="page-h"><div><h1>Pricing &amp; plans</h1><p>{rows.length} plan{rows.length === 1 ? '' : 's'} · {fmtNaira(Math.round(mrrTotal))} monthly recurring</p></div></div>
+      <div className="page-h">
+        <div><h1>Pricing &amp; plans</h1><p>{rows.length} plan{rows.length === 1 ? '' : 's'} · {fmtNaira(Math.round(mrrTotal))} monthly recurring</p></div>
+        <Link href="/admin/pricing/new" className="gf-btn gf-btn-primary" style={{ textDecoration: 'none' }}><PlusCircle strokeWidth={1.9} size={16} /> Add plan</Link>
+      </div>
 
       <section className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#c6f24e1f', color: '#a8d92e' }}><Repeat strokeWidth={1.9} /></div></div><div className="kpi-val">{fmtNaira(Math.round(mrrTotal))}</div><div className="kpi-lbl">Monthly recurring</div></div>
@@ -40,7 +43,7 @@ export default async function AdminPricing() {
       </section>
 
       {rows.length === 0 ? (
-        <div className="panel"><div className="empty"><div className="eic"><CreditCard strokeWidth={1.6} /></div><h3>No plans yet</h3><p>Create a membership plan to start taking subscriptions.</p></div></div>
+        <div className="panel"><div className="empty"><div className="eic"><CreditCard strokeWidth={1.6} /></div><h3>No plans yet</h3><p>Create a membership plan to start taking subscriptions.</p><Link href="/admin/pricing/new" className="gf-btn gf-btn-primary gf-btn-sm" style={{ textDecoration: 'none', marginTop: 14 }}><PlusCircle strokeWidth={1.9} size={15} /> Add your first plan</Link></div></div>
       ) : (
         <div className="plans">
           {rows.map((p) => {
