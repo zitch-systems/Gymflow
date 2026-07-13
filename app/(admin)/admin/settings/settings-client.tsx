@@ -3,6 +3,7 @@
 import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake } from 'lucide-react';
 import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutForm } from '@/components/admin/payout-form';
@@ -54,8 +55,23 @@ export type GymProfile = {
 
 export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
 
+const VALID_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'integ', 'team']);
+
 export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutRequests, initialSection = 'profile' }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; pendingPayoutRequests: number; initialSection?: string }) {
   const [sec, setSec] = useState<string>(initialSection);
+  // Follow the ?onboarding=/?section= query on client-side navigation too.
+  // Clicking an onboarding-banner link while ALREADY on /admin/settings changes
+  // only the query — the component doesn't remount, so the initial `sec` state
+  // would otherwise stay put and the tab wouldn't switch. Adjust state during
+  // render when the requested section changes (React's sanctioned pattern for
+  // deriving state from changing inputs — no effect, no cascading renders).
+  const searchParams = useSearchParams();
+  const requestedSection = searchParams.get('onboarding') ?? searchParams.get('section');
+  const [prevRequested, setPrevRequested] = useState(requestedSection);
+  if (requestedSection !== prevRequested) {
+    setPrevRequested(requestedSection);
+    if (requestedSection && VALID_SECTIONS.has(requestedSection)) setSec(requestedSection);
+  }
   const [gymState, gymAction, gymPending] = useActionState(updateGym, GYM_INIT);
   const [brandState, brandAction, brandPending] = useActionState(updateBranding, GYM_INIT);
   const [logoState, logoAction, logoPending] = useActionState(uploadLogo, GYM_INIT);
