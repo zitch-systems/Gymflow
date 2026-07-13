@@ -20,18 +20,19 @@ export default async function RenewCallback({ searchParams }: { searchParams: Pr
   let msg = 'We couldn’t find this payment. If you were charged, it’ll reflect shortly.';
   if (reference) {
     const v = await verifyTransaction(reference);
-    // Bind the reference to the signed-in member: only fulfill a transaction
-    // whose Paystack-verified metadata names this user. Without this, any member
-    // could submit another member's reference into their own callback. (Impact is
-    // bounded — fulfillCharge derives member/gym from the metadata and is
-    // idempotent — but the reference should still belong to the caller.)
-    if (v.ok && v.status === 'success' && v.metadata?.member_id && v.metadata.member_id !== user.id) {
-      msg = 'This payment reference belongs to a different account.';
-    } else if (v.ok && v.status === 'success') {
-      // The charge is confirmed at Paystack, so show success. Recording it is
-      // idempotent and the webhook is the authoritative backup; if this inline
-      // attempt fails we log it (the webhook retry will still land it) rather
-      // than alarming a member who genuinely paid.
+    if (v.ok && v.status === 'success') {
+      // The charge is confirmed at Paystack. Fulfill it from the Paystack-
+      // verified metadata (member/gym/plan) — the same authoritative, idempotent
+      // path the webhook uses. We deliberately do NOT gate on the signed-in user
+      // matching metadata.member_id: fulfillCharge always credits the member
+      // named in the (server-set) metadata, so a session/account mismatch at the
+      // callback (e.g. cross-domain redirect back from Paystack) can neither
+      // hijack a payment nor lose one — it just gets recorded to whoever paid.
+      // The previous strict check rejected legitimate renewals with "belongs to
+      // a different account" when the callback's session differed from checkout.
+      if (v.metadata?.member_id && v.metadata.member_id !== user.id) {
+        console.warn(`[renew/callback] viewer ${user.id} != payer ${String(v.metadata.member_id)} for ${v.reference}; fulfilling per metadata`);
+      }
       const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata });
       if (!f.ok) console.error(`[renew/callback] fulfill failed for ${v.reference}: ${f.error}`);
       ok = true;
