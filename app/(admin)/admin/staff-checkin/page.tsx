@@ -1,7 +1,7 @@
-import { headers } from 'next/headers';
 import QRCode from 'qrcode';
 import { ScanLine, Clock, Users, Search, Download } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
+import { ROOT_DOMAIN } from '@/lib/tenant';
 import { createClient } from '@/lib/supabase/server';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 import { CheckInButton } from '@/components/admin/checkin-button';
@@ -16,12 +16,11 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
 
   // Real, printable door QR: members scan it to check in (?via=qr auto-checks
-  // the signed-in member into their gym).
-  const h = await headers();
-  const proto = h.get('x-forwarded-proto') ?? 'https';
-  const host = h.get('host') ?? '';
-  const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || (host ? `${proto}://${host}` : '');
-  const checkinUrl = `${origin}/checkin?via=qr&g=${gym.slug}`;
+  // the signed-in member into their gym). Points at the gym's own branded
+  // subdomain (<slug>.gymflow.ng) — matching the invite-page QR codes — rather
+  // than the apex, so every printed/shared link stays on the gym's domain.
+  const origin = `https://${gym.slug}.${ROOT_DOMAIN}`;
+  const checkinUrl = `${origin}/checkin?via=qr`;
   const q = (sp.q ?? '').trim();
   const safe = q.replace(/[(),%*]/g, ' ').trim();
 
