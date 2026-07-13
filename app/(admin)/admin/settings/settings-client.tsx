@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake } from 'lucide-react';
 import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutForm } from '@/components/admin/payout-form';
+import { GalleryManager } from '@/components/admin/gallery-manager';
 import type { Bank } from '@/lib/paystack';
 import { fmt12Hr } from '@/lib/format';
 
@@ -44,6 +45,7 @@ const HR_INTEG = [
 export type GymProfile = {
   name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
   tagline: string | null; description: string | null; city: string | null; state: string | null; website: string | null; amenities: string[] | null;
+  social_links: Record<string, string> | null; gallery_urls: string[] | null;
   bank_name: string | null; bank_code: string | null; account_number: string | null; account_name: string | null;
   payouts_connected: boolean; payouts_locked: boolean; commission_pct: number;
   member_freeze_enabled: boolean;
@@ -99,8 +101,23 @@ export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutReq
                 </div>
                 <div className="gf-form-group"><label className="gf-form-label">Address</label><input className="gf-input" name="address" defaultValue={gym.address ?? ''} /></div>
                 <div className="gf-form-group"><label className="gf-form-label">Website</label><input className="gf-input" name="website" type="url" defaultValue={gym.website ?? ''} placeholder="https://" /></div>
-                <div className="gf-form-group" style={{ marginBottom: 18 }}><label className="gf-form-label">Amenities</label><input className="gf-input" name="amenities" defaultValue={(gym.amenities ?? []).join(', ')} placeholder="Free parking, Sauna, 24/7 access" /><small style={{ display: 'block', marginTop: 6, color: 'var(--gf-text-muted)', fontSize: '0.78rem' }}>Separate each with a comma. Shown as tags on your public page.</small></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="gf-form-group"><label className="gf-form-label">Amenities</label><input className="gf-input" name="amenities" defaultValue={(gym.amenities ?? []).join(', ')} placeholder="Free parking, Sauna, 24/7 access" /><small style={{ display: 'block', marginTop: 6, color: 'var(--gf-text-muted)', fontSize: '0.78rem' }}>Separate each with a comma. Shown as tags on your public page.</small></div>
+
+                <div className="panel-title" style={{ marginTop: 8 }}>Social media</div>
+                <div className="panel-desc">Handle or full link — shown as icons on your public page.</div>
+                <div className="frow">
+                  <div className="gf-form-group"><label className="gf-form-label">Instagram</label><input className="gf-input" name="social_instagram" defaultValue={gym.social_links?.instagram ?? ''} placeholder="@yourgym" /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">Facebook</label><input className="gf-input" name="social_facebook" defaultValue={gym.social_links?.facebook ?? ''} placeholder="yourgym or link" /></div>
+                </div>
+                <div className="frow">
+                  <div className="gf-form-group"><label className="gf-form-label">TikTok</label><input className="gf-input" name="social_tiktok" defaultValue={gym.social_links?.tiktok ?? ''} placeholder="@yourgym" /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">X (Twitter)</label><input className="gf-input" name="social_x" defaultValue={gym.social_links?.x ?? ''} placeholder="@yourgym" /></div>
+                </div>
+                <div className="frow">
+                  <div className="gf-form-group"><label className="gf-form-label">YouTube</label><input className="gf-input" name="social_youtube" defaultValue={gym.social_links?.youtube ?? ''} placeholder="channel or link" /></div>
+                  <div className="gf-form-group"><label className="gf-form-label">WhatsApp</label><input className="gf-input" name="social_whatsapp" defaultValue={gym.social_links?.whatsapp ?? ''} placeholder="2348012345678" /></div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
                   <button className="gf-btn gf-btn-primary" type="submit" disabled={gymPending}>{gymPending ? 'Saving…' : 'Save changes'}</button>
                   {gymState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
                   {gymState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{gymState.error}</span>}
@@ -143,6 +160,9 @@ export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutReq
                   {brandState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{brandState.error}</span>}
                 </div>
               </form>
+              <div style={{ marginTop: 18 }}>
+                <GalleryManager photos={gym.gallery_urls ?? []} />
+              </div>
             </section>
           )}
 
