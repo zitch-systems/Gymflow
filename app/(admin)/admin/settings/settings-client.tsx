@@ -4,7 +4,7 @@ import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake } from 'lucide-react';
+import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, type LucideIcon } from 'lucide-react';
 import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
 import { GalleryManager } from '@/components/admin/gallery-manager';
@@ -50,6 +50,59 @@ const HR_INTEG = [
   { name: 'Zoho People', sub: 'HR management suite', domain: 'zoho.com' },
   { name: 'Workday', sub: 'Enterprise HCM & payroll', domain: 'workday.com' },
 ];
+
+// Access control / entry hardware. These tie physical entry (turnstiles, card
+// readers, biometrics) to the member's subscription + check-in status, so only
+// active members get through the door. Provisioning needs the venue's hardware
+// details, so they route to the platform team like the HR catalog.
+const ACCESS_INTEG = [
+  { name: 'ZKTeco', sub: 'Biometric & RFID access terminals' },
+  { name: 'Hikvision', sub: 'Turnstiles & face / RFID readers' },
+  { name: 'Turnstile / gate controller', sub: 'QR or RFID entry gates tied to check-in' },
+  { name: 'RFID / NFC card readers', sub: 'Tap-card member entry' },
+  { name: 'Fingerprint scanners', sub: 'Biometric check-in at the door' },
+];
+
+// Accounting & tax. Sync revenue/receipts into the gym's books and support
+// Nigerian VAT/tax filing. A self-service CSV export (see Wallet) covers the
+// generic case today; these connectors push data directly once enabled.
+const ACCOUNTING_INTEG = [
+  { name: 'Zoho Books', sub: 'Cloud accounting & invoicing' },
+  { name: 'QuickBooks', sub: 'Bookkeeping & financial reports' },
+  { name: 'Sage', sub: 'Accounting & payroll' },
+  { name: 'Kippa', sub: 'Bookkeeping for SMEs — Nigeria' },
+  { name: 'Bumpa', sub: 'Sales & bookkeeping — Nigeria' },
+  { name: 'FIRS TaxPro-Max', sub: 'VAT & company tax filing — Nigeria' },
+];
+
+// A catalog of providers that each need per-gym credentials/hardware the
+// platform enables. "Request setup" opens a pre-filled email to support.
+function RequestSetupPanel({ title, desc, items, icon: Icon, gymName, gymSlug }: {
+  title: string; desc: string; items: { name: string; sub: string }[]; icon: LucideIcon; gymName: string; gymSlug: string;
+}) {
+  return (
+    <div className="panel" style={{ marginTop: 16 }}>
+      <div className="panel-title">{title}</div>
+      <div className="panel-desc">{desc}</div>
+      {items.map((it) => (
+        <div className="integ" key={it.name}>
+          <div className="ig" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Icon strokeWidth={1.75} /></div>
+          <div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <span className="gf-badge gf-badge-neutral"><span className="gf-dot" />Not connected</span>
+            <a
+              className="gf-btn gf-btn-secondary gf-btn-sm"
+              href={`mailto:support@gymflow.ng?subject=${encodeURIComponent(`Connect ${it.name} for ${gymName}`)}&body=${encodeURIComponent(`We'd like to connect ${it.name} to our GymFlow gym "${gymName}" (${gymSlug}). Please help us enable it.`)}`}
+              style={{ textDecoration: 'none' }}
+            >
+              Request setup
+            </a>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export type GymProfile = {
   name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
@@ -291,26 +344,32 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                 })}
               </div>
 
-              <div className="panel" style={{ marginTop: 16 }}>
-                <div className="panel-title">HR &amp; payroll</div>
-                <div className="panel-desc">Sync your team&rsquo;s records and payroll with your HR system. Connecting a provider needs its API credentials enabled for {gym.name} — request setup and our team will switch it on.</div>
-                {HR_INTEG.map((it) => (
-                  <div className="integ" key={it.name}>
-                    <div className="ig" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Plug strokeWidth={1.75} /></div>
-                    <div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                      <span className="gf-badge gf-badge-neutral"><span className="gf-dot" />Not connected</span>
-                      <a
-                        className="gf-btn gf-btn-secondary gf-btn-sm"
-                        href={`mailto:support@gymflow.ng?subject=${encodeURIComponent(`Connect ${it.name} for ${gym.name}`)}&body=${encodeURIComponent(`We'd like to connect ${it.name} to our GymFlow gym "${gym.name}" (${gym.slug}). Please help us enable it.`)}`}
-                        style={{ textDecoration: 'none' }}
-                      >
-                        Request setup
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <RequestSetupPanel
+                title="Access control & entry hardware"
+                desc={`Tie physical entry — turnstiles, card readers and biometrics — to each member's subscription and check-in, so only active members get through the door. Hardware is provisioned per venue: request setup and our team will configure it for ${gym.name}.`}
+                items={ACCESS_INTEG}
+                icon={Fingerprint}
+                gymName={gym.name}
+                gymSlug={gym.slug}
+              />
+
+              <RequestSetupPanel
+                title="Accounting & tax"
+                desc={`Sync revenue and receipts into your books and support Nigerian VAT/tax filing. You can already download an accounting-ready CSV from Wallet anytime; these connectors push data directly once enabled for ${gym.name}.`}
+                items={ACCOUNTING_INTEG}
+                icon={Calculator}
+                gymName={gym.name}
+                gymSlug={gym.slug}
+              />
+
+              <RequestSetupPanel
+                title="HR & payroll"
+                desc={`Sync your team's records and payroll with your HR system. Connecting a provider needs its API credentials enabled for ${gym.name} — request setup and our team will switch it on.`}
+                items={HR_INTEG}
+                icon={Plug}
+                gymName={gym.name}
+                gymSlug={gym.slug}
+              />
             </section>
           )}
 
