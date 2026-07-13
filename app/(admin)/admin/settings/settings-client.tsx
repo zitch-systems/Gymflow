@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake } from 'lucide-react';
 import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, type GymSaveState } from '@/lib/actions/gym';
-import { PayoutForm } from '@/components/admin/payout-form';
+import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
 import { GalleryManager } from '@/components/admin/gallery-manager';
 import type { Bank } from '@/lib/paystack';
 import { fmt12Hr } from '@/lib/format';
@@ -57,7 +57,7 @@ export type BusinessHour = { day_of_week: number; open_time: string; close_time:
 
 const VALID_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'integ', 'team']);
 
-export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutRequests, initialSection = 'profile' }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; pendingPayoutRequests: number; initialSection?: string }) {
+export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, initialSection = 'profile' }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; payoutAccounts: PayoutAccount[]; initialSection?: string }) {
   const [sec, setSec] = useState<string>(initialSection);
   // Follow the ?onboarding=/?section= query on client-side navigation too.
   // Clicking an onboarding-banner link while ALREADY on /admin/settings changes
@@ -224,13 +224,11 @@ export function SettingsClient({ gym, staffCount, banks, hours, pendingPayoutReq
 
           {sec === 'payouts' && (
             <section className="sec on">
-              {pendingPayoutRequests > 0 && (
-                <div className="panel" style={{ borderColor: 'var(--gf-warning)', background: 'var(--gf-warning-soft, rgba(245,158,11,0.08))', marginBottom: 12 }}>
-                  <div className="panel-title" style={{ color: 'var(--gf-warning)' }}>Change pending review</div>
-                  <div className="panel-desc">You have {pendingPayoutRequests} payout-account change request{pendingPayoutRequests === 1 ? '' : 's'} awaiting platform review. Your current bank stays active until it&rsquo;s approved.</div>
-                </div>
-              )}
-              <PayoutForm gym={gym} banks={banks} />
+              <PayoutAccounts
+                accounts={payoutAccounts}
+                meta={{ payouts_connected: gym.payouts_connected, commission_pct: gym.commission_pct }}
+                banks={banks}
+              />
             </section>
           )}
 

@@ -27,16 +27,21 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
   const initialSection = SETTINGS_SECTIONS.has(requested) ? requested : 'profile';
   const { gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
-  const [{ count }, banks, { data: hoursRows }, { count: pendingPayoutCount }] = await Promise.all([
+  const [{ count }, banks, { data: hoursRows }, { data: payoutRows }] = await Promise.all([
     supabase.from('gym_staff_links')
       .select('id', { count: 'exact', head: true })
       .eq('gym_id', gym.id).eq('is_active', true),
     safeListBanks(),
     supabase.from('business_hours').select('day_of_week, open_time, close_time, is_closed, session').eq('gym_id', gym.id),
-    supabase.from('payout_change_requests' as never)
-      .select('id', { count: 'exact', head: true })
-      .eq('gym_id', gym.id).eq('status', 'pending'),
+    supabase.from('gym_payout_accounts' as never)
+      .select('id, bank_name, bank_code, account_number, account_name, verified, is_active')
+      .eq('gym_id', gym.id).order('is_active', { ascending: false }).order('created_at', { ascending: true }),
   ]);
+
+  const payoutAccounts = ((payoutRows as unknown as {
+    id: string; bank_name: string; bank_code: string; account_number: string;
+    account_name: string; verified: boolean; is_active: boolean;
+  }[]) ?? []);
 
   // Default-open weekdays / shorter weekends when a gym hasn't set hours yet.
   // Each day can now carry multiple rows (one per session); default to a single
@@ -74,7 +79,7 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
       banks={banks}
       hours={hours}
       initialSection={initialSection}
-      pendingPayoutRequests={pendingPayoutCount ?? 0}
+      payoutAccounts={payoutAccounts}
       gym={{
         name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address,
         tagline: (gym as { tagline?: string | null }).tagline ?? null,
