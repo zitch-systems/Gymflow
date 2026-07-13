@@ -834,7 +834,11 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
 
 /* ── App shell (sidebar + main) ── */
 .app { display: grid; grid-template-columns: var(--gf-sidebar-w) 1fr; min-height: 100vh; }
-.gf-sidebar { position: sticky; top: 0; height: 100vh; }
+/* Freeze the sidebar to the viewport. The grid's first column keeps reserving
+   var(--gf-sidebar-w), so the out-of-flow fixed sidebar sits exactly over it
+   and the main column stays offset. position:fixed (not sticky) so no ancestor
+   overflow/transform can defeat it — the sidebar never scrolls with the page. */
+.gf-sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--gf-sidebar-w); z-index: 40; }
 .main { display: flex; flex-direction: column; min-width: 0; }
 .top { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px; padding: 14px 28px;
        background: color-mix(in srgb, var(--gf-bg) 82%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
