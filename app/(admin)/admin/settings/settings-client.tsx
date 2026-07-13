@@ -38,15 +38,23 @@ const INTEG = [
 // team. Each needs the provider's API credentials to be enabled per gym, so
 // they start disconnected and route to the platform team to switch on.
 const HR_INTEG = [
+  // Nigerian / African providers first — the primary market.
+  { name: 'SeamlessHR', sub: 'HR & payroll — Nigeria & Africa', domain: 'seamlesshr.com' },
+  { name: 'PaidHR', sub: 'Payroll, payments & benefits — Nigeria', domain: 'paidhr.com' },
+  { name: 'Bento', sub: 'Payroll & benefits — Nigeria', domain: 'bento.africa' },
+  { name: 'Ropay', sub: 'Payroll & HR — Nigeria', domain: 'ropay.africa' },
+  { name: 'HumanManager', sub: 'HR & payroll (SystemSpecs) — Nigeria', domain: 'humanmanager.co' },
+  { name: 'Workpay', sub: 'HR & payroll — Africa', domain: 'workpay.co' },
+  // Global HCM suites.
   { name: 'BambooHR', sub: 'Staff records & time off', domain: 'bamboohr.com' },
-  { name: 'SeamlessHR', sub: 'HR & payroll (Africa)', domain: 'seamlesshr.com' },
+  { name: 'Zoho People', sub: 'HR management suite', domain: 'zoho.com' },
   { name: 'Workday', sub: 'Enterprise HCM & payroll', domain: 'workday.com' },
 ];
 
 export type GymProfile = {
   name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
   tagline: string | null; description: string | null; city: string | null; state: string | null; website: string | null; amenities: string[] | null;
-  social_links: Record<string, string> | null; gallery_urls: string[] | null;
+  social_links: Record<string, string> | null; gallery_urls: string[] | null; instagram_posts: string[] | null;
   bank_name: string | null; bank_code: string | null; account_number: string | null; account_name: string | null;
   payouts_connected: boolean; payouts_locked: boolean; commission_pct: number;
   member_freeze_enabled: boolean;
@@ -133,6 +141,14 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                   <div className="gf-form-group"><label className="gf-form-label">YouTube</label><input className="gf-input" name="social_youtube" defaultValue={gym.social_links?.youtube ?? ''} placeholder="channel or link" /></div>
                   <div className="gf-form-group"><label className="gf-form-label">WhatsApp</label><input className="gf-input" name="social_whatsapp" defaultValue={gym.social_links?.whatsapp ?? ''} placeholder="2348012345678" /></div>
                 </div>
+
+                <div className="panel-title" style={{ marginTop: 8 }}>Featured Instagram posts</div>
+                <div className="panel-desc">Paste up to 6 Instagram post or reel links (one per line) to feature them in an &ldquo;On Instagram&rdquo; section on your public page. Open a post on Instagram → Share → Copy link. Swap the links whenever you want to feature newer posts.</div>
+                <div className="gf-form-group">
+                  <textarea className="gf-input" name="instagram_posts" rows={4} defaultValue={(gym.instagram_posts ?? []).join('\n')} placeholder={'https://www.instagram.com/p/XXXXXXXXX/\nhttps://www.instagram.com/reel/YYYYYYYYY/'} style={{ resize: 'vertical', fontFamily: 'inherit' }} />
+                  <small style={{ display: 'block', marginTop: 6, color: 'var(--gf-text-muted)', fontSize: '0.78rem' }}>Only valid instagram.com post/reel links are kept. Posts must be public to display.</small>
+                </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
                   <button className="gf-btn gf-btn-primary" type="submit" disabled={gymPending}>{gymPending ? 'Saving…' : 'Save changes'}</button>
                   {gymState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}

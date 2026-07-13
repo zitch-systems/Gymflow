@@ -2462,6 +2462,13 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .gl-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .gl-gallery-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--gf-radius); border: 1px solid var(--gf-border); background: var(--gf-surface); }
 
+/* On Instagram — curated embedded posts */
+.gl-ig-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.gl-ig-follow { display: inline-flex; align-items: center; gap: 7px; font-size: 0.86rem; font-weight: 600; color: var(--gf-brand); text-decoration: none; padding: 8px 14px; border: 1px solid var(--gf-border); border-radius: 999px; background: var(--gf-surface); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.gl-ig-follow:hover { border-color: var(--gf-brand-glow); box-shadow: 0 8px 20px -12px var(--gf-brand-glow); }
+.ig-embeds { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; justify-items: center; }
+.ig-embeds .instagram-media { margin: 0 !important; }
+
 .gl-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
 .gl-feature { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 22px 20px; display: flex; flex-direction: column; gap: 8px; transition: box-shadow 0.3s ease, border-color 0.3s ease; }
 .gl-feature:hover { box-shadow: 0 16px 38px -14px var(--gf-brand-glow); border-color: var(--gf-brand-glow); }
@@ -2580,6 +2587,7 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
   .gl-section:has(.gl-features),
   .gl-section:has(.gl-plans),
   .gl-section:has(.gl-gallery),
+  .gl-section:has(.ig-embeds),
   .gl-section:has(.gl-classes) { max-width: 1080px; }
   .gl-section:has(.gl-about) { max-width: 720px; }
 
@@ -2610,6 +2618,7 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
   .gl-section:has(.gl-features),
   .gl-section:has(.gl-plans),
   .gl-section:has(.gl-gallery),
+  .gl-section:has(.ig-embeds),
   .gl-section:has(.gl-classes) { max-width: 1160px; }
   .gl-hero-photo { padding-top: 148px; padding-bottom: 120px; }
   .gl-name { font-size: clamp(3.2rem, 3.4vw, 4rem); }
@@ -2623,7 +2632,7 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
   .gl-final { padding: 34px 16px; margin-top: 40px; }
 
   /* every card grid becomes a clean full-width single column */
-  .gl-features, .gl-plans, .gl-gallery, .gl-classes { grid-template-columns: 1fr; }
+  .gl-features, .gl-plans, .gl-gallery, .gl-classes, .ig-embeds { grid-template-columns: 1fr; }
 
   /* keep all three stats on one balanced row (no 2+1 orphan) */
   .gl-stats { gap: 10px; margin-top: 24px; }
