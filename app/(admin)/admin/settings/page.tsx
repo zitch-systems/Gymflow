@@ -75,6 +75,8 @@ export default async function AdminSettings() {
         state: (gym as { state?: string | null }).state ?? null,
         website: (gym as { website?: string | null }).website ?? null,
         amenities: (gym as { amenities?: string[] | null }).amenities ?? null,
+        social_links: (gym as { social_links?: Record<string, string> | null }).social_links ?? null,
+        gallery_urls: (gym as { gallery_urls?: string[] | null }).gallery_urls ?? null,
         brand_color: (gym as { brand_color?: string | null }).brand_color ?? null,
         logo_url: (gym as { logo_url?: string | null }).logo_url ?? null,
         bank_name: gym.bank_name, bank_code: gym.bank_code, account_number: gym.account_number, account_name: gym.account_name,

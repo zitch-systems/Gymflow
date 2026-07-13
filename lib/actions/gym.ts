@@ -197,6 +197,14 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
   const amenities = Array.from(new Set(
     String(formData.get('amenities') ?? '').split(',').map((a) => a.trim()).filter(Boolean),
   )).slice(0, 30);
+  // Social handles/URLs — keep only the platforms actually filled in. Stored as
+  // entered (handle or full URL); the landing page normalizes each to a link.
+  const SOCIAL_KEYS = ['instagram', 'facebook', 'x', 'tiktok', 'youtube', 'whatsapp'] as const;
+  const social_links: Record<string, string> = {};
+  for (const k of SOCIAL_KEYS) {
+    const v = String(formData.get(`social_${k}`) ?? '').trim().slice(0, 200);
+    if (v) social_links[k] = v;
+  }
   const patch = {
     name,
     tagline: String(formData.get('tagline') ?? '').trim() || null,
@@ -208,6 +216,7 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
     address: String(formData.get('address') ?? '').trim() || null,
     website: String(formData.get('website') ?? '').trim() || null,
     amenities,
+    social_links,
   };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
@@ -215,7 +224,65 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
     const { error } = await supabase.from('gyms').update(patch as never).eq('id', gym.id);
     if (error) return { ok: false, error: error.message };
     logAudit({ action: 'gym_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: patch });
-    try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
+    try { revalidatePath('/admin/settings'); revalidatePath(`/g/${gym.slug}`); } catch { /* stale-cache tolerable — don't fail the action */ }
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// Upload one or more photos to the gym's public gallery. Appends their public
+// URLs to gyms.gallery_urls (capped). Owner/manager; mirrors uploadLogo's
+// storage handling (gym-assets bucket, first path segment = gym id for RLS).
+export async function uploadGymPhotos(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const files = formData.getAll('photos').filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) return { ok: false, error: 'Choose at least one image to upload.' };
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) return { ok: false, error: 'Every file must be an image.' };
+    if (f.size > 3_000_000) return { ok: false, error: 'Each image must be under 3 MB.' };
+  }
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const existing = ((gym as { gallery_urls?: string[] }).gallery_urls ?? []);
+    if (existing.length + files.length > 12) {
+      return { ok: false, error: `Gallery holds up to 12 photos — you have ${existing.length}.` };
+    }
+    const added: string[] = [];
+    for (const file of files) {
+      const ext = ((file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
+      const path = `${gym.id}/gallery/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
+      if (upErr) return { ok: false, error: upErr.message };
+      added.push(supabase.storage.from('gym-assets').getPublicUrl(path).data.publicUrl);
+    }
+    const { error } = await supabase.from('gyms').update({ gallery_urls: [...existing, ...added] } as never).eq('id', gym.id);
+    if (error) return { ok: false, error: error.message };
+    logAudit({ action: 'gym_photos_added', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { count: added.length } });
+    try { revalidatePath('/admin/settings'); revalidatePath(`/g/${gym.slug}`); } catch { /* tolerable */ }
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// Remove one photo from the gallery (by URL) and best-effort delete the object.
+export async function removeGymPhoto(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const url = String(formData.get('url') ?? '').trim();
+  if (!url) return { ok: false, error: 'Missing photo.' };
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const existing = ((gym as { gallery_urls?: string[] }).gallery_urls ?? []);
+    const next = existing.filter((u) => u !== url);
+    const { error } = await supabase.from('gyms').update({ gallery_urls: next } as never).eq('id', gym.id);
+    if (error) return { ok: false, error: error.message };
+    // Best-effort storage cleanup — the path is everything after the bucket name.
+    const marker = '/gym-assets/';
+    const idx = url.indexOf(marker);
+    if (idx !== -1) { try { await supabase.storage.from('gym-assets').remove([url.slice(idx + marker.length)]); } catch { /* leave the object */ } }
+    logAudit({ action: 'gym_photo_removed', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id });
+    try { revalidatePath('/admin/settings'); revalidatePath(`/g/${gym.slug}`); } catch { /* tolerable */ }
     return { ok: true, error: null };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
