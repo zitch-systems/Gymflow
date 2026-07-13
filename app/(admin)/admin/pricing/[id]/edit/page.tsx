@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { PlanForm } from '@/components/admin/plan-form';
 
@@ -11,7 +11,7 @@ export const maxDuration = 60;
 
 export default async function EditPlan({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { gym } = await requireStaff();
+  const { gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
   const { data: plan } = await supabase
     .from('membership_plans').select('id, name, price, duration_days, duration_months, is_active')
