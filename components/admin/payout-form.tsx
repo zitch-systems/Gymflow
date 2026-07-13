@@ -47,7 +47,11 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
   }
 
   const canVerify = /^\d{10}$/.test(accountNumber) && /^\d{3,6}$/.test(bankCode) && !verifying;
-  const canSubmit = hasBankList ? verified && !savePending : !savePending;
+  // Verification is optional — a gym can save any account so long as the fields
+  // are validly filled. Verifying just auto-fills and confirms the holder name.
+  const canSubmit = hasBankList
+    ? /^\d{10}$/.test(accountNumber) && /^\d{3,6}$/.test(bankCode) && accountName.trim().length > 0 && !savePending
+    : !savePending;
 
   return (
     <form className="panel" action={saveAction}>
@@ -68,7 +72,6 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
           <input type="hidden" name="bank_name" value={bankName} readOnly />
           <input type="hidden" name="bank_code" value={bankCode} readOnly />
           <input type="hidden" name="account_number" value={accountNumber} readOnly />
-          <input type="hidden" name="account_name" value={accountName} readOnly />
           <div className="frow">
             <div className="gf-form-group">
               <label className="gf-form-label">Bank</label>
@@ -81,6 +84,11 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
               <input className="gf-input" value={accountNumber} onChange={(e) => onAccountNumber(e.target.value)} placeholder="10 digits" inputMode="numeric" maxLength={10} />
             </div>
           </div>
+          <div className="gf-form-group">
+            <label className="gf-form-label">Account name</label>
+            <input className="gf-input" name="account_name" value={accountName} onChange={(e) => { setAccountName(e.target.value); setVerified(false); }} placeholder="Account holder name" />
+            <span className="gf-form-hint" style={{ color: 'var(--gf-text-muted)' }}>Verify to auto-fill, or type it in — verification is optional.</span>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '2px 0 12px', flexWrap: 'wrap' }}>
             <button type="button" className="gf-btn gf-btn-secondary gf-btn-sm" onClick={verify} disabled={!canVerify}>
@@ -88,7 +96,7 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
             </button>
             {verified && accountName && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--gf-success)', fontWeight: 600, fontSize: '0.9rem' }}>
-                <Check size={16} strokeWidth={2.4} /> {accountName}
+                <Check size={16} strokeWidth={2.4} /> Verified: {accountName}
               </span>
             )}
             {verifyError && (
@@ -119,7 +127,6 @@ export function PayoutForm({ gym, banks }: { gym: PayoutGym; banks: Bank[] }) {
         {saveState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
         {saveState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{saveState.error}</span>}
       </div>
-      {hasBankList && !verified && <p style={{ color: 'var(--gf-text-muted)', fontSize: '0.8rem', marginTop: 8 }}>Verify the account to enable connecting.</p>}
     </form>
   );
 }

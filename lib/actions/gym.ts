@@ -11,6 +11,14 @@ import { normalizeBusinessName } from '@/lib/format';
 
 export type GymSaveState = { ok: boolean; error: string | null };
 
+// Client to use for gym-asset STORAGE writes. Prefer the service-role client
+// (bypasses storage RLS — correct for these already-authorized server actions,
+// where the object path is server-controlled). Fall back to the user client if
+// the service-role key isn't configured, so uploads still work where RLS holds.
+function storageWriter(userClient: Awaited<ReturnType<typeof createClient>>) {
+  try { return createAdminClient(); } catch { return userClient; }
+}
+
 export type VerifyAccountResult = { ok: true; accountName: string } | { ok: false; error: string };
 
 // Interactive account-name lookup for the payout form (client → server, since it
@@ -53,16 +61,18 @@ export async function savePayout(_prev: GymSaveState, formData: FormData): Promi
     const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
 
+    // Verification is best-effort: try to resolve the holder name at Paystack,
+    // but a failure (unresolvable account, Paystack hiccup) does NOT block the
+    // save — the gym can set any account, keeping the name they entered.
     let resolvedName = account_name;
+    let paystackVerified = false;
     if (process.env.PAYSTACK_SECRET_KEY) {
       const resolved = await resolveAccount(account_number, bank_code);
-      if (!resolved.ok) return { ok: false, error: `Couldn’t verify account: ${resolved.error}` };
-      resolvedName = resolved.accountName || account_name;
+      if (resolved.ok) { resolvedName = resolved.accountName || account_name; paystackVerified = true; }
     }
 
     const nameMatches = normalizeBusinessName(resolvedName) === normalizeBusinessName(gym.name);
     const locked = (gym as { payouts_locked?: boolean }).payouts_locked === true;
-    const overridden = (gym as { payout_name_match_override?: boolean }).payout_name_match_override === true;
 
     // Locked: any change goes through the approval queue instead of applying.
     if (locked) {
@@ -82,17 +92,19 @@ export async function savePayout(_prev: GymSaveState, formData: FormData): Promi
       return { ok: true, error: null };
     }
 
-    // Not locked yet — first-time setup or platform-approved edit.
-    if (!nameMatches && !overridden) {
-      return { ok: false, error: `The account name (${resolvedName}) doesn’t match your business name (${gym.name}). Contact support to review this account.` };
-    }
-
+    // Not locked yet — first-time setup. Save whatever account the gym entered
+    // (any account is allowed). The name-match is still recorded on locked
+    // change requests for the platform's audit trail, but it no longer blocks
+    // the initial save; ongoing CHANGES route through the approval queue (above).
     const { error: upErr } = await supabase.from('gyms')
       .update({ bank_name, bank_code, account_number, account_name: resolvedName, payouts_locked: true } as never)
       .eq('id', gym.id);
     if (upErr) return { ok: false, error: upErr.message };
 
-    if (process.env.PAYSTACK_SECRET_KEY) {
+    // Only wire up the Paystack subaccount when the account actually resolved —
+    // creating a subaccount with an unverifiable account would fail anyway. An
+    // unverified bank is still saved so the gym has its details on file.
+    if (process.env.PAYSTACK_SECRET_KEY && paystackVerified) {
       const sub = await createSubaccount({
         businessName: gym.name,
         bankCode: bank_code,
@@ -244,6 +256,7 @@ export async function uploadGymPhotos(_prev: GymSaveState, formData: FormData): 
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
+    const storage = storageWriter(supabase);
     const existing = ((gym as { gallery_urls?: string[] }).gallery_urls ?? []);
     if (existing.length + files.length > 12) {
       return { ok: false, error: `Gallery holds up to 12 photos — you have ${existing.length}.` };
@@ -252,9 +265,9 @@ export async function uploadGymPhotos(_prev: GymSaveState, formData: FormData): 
     for (const file of files) {
       const ext = ((file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
       const path = `${gym.id}/gallery/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
+      const { error: upErr } = await storage.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
       if (upErr) return { ok: false, error: upErr.message };
-      added.push(supabase.storage.from('gym-assets').getPublicUrl(path).data.publicUrl);
+      added.push(storage.storage.from('gym-assets').getPublicUrl(path).data.publicUrl);
     }
     const { error } = await supabase.from('gyms').update({ gallery_urls: [...existing, ...added] } as never).eq('id', gym.id);
     if (error) return { ok: false, error: error.message };
@@ -380,11 +393,17 @@ export async function uploadLogo(_prev: GymSaveState, formData: FormData): Promi
   try {
     const { gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
+    // Do the storage write with the service-role client. requireStaff has
+    // already authorized the caller and the path is server-controlled
+    // (`${gym.id}/…`), so this is safe — and it avoids the storage-RLS
+    // "new row violates row-level security policy" that hits the user-scoped
+    // client when its token doesn't reach the storage service.
+    const storage = storageWriter(supabase);
     const ext = ((file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'png';
     const path = `${gym.id}/logo-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
+    const { error: upErr } = await storage.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
     if (upErr) return { ok: false, error: upErr.message };
-    const { data: pub } = supabase.storage.from('gym-assets').getPublicUrl(path);
+    const { data: pub } = storage.storage.from('gym-assets').getPublicUrl(path);
     const { error } = await supabase.from('gyms').update({ logo_url: pub.publicUrl } as never).eq('id', gym.id);
     if (error) return { ok: false, error: error.message };
     try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }

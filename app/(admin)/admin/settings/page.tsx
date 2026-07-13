@@ -17,7 +17,14 @@ async function safeListBanks(): Promise<Bank[]> {
   }
 }
 
-export default async function AdminSettings() {
+// The onboarding banner links here with ?onboarding=<section> — open that
+// settings tab directly instead of always landing on the profile tab.
+const SETTINGS_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'integ', 'team']);
+
+export default async function AdminSettings({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams;
+  const requested = String(sp.onboarding ?? sp.section ?? '');
+  const initialSection = SETTINGS_SECTIONS.has(requested) ? requested : 'profile';
   const { gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
   const [{ count }, banks, { data: hoursRows }, { count: pendingPayoutCount }] = await Promise.all([
@@ -66,6 +73,7 @@ export default async function AdminSettings() {
     <SettingsClient
       banks={banks}
       hours={hours}
+      initialSection={initialSection}
       pendingPayoutRequests={pendingPayoutCount ?? 0}
       gym={{
         name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address,
