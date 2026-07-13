@@ -2466,6 +2466,14 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .gl-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .gl-gallery-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--gf-radius); border: 1px solid var(--gf-border); background: var(--gf-surface); }
 
+/* Add-to-calendar popover (native <details>, member bookings) */
+.cal-add { position: relative; }
+.cal-add > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.cal-add > summary::-webkit-details-marker { display: none; }
+.cal-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 170px; display: flex; flex-direction: column; padding: 6px; gap: 2px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-sm); box-shadow: var(--gf-shadow-lg); }
+.cal-menu a { display: block; padding: 9px 12px; border-radius: 8px; font-size: 0.86rem; font-weight: 600; color: var(--gf-text); text-decoration: none; white-space: nowrap; }
+.cal-menu a:hover { background: var(--gf-elevated); color: var(--gf-brand); }
+
 /* On Instagram — curated embedded posts */
 .gl-ig-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .gl-ig-follow { display: inline-flex; align-items: center; gap: 7px; font-size: 0.86rem; font-weight: 600; color: var(--gf-brand); text-decoration: none; padding: 8px 14px; border: 1px solid var(--gf-border); border-radius: 999px; background: var(--gf-surface); transition: border-color 0.2s ease, box-shadow 0.2s ease; }

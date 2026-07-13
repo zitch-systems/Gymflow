@@ -3,6 +3,7 @@ import { Bell, CalendarX, Coffee } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { BookButton, CancelButton } from '@/components/member/class-actions';
+import { AddToCalendar } from '@/components/member/add-to-calendar';
 
 export const metadata = { title: 'Schedule' };
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   });
 
   const [{ data: classes }, { data: schedules }, { data: bookings }, { count: unread }] = await Promise.all([
-    supabase.from('classes').select('id, name, instructor, max_capacity').eq('gym_id', gym.id),
+    supabase.from('classes').select('id, name, instructor, max_capacity, duration_minutes').eq('gym_id', gym.id),
     supabase.from('class_schedules').select('id, day_of_week, start_time, room, class_id').eq('gym_id', gym.id).eq('is_active', true).order('start_time', { ascending: true }),
     supabase.from('class_bookings').select('id, booking_date, status, class_schedule_id, class_id').eq('member_id', user.id).neq('status', 'cancelled').order('booking_date', { ascending: true }),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
@@ -121,6 +122,17 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                   {isUpcoming ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {b.status === 'waitlisted' && <span className="gf-badge gf-badge-warning">Waitlist</span>}
+                      {b.booking_date && sch?.start_time && (
+                        <AddToCalendar event={{
+                          title: `${c?.name ?? 'Class'} · ${gym.name}`,
+                          dateStr: b.booking_date,
+                          startTime: sch.start_time,
+                          durationMin: Number((c as { duration_minutes?: number | null })?.duration_minutes ?? 60) || 60,
+                          location: gym.name,
+                          details: [c?.instructor ? `Instructor: ${c.instructor}` : '', sch.room ? `Room: ${sch.room}` : ''].filter(Boolean).join('\n'),
+                          uid: b.id,
+                        }} />
+                      )}
                       <CancelButton bookingId={b.id} />
                     </div>
                   ) : <span className={`gf-badge ${b.status === 'attended' ? 'gf-badge-success' : 'gf-badge-neutral'}`}>{b.status === 'attended' ? 'Attended' : 'Past'}</span>}
