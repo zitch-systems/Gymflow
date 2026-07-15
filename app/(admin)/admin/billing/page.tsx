@@ -1,4 +1,4 @@
-import { requireAdminStaff } from '@/lib/auth/dal';
+import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { gymBillingState, PLATFORM_PLANS, isPlanTier, type PlanTier } from '@/lib/platform-plans';
@@ -10,6 +10,12 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const OWNER_ROLES = new Set(['gym_owner', 'owner']);
+// Nav hides this page from front desk (it's the gym's own GymFlow subscription
+// cost, not member data), and the platform_payments RLS policy already scopes
+// history rows to the owner + platform admins. Gate on the same finance roles
+// the nav uses instead of the full admin-staff set, so front desk can't reach
+// it via a direct URL either.
+const FINANCE_ROLES = ['gym_owner', 'owner', 'manager', 'accountant'] as const;
 
 function fmtDate(d: string | null): string {
   if (!d) return '—';
@@ -28,7 +34,7 @@ const STATUS_LABEL: Record<string, { text: string; color: string }> = {
 
 export default async function AdminBilling({ searchParams }: { searchParams: Promise<{ billing_error?: string; billing_cancelled?: string }> }) {
   const sp = await searchParams;
-  const { gym, role } = await requireAdminStaff();
+  const { gym, role } = await requireStaff(FINANCE_ROLES);
   const supabase = await createClient();
   const state = gymBillingState(gym);
   const isOwner = OWNER_ROLES.has(role);

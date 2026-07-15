@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Users, Gauge, CalendarCheck, GraduationCap, MapPin, Clock, Pencil } from 'lucide-react';
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
 import { AttendanceButtons } from '@/components/admin/attendance-buttons';
@@ -15,7 +15,8 @@ const hm = (t?: string | null) => (t ? String(t).slice(0, 5) : '');
 
 export default async function ClassRoster({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { gym } = await requireStaff();
+  const { gym, role } = await requireStaff();
+  const canManage = (MANAGER_ROLES as readonly string[]).includes(role);
   const supabase = await createClient();
 
   const { data: sched } = await supabase.from('class_schedules').select('*').eq('id', id).eq('gym_id', gym.id).maybeSingle();
@@ -50,7 +51,9 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <Link href="/admin/classes" className="back-link"><ArrowLeft strokeWidth={2} size={16} /> Back to classes</Link>
-        <Link href={`/admin/classes/${id}/edit`} className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}><Pencil strokeWidth={1.9} size={15} /> Edit class</Link>
+        {canManage && (
+          <Link href={`/admin/classes/${id}/edit`} className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}><Pencil strokeWidth={1.9} size={15} /> Edit class</Link>
+        )}
       </div>
 
       <div className="mdh">
