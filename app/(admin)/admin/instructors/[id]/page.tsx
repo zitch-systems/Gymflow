@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Mail, Phone, ShieldCheck, CalendarDays, Users, CalendarCheck, Dumbbell, BadgeCheck } from 'lucide-react';
-import { requireStaff } from '@/lib/auth/dal';
+import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 
@@ -19,7 +19,10 @@ const ROLE_DESC: Record<string, string> = {
 
 export default async function StaffDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { gym } = await requireStaff();
+  // The Staff list + nav link are manager-only (front desk shouldn't see staff
+  // pay/PT-client detail); match that here instead of the bare requireStaff()
+  // that used to let front desk reach any staff member's page by direct URL.
+  const { gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
 
   const [{ data: profile }, { data: link }] = await Promise.all([

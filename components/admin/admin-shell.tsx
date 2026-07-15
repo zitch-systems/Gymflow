@@ -18,6 +18,13 @@ import {
 // see everything (they're a superset). Unrestricted items show for all admin
 // staff (front desk, accountant included). This mirrors the role gates on the
 // underlying pages/actions — it's the visible half of the RBAC alignment.
+//
+// Reminders and Wallet are unrestricted: requireStaff() on both pages (and
+// the RLS policies behind member_subscriptions/reminder_logs/payments) already
+// grant every admin-console role — including front desk — full read/send
+// access, since nudging members about renewals and checking a payment's
+// status at the desk are front-desk tasks. Keep this list in sync with those
+// gates rather than narrowing it here only.
 type Item = { href: Route; label: string; icon: LucideIcon; section: 'Main' | 'Admin'; roles?: readonly string[] };
 
 const MANAGER = ['gym_owner', 'owner', 'manager'] as const;
@@ -35,9 +42,9 @@ const NAV: Item[] = [
   { href: '/admin/classes', label: 'Classes', icon: CalendarDays, section: 'Main' },
   { href: '/admin/instructors', label: 'Staff', icon: GraduationCap, section: 'Main', roles: MANAGER },
   { href: '/admin/pricing', label: 'Pricing', icon: Tag, section: 'Admin', roles: MANAGER },
-  { href: '/admin/reminders', label: 'Reminders', icon: Bell, section: 'Admin', roles: MANAGER },
+  { href: '/admin/reminders', label: 'Reminders', icon: Bell, section: 'Admin' },
   { href: '/admin/operations', label: 'Facility', icon: Wrench, section: 'Admin' },
-  { href: '/admin/wallet', label: 'Wallet', icon: Wallet, section: 'Admin', roles: FINANCE },
+  { href: '/admin/wallet', label: 'Wallet', icon: Wallet, section: 'Admin' },
   { href: '/admin/billing', label: 'Billing', icon: CreditCard, section: 'Admin', roles: FINANCE },
   { href: '/admin/settings', label: 'Settings', icon: Settings, section: 'Admin', roles: MANAGER },
 ];
