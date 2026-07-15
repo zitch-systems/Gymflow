@@ -135,6 +135,29 @@ export async function signOut() {
   redirect('/login');
 }
 
+// Step-up re-authentication: confirms the signed-in user still knows their
+// password before a sensitive, hard-to-reverse action proceeds (e.g.
+// redirecting payouts to a different bank account). Re-submitting sign-in
+// with the same email just refreshes the existing session on success; on a
+// wrong password it errors without touching the current session.
+export async function verifyPassword(password: string): Promise<AuthState> {
+  if (!password) return { error: 'Enter your password to confirm.' };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user?.email) return { error: 'Not signed in.' };
+  // Throttle per account (defends against a stolen-session attacker
+  // brute-forcing the password) and per IP (defends the check itself).
+  const ip = await clientIp();
+  const [userOk, ipOk] = await Promise.all([
+    rateLimit(`reauth:user:${user.id}`, 8, 600),
+    rateLimit(`reauth:ip:${ip}`, 30, 600),
+  ]);
+  if (!userOk || !ipOk) return { error: 'Too many attempts. Please wait a few minutes and try again.' };
+  const { error } = await supabase.auth.signInWithPassword({ email: user.email, password });
+  if (error) return { error: 'Wrong password.' };
+  return { error: null };
+}
+
 export async function requestPasswordReset(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get('email') ?? '').trim();
   if (!email) return { error: 'Enter your email.' };

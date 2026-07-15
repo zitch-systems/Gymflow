@@ -19,6 +19,7 @@ const STATUS: Record<string, [string, string]> = {
 export default async function CoachPayouts() {
   const { user, gym } = await requireInstructor();
   const supabase = await createClient();
+  const payoutsAvailable = Boolean(process.env.PAYSTACK_SECRET_KEY);
 
   const sharePct = Number((gym as { instructor_revenue_share_pct?: number }).instructor_revenue_share_pct ?? 70);
   const [{ data: payouts }, { data: bank }, available] = await Promise.all([
@@ -50,7 +51,7 @@ export default async function CoachPayouts() {
             <span style={{ fontSize: '0.84rem', opacity: 0.92 }}>Your gym reviews requests and pays to the account below.</span>
           </div>
         </div>
-        <BankCard bank={bank ?? null} />
+        <BankCard bank={bank ?? null} payoutsAvailable={payoutsAvailable} />
       </div>
 
       <div className="panel">
