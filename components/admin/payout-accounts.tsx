@@ -57,10 +57,20 @@ export function PayoutAccounts({ accounts, meta, banks }: { accounts: PayoutAcco
   );
 }
 
+// Both mutations below redirect where real money goes (or delete a saved
+// destination outright), so neither fires on a single click — arming one
+// reveals a password field; only submitting that confirms it. The server
+// actions re-check the password themselves; this is just so a stray click
+// can't fire either action.
 function AccountRow({ account }: { account: PayoutAccount }) {
   const [activeState, activeAction, activePending] = useActionState(setActivePayoutAccount, INIT);
   const [removeState, removeAction, removePending] = useActionState(removePayoutAccount, INIT);
+  const [armed, setArmed] = useState<'active' | 'remove' | null>(null);
+  const [pw, setPw] = useState('');
   const last4 = account.account_number.slice(-4);
+
+  function arm(which: 'active' | 'remove') { setArmed(which); setPw(''); }
+  function disarm() { setArmed(null); setPw(''); }
 
   return (
     <div
@@ -89,23 +99,44 @@ function AccountRow({ account }: { account: PayoutAccount }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {account.is_active ? (
           <span style={{ fontSize: '0.8rem', color: 'var(--gf-text-muted)', fontWeight: 600 }}>Receiving payouts</span>
-        ) : (
-          <form action={activeAction}>
+        ) : armed === 'active' ? (
+          <form action={activeAction} onSubmit={disarm} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input type="hidden" name="account_id" value={account.id} />
-            <button type="submit" className="gf-btn gf-btn-secondary gf-btn-sm" disabled={activePending}>
-              {activePending ? 'Setting…' : 'Make active'}
-            </button>
+            <input
+              type="password" name="password" className="gf-input" placeholder="Your password" autoFocus required
+              value={pw} onChange={(e) => setPw(e.target.value)}
+              style={{ width: 140, padding: '6px 10px', fontSize: '0.82rem' }}
+            />
+            <button type="submit" className="gf-btn gf-btn-primary gf-btn-sm" disabled={activePending}>{activePending ? 'Confirming…' : 'Confirm'}</button>
+            <button type="button" className="gf-btn gf-btn-ghost gf-btn-sm" onClick={disarm}>Cancel</button>
           </form>
+        ) : (
+          <button type="button" className="gf-btn gf-btn-secondary gf-btn-sm" onClick={() => arm('active')}>
+            Make active
+          </button>
         )}
-        <form action={removeAction}>
-          <input type="hidden" name="account_id" value={account.id} />
-          <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm" disabled={removePending} title="Remove account" aria-label="Remove account" style={{ color: 'var(--gf-danger)' }}>
+
+        {armed === 'remove' ? (
+          <form action={removeAction} onSubmit={disarm} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input type="hidden" name="account_id" value={account.id} />
+            <input
+              type="password" name="password" className="gf-input" placeholder="Your password" autoFocus required
+              value={pw} onChange={(e) => setPw(e.target.value)}
+              style={{ width: 140, padding: '6px 10px', fontSize: '0.82rem' }}
+            />
+            <button type="submit" className="gf-btn gf-btn-ghost gf-btn-sm" disabled={removePending} title="Confirm remove" aria-label="Confirm remove" style={{ color: 'var(--gf-danger)' }}>
+              <Trash2 size={15} strokeWidth={2} />
+            </button>
+            <button type="button" className="gf-btn gf-btn-ghost gf-btn-sm" onClick={disarm}>Cancel</button>
+          </form>
+        ) : (
+          <button type="button" className="gf-btn gf-btn-ghost gf-btn-sm" onClick={() => arm('remove')} title="Remove account" aria-label="Remove account" style={{ color: 'var(--gf-danger)' }}>
             <Trash2 size={15} strokeWidth={2} />
           </button>
-        </form>
+        )}
       </div>
       {(activeState.error || removeState.error) && (
         <div style={{ flexBasis: '100%', color: 'var(--gf-danger)', fontSize: '0.8rem', fontWeight: 600 }}>
@@ -148,13 +179,16 @@ function AddAccountForm({ banks, hasBankList }: { banks: Bank[]; hasBankList: bo
 
   const canVerify = /^\d{10}$/.test(accountNumber) && /^\d{3,6}$/.test(bankCode) && !verifying;
   const canSubmit = hasBankList
-    ? /^\d{10}$/.test(accountNumber) && /^\d{3,6}$/.test(bankCode) && accountName.trim().length > 0 && !addPending
+    ? /^\d{10}$/.test(accountNumber) && /^\d{3,6}$/.test(bankCode) && accountName.trim().length > 0 && verified && !addPending
     : !addPending;
 
   return (
     <form className="panel" action={addAction}>
       <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Plus size={16} strokeWidth={2.2} /> Add payout account</div>
-      <div className="panel-desc">Add your bank to receive member payments directly — no Paystack account needed, just your bank. Verification is optional.</div>
+      <div className="panel-desc">
+        Add your bank to receive member payments directly — no Paystack account needed, just your bank.
+        {hasBankList ? ' Verify the account and confirm your password before it saves.' : ' Confirm your password before it saves.'}
+      </div>
 
       {hasBankList ? (
         <>
@@ -176,8 +210,8 @@ function AddAccountForm({ banks, hasBankList }: { banks: Bank[]; hasBankList: bo
           </div>
           <div className="gf-form-group">
             <label className="gf-form-label">Account name</label>
-            <input className="gf-input" name="account_name" value={accountName} onChange={(e) => { setAccountName(e.target.value); setVerified(false); }} placeholder="Account holder name" />
-            <span className="gf-form-hint" style={{ color: 'var(--gf-text-muted)' }}>Verify to auto-fill, or type it in — verification is optional.</span>
+            <input className="gf-input" name="account_name" value={accountName} placeholder="Verify to fill this in from the bank" readOnly />
+            <span className="gf-form-hint" style={{ color: 'var(--gf-text-muted)' }}>Verify the account below — this fills in automatically from the bank and can&rsquo;t be typed over, so it can&rsquo;t be spoofed.</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '2px 0 12px', flexWrap: 'wrap' }}>
@@ -209,6 +243,11 @@ function AddAccountForm({ banks, hasBankList }: { banks: Bank[]; hasBankList: bo
           </div>
         </>
       )}
+
+      <div className="gf-form-group" style={{ marginTop: 4, maxWidth: 260 }}>
+        <label className="gf-form-label">Confirm your password</label>
+        <input className="gf-input" type="password" name="password" placeholder="Your account password" autoComplete="current-password" required />
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
         <button className="gf-btn gf-btn-primary" type="submit" disabled={!canSubmit}>

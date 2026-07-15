@@ -29,9 +29,9 @@ const NAV = [
 const DAY_ORDER: [number, string][] = [[1, 'Monday'], [2, 'Tuesday'], [3, 'Wednesday'], [4, 'Thursday'], [5, 'Friday'], [6, 'Saturday'], [0, 'Sunday']];
 
 const INTEG = [
-  { icon: CreditCard, name: 'Paystack', sub: 'Subscriptions & auto-debit', st: ['gf-badge-success', 'Connected'] },
-  { icon: MessageCircle, name: 'WhatsApp (Termii)', sub: 'Reminder & receipt delivery', st: ['gf-badge-success', 'Connected'] },
-  { icon: Mail, name: 'Email (Resend)', sub: 'Transactional email', st: ['gf-badge-success', 'Connected'] },
+  { icon: CreditCard, name: 'Paystack', sub: 'Subscriptions & auto-debit', st: ['gf-badge-success', 'Connected'], domain: 'paystack.com' },
+  { icon: MessageCircle, name: 'WhatsApp (Termii)', sub: 'Reminder & receipt delivery', st: ['gf-badge-success', 'Connected'], domain: 'termii.com' },
+  { icon: Mail, name: 'Email (Resend)', sub: 'Transactional email', st: ['gf-badge-success', 'Connected'], domain: 'resend.com' },
 ];
 
 // HR / payroll systems. These sync staff records and payroll for the gym's
@@ -55,9 +55,12 @@ const HR_INTEG = [
 // readers, biometrics) to the member's subscription + check-in status, so only
 // active members get through the door. Provisioning needs the venue's hardware
 // details, so they route to the platform team like the HR catalog.
+// Only the two branded terminal vendors get a real logo — the rest of this
+// list is generic hardware categories (any gate/reader/scanner), not a
+// single company, so they keep the section's fallback icon.
 const ACCESS_INTEG = [
-  { name: 'ZKTeco', sub: 'Biometric & RFID access terminals' },
-  { name: 'Hikvision', sub: 'Turnstiles & face / RFID readers' },
+  { name: 'ZKTeco', sub: 'Biometric & RFID access terminals', domain: 'zkteco.com' },
+  { name: 'Hikvision', sub: 'Turnstiles & face / RFID readers', domain: 'hikvision.com' },
   { name: 'Turnstile / gate controller', sub: 'QR or RFID entry gates tied to check-in' },
   { name: 'RFID / NFC card readers', sub: 'Tap-card member entry' },
   { name: 'Fingerprint scanners', sub: 'Biometric check-in at the door' },
@@ -67,18 +70,43 @@ const ACCESS_INTEG = [
 // Nigerian VAT/tax filing. A self-service CSV export (see Wallet) covers the
 // generic case today; these connectors push data directly once enabled.
 const ACCOUNTING_INTEG = [
-  { name: 'Zoho Books', sub: 'Cloud accounting & invoicing' },
-  { name: 'QuickBooks', sub: 'Bookkeeping & financial reports' },
-  { name: 'Sage', sub: 'Accounting & payroll' },
-  { name: 'Kippa', sub: 'Bookkeeping for SMEs — Nigeria' },
-  { name: 'Bumpa', sub: 'Sales & bookkeeping — Nigeria' },
-  { name: 'FIRS TaxPro-Max', sub: 'VAT & company tax filing — Nigeria' },
+  { name: 'Zoho Books', sub: 'Cloud accounting & invoicing', domain: 'zoho.com' },
+  { name: 'QuickBooks', sub: 'Bookkeeping & financial reports', domain: 'quickbooks.intuit.com' },
+  { name: 'Sage', sub: 'Accounting & payroll', domain: 'sage.com' },
+  { name: 'Kippa', sub: 'Bookkeeping for SMEs — Nigeria', domain: 'kippa.africa' },
+  { name: 'Bumpa', sub: 'Sales & bookkeeping — Nigeria', domain: 'getbumpa.com' },
+  { name: 'FIRS TaxPro-Max', sub: 'VAT & company tax filing — Nigeria', domain: 'firs.gov.ng' },
 ];
+
+// Renders a provider's real logo (via a favicon service, keyed off its
+// domain) and falls back to the section's generic icon if the domain is
+// missing or the image fails to load — no local copies of trademarked
+// logos to source or keep in sync.
+function ProviderMark({ domain, icon: Icon }: { domain?: string; icon: LucideIcon }) {
+  const [broken, setBroken] = useState(false);
+  if (!domain || broken) {
+    return <div className="ig" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Icon strokeWidth={1.75} /></div>;
+  }
+  return (
+    <div className="ig" style={{ background: '#fff', border: '1px solid var(--gf-border)' }}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- tiny external favicon, not worth Image's remote-pattern config */}
+      <img
+        src={`https://www.google.com/s2/favicons?sz=128&domain=${domain}`}
+        alt=""
+        width={24}
+        height={24}
+        style={{ width: 24, height: 24, objectFit: 'contain' }}
+        loading="lazy"
+        onError={() => setBroken(true)}
+      />
+    </div>
+  );
+}
 
 // A catalog of providers that each need per-gym credentials/hardware the
 // platform enables. "Request setup" opens a pre-filled email to support.
 function RequestSetupPanel({ title, desc, items, icon: Icon, gymName, gymSlug }: {
-  title: string; desc: string; items: { name: string; sub: string }[]; icon: LucideIcon; gymName: string; gymSlug: string;
+  title: string; desc: string; items: { name: string; sub: string; domain?: string }[]; icon: LucideIcon; gymName: string; gymSlug: string;
 }) {
   return (
     <div className="panel" style={{ marginTop: 16 }}>
@@ -86,7 +114,7 @@ function RequestSetupPanel({ title, desc, items, icon: Icon, gymName, gymSlug }:
       <div className="panel-desc">{desc}</div>
       {items.map((it) => (
         <div className="integ" key={it.name}>
-          <div className="ig" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><Icon strokeWidth={1.75} /></div>
+          <ProviderMark domain={it.domain} icon={Icon} />
           <div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <span className="gf-badge gf-badge-neutral"><span className="gf-dot" />Not connected</span>
@@ -334,16 +362,13 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
               <div className="panel">
                 <div className="panel-title">Integrations</div>
                 <div className="panel-desc">Connected services powering payments and messaging.</div>
-                {INTEG.map((it) => {
-                  const Icon = it.icon;
-                  return (
-                    <div className="integ" key={it.name}>
-                      <div className="ig" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}><Icon strokeWidth={1.75} /></div>
-                      <div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div>
-                      <span className={`gf-badge ${it.st[0]}`}><span className="gf-dot" />{it.st[1]}</span>
-                    </div>
-                  );
-                })}
+                {INTEG.map((it) => (
+                  <div className="integ" key={it.name}>
+                    <ProviderMark domain={it.domain} icon={it.icon} />
+                    <div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div>
+                    <span className={`gf-badge ${it.st[0]}`}><span className="gf-dot" />{it.st[1]}</span>
+                  </div>
+                ))}
               </div>
 
               <form className="panel" action={mktAction} style={{ marginTop: 16 }}>

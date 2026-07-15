@@ -2,7 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireInstructor } from '@/lib/auth/dal';
+import { verifyPassword } from '@/lib/auth/actions';
 import { createClient } from '@/lib/supabase/server';
+import { resolveAccount, type ResolveResult } from '@/lib/paystack';
+import { rateLimit } from '@/lib/rate-limit';
 
 export type MarkResult = { ok: boolean; error: string | null };
 
@@ -23,21 +26,52 @@ export async function markSession(sessionId: string, status: 'completed' | 'no_s
   return { ok: true, error: null };
 }
 
+// Resolve the instructor's own account name at Paystack before they can save
+// it — mirrors the verification the gym's payout accounts require. Called
+// from the "Verify" button before the account name field is editable/final.
+export async function verifyInstructorBankAccount(accountNumber: string, bankCode: string): Promise<ResolveResult> {
+  if (!/^\d{10}$/.test(accountNumber) || !/^\d{3,6}$/.test(bankCode)) {
+    return { ok: false, error: 'Enter a 10-digit account number and bank code.' };
+  }
+  if (!process.env.PAYSTACK_SECRET_KEY) return { ok: false, error: 'Payments are not configured yet.' };
+  const { user } = await requireInstructor();
+  // Each call resolves a real account name at Paystack — throttle per user so
+  // the endpoint can't be scripted into an account-name enumeration oracle.
+  if (!(await rateLimit(`verify-bank:user:${user.id}`, 10, 600))) {
+    return { ok: false, error: 'Too many lookups — wait a few minutes and try again.' };
+  }
+  return resolveAccount(accountNumber, bankCode);
+}
+
 // Save the instructor's payout account (upsert own row). Needs the
 // instructor_bank_details self policies from the self_service_policies
-// migration.
+// migration. Requires the caller's password (step-up authorization — this
+// redirects where their own earnings get paid) and, whenever Paystack is
+// configured, a successful bank-name resolution (verification). Without
+// Paystack keys there's no automatic way to verify, so that check is skipped.
 export async function saveBankDetails(_prev: MarkResult, formData: FormData): Promise<MarkResult> {
   const bank_name = String(formData.get('bank_name') ?? '').trim();
   const bank_code = String(formData.get('bank_code') ?? '').trim();
   const account_number = String(formData.get('account_number') ?? '').replace(/\s/g, '');
   const account_name = String(formData.get('account_name') ?? '').trim();
+  const password = String(formData.get('password') ?? '');
   if (!bank_name || !account_number || !account_name) return { ok: false, error: 'Bank, account number and account name are required.' };
   if (!/^\d{10}$/.test(account_number)) return { ok: false, error: 'NUBAN account numbers are 10 digits.' };
   try {
     const { user } = await requireInstructor();
+    const reauth = await verifyPassword(password);
+    if (reauth.error) return { ok: false, error: reauth.error };
+
+    let resolvedName = account_name;
+    if (process.env.PAYSTACK_SECRET_KEY) {
+      const r = await resolveAccount(account_number, bank_code);
+      if (!r.ok) return { ok: false, error: r.error || 'Could not verify this account with the bank. Check the details and try again.' };
+      resolvedName = r.accountName || account_name;
+    }
+
     const supabase = await createClient();
     const { error } = await supabase.from('instructor_bank_details').upsert(
-      { instructor_id: user.id, bank_name, bank_code, account_number, account_name, updated_at: new Date().toISOString() },
+      { instructor_id: user.id, bank_name, bank_code, account_number, account_name: resolvedName, updated_at: new Date().toISOString() },
       { onConflict: 'instructor_id' },
     );
     if (error) return { ok: false, error: error.message };
