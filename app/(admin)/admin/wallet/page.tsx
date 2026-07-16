@@ -1,4 +1,4 @@
-import { Banknote, ArrowDownLeft, ArrowUpRight, CreditCard, Download } from 'lucide-react';
+import { Banknote, ArrowDownLeft, ArrowUpRight, CreditCard, Download, Filter } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
@@ -11,25 +11,61 @@ const STATUS: Record<string, [string, string]> = {
   failed: ['gf-badge-danger', 'Failed'],
   refunded: ['gf-badge-warning', 'Refunded'],
 };
+const STATUS_VALUES = new Set(Object.keys(STATUS));
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-export default async function AdminWallet() {
+// 'bank_transfer' → 'Bank transfer', 'card' → 'Card'.
+function methodLabel(m: string): string {
+  const s = m.replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+export default async function AdminWallet({ searchParams }: { searchParams: Promise<{ status?: string; method?: string; from?: string; to?: string }> }) {
   const { gym } = await requireStaff();
   const supabase = await createClient();
+  const sp = await searchParams;
+
+  // Validated filters — status is whitelisted, dates are format-checked, method
+  // is applied as a parameterized equality (no injection risk). Same param names
+  // as the export route, so the CSV export can carry the exact filter.
+  const status = sp.status && STATUS_VALUES.has(sp.status) ? sp.status : '';
+  const method = (sp.method ?? '').trim();
+  const from = sp.from && DATE_RE.test(sp.from) ? sp.from : '';
+  const to = sp.to && DATE_RE.test(sp.to) ? sp.to : '';
+  const hasFilters = Boolean(status || method || from || to);
 
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-  const [{ data: rows }, { data: monthRows }] = await Promise.all([
-    supabase.from('payments')
-      .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id, member_id')
-      .eq('gym_id', gym.id).order('payment_date', { ascending: false }).limit(60),
+  // The transactions list honours the filters; the "this month" KPIs stay
+  // month-scoped regardless (they summarise the month, not the current view).
+  let txq = supabase.from('payments')
+    .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id, member_id')
+    .eq('gym_id', gym.id);
+  if (status) txq = txq.eq('payment_status', status);
+  if (method) txq = txq.eq('payment_method', method);
+  if (from) txq = txq.gte('payment_date', `${from}T00:00:00Z`);
+  if (to) txq = txq.lte('payment_date', `${to}T23:59:59Z`);
+  txq = txq.order('payment_date', { ascending: false }).limit(60);
+
+  const [{ data: rows }, { data: monthRows }, { data: methodRows }] = await Promise.all([
+    txq,
     supabase.from('payments')
       .select('amount, payment_status, payment_date')
       .eq('gym_id', gym.id).gte('payment_date', monthStart.toISOString()),
+    // Distinct payment methods this gym has used, to populate the filter.
+    supabase.from('payments')
+      .select('payment_method').eq('gym_id', gym.id).not('payment_method', 'is', null).limit(1000),
   ]);
 
   const collected = (monthRows ?? []).filter((p) => p.payment_status === 'successful').reduce((s, p) => s + Number(p.amount ?? 0), 0);
   const pending = (monthRows ?? []).filter((p) => p.payment_status === 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
   const failed = (monthRows ?? []).filter((p) => p.payment_status !== 'successful' && p.payment_status !== 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
+
+  // Method options: the distinct set the gym actually uses, plus the current
+  // selection if a URL pinned one that isn't in the recent sample.
+  const methodSet = new Set((methodRows ?? []).map((r) => r.payment_method).filter(Boolean) as string[]);
+  if (method) methodSet.add(method);
+  const methodOptions = [...methodSet].sort();
 
   // Member names + plan names for the table.
   const memberIds = [...new Set((rows ?? []).map((r) => r.member_id).filter(Boolean) as string[])];
@@ -41,6 +77,17 @@ export default async function AdminWallet() {
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? p.email ?? 'Member']));
   const planById = new Map((plans ?? []).map((p) => [p.id, p.name]));
 
+  // Carry the active filters into the accounting CSV so the export matches
+  // what's on screen.
+  const exportParams = new URLSearchParams();
+  if (status) exportParams.set('status', status);
+  if (method) exportParams.set('method', method);
+  if (from) exportParams.set('from', from);
+  if (to) exportParams.set('to', to);
+  const exportHref = `/admin/wallet/export${exportParams.toString() ? `?${exportParams.toString()}` : ''}`;
+
+  const shown = (rows ?? []).length;
+
   return (
     <>
       <div className="page-h"><div><h1>Wallet</h1><p>{gym.name} · settlements via Paystack</p></div></div>
@@ -49,7 +96,7 @@ export default async function AdminWallet() {
         <div className="balance">
           <small>Collected this month</small>
           <div className="amt">{fmtNaira(collected)}</div>
-          <div className="sub">{fmtNaira(pending)} pending · {(rows ?? []).length} recent transactions</div>
+          <div className="sub">{fmtNaira(pending)} pending · {(monthRows ?? []).length} payment{(monthRows ?? []).length === 1 ? '' : 's'} this month</div>
           <div className="acts" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Banknote strokeWidth={1.9} size={16} />
             <span style={{ fontSize: '0.84rem', opacity: 0.92 }}>Paystack settles collections to your bank account automatically (T+1).</span>
@@ -63,13 +110,47 @@ export default async function AdminWallet() {
 
       <div className="panel">
         <div className="panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div><h3>Transactions</h3><div className="sub">All settlements &amp; payments</div></div>
-          <a className="gf-btn gf-btn-secondary gf-btn-sm" href="/admin/wallet/export" style={{ textDecoration: 'none', flexShrink: 0 }} title="Accounting-ready CSV with VAT breakdown">
+          <div><h3>Transactions</h3><div className="sub">{hasFilters ? `${shown} match${shown === 1 ? 'es' : ''} your filters` : 'All settlements & payments'}</div></div>
+          <a className="gf-btn gf-btn-secondary gf-btn-sm" href={exportHref} style={{ textDecoration: 'none', flexShrink: 0 }} title="Accounting-ready CSV with VAT breakdown (respects the filters below)">
             <Download strokeWidth={1.9} size={15} /> Accounting CSV
           </a>
         </div>
-        {(rows ?? []).length === 0 ? (
-          <div className="empty"><div className="eic"><CreditCard strokeWidth={1.6} /></div><h3>No payments yet</h3><p>Member renewals and purchases will show here.</p></div>
+
+        {/* Server-side filter bar — a plain GET form so it works without JS and
+            the URL is shareable/bookmarkable. Submits back to /admin/wallet. */}
+        <form method="get" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 10, margin: '4px 0 16px' }}>
+          <div className="gf-form-group" style={{ margin: 0, minWidth: 150 }}>
+            <label className="gf-form-label" style={{ fontSize: '0.72rem' }}>Status</label>
+            <select className="gf-select" name="status" defaultValue={status}>
+              <option value="">All statuses</option>
+              {Object.entries(STATUS).map(([value, [, label]]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+          <div className="gf-form-group" style={{ margin: 0, minWidth: 150 }}>
+            <label className="gf-form-label" style={{ fontSize: '0.72rem' }}>Method</label>
+            <select className="gf-select" name="method" defaultValue={method}>
+              <option value="">All methods</option>
+              {methodOptions.map((m) => <option key={m} value={m}>{methodLabel(m)}</option>)}
+            </select>
+          </div>
+          <div className="gf-form-group" style={{ margin: 0, minWidth: 140 }}>
+            <label className="gf-form-label" style={{ fontSize: '0.72rem' }}>From</label>
+            <input className="gf-input" type="date" name="from" defaultValue={from} max={to || undefined} />
+          </div>
+          <div className="gf-form-group" style={{ margin: 0, minWidth: 140 }}>
+            <label className="gf-form-label" style={{ fontSize: '0.72rem' }}>To</label>
+            <input className="gf-input" type="date" name="to" defaultValue={to} min={from || undefined} />
+          </div>
+          <button type="submit" className="gf-btn gf-btn-primary gf-btn-sm"><Filter strokeWidth={1.9} size={15} /> Apply</button>
+          {hasFilters && <a href="/admin/wallet" className="gf-btn gf-btn-ghost gf-btn-sm" style={{ textDecoration: 'none' }}>Clear</a>}
+        </form>
+
+        {shown === 0 ? (
+          <div className="empty"><div className="eic"><CreditCard strokeWidth={1.6} /></div>
+            {hasFilters
+              ? <><h3>No matching transactions</h3><p>No payments match these filters. Try widening the date range or clearing them.</p></>
+              : <><h3>No payments yet</h3><p>Member renewals and purchases will show here.</p></>}
+          </div>
         ) : (
           <table className="tbl">
             <thead><tr><th>Description</th><th>Method</th><th>Date</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>

@@ -30,6 +30,7 @@ export async function GET(req: Request) {
   const supabase = await createClient();
   const url = new URL(req.url);
   const status = url.searchParams.get('status');       // e.g. 'successful'
+  const method = url.searchParams.get('method');        // e.g. 'card', 'bank_transfer'
   const from = url.searchParams.get('from');            // inclusive
   const to = url.searchParams.get('to');                // inclusive (end of day)
 
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
     .select('id, amount, currency, paystack_reference, payment_method, payment_date, created_at, payment_status, plan_id, member_id')
     .eq('gym_id', gym.id).order('payment_date', { ascending: false }).limit(5000);
   if (status) q = q.eq('payment_status', status);
+  if (method) q = q.eq('payment_method', method);
   if (from) q = q.gte('payment_date', `${from}T00:00:00Z`);
   if (to) q = q.lte('payment_date', `${to}T23:59:59Z`);
   const { data: rows } = await q;
