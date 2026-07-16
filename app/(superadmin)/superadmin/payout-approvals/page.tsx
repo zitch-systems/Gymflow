@@ -1,3 +1,4 @@
+import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDateTime } from '@/lib/format';
 import { PayoutApprovalRow } from './row-client';
@@ -6,10 +7,13 @@ export const metadata = { title: 'Payout approvals' };
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Platform-admin review queue for gym-owner-submitted bank changes. The layout
-// (requirePlatformAdmin) gates access; the service-role client here is only
-// safe because of that gate.
+// Platform-admin review queue for gym-owner-submitted bank changes. This page
+// reads every tenant's bank PII via the service-role client (bypasses RLS), so
+// it re-asserts requirePlatformAdmin() itself rather than trusting the layout
+// gate alone — layouts aren't guaranteed to re-run on soft navigation, so a
+// mid-session de-provisioned admin must be bounced here at the page level too.
 export default async function PayoutApprovalsPage() {
+  await requirePlatformAdmin();
   const db = createAdminClient();
   const { data } = await db
     .from('payout_change_requests' as never)

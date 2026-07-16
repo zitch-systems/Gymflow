@@ -1,6 +1,6 @@
 import { CreditCard, MessageCircle, Mail, BarChart3, ShieldCheck } from 'lucide-react';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export const metadata = { title: 'Platform settings' };
 
@@ -13,7 +13,11 @@ const INTEG = [
 
 export default async function SuperSettings() {
   await requirePlatformAdmin();
-  const supabase = await createClient();
+  // Read the full roster via the service-role client: the platform_admins
+  // SELECT policy (pa_select_self) only returns the caller's own row, so the
+  // RLS-scoped client would show "1 active" no matter how many admins exist.
+  // Safe here because the page is already gated by requirePlatformAdmin().
+  const supabase = createAdminClient();
   const { data: admins } = await supabase.from('platform_admins').select('name, email, is_active').eq('is_active', true);
 
   // Integration status reflects whether the env key is actually set.

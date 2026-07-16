@@ -99,27 +99,33 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
         </section>
       )}
 
-      <section className="panel">
-        <div className="panel-h"><div><h3>Payment history</h3><div className="sub">Your GymFlow charges</div></div></div>
-        {history && history.length ? (
-          <table className="tbl" style={{ width: '100%' }}>
-            <thead><tr><th>Date</th><th>Plan</th><th>Period</th><th>Amount</th><th>Status</th></tr></thead>
-            <tbody>
-              {history.map((h) => (
-                <tr key={h.id}>
-                  <td>{fmtDate(h.created_at)}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{h.plan ?? '—'}</td>
-                  <td>{fmtDate(h.billing_period_start)} – {fmtDate(h.billing_period_end)}</td>
-                  <td>{fmtNaira(Number(h.amount))}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{h.payment_status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="empty sm"><h3>No charges yet</h3><p>Your GymFlow payments appear here once your subscription starts.</p></div>
-        )}
-      </section>
+      {/* Payment history is owner-only: the platform_payments RLS policy scopes
+          rows to the gym owner (+ platform admins), so manager/accountant would
+          always see a misleading "No charges yet" even when the gym has charges.
+          Show the panel only to the role that can actually read it. */}
+      {isOwner && (
+        <section className="panel">
+          <div className="panel-h"><div><h3>Payment history</h3><div className="sub">Your GymFlow charges</div></div></div>
+          {history && history.length ? (
+            <table className="tbl" style={{ width: '100%' }}>
+              <thead><tr><th>Date</th><th>Plan</th><th>Period</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.id}>
+                    <td>{fmtDate(h.created_at)}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{h.plan ?? '—'}</td>
+                    <td>{fmtDate(h.billing_period_start)} – {fmtDate(h.billing_period_end)}</td>
+                    <td>{fmtNaira(Number(h.amount))}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{h.payment_status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="empty sm"><h3>No charges yet</h3><p>Your GymFlow payments appear here once your subscription starts.</p></div>
+          )}
+        </section>
+      )}
     </>
   );
 }
