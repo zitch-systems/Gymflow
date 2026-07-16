@@ -5,6 +5,7 @@ import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { verifyPassword } from '@/lib/auth/actions';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
+import { alertGymPayoutChanged } from '@/lib/payout-alerts';
 import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
 
 export type PayoutState = { ok: boolean; error: string | null };
@@ -112,6 +113,7 @@ export async function addPayoutAccount(_prev: PayoutState, formData: FormData): 
       await syncGymFromActive(supabase, gym.id);
     }
     logAudit({ action: 'payout_account_added', table: 'gym_payout_accounts', actorId: user.id, gymId: gym.id, values: { bank_name, last4: account_number.slice(-4), verified } });
+    await alertGymPayoutChanged({ gymId: gym.id, gymName: gym.name, action: 'added', bankName: bank_name, last4: account_number.slice(-4), actorId: user.id });
     revalidatePath('/admin/settings');
     return { ok: true, error: null };
   } catch (e) {
@@ -151,6 +153,7 @@ export async function setActivePayoutAccount(_prev: PayoutState, formData: FormD
     await ensureSubaccount(supabase, { ...account, is_active: true }, gym.name, gym.platform_commission_pct ?? null);
     await syncGymFromActive(supabase, gym.id);
     logAudit({ action: 'payout_account_activated', table: 'gym_payout_accounts', actorId: user.id, gymId: gym.id, recordId: account.id, values: { last4: account.account_number.slice(-4) } });
+    await alertGymPayoutChanged({ gymId: gym.id, gymName: gym.name, action: 'activated', bankName: account.bank_name, last4: account.account_number.slice(-4), actorId: user.id });
     revalidatePath('/admin/settings');
     return { ok: true, error: null };
   } catch (e) {
@@ -172,8 +175,8 @@ export async function removePayoutAccount(_prev: PayoutState, formData: FormData
     if (reauth.error) return { ok: false, error: reauth.error };
     const supabase = await createClient();
     const { data: acc } = await supabase.from('gym_payout_accounts' as never)
-      .select('id, is_active, account_number').eq('id', accountId).eq('gym_id', gym.id).maybeSingle();
-    const account = acc as unknown as { id: string; is_active: boolean; account_number: string } | null;
+      .select('id, is_active, account_number, bank_name').eq('id', accountId).eq('gym_id', gym.id).maybeSingle();
+    const account = acc as unknown as { id: string; is_active: boolean; account_number: string; bank_name: string } | null;
     if (!account) return { ok: false, error: 'Account not found.' };
 
     const { error } = await supabase.from('gym_payout_accounts' as never).delete().eq('id', account.id);
@@ -193,6 +196,7 @@ export async function removePayoutAccount(_prev: PayoutState, formData: FormData
       await syncGymFromActive(supabase, gym.id);
     }
     logAudit({ action: 'payout_account_removed', table: 'gym_payout_accounts', actorId: user.id, gymId: gym.id, recordId: account.id, values: { last4: account.account_number.slice(-4) } });
+    await alertGymPayoutChanged({ gymId: gym.id, gymName: gym.name, action: 'removed', bankName: account.bank_name, last4: account.account_number.slice(-4), actorId: user.id });
     revalidatePath('/admin/settings');
     return { ok: true, error: null };
   } catch (e) {

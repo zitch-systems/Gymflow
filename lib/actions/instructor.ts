@@ -5,6 +5,7 @@ import { requireInstructor } from '@/lib/auth/dal';
 import { verifyPassword } from '@/lib/auth/actions';
 import { createClient } from '@/lib/supabase/server';
 import { resolveAccount, type ResolveResult } from '@/lib/paystack';
+import { alertInstructorBankChanged } from '@/lib/payout-alerts';
 import { rateLimit } from '@/lib/rate-limit';
 
 export type MarkResult = { ok: boolean; error: string | null };
@@ -58,7 +59,7 @@ export async function saveBankDetails(_prev: MarkResult, formData: FormData): Pr
   if (!bank_name || !account_number || !account_name) return { ok: false, error: 'Bank, account number and account name are required.' };
   if (!/^\d{10}$/.test(account_number)) return { ok: false, error: 'NUBAN account numbers are 10 digits.' };
   try {
-    const { user } = await requireInstructor();
+    const { user, gym } = await requireInstructor();
     const reauth = await verifyPassword(password);
     if (reauth.error) return { ok: false, error: reauth.error };
 
@@ -75,6 +76,8 @@ export async function saveBankDetails(_prev: MarkResult, formData: FormData): Pr
       { onConflict: 'instructor_id' },
     );
     if (error) return { ok: false, error: error.message };
+    // Second line of defense: tell the coach their own payout bank changed.
+    await alertInstructorBankChanged({ email: user.email, gymName: gym.name, bankName: bank_name, last4: account_number.slice(-4) });
     revalidatePath('/coach/payouts');
     return { ok: true, error: null };
   } catch (e) {
