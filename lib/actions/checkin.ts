@@ -51,13 +51,16 @@ export async function selfCheckIn(): Promise<CheckinResult> {
     return { ok: false, error: 'Your membership is suspended. Please see the front desk.' };
   }
 
-  // Require an active, non-expired subscription to check in. "Today" is anchored
-  // to WAT (the gym's local day), not the UTC server day.
+  // Require a current, non-expired subscription to check in. past_due counts as
+  // access while still inside the paid period (end_date >= today) — the same
+  // grace window the dashboard honours (it shows past_due members as "Active"
+  // with a Check-in tile). A truly lapsed sub (end_date < today) still blocks.
+  // "Today" is anchored to WAT (the gym's local day), not the UTC server day.
   const todayStr = watDateISO();
   const { data: sub } = await supabase
     .from('member_subscriptions')
     .select('end_date')
-    .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+    .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due'])
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
   if (!sub || (sub.end_date ?? '') < todayStr) {
     return { ok: false, error: 'Your membership isn’t active. Renew to check in.' };
@@ -142,18 +145,20 @@ export async function generateCheckinCode(): Promise<CodeResult> {
     return { ok: false, error: 'Your membership is suspended. Please see the front desk.' };
   }
 
-  // Require an active, non-expired subscription to generate a code — the same
-  // gate selfCheckIn enforces. A member without a paid, current subscription
-  // can't produce a front-desk code (which would otherwise let reception check
-  // them in and bypass payment). Members already inside can still check OUT: an
-  // open visit today keeps code generation available so they aren't trapped.
+  // Require a current, non-expired subscription to generate a code — the same
+  // gate selfCheckIn enforces, including the past_due grace window (a member
+  // still inside their paid period keeps access). A member without any current
+  // subscription can't produce a front-desk code (which would otherwise let
+  // reception check them in and bypass payment). Members already inside can
+  // still check OUT: an open visit today keeps code generation available so
+  // they aren't trapped.
   const todayStr = watDateISO();
   const openToday = await openVisit(supabase, gym.id, user.id);
   if (!openToday) {
     const { data: sub } = await supabase
       .from('member_subscriptions')
       .select('end_date')
-      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+      .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due'])
       .order('end_date', { ascending: false }).limit(1).maybeSingle();
     if (!sub || (sub.end_date ?? '') < todayStr) {
       return { ok: false, error: 'Your membership isn’t active. Renew to check in.' };

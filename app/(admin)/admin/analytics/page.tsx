@@ -8,8 +8,14 @@ export const metadata = { title: 'Analytics' };
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PLAN_COLORS = ['#11d18b', '#4080ff', '#c6f24e', '#ffb020', '#b67bf3'];
 
+// Revenue analytics are finance-only — the nav hides this item from front desk
+// (admin-shell FINANCE), so gate the page the same way instead of a bare
+// requireStaff() that would let front desk open it by direct URL. Mirrors the
+// billing page's gate.
+const FINANCE_ROLES = ['gym_owner', 'owner', 'manager', 'accountant'] as const;
+
 export default async function AdminAnalytics() {
-  const { gym } = await requireStaff();
+  const { gym } = await requireStaff(FINANCE_ROLES);
   const supabase = await createClient();
 
   const now = Date.now();
