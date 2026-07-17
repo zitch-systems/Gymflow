@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Users, GraduationCap, Banknote, Crown, Shield, ScanLine, UserPlus } from 'lucide-react';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { PayoutQueue, type QueuedPayout } from '@/components/admin/payout-queue';
 import { StaffManager, type StaffRow } from '@/components/admin/staff-manager';
 
@@ -37,8 +38,14 @@ export default async function AdminStaff() {
     ...(staff ?? []).map((s) => s.user_id),
     ...(openPayouts ?? []).map((p) => p.instructor_id),
   ].filter(Boolean) as string[])];
+  // Read names with the service-role client when available: a suspended staffer
+  // isn't visible through the can_see_profile RLS, so on the user client their
+  // row would show a nameless "Staff" fallback. ids are all this gym's staff /
+  // payout instructors, so the read stays gym-scoped. Falls back to the user
+  // client where no service-role key is set.
+  const profileReader = (() => { try { return createAdminClient(); } catch { return supabase; } })();
   const { data: profiles } = ids.length
-    ? await supabase.from('profiles').select('id, full_name, email').in('id', ids)
+    ? await profileReader.from('profiles').select('id, full_name, email').in('id', ids)
     : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
   const pById = new Map((profiles ?? []).map((p) => [p.id, p]));
 
