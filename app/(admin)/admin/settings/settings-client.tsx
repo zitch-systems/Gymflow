@@ -4,7 +4,7 @@ import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, type LucideIcon } from 'lucide-react';
+import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, type LucideIcon } from 'lucide-react';
 import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
 import { GalleryManager } from '@/components/admin/gallery-manager';
@@ -133,7 +133,7 @@ function RequestSetupPanel({ title, desc, items, icon: Icon, gymName, gymSlug }:
 }
 
 export type GymProfile = {
-  name: string; slug: string; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
+  name: string; slug: string; member_code: string | null; phone: string | null; email: string | null; address: string | null; brand_color: string | null; logo_url: string | null;
   tagline: string | null; description: string | null; city: string | null; state: string | null; website: string | null; amenities: string[] | null;
   social_links: Record<string, string> | null; gallery_urls: string[] | null; instagram_posts: string[] | null;
   integrations: Record<string, string> | null;
@@ -146,6 +146,27 @@ export type GymProfile = {
 export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
 
 const VALID_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'integ', 'team']);
+
+// The gym's member code for the native mobile app — members type it into the
+// app to reach this gym, then sign in / up. Read-only, with a copy button.
+function MemberCodeField({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
+  }
+  return (
+    <div className="gf-form-group">
+      <label className="gf-form-label"><Smartphone size={13} strokeWidth={2} style={{ verticalAlign: '-2px', marginRight: 5 }} />Mobile app code</label>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input className="gf-input" value={code} readOnly style={{ maxWidth: 180, fontFamily: 'var(--gf-font-mono, monospace)', fontWeight: 700, letterSpacing: '0.12em', fontSize: '1.05rem' }} onFocus={(e) => e.currentTarget.select()} />
+        <button type="button" className="gf-btn gf-btn-secondary gf-btn-sm" onClick={copy}>
+          {copied ? <><Check size={14} strokeWidth={2.4} /> Copied</> : <><Copy size={14} strokeWidth={2} /> Copy</>}
+        </button>
+      </div>
+      <span className="gf-form-hint" style={{ color: 'var(--gf-text-muted)' }}>Share this with members so they can find your gym in the GymFlow mobile app — they enter it once, then sign in or sign up.</span>
+    </div>
+  );
+}
 
 export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, initialSection = 'profile' }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; payoutAccounts: PayoutAccount[]; initialSection?: string }) {
   const [sec, setSec] = useState<string>(initialSection);
@@ -196,6 +217,7 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                   <div className="gf-form-group"><label className="gf-form-label">Gym name</label><input className="gf-input" name="name" defaultValue={gym.name} required /></div>
                   <div className="gf-form-group"><label className="gf-form-label">Subdomain</label><input className="gf-input" defaultValue={`${gym.slug}.gymflow.ng`} disabled /><a href={`/g/${gym.slug}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 7, fontSize: '0.78rem', fontWeight: 600, color: 'var(--gf-brand)', textDecoration: 'none' }}>View public page ↗</a></div>
                 </div>
+                {gym.member_code && <MemberCodeField code={gym.member_code} />}
                 <div className="gf-form-group"><label className="gf-form-label">Tagline</label><input className="gf-input" name="tagline" defaultValue={gym.tagline ?? ''} placeholder="One line shown under your gym name" maxLength={120} /></div>
                 <div className="gf-form-group"><label className="gf-form-label">About</label><textarea className="gf-input" name="description" defaultValue={gym.description ?? ''} rows={4} placeholder="Tell members what makes your gym different." style={{ resize: 'vertical', minHeight: 92 }} /></div>
                 <div className="frow">

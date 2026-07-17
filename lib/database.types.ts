@@ -783,6 +783,7 @@ export type Database = {
           landing_enabled: boolean
           logo_url: string | null
           max_members: number | null
+          member_code: string
           member_freeze_enabled: boolean
           name: string
           paystack_customer_code: string | null
@@ -821,6 +822,7 @@ export type Database = {
           landing_enabled?: boolean
           logo_url?: string | null
           max_members?: number | null
+          member_code?: string
           member_freeze_enabled?: boolean
           name: string
           paystack_customer_code?: string | null
@@ -859,6 +861,7 @@ export type Database = {
           landing_enabled?: boolean
           logo_url?: string | null
           max_members?: number | null
+          member_code?: string
           member_freeze_enabled?: boolean
           name?: string
           paystack_customer_code?: string | null

@@ -82,6 +82,7 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
       payoutAccounts={payoutAccounts}
       gym={{
         name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address,
+        member_code: (gym as { member_code?: string | null }).member_code ?? null,
         tagline: (gym as { tagline?: string | null }).tagline ?? null,
         description: (gym as { description?: string | null }).description ?? null,
         city: (gym as { city?: string | null }).city ?? null,
