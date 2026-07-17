@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Mail, Phone, ShieldCheck, CalendarDays, Users, CalendarCheck, Dumbbell, BadgeCheck } from 'lucide-react';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtNaira, fmtDate } from '@/lib/format';
 
 export const metadata = { title: 'Staff member' };
@@ -25,9 +26,17 @@ export default async function StaffDetail({ params }: { params: Promise<{ id: st
   const { gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
 
+  // Read the staff member's profile + link with the service-role client when
+  // available. A suspended (is_active=false) colleague isn't visible through the
+  // can_see_profile RLS, so on the user client this page would 404 for a
+  // suspended staffer (e.g. when opening them to reactivate). This page is
+  // already manager-gated and we only render when the person has a staff link at
+  // THIS gym, so the read stays gym-scoped. Falls back to the user client where
+  // no service-role key is configured.
+  const reader = (() => { try { return createAdminClient(); } catch { return supabase; } })();
   const [{ data: profile }, { data: link }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', id).maybeSingle(),
-    supabase.from('gym_staff_links').select('role, joined_at, is_active').eq('gym_id', gym.id).eq('user_id', id).maybeSingle(),
+    reader.from('profiles').select('*').eq('id', id).maybeSingle(),
+    reader.from('gym_staff_links').select('role, joined_at, is_active').eq('gym_id', gym.id).eq('user_id', id).maybeSingle(),
   ]);
   if (!profile || !link) notFound();
 
