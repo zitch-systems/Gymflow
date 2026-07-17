@@ -157,7 +157,12 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
       opens: String(h.open_time).slice(0, 5),
       closes: String(h.close_time ?? '').slice(0, 5),
     })),
-  });
+  })
+    // gym.name / description are gym-owner-controlled and injected via
+    // dangerouslySetInnerHTML; JSON.stringify does not escape '<', so a literal
+    // </script> in either would break out of the LD+JSON script tag (stored
+    // XSS). Escaping '<' prevents that; JSON-LD is data (not executed), so U+2028/9 need no escape.
+    .replace(/</g, '\u003c');
   // Member counts are deliberately not shown on the public page — a low count
   // reads as unpopular. Surface what the gym offers instead (classes, plans).
   const stats = [

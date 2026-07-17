@@ -53,6 +53,11 @@ export async function requestPayout(_prev: ActionState, formData: FormData): Pro
       bank_code: bank.bank_code, bank_name: bank.bank_name,
       account_number: bank.account_number, account_name: bank.account_name,
     }).select('id').single();
+    // 23505 = the instructor_payouts_one_open partial unique index: a
+    // concurrent request already opened a payout that our SELECT above missed
+    // (both read "no open payout" before either inserted). Treat it as the
+    // same "already in progress" case rather than a raw DB error.
+    if (error?.code === '23505') return { ok: false, error: 'You already have a payout in progress. Wait for it to complete first.' };
     if (error) return { ok: false, error: error.message };
 
     void logAudit({
@@ -125,6 +130,22 @@ export async function payPayout(_prev: ActionState, formData: FormData): Promise
         .update({ status: 'requested', notes: reason.slice(0, 300), processed_by: null, processed_at: null })
         .eq('id', payout.id);
     };
+
+    // 1b ── defence in depth: never transfer more than the instructor has
+    // earned. The one-open-payout index already stops the double-request race
+    // at the source, but re-check here (this row is now 'approved', so it's
+    // counted in `committed`) so no path can pay out beyond the earned balance.
+    const sharePct = Number((gym as { instructor_revenue_share_pct?: number }).instructor_revenue_share_pct ?? 70);
+    const [{ data: subRows }, { data: payoutRows }] = await Promise.all([
+      supabase.from('instructor_subscriptions').select('amount_paid').eq('gym_id', gym.id).eq('instructor_id', payout.instructor_id),
+      supabase.from('instructor_payouts').select('amount, status').eq('gym_id', gym.id).eq('instructor_id', payout.instructor_id),
+    ]);
+    const earned = Math.floor(((subRows ?? []).reduce((s, r) => s + Number(r.amount_paid ?? 0), 0) * sharePct) / 100);
+    const committed = (payoutRows ?? []).filter((p) => p.status !== 'rejected').reduce((s, p) => s + Number(p.amount ?? 0), 0);
+    if (committed > earned) {
+      await unclaim('Exceeds available balance — earnings already covered by another payout.');
+      return { ok: false, error: 'This payout exceeds the instructor’s available balance and was returned to the queue.' };
+    }
 
     // 2 ── ensure a transfer recipient (cached on the row after first use).
     let recipient = payout.paystack_recipient_code;

@@ -28,6 +28,16 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   const password = String(formData.get('password') ?? '');
   if (!email || !password) return { error: 'Enter your email and password.' };
 
+  // Throttle the credential-guessing surface — per target email (defends one
+  // account) and per caller IP (defends the whole endpoint), mirroring signUp
+  // and requestPasswordReset. Fail-open if the limiter is unavailable.
+  const ip = await clientIp();
+  const [ipOk, emailOk] = await Promise.all([
+    rateLimit(`login:ip:${ip}`, 30, 900),
+    rateLimit(`login:email:${email.toLowerCase()}`, 10, 900),
+  ]);
+  if (!ipOk || !emailOk) return { error: 'Too many sign-in attempts. Please wait a few minutes and try again.' };
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return friendlySignInError(error.message);
