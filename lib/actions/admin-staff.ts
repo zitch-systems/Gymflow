@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { splitName } from '@/lib/format';
 import { logAudit } from '@/lib/audit';
 
-export type StaffState = { ok: boolean; error: string | null; message?: string; tempPassword?: string };
+export type StaffState = { ok: boolean; error: string | null; message?: string; tempPassword?: string; email?: string };
 
 // Who may add staff (owner/manager), and which roles they may assign.
 const MANAGER_ROLES = ['gym_owner', 'owner', 'manager'] as const;
@@ -95,6 +95,7 @@ export async function inviteStaff(_prev: StaffState, formData: FormData): Promis
     error: null,
     message: pwd ? `${fullName} added to ${gymName}. Share their sign-in details below.` : `${fullName} was linked to ${gymName}.`,
     tempPassword: pwd,
+    email: pwd ? email : undefined,
   };
 }
 
