@@ -162,3 +162,46 @@ export async function setStaffRole(_prev: StaffState, formData: FormData): Promi
   revalidatePath('/admin/instructors');
   return { ok: true, error: null, message: 'Role updated.' };
 }
+
+// Reset a staff member's password (for someone who forgot their login). Mints a
+// fresh temporary password via the service role and returns it once so the
+// owner/manager can hand it over — the staff member changes it after signing
+// in. Owner/manager only; you can't reset your own password here (use "Forgot
+// password?" on the login page), and the gym owner's password can't be reset
+// from here (a manager must not be able to take over the owner's account).
+export async function resetStaffPassword(_prev: StaffState, formData: FormData): Promise<StaffState> {
+  const targetUserId = String(formData.get('user_id') ?? '');
+  if (!targetUserId) return { ok: false, error: 'Missing staff member.' };
+  let actorId: string, gymId: string;
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    actorId = user.id; gymId = gym.id;
+  } catch {
+    return { ok: false, error: 'Only an owner or manager can reset staff passwords.' };
+  }
+  if (targetUserId === actorId) return { ok: false, error: 'Use “Forgot password?” on the login page to reset your own password.' };
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: false, error: 'Resetting passwords needs SUPABASE_SERVICE_ROLE_KEY set in the server env.' };
+  }
+  let admin: ReturnType<typeof createAdminClient>;
+  try { admin = createAdminClient(); } catch (e) { return { ok: false, error: (e as Error).message }; }
+
+  // Target must be staff at THIS gym and never the owner.
+  const { data: link } = await admin.from('gym_staff_links').select('id, role').eq('user_id', targetUserId).eq('gym_id', gymId).maybeSingle();
+  if (!link) return { ok: false, error: 'That person isn’t staff at this gym.' };
+  if ((link as { role: string }).role === 'gym_owner') return { ok: false, error: 'The gym owner’s password can’t be reset here.' };
+
+  const { data: prof } = await admin.from('profiles').select('email').eq('id', targetUserId).maybeSingle();
+  const pwd = tempPassword();
+  const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: pwd });
+  if (error) return { ok: false, error: error.message };
+
+  logAudit({ action: 'staff_password_reset', table: 'gym_staff_links', actorId, gymId, recordId: targetUserId });
+  return {
+    ok: true,
+    error: null,
+    message: 'New temporary password generated.',
+    tempPassword: pwd,
+    email: (prof as { email: string | null } | null)?.email ?? undefined,
+  };
+}
