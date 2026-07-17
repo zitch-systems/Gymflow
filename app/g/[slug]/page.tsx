@@ -11,6 +11,7 @@ import { fmtNaira, fmt12Hr } from '@/lib/format';
 import { Tilt, Reveal } from '@/components/marketing/landing-fx';
 import { InstagramEmbeds } from '@/components/marketing/instagram-embeds';
 import { LandingTrackers } from '@/components/marketing/landing-trackers';
+import { AppInstall } from '@/components/marketing/app-install';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -259,6 +260,15 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
             </Tilt>
           ); })}
         </div>
+      </section></Reveal>
+
+      {/* ── Get the app (install the PWA — iOS / Android) ── */}
+      <Reveal><section className="gl-section" style={{ textAlign: 'center' }}>
+        <h2 className="gl-h2">Get the {gym.name} app</h2>
+        <p className="gl-about" style={{ margin: '0 auto 22px', maxWidth: 520 }}>
+          Install it free on your phone — check in, book classes and manage your membership from your home screen.
+        </p>
+        <AppInstall gymName={gym.name} />
       </section></Reveal>
 
       {/* ── Gallery ── */}

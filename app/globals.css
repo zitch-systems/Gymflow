@@ -2522,6 +2522,11 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
 .gl-final { max-width: 640px; margin: 56px auto 0; padding: 40px 22px; text-align: center; }
 .gl-final h2 { font-family: var(--gf-font-display); font-size: clamp(1.4rem, 4vw, 1.9rem); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 22px; }
 
+/* App-install badges (iOS / Android PWA). Lift on hover; hide the whole CTA
+   when the app is already running installed (standalone display-mode). */
+.gl-appdl-badge:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -10px rgba(0,0,0,0.55); }
+@media (display-mode: standalone) { .gl-appdl-wrap { display: none !important; } }
+
 .gymland-by { display: block; text-align: center; margin-top: 40px; color: var(--gf-text-muted); font-size: 0.78rem; text-decoration: none; }
 .gymland-by strong { color: var(--gf-text-secondary); font-family: var(--gf-font-display); }
 
