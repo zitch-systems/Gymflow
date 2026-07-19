@@ -1,9 +1,25 @@
+import { Check, Lock } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { gymBillingState, PLATFORM_PLANS, isPlanTier, type PlanTier } from '@/lib/platform-plans';
+import { tierOf, tierHasFeature, requiredTier, type Feature } from '@/lib/entitlements';
 import { PlanCards } from '@/components/admin/plan-cards';
 import { CancelSubscription } from './cancel-subscription';
+
+// Human labels for the entitlements panel — mirror the pricing page wording.
+const FEATURE_LABELS: Record<Feature, string> = {
+  qr_checkin: 'QR check-in',
+  paystack_subscriptions: 'Paystack subscriptions',
+  email_reminders: 'Email reminders',
+  class_scheduling: 'Class scheduling + waitlists',
+  whatsapp_reminders: 'WhatsApp reminders',
+  analytics_exports: 'Live analytics + exports',
+  multi_gym: 'Multi-gym & staff roles',
+  instructor_payouts: 'Instructor payouts',
+  priority_support: 'Priority support',
+};
+const ALL_FEATURES = Object.keys(FEATURE_LABELS) as Feature[];
 
 export const metadata = { title: 'Billing' };
 export const dynamic = 'force-dynamic';
@@ -90,6 +106,27 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
         </div>
         {isOwner && state === 'active' && <CancelSubscription />}
         {!isOwner && <p style={{ fontSize: '0.82rem', color: 'var(--gf-text-muted)', marginTop: 12 }}>Only the gym owner can change the GymFlow plan.</p>}
+      </section>
+
+      {/* What the current plan includes — informational (see lib/entitlements.ts,
+          which mirrors the pricing page). Locked rows show the tier that unlocks
+          them so owners know what an upgrade buys. */}
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="panel-h"><div><h3>What’s included</h3><div className="sub">Features on your {PLATFORM_PLANS[tierOf(gym)].name} plan</div></div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '10px 20px', padding: '4px 2px' }}>
+          {ALL_FEATURES.map((f) => {
+            const has = tierHasFeature(tierOf(gym), f);
+            return (
+              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9, opacity: has ? 1 : 0.55 }}>
+                <span aria-hidden style={{ display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 7, flexShrink: 0, background: has ? 'var(--gf-brand-soft)' : 'var(--gf-elevated)', color: has ? 'var(--gf-brand)' : 'var(--gf-text-muted)' }}>
+                  {has ? <Check size={13} strokeWidth={2.6} /> : <Lock size={12} strokeWidth={2.2} />}
+                </span>
+                <span style={{ fontSize: '0.88rem' }}>{FEATURE_LABELS[f]}</span>
+                {!has && <span className="gf-badge gf-badge-neutral" style={{ marginLeft: 'auto', fontSize: '0.66rem', textTransform: 'capitalize' }}>{PLATFORM_PLANS[requiredTier(f)].name}</span>}
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       {isOwner && (
