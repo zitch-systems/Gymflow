@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useRef, useState, useTransition } from 'react';
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Save, AlertCircle, Trash2, ImagePlus, X } from 'lucide-react';
 import { saveEquipment, deleteEquipment, type FState } from '@/lib/actions/facility';
@@ -27,18 +27,27 @@ export function EquipmentForm({ equipment: e }: { equipment?: Equipment }) {
   const [preview, setPreview] = useState<string | null>(e?.photo_url ?? null);
   const [removed, setRemoved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Tracks the blob URL we minted for the local preview (never the server
+  // photo_url) so we can revoke it — createObjectURL leaks the blob until then.
+  const objUrlRef = useRef<string | null>(null);
 
   function onPick(ev: React.ChangeEvent<HTMLInputElement>) {
     const file = ev.target.files?.[0];
     if (!file) return;
-    setPreview(URL.createObjectURL(file));
+    if (objUrlRef.current) URL.revokeObjectURL(objUrlRef.current); // release the previous preview
+    const url = URL.createObjectURL(file);
+    objUrlRef.current = url;
+    setPreview(url);
     setRemoved(false);
   }
   function onRemove() {
+    if (objUrlRef.current) { URL.revokeObjectURL(objUrlRef.current); objUrlRef.current = null; }
     setPreview(null);
     setRemoved(true);
     if (fileRef.current) fileRef.current.value = '';
   }
+  // Revoke any outstanding preview blob when the form unmounts.
+  useEffect(() => () => { if (objUrlRef.current) URL.revokeObjectURL(objUrlRef.current); }, []);
 
   return (
     <form action={action} className="addmember">

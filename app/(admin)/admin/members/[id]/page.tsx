@@ -54,15 +54,19 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
   const supabase = await createClient();
 
   const [{ data: profile }, { data: link }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', id).maybeSingle(),
-    supabase.from('gym_member_links').select('*').eq('gym_id', gym.id).or(`member_id.eq.${id},user_id.eq.${id}`).maybeSingle(),
+    // Narrowed from select('*') to the columns rendered on this page (header,
+    // contact + personal details); nothing here is passed wholesale to a child.
+    supabase.from('profiles').select('full_name, first_name, last_name, email, member_id, phone, date_of_birth, gender, address, emergency_contact_name, emergency_contact_phone, nok_name, nok_phone, nok_relationship, waiver_signed_at, health_notes').eq('id', id).maybeSingle(),
+    supabase.from('gym_member_links').select('joined_at, is_active').eq('gym_id', gym.id).or(`member_id.eq.${id},user_id.eq.${id}`).maybeSingle(),
   ]);
   if (!profile || !link) notFound();
 
   const [{ data: subs }, { data: payments }, { data: checkIns }, { data: plans }, { count: visitCount }] = await Promise.all([
-    supabase.from('member_subscriptions').select('*').eq('gym_id', gym.id).eq('member_id', id).order('end_date', { ascending: false }),
-    supabase.from('payments').select('*').eq('gym_id', gym.id).eq('member_id', id).order('payment_date', { ascending: false }).limit(100),
-    supabase.from('check_ins').select('*').eq('gym_id', gym.id).eq('member_id', id).order('checked_in_at', { ascending: false }).limit(60),
+    // Narrowed from select('*') to the columns consumed below — including the
+    // fields handed to FreezeActions/AutoRenewAction (subs) — see each render site.
+    supabase.from('member_subscriptions').select('id, status, start_date, end_date, plan_id, payment_method, auto_debit_enabled, paystack_subscription_code, paused_at, pause_reason, pause_start, pause_end').eq('gym_id', gym.id).eq('member_id', id).order('end_date', { ascending: false }),
+    supabase.from('payments').select('id, amount, status, payment_status, payment_date, created_at, paystack_reference, plan_id, payment_method').eq('gym_id', gym.id).eq('member_id', id).order('payment_date', { ascending: false }).limit(100),
+    supabase.from('check_ins').select('id, status, checked_in_at, checked_out_at, check_in_method').eq('gym_id', gym.id).eq('member_id', id).order('checked_in_at', { ascending: false }).limit(60),
     supabase.from('membership_plans').select('id, name, price').eq('gym_id', gym.id),
     supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('member_id', id),
   ]);

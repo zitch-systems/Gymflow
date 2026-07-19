@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { requireStaff, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, daysLeft, firstName } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft, firstName, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
 
 export const metadata = { title: 'Overview' };
 export const dynamic = 'force-dynamic';
@@ -19,30 +19,37 @@ export default async function AdminDashboard() {
   const supabase = await createClient();
 
   const now = new Date();
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  // Day boundaries follow WAT (UTC+1), not the server's UTC — otherwise "today"
+  // gates (check-ins count, expiring window) and the per-day revenue buckets drift
+  // for activity between 00:00–01:00 WAT. See lib/format.ts.
+  const today = watDateISO();
+  const todayStartIso = watDayStartUtc(today); // UTC instant of WAT midnight — lower bound for today's check-ins
   const weekAhead = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
-  const today = now.toISOString().slice(0, 10);
-  const d7 = new Date(todayStart.getTime() - 6 * 86_400_000); // 7 bars incl. today
+  // 7 WAT day keys, oldest → today, one per revenue bar.
+  const dayKeys = Array.from({ length: 7 }, (_, i) => watDateISO(new Date(Date.now() - (6 - i) * 86_400_000)));
+  const revSinceIso = watDayStartUtc(dayKeys[0]); // fetch from the start of the earliest WAT bucket day
 
   const [
     { count: members }, { count: checkins }, { data: expiring }, { data: pay },
     { data: links }, { data: feed }, { data: schedules },
   ] = await Promise.all([
     supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('is_active', true),
-    supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).gte('checked_in_at', todayStart.toISOString()),
+    supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).gte('checked_in_at', todayStartIso),
     supabase.from('member_subscriptions').select('id, member_id, end_date, membership_plans(name)').eq('gym_id', gym.id).eq('status', 'active').gte('end_date', today).lte('end_date', weekAhead).order('end_date', { ascending: true }).limit(5),
-    supabase.from('payments').select('amount, payment_date').eq('gym_id', gym.id).eq('payment_status', 'successful').gte('payment_date', d7.toISOString()),
+    supabase.from('payments').select('amount, payment_date').eq('gym_id', gym.id).eq('payment_status', 'successful').gte('payment_date', revSinceIso),
     supabase.from('gym_member_links').select('user_id, member_id, joined_at').eq('gym_id', gym.id).order('joined_at', { ascending: false }).limit(4),
     supabase.from('check_ins').select('member_id, check_in_method, checked_in_at').eq('gym_id', gym.id).order('checked_in_at', { ascending: false }).limit(3),
-    supabase.from('class_schedules').select('id, start_time, room, classes(name, instructor, max_capacity)').eq('gym_id', gym.id).eq('is_active', true).eq('day_of_week', now.getDay()).order('start_time', { ascending: true }),
+    supabase.from('class_schedules').select('id, start_time, room, classes(name, instructor, max_capacity)').eq('gym_id', gym.id).eq('is_active', true).eq('day_of_week', watNow().getUTCDay()).order('start_time', { ascending: true }), // day_of_week in WAT, not server UTC
   ]);
 
-  // ── Revenue · trailing 7 days, one bar per day ──
-  const days = Array.from({ length: 7 }, (_, i) => new Date(d7.getTime() + i * 86_400_000));
-  const revByDay = days.map((d) => {
-    const key = d.toISOString().slice(0, 10);
-    return (pay ?? []).filter((p) => (p.payment_date ?? '').slice(0, 10) === key).reduce((s, p) => s + Number(p.amount ?? 0), 0);
-  });
+  // ── Revenue · trailing 7 days, one bar per WAT day ──
+  // Bucket each payment by its WAT calendar day (was the UTC date via slice(0,10),
+  // which mis-buckets 00:00–01:00 WAT payments onto the previous day).
+  const revByDay = dayKeys.map((key) =>
+    (pay ?? [])
+      .filter((p) => p.payment_date && watDateISO(new Date(p.payment_date)) === key)
+      .reduce((s, p) => s + Number(p.amount ?? 0), 0),
+  );
   const revTotal = revByDay.reduce((s, v) => s + v, 0);
   const revMax = Math.max(...revByDay, 1);
 
@@ -132,7 +139,7 @@ export default async function AdminDashboard() {
               {revByDay.map((v, i) => (
                 <div className="bar-col" key={i}>
                   <div className="bar" style={{ height: `${Math.max(Math.round((v / revMax) * 100), v > 0 ? 4 : 2)}%` }} data-v={fmtNaira(v)} />
-                  <span className="bar-lbl">{days[i].toLocaleDateString('en-NG', { weekday: 'short' })}</span>
+                  <span className="bar-lbl">{new Date(dayKeys[i] + 'T12:00:00Z').toLocaleDateString('en-NG', { weekday: 'short' })}</span>
                 </div>
               ))}
             </div>
