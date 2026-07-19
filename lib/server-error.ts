@@ -1,22 +1,28 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { forwardToSentry } from '@/lib/sentry';
 
 // Server-side error capture → the client_errors table (which, despite the
-// name, is the platform's error log; it was previously write-orphaned).
-// Called from instrumentation.ts onRequestError, so this fires for every
-// uncaught error in server components, server actions, and route handlers.
+// name, is the platform's error log; it was previously write-orphaned) and,
+// when SENTRY_DSN is configured, Sentry. Called from instrumentation.ts
+// onRequestError, so this fires for every uncaught error in server components,
+// server actions, and route handlers.
 //
 // The table is INSERT-locked by RLS (SELECT-only policy for admins), so the
-// write must be service-role. Fire-and-forget: error capture must never
-// throw into the request that is already failing.
-//
-// This is also the seam for Sentry: when a SENTRY_DSN exists, forward from
-// here (or replace this file's body) without touching instrumentation.ts.
+// write must be service-role. Both sinks are best-effort and independent — a
+// failure in one must not skip the other, and neither may throw into the
+// request that is already failing.
 
 type RequestInfo = { path: string; method: string; headers: NodeJS.Dict<string | string[]> };
 type ErrorContext = { routerKind: string; routePath: string; routeType: string };
 
 export async function captureServerError(err: unknown, request: RequestInfo, context: ErrorContext): Promise<void> {
+  // Forward to Sentry first and independently of the DB write — a service-role
+  // outage (the most likely reason the insert below throws) is exactly when the
+  // external sink matters most. forwardToSentry is a no-op unless SENTRY_DSN is
+  // set and never throws.
+  await forwardToSentry(err, { path: request.path, method: request.method, routeType: context.routeType, level: 'fatal' });
+
   try {
     const admin = createAdminClient();
     const e = err instanceof Error ? err : new Error(String(err));
