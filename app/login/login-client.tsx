@@ -82,8 +82,7 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
           <>
             <span className="brand">
               {gym!.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- per-gym remote logo
-                <img src={gym!.logo_url} alt="" width={40} height={40} style={{ borderRadius: 10, objectFit: 'cover' }} />
+                <Image src={gym!.logo_url} alt="" width={40} height={40} style={{ borderRadius: 10, objectFit: 'cover' }} />
               ) : (
                 <span className="gf-avatar gf-avatar-md" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}><Dumbbell strokeWidth={1.9} /></span>
               )}
@@ -128,8 +127,7 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
           {memberMode ? (
             <span className="brand" style={{ display: 'inline-flex' }}>
               {gym!.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- per-gym remote logo
-                <img src={gym!.logo_url} alt="" width={30} height={30} style={{ borderRadius: 8, objectFit: 'cover' }} />
+                <Image src={gym!.logo_url} alt="" width={30} height={30} style={{ borderRadius: 8, objectFit: 'cover' }} />
               ) : (
                 <Dumbbell strokeWidth={1.9} style={{ width: 26, height: 26, color: 'var(--gf-brand)' }} />
               )}

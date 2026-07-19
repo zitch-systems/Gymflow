@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Mail, Lock, User, Phone, ArrowRight, AlertCircle, Dumbbell } from 'lucide-react';
 import { joinAsNew, joinAsCurrent, type JoinState } from '@/lib/actions/join';
@@ -19,8 +20,7 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail }: { slug: str
         <div className="formcard">
           <span className="brand" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- per-gym remote logo
-              <img src={logoUrl} alt="" style={{ width: 34, height: 34, borderRadius: 9, objectFit: 'cover' }} />
+              <Image src={logoUrl} alt="" width={34} height={34} style={{ borderRadius: 9, objectFit: 'cover' }} />
             ) : (
               <span className="gf-avatar gf-avatar-md" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}><Dumbbell size={17} strokeWidth={1.9} /></span>
             )}

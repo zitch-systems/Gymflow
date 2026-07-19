@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useRef, useState, useTransition } from 'react';
+import Image from 'next/image';
 import { ImagePlus, Trash2, AlertCircle } from 'lucide-react';
 import { uploadGymPhotos, removeGymPhoto, type GymSaveState } from '@/lib/actions/gym';
 
@@ -30,8 +31,10 @@ export function GalleryManager({ photos }: { photos: string[] }) {
         <div className="gallery-edit">
           {photos.map((url) => (
             <div className="gallery-edit-item" key={url}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- gym gallery image */}
-              <img src={url} alt="" />
+              {/* .gallery-edit-item is a responsive grid cell (position:relative,
+                  aspect-ratio:4/3, auto-fill columns), not a fixed pixel box, so
+                  `fill` is used instead of static width/height. */}
+              <Image src={url} alt="" fill sizes="(max-width: 860px) 45vw, 160px" />
               <button type="button" className="gallery-del" onClick={() => remove(url)} disabled={removing && busyUrl === url} aria-label="Remove photo">
                 <Trash2 size={14} strokeWidth={2} />
               </button>

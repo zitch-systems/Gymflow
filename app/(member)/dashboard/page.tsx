@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Bell, CreditCard, ScanLine, CalendarDays, Wallet, QrCode, Flame, Check,
   Activity, CalendarCheck, Timer, Gift, CalendarClock,
@@ -104,8 +105,8 @@ export default async function MemberHome() {
     <section className="view on" data-v="home">
       <div className="mhead">
         {gymLogo
-          ? // eslint-disable-next-line @next/next/no-img-element
-            <img className="gym-logo" src={gymLogo} alt={gym.name} />
+          ? // .gym-logo is a fixed 42×42 box (object-fit:cover via CSS).
+            <Image className="gym-logo" src={gymLogo} alt={gym.name} width={42} height={42} />
           : <span className="gf-avatar gf-avatar-md">{initial}</span>}
         <div style={{ flex: 1, minWidth: 0 }}><small>{gym.name}</small><strong>Hi, {name} 👋</strong></div>
         <ThemeToggle size={38} />
