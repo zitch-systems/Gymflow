@@ -91,7 +91,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                 return (
                   <div key={s.id} className="cls-card">
                     <div className="tm"><b>{hm}</b><span>{ap}</span></div>
-                    <div className="info"><strong>{c?.name ?? 'Class'}</strong><small>{c?.instructor ?? 'TBA'}{s.room ? ` · ${s.room}` : ''}</small></div>
+                    <Link href={`/classes/${s.id}`} className="info" style={{ textDecoration: 'none', color: 'inherit' }}>
+                      <strong>{c?.name ?? 'Class'}</strong><small>{c?.instructor ?? 'TBA'}{s.room ? ` · ${s.room}` : ''}</small>
+                    </Link>
                     {isBooked ? <span className="gf-badge gf-badge-success" style={{ padding: '5px 9px' }}>Booked</span> : <BookButton scheduleId={s.id} />}
                   </div>
                 );

@@ -10,11 +10,30 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'GymFlow — Run your gym the modern way',
+  // `title.absolute` opts this page out of the root layout's `%s · GymFlow`
+  // template. This string already *is* the site default, so as a plain
+  // string it would get templated too, rendering the tab title as
+  // "GymFlow — Run your gym the modern way · GymFlow".
+  title: { absolute: 'GymFlow — Run your gym the modern way' },
   description:
     'Check-ins, Paystack subscriptions, class booking and automated reminders — one mobile-first platform, light enough to fly on Nigerian networks.',
   alternates: { canonical: '/' },
-  openGraph: { url: '/', title: 'GymFlow — Run your gym the modern way' },
+  openGraph: {
+    url: '/',
+    title: 'GymFlow — Run your gym the modern way',
+    description:
+      'Check-ins, Paystack subscriptions, class booking and automated reminders — one mobile-first platform, light enough to fly on Nigerian networks.',
+    // Per-segment openGraph/twitter objects replace (not deep-merge) the
+    // root layout's — re-declare the root OG image so it isn't dropped.
+    images: [{ url: '/images/og.png', width: 1200, height: 630, alt: 'GymFlow' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GymFlow — Run your gym the modern way',
+    description:
+      'Check-ins, Paystack subscriptions, class booking and automated reminders — one mobile-first platform, light enough to fly on Nigerian networks.',
+    images: ['/images/og.png'],
+  },
 };
 
 // Marketing landing — recreates revamp/marketing.html in Next.js.

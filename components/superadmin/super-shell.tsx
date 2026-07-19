@@ -8,6 +8,7 @@ import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
+import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
   LayoutDashboard, Building2, Users, TrendingUp, UserPlus, ScrollText, LifeBuoy, Settings, LogOut, Globe, Banknote,
 } from 'lucide-react';
@@ -92,6 +93,19 @@ export function SuperShell({ children, userName, userEmail, userInitial }: {
         </header>
         <main id="main-content" className="content">{children}</main>
       </div>
+
+      {/* Phone bottom tabs — mirrors revamp/superadmin-mobile.html (Home ·
+          Gyms · Revenue · Activity · More). */}
+      <ConsoleTabBar
+        tabs={[
+          { href: '/superadmin', label: 'Home', icon: LayoutDashboard, match: (p) => p === '/superadmin' },
+          { href: '/superadmin/gyms', label: 'Gyms', icon: Building2 },
+          { href: '/superadmin/revenue', label: 'Revenue', icon: TrendingUp },
+          { href: '/superadmin/audit', label: 'Activity', icon: ScrollText },
+        ] satisfies ConsoleTab[]}
+        moreOpen={nav.open}
+        onMore={nav.toggle}
+      />
     </div>
   );
 }

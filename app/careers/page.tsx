@@ -10,6 +10,15 @@ export const metadata = {
     title: 'Careers · GymFlow',
     description: 'Help us build the future of fitness in Africa. Remote-friendly, Lagos-based, real ownership.',
     url: '/careers',
+    // Per-segment openGraph replaces (not merges) the root layout's — re-declare
+    // the root OG image so it isn't dropped for this page.
+    images: [{ url: '/images/og.png', width: 1200, height: 630, alt: 'GymFlow' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Careers · GymFlow',
+    description: 'Help us build the future of fitness in Africa. Remote-friendly, Lagos-based, real ownership.',
+    images: ['/images/og.png'],
   },
 };
 

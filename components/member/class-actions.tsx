@@ -23,6 +23,29 @@ export function BookButton({ scheduleId }: { scheduleId: string }) {
   );
 }
 
+// Full-width booking button for the class-detail page (revamp/member.html
+// classdetail .cd-book). Same action + waitlist handling as BookButton, styled
+// as a large primary CTA instead of the compact schedule-row button.
+export function BookButtonLarge({ scheduleId }: { scheduleId: string }) {
+  const [state, action, pending] = useActionState(bookClass, INIT);
+  if (state.ok) {
+    return (
+      <div className="gf-btn gf-btn-full gf-btn-lg" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)', cursor: 'default', justifyContent: 'center' }} role="status">
+        {state.waitlisted ? 'Added to waitlist' : 'You’re booked ✓'}
+      </div>
+    );
+  }
+  return (
+    <form action={action}>
+      <input type="hidden" name="scheduleId" value={scheduleId} />
+      <button className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" disabled={pending} type="submit">
+        {pending ? 'Booking…' : <><Plus size={18} strokeWidth={2.4} /> Book your spot</>}
+      </button>
+      {state.error && <p className="bk-err" role="alert" style={{ marginTop: 8, textAlign: 'center' }}>{state.error}</p>}
+    </form>
+  );
+}
+
 export function CancelButton({ bookingId }: { bookingId: string }) {
   const [state, action, pending] = useActionState(cancelBooking, INIT);
   if (state.ok) return <span className="bk-cancelled">Cancelled</span>;

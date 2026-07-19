@@ -58,6 +58,12 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
 
   const banner = notice ? NOTICES[notice] : null;
 
+  // Stable id for the form-level error message — the server action returns one
+  // generic error (not per-field), so every input the error could plausibly be
+  // about (gym name / email / password) points aria-describedby at it, and all
+  // of them get aria-invalid while it's showing (WCAG 3.3.1 / 4.1.2).
+  const authErrorId = 'auth-form-error';
+
   // Re-tint the split screen to the gym's brand colour when signing in on a
   // gym subdomain, so the primary button and accents match their landing page.
   const brandStyle: CSSProperties | undefined = gym?.brand_color
@@ -157,25 +163,25 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
             </div>
           )}
 
-          <form action={up ? upAction : inAction}>
+          <form action={up ? upAction : inAction} aria-busy={pending}>
             {up && (
               <div className="field gf-form-group">
                 <label className="gf-form-label">Gym name</label>
-                <input className="gf-input" name="gym" placeholder="e.g. Powerhouse Fitness" required />
+                <input className="gf-input" name="gym" placeholder="e.g. Powerhouse Fitness" required aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
               </div>
             )}
             <div className="field gf-form-group">
               <label className="gf-form-label">Email</label>
               <div className="gf-input-group">
                 <Mail className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="email" name="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                <input className="gf-input" type="email" name="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
               </div>
             </div>
             <div className="field gf-form-group">
               <label className="gf-form-label">Password</label>
               <div className="gf-input-group">
                 <Lock className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} />
+                <input className="gf-input" type="password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
               </div>
             </div>
             {!up && (
@@ -185,12 +191,15 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
               </div>
             )}
             {state.error && (
-              <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: up ? '0 0 14px' : '-8px 0 14px' }}>
+              <p id={authErrorId} role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: up ? '0 0 14px' : '-8px 0 14px' }}>
                 <AlertCircle size={15} strokeWidth={2} style={{ flexShrink: 0 }} /> {state.error}
               </p>
             )}
             {!up && inState.code === 'unconfirmed' && (
-              <p style={{ margin: '-6px 0 14px', fontSize: '0.84rem' }}>
+              // role="status" covers both the resend button's "Sending…" pending
+              // text and the outcome message that replaces it — one live region
+              // for the whole mini-flow instead of two separate announcements.
+              <p role="status" style={{ margin: '-6px 0 14px', fontSize: '0.84rem' }}>
                 {resendMsg ? (
                   <span style={{ color: 'var(--gf-success, #11d18b)' }}>{resendMsg}</span>
                 ) : (

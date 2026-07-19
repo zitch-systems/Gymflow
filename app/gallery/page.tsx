@@ -11,6 +11,15 @@ export const metadata = {
     title: 'Gallery · GymFlow',
     description: 'The gyms that run on GymFlow — from boutique studios to multi-floor facilities.',
     url: '/gallery',
+    // Per-segment openGraph replaces (not merges) the root layout's — re-declare
+    // the root OG image so it isn't dropped for this page.
+    images: [{ url: '/images/og.png', width: 1200, height: 630, alt: 'GymFlow' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Gallery · GymFlow',
+    description: 'The gyms that run on GymFlow — from boutique studios to multi-floor facilities.',
+    images: ['/images/og.png'],
   },
 };
 

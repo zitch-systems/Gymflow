@@ -73,8 +73,38 @@ export async function remindAllDue(): Promise<RemindResult> {
       .eq('gym_id', gym.id).eq('status', 'active').gte('end_date', today).lte('end_date', weekAhead)
       .limit(100);
 
+    // Batch instead of a dedup SELECT + INSERT per subscription (the old loop was
+    // an N+1): one windowed dedup query keyed by (user_id, subscription_id) + one
+    // bulk insert, mirroring app/api/cron/route.ts. Same 3-day dedup window,
+    // notification payload and dedup semantics as remind(); on a bulk-insert error
+    // `sent` stays 0 because nothing was written.
+    const cutoff = new Date(Date.now() - 3 * 86_400_000).toISOString();
+    const due = (subs ?? []).filter((s) => s.member_id && s.end_date);
     let sent = 0;
-    for (const sub of subs ?? []) if (await remind(supabase, gym.id, sub)) sent++;
+    if (due.length) {
+      const { data: dupes } = await supabase
+        .from('notifications').select('user_id, metadata->>subscription_id')
+        .eq('type', 'warning').gte('created_at', cutoff)
+        .in('user_id', due.map((s) => s.member_id as string));
+      const seen = new Set(
+        (dupes ?? []).map((d: { user_id: string | null; subscription_id?: string | null }) => `${d.user_id}:${d.subscription_id}`),
+      );
+      const rows = due
+        .filter((s) => !seen.has(`${s.member_id}:${s.id}`))
+        .map((s) => {
+          const days = Math.max(0, Math.ceil((new Date(s.end_date as string).getTime() - Date.now()) / 86_400_000));
+          return {
+            gym_id: gym.id, user_id: s.member_id, type: 'warning' as const, channel: 'in_app' as const,
+            title: 'Membership expiring soon',
+            body: `Your membership ends in ${days} day${days === 1 ? '' : 's'}. Renew to keep training.`,
+            metadata: { kind: 'renewal_reminder', subscription_id: s.id },
+          };
+        });
+      if (rows.length) {
+        const { error } = await supabase.from('notifications').insert(rows);
+        if (!error) sent = rows.length;
+      }
+    }
     await log(supabase, gym.id, sent, (subs ?? []).length);
     revalidatePath('/admin/reminders');
     return { ok: true, sent, error: null };

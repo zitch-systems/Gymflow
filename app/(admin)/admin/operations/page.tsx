@@ -54,30 +54,32 @@ export default async function AdminFacility() {
           {eq.length === 0 ? (
             <div className="empty"><div className="eic"><Dumbbell strokeWidth={1.6} /></div><h3>No equipment logged</h3><p>Add equipment to track maintenance and zones.</p><Link href="/admin/operations/equipment/new" className="gf-btn gf-btn-primary gf-btn-sm" style={{ textDecoration: 'none', marginTop: 12 }}><Plus strokeWidth={2} size={15} /> Add equipment</Link></div>
           ) : (
-            <table className="tbl">
-              <thead><tr><th>Equipment</th><th>Zone</th><th>Last serviced</th><th>Status</th></tr></thead>
-              <tbody>
-                {eq.map((e) => {
-                  const st = EQ_STATUS[e.status ?? 'active'] ?? ['gf-badge-neutral', e.status ?? '—'];
-                  return (
-                    <tr key={e.id}>
-                      <td><div className="eq-name"><div className="ic" style={e.photo_url ? { overflow: 'hidden' } : undefined}>{e.photo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={e.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : <Dumbbell strokeWidth={1.9} />}</div><div><strong><Link href={`/admin/operations/equipment/${e.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{e.name}</Link></strong><small>{e.category ?? '—'}</small></div></div></td>
-                      <td style={{ color: 'var(--gf-text-secondary)' }}>{e.location ?? '—'}</td>
-                      <td style={{ color: 'var(--gf-text-secondary)' }}>{e.last_maintenance_date ? fmtDate(e.last_maintenance_date) : '—'}</td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                          <span className={`gf-badge ${st[0]}`}>{st[1]}</span>
-                          <Link href={`/admin/operations/equipment/${e.id}`} className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Edit equipment"><Pencil strokeWidth={1.9} size={14} /></Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="tbl-scroll">
+              <table className="tbl">
+                <thead><tr><th>Equipment</th><th>Zone</th><th>Last serviced</th><th>Status</th></tr></thead>
+                <tbody>
+                  {eq.map((e) => {
+                    const st = EQ_STATUS[e.status ?? 'active'] ?? ['gf-badge-neutral', e.status ?? '—'];
+                    return (
+                      <tr key={e.id}>
+                        <td><div className="eq-name"><div className="ic" style={e.photo_url ? { overflow: 'hidden' } : undefined}>{e.photo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={e.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : <Dumbbell strokeWidth={1.9} />}</div><div><strong><Link href={`/admin/operations/equipment/${e.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{e.name}</Link></strong><small>{e.category ?? '—'}</small></div></div></td>
+                        <td style={{ color: 'var(--gf-text-secondary)' }}>{e.location ?? '—'}</td>
+                        <td style={{ color: 'var(--gf-text-secondary)' }}>{e.last_maintenance_date ? fmtDate(e.last_maintenance_date) : '—'}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                            <span className={`gf-badge ${st[0]}`}>{st[1]}</span>
+                            <Link href={`/admin/operations/equipment/${e.id}`} className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Edit equipment"><Pencil strokeWidth={1.9} size={14} /></Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

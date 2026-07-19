@@ -28,6 +28,8 @@ export const getProfile = cache(async (): Promise<Profile | null> => {
   const user = await getUser();
   if (!user) return null;
   const supabase = await createClient();
+  // select('*') stays: getProfile returns the whole Profile row wholesale (typed
+  // Profile) to callers across the app, which read a wide, varying set of columns.
   const { data } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
   return data;
 });
@@ -65,6 +67,8 @@ export const requireMember = cache(async (): Promise<{ user: NonNullable<Awaited
   // One round-trip: the membership link with its gym embedded via the
   // gym_member_links.gym_id → gyms FK. Falls back to a separate fetch if the
   // embed ever returns null, so it's never slower than the old two queries.
+  // select('*') on both stays — requireMember returns the full link + Gym rows
+  // wholesale to every member surface.
   const { data: link } = await supabase
     .from('gym_member_links')
     .select('*, gyms(*)')
@@ -79,6 +83,7 @@ export const requireMember = cache(async (): Promise<{ user: NonNullable<Awaited
   const { gyms: embeddedGym, ...linkRow } = link as Database['public']['Tables']['gym_member_links']['Row'] & { gyms: Gym | null };
   let gym: Gym | null = embeddedGym ?? null;
   if (!gym && linkRow.gym_id) {
+    // Fallback still returns the full Gym row wholesale — keep select('*').
     const { data } = await supabase.from('gyms').select('*').eq('id', linkRow.gym_id).maybeSingle();
     gym = (data as Gym) ?? null;
   }
@@ -95,7 +100,9 @@ const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: No
   const supabase = await createClient();
   const { data: links } = await supabase
     .from('gym_staff_links')
-    .select('*')
+    // Only gym_id + role are read below (eligibility filter + active-gym pick);
+    // the gym row itself is fetched separately, so narrow instead of select('*').
+    .select('gym_id, role')
     .eq('user_id', user.id)
     .eq('is_active', true)
     // Stable order so the default pick (first eligible) is deterministic.
@@ -111,6 +118,8 @@ const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: No
   const activeId = await readActiveGymCookie();
   const chosen = eligible.find((l) => l.gym_id === activeId) ?? eligible[0];
   const role = chosen.role ?? '';
+  // Full Gym row — requireStaff returns it wholesale to every admin surface, so
+  // select('*') stays.
   const { data: gym } = await supabase
     .from('gyms')
     .select('*')

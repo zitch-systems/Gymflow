@@ -79,21 +79,23 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
         {bks.length === 0 ? (
           <div className="empty sm"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No bookings yet</h3><p>Members who book this session appear here.</p></div>
         ) : (
-          <table className="tbl">
-            <thead><tr><th>Member</th><th>Status</th><th style={{ textAlign: 'right' }}>Booked for</th></tr></thead>
-            <tbody>
-              {bks.map((b) => {
-                const nm = b.member_id ? (nameById.get(b.member_id) ?? 'Member') : 'Member';
-                return (
-                  <tr key={b.id}>
-                    <td><div className="who"><span className="gf-avatar gf-avatar-sm">{nm.charAt(0).toUpperCase()}</span><div><strong>{b.member_id ? <Link href={`/admin/members/${b.member_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{nm}</Link> : nm}</strong></div></div></td>
-                    <td><AttendanceButtons bookingId={b.id} scheduleId={id} status={b.status ?? 'booked'} /></td>
-                    <td style={{ textAlign: 'right', color: 'var(--gf-text-secondary)' }}>{fmtDate(b.booking_date)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="tbl-scroll">
+            <table className="tbl">
+              <thead><tr><th>Member</th><th>Status</th><th style={{ textAlign: 'right' }}>Booked for</th></tr></thead>
+              <tbody>
+                {bks.map((b) => {
+                  const nm = b.member_id ? (nameById.get(b.member_id) ?? 'Member') : 'Member';
+                  return (
+                    <tr key={b.id}>
+                      <td><div className="who"><span className="gf-avatar gf-avatar-sm">{nm.charAt(0).toUpperCase()}</span><div><strong>{b.member_id ? <Link href={`/admin/members/${b.member_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{nm}</Link> : nm}</strong></div></div></td>
+                      <td><AttendanceButtons bookingId={b.id} scheduleId={id} status={b.status ?? 'booked'} /></td>
+                      <td style={{ textAlign: 'right', color: 'var(--gf-text-secondary)' }}>{fmtDate(b.booking_date)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </>

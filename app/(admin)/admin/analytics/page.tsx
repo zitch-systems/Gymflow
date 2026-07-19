@@ -40,6 +40,10 @@ export default async function AdminAnalytics() {
     if (wk >= 0 && wk < 6) weeks[5 - wk].amount += Number(p.amount ?? 0);
   }
   const wkMax = Math.max(1, ...weeks.map((w) => w.amount));
+  // Total across the 6 weekly bars — the panel label reflects the chart's own
+  // window (was mislabeled "in 30 days" over this 6-week / 42-day chart, while the
+  // 30-day figure lives on the "Revenue (30d)" KPI above).
+  const revenue6w = weeks.reduce((s, w) => s + w.amount, 0);
 
   // Check-ins by day (last 7).
   const byDay = Array.from({ length: 7 }, (_, i) => { const d = new Date(now - (6 - i) * 86_400_000); return { label: DOW[d.getDay()], n: 0 }; });
@@ -81,7 +85,7 @@ export default async function AdminAnalytics() {
 
       <section className="grid2">
         <div className="panel">
-          <div className="panel-h"><div><h3>Revenue trend</h3><div className="sub">Last 6 weeks · {fmtNaira(revenue30)} in 30 days</div></div></div>
+          <div className="panel-h"><div><h3>Revenue trend</h3><div className="sub">Last 6 weeks · {fmtNaira(revenue6w)} collected</div></div></div>
           <div className="bars">
             {weeks.map((w) => (
               <div className="bcol" key={w.label}><div className="bar" style={{ height: `${Math.round((w.amount / wkMax) * 100)}%` }} data-v={fmtNaira(w.amount)} /><div className="blbl">{w.label}</div></div>

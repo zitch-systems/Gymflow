@@ -22,13 +22,16 @@ export function PlanForm({ plan }: { plan?: Plan }) {
   const isCustom = period === 'custom';
   const customCount = plan?.duration_days && plan.duration_days > 0 ? plan.duration_days : plan?.duration_months ?? 1;
   const customUnit = plan?.duration_days && plan.duration_days > 0 ? 'days' : 'months';
+  // savePlan validates name ("Plan name is required.") and price ("Enter a
+  // valid price.") specifically — tie the error to those two required fields.
+  const errorId = 'plan-form-error';
 
   return (
-    <form action={action} className="addmember">
+    <form action={action} className="addmember" aria-busy={pending}>
       {plan?.id && <input type="hidden" name="id" value={plan.id} />}
       <div className="af-grid">
-        <label>Plan name<input className="gf-input" name="name" defaultValue={plan?.name ?? ''} placeholder="e.g. Weekly" required /></label>
-        <label>Price (₦)<input className="gf-input" type="number" name="price" min="0" step="500" defaultValue={plan?.price != null ? String(plan.price) : ''} required /></label>
+        <label>Plan name<input className="gf-input" name="name" defaultValue={plan?.name ?? ''} placeholder="e.g. Weekly" required aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? errorId : undefined} /></label>
+        <label>Price (₦)<input className="gf-input" type="number" name="price" min="0" step="500" defaultValue={plan?.price != null ? String(plan.price) : ''} required aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? errorId : undefined} /></label>
         <label>Billing period
           <select className="gf-select" name="interval" value={period} onChange={(e) => setPeriod(e.target.value)}>
             {INTERVAL_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
@@ -48,7 +51,7 @@ export function PlanForm({ plan }: { plan?: Plan }) {
         </div>
       )}
       <label className="af-check"><input type="checkbox" name="is_active" defaultChecked={plan?.is_active ?? true} /> Active — members can subscribe</label>
-      {state.error && <p className="act-fb err"><AlertCircle size={15} strokeWidth={2} /> {state.error}</p>}
+      {state.error && <p id={errorId} role="alert" className="act-fb err"><AlertCircle size={15} strokeWidth={2} /> {state.error}</p>}
       <div className="addmember-actions">
         <button className="gf-btn gf-btn-primary" disabled={pending} type="submit"><Save size={16} strokeWidth={2} /> {pending ? 'Saving…' : (plan?.id ? 'Save changes' : 'Create plan')}</button>
         <Link href="/admin/pricing" className="gf-btn gf-btn-secondary">Cancel</Link>

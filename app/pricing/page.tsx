@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
 import { Check, Wallet } from 'lucide-react';
+import { PLATFORM_PLANS, PLAN_TIERS } from '@/lib/platform-plans';
 
 export const metadata = {
   title: 'Pricing',
@@ -10,8 +11,50 @@ export const metadata = {
     title: 'Pricing · GymFlow',
     description: 'Simple, Naira pricing. Cancel anytime, no setup fees, unlimited members on every plan.',
     url: '/pricing',
+    // Per-segment openGraph replaces (not merges) the root layout's — re-declare
+    // the root OG image so it isn't dropped for this page.
+    images: [{ url: '/images/og.png', width: 1200, height: 630, alt: 'GymFlow' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pricing · GymFlow',
+    description: 'Simple, Naira pricing. Cancel anytime, no setup fees, unlimited members on every plan.',
+    images: ['/images/og.png'],
   },
 };
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
+
+// Product + per-tier Offer structured data, generated from the real plan
+// catalog (lib/platform-plans.ts — amounts in kobo, Paystack is the source of
+// truth) so this can never drift from the displayed/charged prices below.
+// This page renders no FAQ content, so no FAQPage JSON-LD is emitted here
+// (see AUDIT.md §6 open item).
+const PRICING_LD = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'GymFlow',
+  description: 'Gym management software for Nigerian gyms — check-ins, Paystack subscriptions, class booking and automated reminders.',
+  image: `${SITE_URL}/images/og.png`,
+  url: `${SITE_URL}/pricing`,
+  brand: { '@type': 'Brand', name: 'GymFlow' },
+  offers: PLAN_TIERS.map((tier) => {
+    const plan = PLATFORM_PLANS[tier];
+    return {
+      '@type': 'Offer',
+      name: plan.name,
+      price: plan.amountKobo / 100,
+      priceCurrency: 'NGN',
+      description: `${plan.tagline}. Billed monthly in Naira, cancel anytime.`,
+      url: `${SITE_URL}/pricing`,
+      availability: 'https://schema.org/InStock',
+    };
+  }),
+});
+// Note: unlike app/g/[slug]/page.tsx's gymLd (built from gym-owner-submitted
+// fields), every value here comes from the PLATFORM_PLANS constant in
+// lib/platform-plans.ts — developer-authored, not user input — so there's no
+// "</script>"-breakout risk to defend against and no '<' escaping is needed.
 
 const TIERS = [
   {
@@ -34,6 +77,7 @@ const TIERS = [
 export default function PricingPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: PRICING_LD }} />
       <MarketingNav cur="pricing" />
 
       <main id="main-content">

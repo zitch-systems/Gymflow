@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate, daysLeft, firstName } from '@/lib/format';
+import { fmtDate, daysLeft, firstName, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ShareInvite } from '@/components/member/share-invite';
 
@@ -22,12 +22,16 @@ export default async function MemberHome() {
   const supabase = await createClient();
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const dow = (now.getDay() + 6) % 7; // 0 = Monday
-  const weekStart = new Date(now); weekStart.setHours(0, 0, 0, 0); weekStart.setDate(now.getDate() - dow);
-  const weekStartIso = weekStart.toISOString();
+  // Anchor all day math to WAT (UTC+1) — the server runs UTC, so a UTC day
+  // boundary mis-buckets check-ins between 00:00–01:00 WAT onto the previous day
+  // (wrong streak, week grid and "today"). See lib/format.ts.
+  const wnow = watNow();
+  const today = watDateISO();
+  const dow = (wnow.getUTCDay() + 6) % 7; // 0 = Monday (WAT)
+  const weekStartDate = watDateISO(new Date(now.getTime() - dow * 86_400_000)); // WAT date of this week's Monday
+  const weekStartIso = watDayStartUtc(weekStartDate); // UTC instant of WAT week start — lower bound for visits-this-week
+  const monthStartIso = watDayStartUtc(`${today.slice(0, 7)}-01`); // UTC instant of WAT month start
   const since = new Date(now.getTime() - 70 * 86_400_000).toISOString();
-  const today = now.toISOString().slice(0, 10);
 
   const [{ data: sub }, { count: unread }, { data: allCheckins }, { count: classesAttended }, { data: nextBooking }] = await Promise.all([
     // Include past_due so the dunning banner renders when Paystack failed the
@@ -51,15 +55,18 @@ export default async function MemberHome() {
   ]);
 
   const checkins = allCheckins ?? [];
-  const daySet = new Set(checkins.map((c) => (c.checked_in_at ?? '').slice(0, 10)).filter(Boolean));
-  const visitsThisMonth = checkins.filter((c) => (c.checked_in_at ?? '') >= monthStart).length;
+  // Bucket check-ins by WAT calendar day (not the UTC date of the timestamp) so a
+  // 00:00–01:00 WAT visit lands on the right day for the streak + week grid.
+  const daySet = new Set(checkins.map((c) => (c.checked_in_at ? watDateISO(new Date(c.checked_in_at)) : '')).filter(Boolean));
+  const visitsThisMonth = checkins.filter((c) => (c.checked_in_at ?? '') >= monthStartIso).length;
   const visitsThisWeek = checkins.filter((c) => (c.checked_in_at ?? '') >= weekStartIso).length;
 
-  // Current streak: consecutive prior days with a check-in (today optional).
+  // Current streak: consecutive prior WAT days with a check-in (today optional).
+  // Anchor at noon UTC of the WAT date so whole-day steps never cross a boundary.
   let streak = 0;
-  const cur = new Date(); cur.setHours(0, 0, 0, 0);
-  if (!daySet.has(cur.toISOString().slice(0, 10))) cur.setDate(cur.getDate() - 1);
-  while (daySet.has(cur.toISOString().slice(0, 10))) { streak++; cur.setDate(cur.getDate() - 1); }
+  const cur = new Date(today + 'T12:00:00Z');
+  if (!daySet.has(cur.toISOString().slice(0, 10))) cur.setUTCDate(cur.getUTCDate() - 1);
+  while (daySet.has(cur.toISOString().slice(0, 10))) { streak++; cur.setUTCDate(cur.getUTCDate() - 1); }
   // Best streak across the window.
   const sortedDays = [...daySet].sort();
   let best = 0, run = 0; let prev: number | null = null;
@@ -74,9 +81,11 @@ export default async function MemberHome() {
     ? Math.round(withDur.reduce((s, c) => s + (new Date(c.checked_out_at!).getTime() - new Date(c.checked_in_at!).getTime()) / 60000, 0) / withDur.length)
     : 0;
 
+  // Week grid keyed by WAT calendar dates (Mon..Sun), anchored at noon UTC of the
+  // WAT week start so consecutive-day slicing stays on the intended dates.
+  const weekStartMs = Date.parse(weekStartDate + 'T12:00:00Z');
   const weekDays = DAY_LABELS.map((label, i) => {
-    const dt = new Date(weekStart); dt.setDate(weekStart.getDate() + i);
-    const key = dt.toISOString().slice(0, 10);
+    const key = new Date(weekStartMs + i * 86_400_000).toISOString().slice(0, 10);
     return { d: label, done: daySet.has(key), today: key === today, future: key > today };
   });
   const goal = 4;

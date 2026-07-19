@@ -58,16 +58,18 @@ export default async function SuperMembers({ searchParams }: { searchParams: Pro
             ? <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No matching members</h3><p>Try a different name, email or gym.</p></div>
             : <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No members yet</h3><p>Members across all gyms appear here.</p></div>
         ) : (
-          <table className="gt">
-            <thead><tr><th>Member</th><th>Gym</th><th style={{ textAlign: 'right' }}>Status</th></tr></thead>
-            <tbody>{recent.map((r, i) => {
-              const p = r.member_id ? pById.get(r.member_id) : null;
-              const nm = p?.full_name ?? p?.email ?? 'Member';
-              return (
-                <tr key={i}><td><div className="gname"><span className="sq" style={{ background: 'linear-gradient(135deg,#11d18b,#07a86c)' }}>{nm.charAt(0).toUpperCase()}</span><div><strong>{nm}</strong><small>{p?.email ?? '—'}</small></div></div></td><td style={{ color: 'var(--gf-text-secondary)' }}>{r.gym_id ? (gName.get(r.gym_id) ?? '—') : '—'}</td><td style={{ textAlign: 'right' }}><span className="gf-badge gf-badge-success">{r.status ?? 'Active'}</span></td></tr>
-              );
-            })}</tbody>
-          </table>
+          <div className="tbl-scroll">
+            <table className="gt">
+              <thead><tr><th>Member</th><th>Gym</th><th style={{ textAlign: 'right' }}>Status</th></tr></thead>
+              <tbody>{recent.map((r, i) => {
+                const p = r.member_id ? pById.get(r.member_id) : null;
+                const nm = p?.full_name ?? p?.email ?? 'Member';
+                return (
+                  <tr key={i}><td><div className="gname"><span className="sq" style={{ background: 'linear-gradient(135deg,#11d18b,#07a86c)' }}>{nm.charAt(0).toUpperCase()}</span><div><strong>{nm}</strong><small>{p?.email ?? '—'}</small></div></div></td><td style={{ color: 'var(--gf-text-secondary)' }}>{r.gym_id ? (gName.get(r.gym_id) ?? '—') : '—'}</td><td style={{ textAlign: 'right' }}><span className="gf-badge gf-badge-success">{r.status ?? 'Active'}</span></td></tr>
+                );
+              })}</tbody>
+            </table>
+          </div>
         )}
       </div>
     </>

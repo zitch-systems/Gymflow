@@ -135,22 +135,24 @@ export default async function AdminMembers({ searchParams }: { searchParams: Pro
         {rows.length === 0 ? (
           <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>{q || filter !== 'all' ? 'No matches' : 'No members yet'}</h3><p>{q || filter !== 'all' ? 'Try a different search or filter.' : 'Members appear here after they sign up or are added.'}</p></div>
         ) : (
-          <table className="tbl">
-            <thead><tr><th>Member</th><th>Plan</th><th>Status</th><th>Joined</th><th>Renews</th><th style={{ textAlign: 'right' }}>Value</th><th aria-hidden /></tr></thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="rowlink">
-                  <td><Link href={`/admin/members/${r.id}`} className="who"><span className="gf-avatar gf-avatar-sm">{r.initial}</span><div><strong>{r.name}</strong><small>{r.email}</small></div></Link></td>
-                  <td>{r.plan}</td>
-                  <td><span className={`gf-badge ${r.status[0]}`}>{r.status[1]}</span></td>
-                  <td style={{ color: 'var(--gf-text-secondary)' }}>{r.joined}</td>
-                  <td style={{ color: 'var(--gf-text-secondary)' }}>{r.renews}</td>
-                  <td className="naira" style={{ textAlign: 'right' }}>{r.value}</td>
-                  <td style={{ textAlign: 'right', width: 36 }}><Link href={`/admin/members/${r.id}`} className="row-chev" aria-label={`View ${r.name}`}><ChevronRight strokeWidth={2} size={16} /></Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tbl-scroll">
+            <table className="tbl">
+              <thead><tr><th>Member</th><th>Plan</th><th>Status</th><th>Joined</th><th>Renews</th><th style={{ textAlign: 'right' }}>Value</th><th aria-hidden /></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="rowlink">
+                    <td><Link href={`/admin/members/${r.id}`} className="who"><span className="gf-avatar gf-avatar-sm">{r.initial}</span><div><strong>{r.name}</strong><small>{r.email}</small></div></Link></td>
+                    <td>{r.plan}</td>
+                    <td><span className={`gf-badge ${r.status[0]}`}>{r.status[1]}</span></td>
+                    <td style={{ color: 'var(--gf-text-secondary)' }}>{r.joined}</td>
+                    <td style={{ color: 'var(--gf-text-secondary)' }}>{r.renews}</td>
+                    <td className="naira" style={{ textAlign: 'right' }}>{r.value}</td>
+                    <td style={{ textAlign: 'right', width: 36 }}><Link href={`/admin/members/${r.id}`} className="row-chev" aria-label={`View ${r.name}`}><ChevronRight strokeWidth={2} size={16} /></Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </>

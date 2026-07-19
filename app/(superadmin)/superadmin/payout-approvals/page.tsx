@@ -47,29 +47,31 @@ export default async function PayoutApprovalsPage() {
       {past.length > 0 && (
         <div className="panel" style={{ marginTop: 16 }}>
           <div className="panel-title">Recently reviewed</div>
-          <table style={{ width: '100%', fontSize: '0.86rem', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: 'var(--gf-text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                <th style={{ padding: '10px 8px' }}>Gym</th>
-                <th style={{ padding: '10px 8px' }}>New bank</th>
-                <th style={{ padding: '10px 8px' }}>Outcome</th>
-                <th style={{ padding: '10px 8px' }}>Reviewed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {past.map((r) => (
-                <tr key={r.id} style={{ borderTop: '1px solid var(--gf-border)' }}>
-                  <td style={{ padding: '10px 8px' }}>{r.gyms?.name ?? r.gym_id.slice(0, 8)}</td>
-                  <td style={{ padding: '10px 8px' }}>{r.bank_name} · {r.account_name} · ••••{r.account_number.slice(-4)}</td>
-                  <td style={{ padding: '10px 8px' }}>
-                    <span className={`gf-badge ${r.status === 'approved' ? 'gf-badge-success' : 'gf-badge-danger'}`}>{r.status}</span>
-                    {r.reject_reason && <span style={{ color: 'var(--gf-text-muted)', marginLeft: 8 }}>{r.reject_reason}</span>}
-                  </td>
-                  <td style={{ padding: '10px 8px', color: 'var(--gf-text-muted)' }}>{fmtDateTime(r.reviewed_at)}</td>
+          <div className="tbl-scroll">
+            <table style={{ width: '100%', fontSize: '0.86rem', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: 'var(--gf-text-muted)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <th style={{ padding: '10px 8px' }}>Gym</th>
+                  <th style={{ padding: '10px 8px' }}>New bank</th>
+                  <th style={{ padding: '10px 8px' }}>Outcome</th>
+                  <th style={{ padding: '10px 8px' }}>Reviewed</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {past.map((r) => (
+                  <tr key={r.id} style={{ borderTop: '1px solid var(--gf-border)' }}>
+                    <td style={{ padding: '10px 8px' }}>{r.gyms?.name ?? r.gym_id.slice(0, 8)}</td>
+                    <td style={{ padding: '10px 8px' }}>{r.bank_name} · {r.account_name} · ••••{r.account_number.slice(-4)}</td>
+                    <td style={{ padding: '10px 8px' }}>
+                      <span className={`gf-badge ${r.status === 'approved' ? 'gf-badge-success' : 'gf-badge-danger'}`}>{r.status}</span>
+                      {r.reject_reason && <span style={{ color: 'var(--gf-text-muted)', marginLeft: 8 }}>{r.reject_reason}</span>}
+                    </td>
+                    <td style={{ padding: '10px 8px', color: 'var(--gf-text-muted)' }}>{fmtDateTime(r.reviewed_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </>

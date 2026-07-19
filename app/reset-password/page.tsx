@@ -26,6 +26,15 @@ export default function ResetPasswordPage() {
   const matchHint = confirm.length === 0 ? '' : pw === confirm ? 'Passwords match.' : 'Passwords don’t match yet.';
   const canSubmit = score === 4 && pw === confirm;
 
+  // Stable ids for aria-describedby (WCAG 3.3.1/4.1.2): the strength hint and
+  // match hint are always relevant to their fields, the server error joins in
+  // only while it's showing.
+  const pwHintId = 'pw-strength-hint';
+  const confirmHintId = 'confirm-pw-hint';
+  const errorId = 'reset-password-error';
+  const pwDescribedBy = [pwHintId, err ? errorId : null].filter(Boolean).join(' ');
+  const confirmDescribedBy = [confirmHintId, err ? errorId : null].filter(Boolean).join(' ');
+
   async function handle(formData: FormData) {
     setPending(true);
     setErr(null);
@@ -62,17 +71,26 @@ export default function ResetPasswordPage() {
               <h1>Set a new password</h1>
               <p className="lede">Enter a new password below. Use something strong you&apos;ll remember.</p>
 
-              <form action={handle}>
+              <form action={handle} aria-busy={pending}>
                 <div className="field gf-form-group">
                   <label className="gf-form-label">New password</label>
                   <div className="gf-input-group">
                     <Lock className="gf-input-icon" strokeWidth={1.75} />
-                    <input className="gf-input" type="password" name="password" placeholder="••••••••" value={pw} onChange={(e) => setPw(e.target.value)} required />
+                    <input className="gf-input" type="password" name="password" placeholder="••••••••" value={pw} onChange={(e) => setPw(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={pwDescribedBy} />
                   </div>
                 </div>
 
+                {/* The bar itself (these 4 spans) stays purely visual — CSS keys
+                    .pw-meter.sN span:nth-child(...) off their exact position, so
+                    nothing gets added inside it. The live "N of 4" readout lives
+                    in a separate, visually-hidden status node right after it, so
+                    screen reader users get the same feedback sighted users get
+                    from watching the bar fill in, without touching the bar's DOM. */}
                 <div className={`pw-meter s${score}`}><span /><span /><span /><span /></div>
-                <div className="pw-hint">Use 8+ characters with a mix of letters, numbers &amp; symbols.</div>
+                <p role="status" style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                  Password strength: {score} of {REQS.length} requirements met.
+                </p>
+                <div className="pw-hint" id={pwHintId}>Use 8+ characters with a mix of letters, numbers &amp; symbols.</div>
 
                 <ul className="pw-reqs">
                   {REQS.map((r) => {
@@ -89,14 +107,17 @@ export default function ResetPasswordPage() {
                   <label className="gf-form-label">Confirm password</label>
                   <div className="gf-input-group">
                     <Lock className="gf-input-icon" strokeWidth={1.75} />
-                    <input className="gf-input" type="password" placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+                    <input className="gf-input" type="password" placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={confirmDescribedBy} />
                   </div>
                 </div>
-                <div className="pw-hint" style={{ margin: '6px 0 18px', minHeight: 16, color: matchHint.startsWith('Passwords match') ? 'var(--gf-brand)' : 'var(--gf-text-muted)' }}>
+                {/* aria-live announces the match/mismatch verdict as it updates;
+                    the div is always in the DOM (even while empty) so the live
+                    region is registered before the first text change. */}
+                <div className="pw-hint" id={confirmHintId} aria-live="polite" style={{ margin: '6px 0 18px', minHeight: 16, color: matchHint.startsWith('Passwords match') ? 'var(--gf-brand)' : 'var(--gf-text-muted)' }}>
                   {matchHint}
                 </div>
 
-                {err && <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '0 0 14px' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
+                {err && <p id={errorId} role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '0 0 14px' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
 
                 <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={!canSubmit || pending}>
                   {pending ? 'Updating…' : 'Update password'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
@@ -104,7 +125,7 @@ export default function ResetPasswordPage() {
               </form>
             </>
           ) : (
-            <div className="auth-done">
+            <div className="auth-done" role="status">
               <div className="ring"><Check strokeWidth={2.4} /></div>
               <h1>Password updated</h1>
               <p className="lede">Your password has been changed. You can now sign in with your new password.</p>
