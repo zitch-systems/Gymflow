@@ -19,11 +19,11 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
   const canManage = (MANAGER_ROLES as readonly string[]).includes(role);
   const supabase = await createClient();
 
-  const { data: sched } = await supabase.from('class_schedules').select('*').eq('id', id).eq('gym_id', gym.id).maybeSingle();
+  const { data: sched } = await supabase.from('class_schedules').select('id, class_id, day_of_week, start_time, end_time, room').eq('id', id).eq('gym_id', gym.id).maybeSingle();
   if (!sched) notFound();
 
   const [{ data: cls }, { data: bookings }] = await Promise.all([
-    sched.class_id ? supabase.from('classes').select('*').eq('id', sched.class_id).maybeSingle() : Promise.resolve({ data: null }),
+    sched.class_id ? supabase.from('classes').select('id, name, instructor, category, duration_minutes, max_capacity').eq('id', sched.class_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('class_bookings').select('id, member_id, status, booking_date').eq('class_schedule_id', id).eq('gym_id', gym.id).order('booking_date', { ascending: false }),
   ]);
 

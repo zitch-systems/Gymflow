@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import {
   ArrowRight, LogIn, UserPlus, Dumbbell, MapPin, Phone, Mail, Globe,
@@ -186,15 +187,19 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
       {/* ── Hero ── */}
       <header className="gl-hero gl-hero-photo">
         {/* Gym's own hero photo when set, else a bundled gym backdrop so the
-            page never looks empty. A dark scrim keeps the text legible. */}
-        {/* eslint-disable-next-line @next/next/no-img-element -- per-gym remote or bundled hero image */}
-        <img className="gl-hero-bg" src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" aria-hidden fetchPriority="high" decoding="async" />
+            page never looks empty. A dark scrim keeps the text legible.
+            This is the page's LCP element: `priority` preloads it and sets
+            fetchPriority/decoding for us. `fill` is correct because
+            .gl-hero-bg is position:absolute/inset:0/object-fit:cover inside
+            the positioned .gl-hero header (see globals.css). */}
+        <Image className="gl-hero-bg" src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" aria-hidden fill priority sizes="100vw" />
         <div className="gl-hero-scrim" aria-hidden />
         <div className="gl-hero-in">
           <span className="gl-logo">
             {gym.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element -- per-gym remote logo
-              <img src={gym.logo_url} alt="" />
+              // .gl-logo is a fixed 84×84 box (CSS stretches the img to 100%/100%,
+              // object-fit:cover), so a static width/height is correct here.
+              <Image src={gym.logo_url} alt="" width={84} height={84} />
             ) : (
               <Dumbbell strokeWidth={1.9} />
             )}
@@ -277,8 +282,8 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
           <h2 className="gl-h2">Gallery</h2>
           <div className="gl-gallery">
             {gallery.map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element -- per-gym remote gallery image
-              <img className="gl-gallery-img" src={url} alt={`${gym.name} photo ${i + 1}`} key={url} loading="lazy" decoding="async" width={800} height={600} />
+              // next/image lazy-loads by default (no manual loading/decoding needed).
+              <Image className="gl-gallery-img" src={url} alt={`${gym.name} photo ${i + 1}`} key={url} width={800} height={600} />
             ))}
           </div>
         </section></Reveal>

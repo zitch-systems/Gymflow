@@ -24,9 +24,9 @@ export default async function CoachClientDetail({ params }: { params: Promise<{ 
   const supabase = await createClient();
 
   const [{ data: profile }, { data: subs }, { data: sessions }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', id).maybeSingle(),
-    supabase.from('instructor_subscriptions').select('*').eq('instructor_id', user.id).eq('gym_id', gym.id).eq('member_id', id).order('end_date', { ascending: false }),
-    supabase.from('instructor_sessions').select('*').eq('instructor_id', user.id).eq('gym_id', gym.id).eq('member_id', id).order('scheduled_at', { ascending: false }),
+    supabase.from('profiles').select('id, full_name, first_name, last_name, email, phone').eq('id', id).maybeSingle(),
+    supabase.from('instructor_subscriptions').select('id, status, start_date, end_date, amount_paid, auto_renew').eq('instructor_id', user.id).eq('gym_id', gym.id).eq('member_id', id).order('end_date', { ascending: false }),
+    supabase.from('instructor_sessions').select('id, status, scheduled_at, duration_minutes').eq('instructor_id', user.id).eq('gym_id', gym.id).eq('member_id', id).order('scheduled_at', { ascending: false }),
   ]);
   // Only the instructor's own clients are viewable.
   if (!profile || !(subs ?? []).length) notFound();

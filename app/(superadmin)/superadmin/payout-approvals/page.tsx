@@ -1,37 +1,46 @@
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDateTime } from '@/lib/format';
+import { Pagination } from '@/components/pagination';
 import { PayoutApprovalRow } from './row-client';
 
 export const metadata = { title: 'Payout approvals' };
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+const PAGE_SIZE = 50;
+const SELECT = 'id, gym_id, bank_name, bank_code, account_number, account_name, name_matches, status, created_at, reject_reason, reviewed_at, gyms(name, slug, bank_name, account_number, account_name)';
+
+type Row = {
+  id: string; gym_id: string; bank_name: string; bank_code: string;
+  account_number: string; account_name: string; name_matches: boolean; status: string;
+  created_at: string; reject_reason: string | null; reviewed_at: string | null;
+  gyms: { name: string; slug: string; bank_name: string | null; account_number: string | null; account_name: string | null } | null;
+};
+
 // Platform-admin review queue for gym-owner-submitted bank changes. This page
 // reads every tenant's bank PII via the service-role client (bypasses RLS), so
 // it re-asserts requirePlatformAdmin() itself rather than trusting the layout
 // gate alone — layouts aren't guaranteed to re-run on soft navigation, so a
 // mid-session de-provisioned admin must be bounced here at the page level too.
-export default async function PayoutApprovalsPage() {
+export default async function PayoutApprovalsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   await requirePlatformAdmin();
+  const sp = await searchParams;
+  const page = Math.max(1, Number(sp.page) || 1);
   const db = createAdminClient();
-  const { data } = await db
-    .from('payout_change_requests' as never)
-    .select('id, gym_id, bank_name, bank_code, account_number, account_name, name_matches, status, created_at, reject_reason, reviewed_at, gyms(name, slug, bank_name, account_number, account_name)')
-    .in('status', ['pending', 'approved', 'rejected'])
-    .order('status', { ascending: true })
-    .order('created_at', { ascending: false })
-    .limit(200);
 
-  type Row = {
-    id: string; gym_id: string; bank_name: string; bank_code: string;
-    account_number: string; account_name: string; name_matches: boolean; status: string;
-    created_at: string; reject_reason: string | null; reviewed_at: string | null;
-    gyms: { name: string; slug: string; bank_name: string | null; account_number: string | null; account_name: string | null } | null;
-  };
-  const rows = (data as unknown as Row[]) ?? [];
-  const pending = rows.filter((r) => r.status === 'pending');
-  const past = rows.filter((r) => r.status !== 'pending');
+  // Pending is a work queue — always show every item (never paginate away an
+  // approval). The reviewed log grows without bound, so page it separately.
+  const from = (page - 1) * PAGE_SIZE;
+  const [{ data: pendingData }, { data: pastData, count: pastCount }] = await Promise.all([
+    db.from('payout_change_requests' as never)
+      .select(SELECT).eq('status', 'pending').order('created_at', { ascending: false }).limit(500),
+    db.from('payout_change_requests' as never)
+      .select(SELECT, { count: 'exact' }).in('status', ['approved', 'rejected'])
+      .order('created_at', { ascending: false }).range(from, from + PAGE_SIZE - 1),
+  ]);
+  const pending = (pendingData as unknown as Row[]) ?? [];
+  const past = (pastData as unknown as Row[]) ?? [];
 
   return (
     <>
@@ -44,9 +53,9 @@ export default async function PayoutApprovalsPage() {
           : pending.map((r) => <PayoutApprovalRow key={r.id} r={r} />)}
       </div>
 
-      {past.length > 0 && (
+      {(past.length > 0 || page > 1) && (
         <div className="panel" style={{ marginTop: 16 }}>
-          <div className="panel-title">Recently reviewed</div>
+          <div className="panel-title">Reviewed</div>
           <div className="tbl-scroll">
             <table style={{ width: '100%', fontSize: '0.86rem', borderCollapse: 'collapse' }}>
               <thead>
@@ -72,6 +81,7 @@ export default async function PayoutApprovalsPage() {
               </tbody>
             </table>
           </div>
+          <Pagination basePath="/superadmin/payout-approvals" params={{}} page={page} pageSize={PAGE_SIZE} total={pastCount ?? 0} />
         </div>
       )}
     </>

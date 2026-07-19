@@ -120,12 +120,15 @@
   /* Raised from #8a89a3 (3.2:1, failed WCAG AA) to ~4.6:1 on the light surfaces. */
   --gf-text-muted: #6c6b85;
   --gf-text-subtle: #cdcde0;
-  --gf-brand: #08a86c;
-  --gf-brand-rgb: 8, 168, 108; /* @kind color */
-  --gf-brand-dark: #06794f;
+  /* Darkened from #08a86c (only 3.08:1 on white — failed WCAG AA as link/label
+     text) to ~5.2:1, so brand-colored text passes AA. Kept vibrant enough for
+     fills/icons; brand-light stays bright for glows and gradients. */
+  --gf-brand: #0a7d52;
+  --gf-brand-rgb: 10, 125, 82; /* @kind color */
+  --gf-brand-dark: #06603f;
   --gf-brand-light: #11d18b;
-  --gf-brand-glow: rgba(8, 168, 108, 0.18);
-  --gf-brand-soft: rgba(8, 168, 108, 0.07);
+  --gf-brand-glow: rgba(10, 125, 82, 0.18);
+  --gf-brand-soft: rgba(10, 125, 82, 0.08);
   --gf-accent: #7fb800;
   --gf-accent-rgb: 127, 184, 0; /* @kind color */
   --gf-accent-dark: #6a9c00;
@@ -281,6 +284,11 @@ body {
 }
 .gf-btn-primary:hover { box-shadow: 0 10px 28px -6px var(--gf-brand-glow), inset 0 1px 0 rgba(255,255,255,0.18); transform: translateY(-2px); }
 .gf-btn-primary:active { transform: scale(0.97) translateY(0); }
+/* Light theme: the default gradient's bright stop (brand-light #11d18b) gives
+   white text only ~1.8:1 (fails WCAG). Override to dark greens so the white
+   label clears 4.5:1 across the whole gradient; on dark theme the bright button
+   sits on a dark UI and is already fine. */
+[data-theme="light"] .gf-btn-primary { background: linear-gradient(135deg, #0c8659, #0a7d52 50%, #06603f); }
 .gf-btn-accent { background: linear-gradient(135deg, var(--gf-accent), var(--gf-accent-dark)); color: #14121f; }
 .gf-btn-secondary { background: var(--gf-elevated); color: var(--gf-text); border: 1px solid var(--gf-border); }
 .gf-btn-secondary:hover { border-color: var(--gf-border-light); background: var(--gf-border); }
@@ -962,6 +970,13 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
   .app .content { padding: 18px 16px calc(100px + env(safe-area-inset-bottom, 0px)); }
 }
 @media print { .console-tabbar { display: none !important; } }
+
+/* Offset pager (components/pagination.tsx) — sits under a list/table. */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.pager-count { color: var(--gf-text-muted); font-size: 0.82rem; }
+.pager-nav { display: flex; align-items: center; gap: 10px; }
+.pager-page { color: var(--gf-text-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .pager-page { display: none; } }
 
 /* Tables inside console panels scroll sideways on phones instead of
    stretching the page. min-width keeps columns readable; the wrapper owns

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useActionState } from 'react';
+import Image from 'next/image';
 import { Check, AlertCircle } from 'lucide-react';
 import { updateOwnProfile, type SaveState } from '@/lib/actions/profile';
 import { uploadAvatar, savePrefs } from '@/lib/actions/instructor';
@@ -35,8 +36,8 @@ export function CoachSettingsClient({ profile }: { profile: CoachProfile }) {
           <form action={avAction} ref={avFormRef}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
               {profile.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- remote Supabase URL, fixed avatar size
-                <img src={profile.avatar_url} alt="" className="gf-avatar gf-avatar-xl" style={{ objectFit: 'cover', borderColor: 'var(--gf-brand-glow)' }} />
+                // .gf-avatar-xl is a fixed 72×72 box.
+                <Image src={profile.avatar_url} alt="" className="gf-avatar gf-avatar-xl" width={72} height={72} style={{ objectFit: 'cover', borderColor: 'var(--gf-brand-glow)' }} />
               ) : (
                 <span className="gf-avatar gf-avatar-xl" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)', borderColor: 'var(--gf-brand-glow)' }}>{profile.initial}</span>
               )}

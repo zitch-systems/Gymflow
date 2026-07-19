@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
-import { gymSlugFromHost } from '@/lib/tenant';
+import { gymSlugFromHost, ROOT_DOMAIN } from '@/lib/tenant';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const slug = gymSlugFromHost(request.headers.get('host'));
+  const host = request.headers.get('host');
+  const slug = gymSlugFromHost(host);
 
   // Gym tenant root → the gym's branded landing page. Every other path on the
   // subdomain (login, dashboard, …) is host-agnostic and passes through.
@@ -12,6 +13,24 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = `/g/${slug}`;
     return NextResponse.rewrite(url);
+  }
+
+  // Consolidate the duplicate landing URL: the same page is reachable at the
+  // apex path /g/<slug> and at <slug>.<root>/. The landing's canonical already
+  // points at the subdomain; 308-redirect the apex path there so humans and
+  // bots converge on one URL. Only on the real apex host — on localhost/preview
+  // (and on the subdomain itself, where /g/* only appears via internal rewrite)
+  // subdomains don't resolve, so we must not redirect.
+  if (!slug && pathname.startsWith('/g/')) {
+    const h = (host ?? '').split(':')[0].toLowerCase();
+    if (h === ROOT_DOMAIN || h === `www.${ROOT_DOMAIN}`) {
+      const gymSlug = pathname.split('/')[2];
+      if (gymSlug) {
+        return NextResponse.redirect(`https://${gymSlug}.${ROOT_DOMAIN}/`, 308);
+      }
+    }
+    // Public landing on a non-apex host (preview/local): no session to refresh.
+    return NextResponse.next();
   }
 
   // Apex/marketing home reads no session — skip the auth round-trip.
@@ -26,6 +45,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
+    // Apex /g/<slug> → subdomain 308 (the rewrite path is internal, so this
+    // only ever matches an external apex request, never the subdomain itself).
+    '/g/:path*',
     '/login', '/signup', '/forgot-password', '/reset-password', '/auth/confirm',
     '/launch',
     '/dashboard/:path*',

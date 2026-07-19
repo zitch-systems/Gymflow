@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { LayoutGrid, Dumbbell, Wrench, Receipt, AlertTriangle, Check, Plus, Pencil } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
@@ -63,8 +64,8 @@ export default async function AdminFacility() {
                     return (
                       <tr key={e.id}>
                         <td><div className="eq-name"><div className="ic" style={e.photo_url ? { overflow: 'hidden' } : undefined}>{e.photo_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={e.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          // .eq-name .ic is a fixed 34×34 box.
+                          <Image src={e.photo_url} alt="" width={34} height={34} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : <Dumbbell strokeWidth={1.9} />}</div><div><strong><Link href={`/admin/operations/equipment/${e.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{e.name}</Link></strong><small>{e.category ?? '—'}</small></div></div></td>
                         <td style={{ color: 'var(--gf-text-secondary)' }}>{e.location ?? '—'}</td>
                         <td style={{ color: 'var(--gf-text-secondary)' }}>{e.last_maintenance_date ? fmtDate(e.last_maintenance_date) : '—'}</td>
