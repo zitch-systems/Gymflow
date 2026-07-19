@@ -35,7 +35,7 @@ export default async function StaffDetail({ params }: { params: Promise<{ id: st
   // no service-role key is configured.
   const reader = (() => { try { return createAdminClient(); } catch { return supabase; } })();
   const [{ data: profile }, { data: link }] = await Promise.all([
-    reader.from('profiles').select('*').eq('id', id).maybeSingle(),
+    reader.from('profiles').select('id, full_name, first_name, last_name, email, phone').eq('id', id).maybeSingle(),
     reader.from('gym_staff_links').select('role, joined_at, is_active').eq('gym_id', gym.id).eq('user_id', id).maybeSingle(),
   ]);
   if (!profile || !link) notFound();
