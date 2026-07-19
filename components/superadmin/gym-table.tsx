@@ -47,29 +47,31 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
   }
 
   return (
-    <table className="gt">
-      <thead><tr><th>Gym</th><th>Plan</th><th>Members</th><th>Commission</th><th>Status</th><th style={{ textAlign: 'right' }}>Subdomain</th></tr></thead>
-      <tbody>
-        {gyms.map((g, i) => {
-          const st = STATUS[g.subscription_status ?? 'trial'] ?? ['gf-badge-success', g.subscription_status ?? 'Active'];
-          return (
-            <tr key={g.id}>
-              <td>
-                <div className="gname">
-                  <span className="sq" style={{ background: GRADS[i % GRADS.length] }}>{g.name.charAt(0).toUpperCase()}</span>
-                  <div><strong>{g.name}</strong><small>{g.slug}.gymflow.ng{g.city ? ` · ${g.city}` : ''}</small></div>
-                </div>
-              </td>
-              <td style={{ textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
-              <td>{memberCount.get(g.id) ?? 0}</td>
-              <td><CommissionEditor gymId={g.id} pct={g.platform_commission_pct ?? 0} /></td>
-              <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
-              <td className="naira" style={{ textAlign: 'right' }}><a href={`/g/${g.slug}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title="Open public page">{g.slug} ↗</a></td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className="tbl-scroll">
+      <table className="gt">
+        <thead><tr><th>Gym</th><th>Plan</th><th>Members</th><th>Commission</th><th>Status</th><th style={{ textAlign: 'right' }}>Subdomain</th></tr></thead>
+        <tbody>
+          {gyms.map((g, i) => {
+            const st = STATUS[g.subscription_status ?? 'trial'] ?? ['gf-badge-success', g.subscription_status ?? 'Active'];
+            return (
+              <tr key={g.id}>
+                <td>
+                  <div className="gname">
+                    <span className="sq" style={{ background: GRADS[i % GRADS.length] }}>{g.name.charAt(0).toUpperCase()}</span>
+                    <div><strong>{g.name}</strong><small>{g.slug}.gymflow.ng{g.city ? ` · ${g.city}` : ''}</small></div>
+                  </div>
+                </td>
+                <td style={{ textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
+                <td>{memberCount.get(g.id) ?? 0}</td>
+                <td><CommissionEditor gymId={g.id} pct={g.platform_commission_pct ?? 0} /></td>
+                <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
+                <td className="naira" style={{ textAlign: 'right' }}><a href={`/g/${g.slug}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title="Open public page">{g.slug} ↗</a></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

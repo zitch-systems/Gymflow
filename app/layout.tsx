@@ -38,6 +38,10 @@ export const viewport: Viewport = {
   themeColor: '#0a0a12',
   width: 'device-width',
   initialScale: 1,
+  // Let the app paint under the iOS home indicator / notch so the fixed
+  // bottom tab bars can pad with env(safe-area-inset-bottom) instead of
+  // sitting on an opaque letterbox strip.
+  viewportFit: 'cover',
 };
 
 // Set the theme before first paint (no flash). Reads the saved choice, else

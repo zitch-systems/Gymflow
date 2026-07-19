@@ -71,10 +71,12 @@ export function PayoutQueue({ payouts }: { payouts: QueuedPayout[] }) {
   return (
     <div className="panel" style={{ marginTop: 18 }}>
       <div className="panel-h"><div><h3>Payout requests</h3><div className="sub">Instructor earnings awaiting transfer</div></div></div>
-      <table className="tbl">
-        <thead><tr><th>Instructor</th><th>Amount</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
-        <tbody>{payouts.map((p) => <Row key={p.id} p={p} />)}</tbody>
-      </table>
+      <div className="tbl-scroll">
+        <table className="tbl">
+          <thead><tr><th>Instructor</th><th>Amount</th><th style={{ textAlign: 'right' }}>Action</th></tr></thead>
+          <tbody>{payouts.map((p) => <Row key={p.id} p={p} />)}</tbody>
+        </table>
+      </div>
     </div>
   );
 }

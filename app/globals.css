@@ -711,7 +711,10 @@ footer { border-top: 1px solid var(--gf-border); padding: 50px 0 110px; backgrou
   .legal-nav { position: static; flex-direction: row; flex-wrap: wrap; }
 }
 @media (max-width: 900px) {
-  .feat-grid, .steps, .tg, .price-grid, .values, .contact-grid, .cform, .split { grid-template-columns: 1fr; }
+  /* .wrap .steps needed: the base rule is scoped to .wrap (specificity 0,2,0),
+     so a bare .steps here would lose and the 3-col grid would survive on
+     phones — the home page overflowed sideways until this matched it. */
+  .feat-grid, .wrap .steps, .tg, .price-grid, .values, .contact-grid, .cform, .split { grid-template-columns: 1fr; }
   .split { gap: 28px; }
   .kpis, .team, .perks { grid-template-columns: 1fr 1fr; }
   .gal { grid-template-columns: 1fr 1fr; }
@@ -919,6 +922,74 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
   }
 }
 @media (prefers-reduced-motion: reduce) { .app > .gf-sidebar { transition: none; } }
+
+/* ── Console bottom tab bar (ports revamp/*-mobile.html .tabbar) ──
+   Desktop navigation is the sidebar, so the bar only exists on phones.
+   It carries the 3–4 highest-traffic destinations + a More button that
+   opens the drawer (full role-filtered nav, gym switcher, sign-out).
+   z-index sits below the drawer (70) and its backdrop (65) so the drawer
+   slides over the bar when More is open. */
+.console-tabbar { display: none; }
+@media (max-width: 860px) {
+  .console-tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    padding: 8px 10px calc(9px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--gf-surface) 88%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3);
+    border-top: 1px solid var(--gf-border);
+  }
+  .console-tabbar :is(a, button) {
+    background: none; border: none; cursor: pointer; text-decoration: none;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex: 1; min-width: 0; padding: 4px 0; position: relative;
+    color: var(--gf-text-muted); font-family: var(--gf-font-display);
+    font-size: 0.66rem; font-weight: 600; white-space: nowrap;
+    transition: color var(--gf-t);
+  }
+  .console-tabbar :is(a, button) svg { width: 22px; height: 22px; }
+  .console-tabbar :is(a, button).on { color: var(--gf-brand); }
+  .console-tabbar .nav-dot { position: absolute; top: 2px; left: 50%; margin-left: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--gf-danger); border: 2px solid var(--gf-surface); }
+  /* raised center action (admin: Scan) — the prototype's FAB */
+  .console-tabbar .center .fab {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--gf-brand-light), var(--gf-brand-dark));
+    display: grid; place-items: center; margin-top: -24px; margin-bottom: 2px;
+    box-shadow: 0 6px 18px var(--gf-brand-glow);
+  }
+  .console-tabbar .center .fab svg { width: 24px; height: 24px; color: #fff; }
+  /* content must not end underneath the fixed bar (+ FAB overhang) */
+  .app .content { padding: 18px 16px calc(100px + env(safe-area-inset-bottom, 0px)); }
+}
+@media print { .console-tabbar { display: none !important; } }
+
+/* Tables inside console panels scroll sideways on phones instead of
+   stretching the page. min-width keeps columns readable; the wrapper owns
+   the scrollbar so panel chrome (header, padding) stays put. */
+.tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* Grid/flex children default to min-width:auto, which lets a wide table
+   stretch its column (and the page) instead of scrolling inside
+   .tbl-scroll — pin every console layout cell so the scroller wins. */
+.ds-admin :is(.grid, .grid2, .ci-grid, .md-grid) > *, .ds-admin .panel { min-width: 0; }
+@media (max-width: 860px) {
+  .tbl-scroll { scrollbar-width: thin; }
+  .tbl-scroll > :is(.tbl, .mtbl, .gt, table) { min-width: 620px; }
+}
+
+/* Phone-density pass for console content — mirrors the prototype's .mini
+   KPI look: 2-up cards, tighter padding, smaller numerals. */
+@media (max-width: 700px) {
+  .ds-admin .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ds-admin .kpi { padding: 14px; }
+  .ds-admin .kpi:hover { transform: none; }
+  .ds-admin .kpi-top { margin-bottom: 10px; }
+  .ds-admin .kpi-ic { width: 34px; height: 34px; border-radius: 10px; }
+  .ds-admin .kpi-ic :is(i, svg) { width: 17px; height: 17px; }
+  .ds-admin .kpi-val { font-size: 1.4rem; letter-spacing: -0.02em; }
+  .ds-admin .kpi-lbl { font-size: 0.74rem; margin-top: 5px; }
+  .ds-admin .hdr h1 { font-size: 1.45rem; }
+  .ds-admin .toolbar .search { max-width: none; }
+}
 
 /* Global toast (used by wire.js / admin-shell.js) */
 .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--gf-text); color:var(--gf-bg); font-family:var(--gf-font-display); font-weight:600; font-size:0.875rem; padding:12px 20px; border-radius:var(--gf-radius-pill); box-shadow:var(--gf-shadow-lg); opacity:0; pointer-events:none; transition:all .35s var(--gf-ease-spring); display:flex; align-items:center; gap:8px; z-index:600; }

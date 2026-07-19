@@ -9,6 +9,7 @@ import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { GymSwitcher } from '@/components/gym-switcher';
 import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
+import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
   GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode,
@@ -142,6 +143,20 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
         </header>
         <main id="main-content" className="content">{children}</main>
       </div>
+
+      {/* Phone bottom tabs — mirrors revamp/admin-mobile.html (Home · Members ·
+          Scan FAB · Facility · More). Every item here is visible to all admin
+          roles (unrestricted in NAV above), so no role filtering is needed. */}
+      <ConsoleTabBar
+        tabs={[
+          { href: '/admin/dashboard', label: 'Home', icon: LayoutDashboard },
+          { href: '/admin/members', label: 'Members', icon: Users, dot: pendingFreezes > 0 },
+          { href: '/admin/staff-checkin', label: 'Scan', icon: ScanLine, fab: true },
+          { href: '/admin/operations', label: 'Facility', icon: Wrench },
+        ] satisfies ConsoleTab[]}
+        moreOpen={nav.open}
+        onMore={nav.toggle}
+      />
     </div>
   );
 }

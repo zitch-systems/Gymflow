@@ -9,6 +9,7 @@ import { signOut } from '@/lib/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { GymSwitcher } from '@/components/gym-switcher';
 import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
+import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
   CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
 } from 'lucide-react';
@@ -87,6 +88,19 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
         </header>
         <main id="main-content" className="content">{children}</main>
       </div>
+
+      {/* Phone bottom tabs — mirrors revamp/instructor-mobile.html (Today ·
+          Classes · Clients · Attendance · More). */}
+      <ConsoleTabBar
+        tabs={[
+          { href: '/coach', label: 'Today', icon: CalendarCheck, match: (p) => p === '/coach' },
+          { href: '/coach/classes', label: 'Classes', icon: CalendarDays },
+          { href: '/coach/clients', label: 'Clients', icon: Users },
+          { href: '/coach/attendance', label: 'Attendance', icon: ClipboardCheck },
+        ] satisfies ConsoleTab[]}
+        moreOpen={nav.open}
+        onMore={nav.toggle}
+      />
     </div>
   );
 }

@@ -107,20 +107,22 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
         <section className="panel">
           <div className="panel-h"><div><h3>Payment history</h3><div className="sub">Your GymFlow charges</div></div></div>
           {history && history.length ? (
-            <table className="tbl" style={{ width: '100%' }}>
-              <thead><tr><th>Date</th><th>Plan</th><th>Period</th><th>Amount</th><th>Status</th></tr></thead>
-              <tbody>
-                {history.map((h) => (
-                  <tr key={h.id}>
-                    <td>{fmtDate(h.created_at)}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{h.plan ?? '—'}</td>
-                    <td>{fmtDate(h.billing_period_start)} – {fmtDate(h.billing_period_end)}</td>
-                    <td>{fmtNaira(Number(h.amount))}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{h.payment_status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="tbl-scroll">
+              <table className="tbl" style={{ width: '100%' }}>
+                <thead><tr><th>Date</th><th>Plan</th><th>Period</th><th>Amount</th><th>Status</th></tr></thead>
+                <tbody>
+                  {history.map((h) => (
+                    <tr key={h.id}>
+                      <td>{fmtDate(h.created_at)}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{h.plan ?? '—'}</td>
+                      <td>{fmtDate(h.billing_period_start)} – {fmtDate(h.billing_period_end)}</td>
+                      <td>{fmtNaira(Number(h.amount))}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{h.payment_status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="empty sm"><h3>No charges yet</h3><p>Your GymFlow payments appear here once your subscription starts.</p></div>
           )}

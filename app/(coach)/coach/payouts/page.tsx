@@ -59,22 +59,24 @@ export default async function CoachPayouts() {
         {(payouts ?? []).length === 0 ? (
           <div className="empty"><div className="eic"><Banknote strokeWidth={1.6} /></div><h3>No payouts yet</h3><p>Your weekly payouts will show here.</p></div>
         ) : (
-          <table className="tbl">
-            <thead><tr><th>Requested</th><th>Notes</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
-            <tbody>
-              {(payouts ?? []).map((p) => {
-                const st = STATUS[p.status] ?? ['gf-badge-neutral', p.status];
-                return (
-                  <tr key={p.id}>
-                    <td>{fmtDate(p.requested_at)}</td>
-                    <td style={{ color: 'var(--gf-text-secondary)' }}>{p.notes ?? '—'}</td>
-                    <td><span className={`gf-badge ${st[0]}`}>{st[1]}</span></td>
-                    <td className="naira" style={{ textAlign: 'right' }}>{fmtNaira(Number(p.amount ?? 0))}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="tbl-scroll">
+            <table className="tbl">
+              <thead><tr><th>Requested</th><th>Notes</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
+              <tbody>
+                {(payouts ?? []).map((p) => {
+                  const st = STATUS[p.status] ?? ['gf-badge-neutral', p.status];
+                  return (
+                    <tr key={p.id}>
+                      <td>{fmtDate(p.requested_at)}</td>
+                      <td style={{ color: 'var(--gf-text-secondary)' }}>{p.notes ?? '—'}</td>
+                      <td><span className={`gf-badge ${st[0]}`}>{st[1]}</span></td>
+                      <td className="naira" style={{ textAlign: 'right' }}>{fmtNaira(Number(p.amount ?? 0))}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </>
