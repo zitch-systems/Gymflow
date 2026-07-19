@@ -14,6 +14,15 @@ export const metadata = {
     title: 'Features · GymFlow',
     description: 'Everything to run a modern gym — members, payments, classes and operations in one mobile-first platform.',
     url: '/features',
+    // Per-segment openGraph replaces (not merges) the root layout's — re-declare
+    // the root OG image so it isn't dropped for this page.
+    images: [{ url: '/images/og.png', width: 1200, height: 630, alt: 'GymFlow' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Features · GymFlow',
+    description: 'Everything to run a modern gym — members, payments, classes and operations in one mobile-first platform.',
+    images: ['/images/og.png'],
   },
 };
 

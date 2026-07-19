@@ -11,6 +11,15 @@ export const metadata = {
     title: 'About · GymFlow',
     description: 'Built in Lagos, for the gyms that built us. GymFlow makes gym software that feels local.',
     url: '/about',
+    // Per-segment openGraph replaces (not merges) the root layout's — re-declare
+    // the root OG image so it isn't dropped for this page.
+    images: [{ url: '/images/og.png', width: 1200, height: 630, alt: 'GymFlow' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'About · GymFlow',
+    description: 'Built in Lagos, for the gyms that built us. GymFlow makes gym software that feels local.',
+    images: ['/images/og.png'],
   },
 };
 
