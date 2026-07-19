@@ -13,6 +13,8 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Stable id tying the server error to the one input it can be about (WCAG 3.3.1/4.1.2).
+  const errorId = 'forgot-password-error';
 
   async function handle(formData: FormData) {
     setPending(true);
@@ -48,22 +50,22 @@ export default function ForgotPasswordPage() {
             <>
               <h1>Forgot your password?</h1>
               <p className="lede">No worries — enter the email on your GymFlow account and we&apos;ll send a link to reset it.</p>
-              <form action={handle}>
+              <form action={handle} aria-busy={pending}>
                 <div className="field gf-form-group">
                   <label className="gf-form-label">Email</label>
                   <div className="gf-input-group">
                     <Mail className="gf-input-icon" strokeWidth={1.75} />
-                    <input className="gf-input" type="email" name="email" placeholder="you@yourgym.ng" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <input className="gf-input" type="email" name="email" placeholder="you@yourgym.ng" required value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={err ? true : undefined} aria-describedby={err ? errorId : undefined} />
                   </div>
                 </div>
-                {err && <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '-4px 0 14px' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
+                {err && <p id={errorId} role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '-4px 0 14px' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
                 <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={pending}>
                   {pending ? 'Sending…' : 'Send reset link'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
                 </button>
               </form>
             </>
           ) : (
-            <div className="auth-done">
+            <div className="auth-done" role="status">
               <div className="ring"><Mail strokeWidth={1.75} /></div>
               <h1>Check your email</h1>
               <p className="lede">We sent a password reset link to <span className="em">{email || 'your email'}</span>. It expires in 30 minutes.</p>

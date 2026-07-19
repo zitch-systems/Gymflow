@@ -14,9 +14,12 @@ type P = {
 
 export function MemberProfileForm({ profile }: { profile: P }) {
   const [state, action, pending] = useActionState(updateMemberProfile, INIT);
+  // The action's only client-side validation message is about full_name (a
+  // Supabase failure would be generic) — describedby/invalid go on that field.
+  const errorId = 'profile-form-error';
   return (
-    <form action={action} className="pform">
-      <label className="pf">Full name<input className="gf-input" name="full_name" defaultValue={profile.full_name ?? ''} required /></label>
+    <form action={action} className="pform" aria-busy={pending}>
+      <label className="pf">Full name<input className="gf-input" name="full_name" defaultValue={profile.full_name ?? ''} required aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? errorId : undefined} /></label>
       <label className="pf">Phone<input className="gf-input" name="phone" defaultValue={profile.phone ?? ''} placeholder="0801 234 5678" /></label>
       <div className="pf-row">
         <label className="pf">Date of birth<input className="gf-input" type="date" name="date_of_birth" defaultValue={profile.date_of_birth ?? ''} /></label>
@@ -31,7 +34,7 @@ export function MemberProfileForm({ profile }: { profile: P }) {
         <label className="pf">Emergency contact<input className="gf-input" name="emergency_contact_name" defaultValue={profile.emergency_contact_name ?? ''} /></label>
         <label className="pf">Emergency phone<input className="gf-input" name="emergency_contact_phone" defaultValue={profile.emergency_contact_phone ?? ''} /></label>
       </div>
-      {state.error && <p className="pf-err"><AlertCircle size={15} strokeWidth={2} /> {state.error}</p>}
+      {state.error && <p id={errorId} role="alert" className="pf-err"><AlertCircle size={15} strokeWidth={2} /> {state.error}</p>}
       <div className="pf-actions">
         <button className="gf-btn gf-btn-primary gf-btn-full" disabled={pending} type="submit"><Save size={16} strokeWidth={2} /> {pending ? 'Saving…' : 'Save changes'}</button>
         <Link href="/dashboard/profile" className="gf-btn gf-btn-secondary gf-btn-full" style={{ textDecoration: 'none' }}>Cancel</Link>
