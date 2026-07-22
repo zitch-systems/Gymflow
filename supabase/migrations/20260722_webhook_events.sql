@@ -22,6 +22,9 @@ create table if not exists public.webhook_events (
 
 alter table public.webhook_events enable row level security;
 revoke all on public.webhook_events from anon, authenticated;
+-- Explicit rather than relying on default privileges: the webhook route and
+-- cron GC are the only writers, both service-role.
+grant all on public.webhook_events to service_role;
 
 create index if not exists idx_webhook_events_received_at
   on public.webhook_events (received_at);
