@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
 import { Check, Wallet } from 'lucide-react';
 import { PLATFORM_PLANS, PLAN_TIERS } from '@/lib/platform-plans';
+import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 
 export const metadata = {
   title: 'Pricing',
@@ -28,8 +29,6 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
 // Product + per-tier Offer structured data, generated from the real plan
 // catalog (lib/platform-plans.ts — amounts in kobo, Paystack is the source of
 // truth) so this can never drift from the displayed/charged prices below.
-// This page renders no FAQ content, so no FAQPage JSON-LD is emitted here
-// (see AUDIT.md §6 open item).
 const PRICING_LD = JSON.stringify({
   '@context': 'https://schema.org',
   '@type': 'Product',
@@ -56,28 +55,81 @@ const PRICING_LD = JSON.stringify({
 // lib/platform-plans.ts — developer-authored, not user input — so there's no
 // "</script>"-breakout risk to defend against and no '<' escaping is needed.
 
-const TIERS = [
-  {
-    name: 'Starter', amount: '₦13,999', period: '/mo', tagline: 'For single-location studios',
+// Display-only per-tier extras (feature bullets, CTA emphasis). Name, price
+// and tagline come from PLATFORM_PLANS so the cards, the JSON-LD Offers and
+// the charged Paystack amount can never drift apart.
+const TIER_DISPLAY: Record<(typeof PLAN_TIERS)[number], { features: string[]; popular?: boolean; variant: 'primary' | 'secondary' }> = {
+  starter: {
     features: ['Unlimited members', 'QR check-in', 'Paystack subscriptions', 'Email reminders'],
-    cta: 'Choose Starter', variant: 'secondary' as const,
+    variant: 'secondary',
   },
-  {
-    name: 'Growth', amount: '₦37,999', period: '/mo', tagline: 'For growing gyms & classes', popular: true,
+  growth: {
     features: ['Everything in Starter', 'Class scheduling + waitlists', 'WhatsApp reminders', 'Live analytics + exports'],
-    cta: 'Choose Growth', variant: 'primary' as const,
+    popular: true, variant: 'primary',
+  },
+  scale: {
+    features: ['Everything in Growth', 'Multi-gym & staff roles', 'Instructor payouts', 'Priority support'],
+    variant: 'secondary',
+  },
+};
+
+const TIERS = PLAN_TIERS.map((tier) => {
+  const plan = PLATFORM_PLANS[tier];
+  const d = TIER_DISPLAY[tier];
+  return {
+    name: plan.name,
+    amount: `₦${(plan.amountKobo / 100).toLocaleString('en-NG')}`,
+    period: '/mo',
+    tagline: plan.tagline,
+    features: d.features,
+    popular: d.popular,
+    variant: d.variant,
+    cta: `Choose ${plan.name}`,
+  };
+});
+
+// Visible FAQ content + matching FAQPage JSON-LD (Google requires the Q&A to
+// be rendered on the page for FAQ rich results — both come from this one
+// constant so they can't diverge).
+const FAQS = [
+  {
+    q: 'Can I cancel anytime?',
+    a: 'Yes. Plans are billed monthly through Paystack with no long-term contract — cancel from Billing and your access runs to the end of the paid period.',
   },
   {
-    name: 'Scale', amount: '₦119,999', period: '/mo', tagline: 'For multi-location operators',
-    features: ['Everything in Growth', 'Multi-gym & staff roles', 'Instructor payouts', 'Priority support'],
-    cta: 'Choose Scale', variant: 'secondary' as const,
+    q: 'Do you charge per member?',
+    a: 'No. Every plan includes unlimited members; the price only changes with the feature tier you pick.',
+  },
+  {
+    q: 'How do my members pay?',
+    a: 'Members pay by card, bank transfer or USSD through Paystack, and the money settles straight to your gym’s own bank account via your Paystack subaccount.',
+  },
+  {
+    q: 'Are there setup fees?',
+    a: 'None. You can create your gym, get your branded subdomain and start checking members in the same afternoon.',
+  },
+  {
+    q: 'Can I switch plans later?',
+    a: 'Yes — upgrade or downgrade from Billing at any time; the new tier applies from your next billing cycle.',
   },
 ];
+
+const FAQ_LD = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQS.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+});
 
 export default function PricingPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: PRICING_LD }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: FAQ_LD }} />
+      <BreadcrumbLd name="Pricing" path="/pricing" />
       <MarketingNav cur="pricing" />
 
       <main id="main-content">
@@ -108,6 +160,18 @@ export default function PricingPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="blk" style={{ paddingTop: 0 }} aria-labelledby="pricing-faq-h">
+        <div className="wrap" style={{ maxWidth: 760 }}>
+          <h2 id="pricing-faq-h" style={{ textAlign: 'center', marginBottom: 24 }}>Pricing questions</h2>
+          {FAQS.map((f) => (
+            <details key={f.q} style={{ borderBottom: '1px solid var(--gf-border)', padding: '14px 4px' }}>
+              <summary style={{ cursor: 'pointer', fontFamily: 'var(--gf-font-display)', fontWeight: 700 }}>{f.q}</summary>
+              <p style={{ margin: '10px 0 4px', color: 'var(--gf-text-secondary)', lineHeight: 1.55 }}>{f.a}</p>
+            </details>
+          ))}
         </div>
       </section>
 

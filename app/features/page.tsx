@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
+import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 import {
   Sparkles, ScanLine, UserSearch, BellRing, Repeat, Receipt, Banknote,
   CalendarDays, Hourglass, MessageCircle, Users, BarChart3, Smartphone,
@@ -79,6 +80,7 @@ const CATS: Cat[] = [
 export default function FeaturesPage() {
   return (
     <>
+      <BreadcrumbLd name="Features" path="/features" />
       <MarketingNav cur="features" />
 
       <main id="main-content">

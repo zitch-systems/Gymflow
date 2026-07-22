@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
+import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 import { Building2, Zap, Feather, ShieldCheck } from 'lucide-react';
 
 export const metadata = {
@@ -46,6 +47,7 @@ const TEAM = [
 export default function AboutPage() {
   return (
     <>
+      <BreadcrumbLd name="About" path="/about" />
       <MarketingNav cur="about" />
 
       <main id="main-content">

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
+import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 import { Image as ImageIcon } from 'lucide-react';
 
 export const metadata = {
@@ -37,6 +38,7 @@ const SHOTS = [
 export default function GalleryPage() {
   return (
     <>
+      <BreadcrumbLd name="Gallery" path="/gallery" />
       <MarketingNav />
 
       <main id="main-content">

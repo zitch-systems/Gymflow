@@ -1,4 +1,5 @@
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
+import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 import { Scale, Lock, FileText, ClipboardCheck, ShieldCheck, Info } from 'lucide-react';
 
 export const metadata = {
@@ -24,6 +25,7 @@ export const metadata = {
 export default function LegalPage() {
   return (
     <>
+      <BreadcrumbLd name="Legal" path="/legal" />
       <MarketingNav />
 
       <main id="main-content">

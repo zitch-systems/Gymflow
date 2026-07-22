@@ -1,4 +1,5 @@
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
+import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 import { MessageSquare, MessageCircle, Mail, Phone, MapPin } from 'lucide-react';
 import { ContactForm } from '@/components/marketing/contact-form';
 
@@ -25,6 +26,7 @@ export const metadata = {
 export default function ContactPage() {
   return (
     <>
+      <BreadcrumbLd name="Contact" path="/contact" />
       <MarketingNav cur="contact" />
 
       <main id="main-content">

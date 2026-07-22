@@ -122,7 +122,7 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
         )}
       </aside>
 
-      <main className="formside" style={brandStyle}>
+      <main id="main-content" className="formside" style={brandStyle}>
         <div className="formcard">
           {memberMode ? (
             <span className="brand" style={{ display: 'inline-flex' }}>
@@ -155,13 +155,27 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
           )}
 
           {!memberMode && (
-            <div className="tabs" role="tablist">
-              <button className={!up ? 'on' : undefined} onClick={() => setMode('in')} role="tab" aria-selected={!up} type="button">Sign in</button>
-              <button className={up ? 'on' : undefined} onClick={() => setMode('up')} role="tab" aria-selected={up} type="button">Create gym</button>
+            // Complete WAI-ARIA tabs pattern: each tab controls the form panel
+            // below, only the active tab is in the tab order, and Left/Right
+            // arrows move between tabs (previously tabs existed with no panel
+            // linkage or keyboard model — a half-implemented pattern).
+            <div
+              className="tabs" role="tablist" aria-label="Sign in or create a gym"
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                e.preventDefault();
+                const next = up ? 'in' : 'up';
+                setMode(next);
+                const idx = next === 'in' ? 0 : 1;
+                (e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[idx])?.focus();
+              }}
+            >
+              <button id="auth-tab-in" className={!up ? 'on' : undefined} onClick={() => setMode('in')} role="tab" aria-selected={!up} aria-controls="auth-panel" tabIndex={!up ? 0 : -1} type="button">Sign in</button>
+              <button id="auth-tab-up" className={up ? 'on' : undefined} onClick={() => setMode('up')} role="tab" aria-selected={up} aria-controls="auth-panel" tabIndex={up ? 0 : -1} type="button">Create gym</button>
             </div>
           )}
 
-          <form action={up ? upAction : inAction} aria-busy={pending}>
+          <form action={up ? upAction : inAction} aria-busy={pending} {...(!memberMode ? { id: 'auth-panel', role: 'tabpanel' as const, 'aria-labelledby': up ? 'auth-tab-up' : 'auth-tab-in' } : {})}>
             {up && (
               <div className="field gf-form-group">
                 <label className="gf-form-label">Gym name</label>
