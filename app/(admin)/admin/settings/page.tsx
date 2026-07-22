@@ -105,6 +105,12 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
         notif_payment_receipts: (gym as { notif_payment_receipts?: boolean }).notif_payment_receipts !== false,
       }}
       staffCount={count ?? 0}
+      providers={{
+        // Real configuration state — the client badge renders exactly this.
+        paystack: Boolean(process.env.PAYSTACK_SECRET_KEY),
+        termii: Boolean(process.env.TERMII_API_KEY),
+        resend: Boolean(process.env.RESEND_API_KEY),
+      }}
     />
   );
 }

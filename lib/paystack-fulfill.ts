@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { logAudit } from '@/lib/audit';
+import { deliverReceipt, type NotifyGym } from '@/lib/notify';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
 // `permanent` marks a failure that won't succeed on retry (e.g. unusable
@@ -123,5 +124,21 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
     title: 'Payment received', body: `₦${(d.amountKobo / 100).toLocaleString('en-NG')} received — membership renewed.`,
   });
   if (notifErr) console.warn(`[fulfill] receipt notification failed for ${d.reference}: ${notifErr.message}`); // non-critical
+
+  // Email receipt (respects the gym's payment-receipts toggle; inert without
+  // RESEND_API_KEY). Best-effort like the in-app row — never fails fulfilment.
+  try {
+    const [{ data: contact }, { data: gymRow }] = await Promise.all([
+      admin.from('profiles').select('email, phone, full_name').eq('id', memberId).maybeSingle(),
+      admin.from('gyms').select('id, name, subscription_plan, notif_payment_receipts').eq('id', gymId).maybeSingle(),
+    ]);
+    if (contact && gymRow) {
+      await deliverReceipt(
+        gymRow as unknown as NotifyGym,
+        { email: contact.email, phone: contact.phone, fullName: contact.full_name },
+        { amountNaira: d.amountKobo / 100, endDate: endIso },
+      );
+    }
+  } catch { /* delivery is a bonus channel */ }
   return { ok: true, created: true };
 }
