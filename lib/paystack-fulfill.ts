@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { logAudit } from '@/lib/audit';
 import { deliverReceipt, type NotifyGym } from '@/lib/notify';
+import { captureServerEvent } from '@/lib/server-error';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
 // `permanent` marks a failure that won't succeed on retry (e.g. unusable
@@ -117,6 +118,18 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
         delta_kobo: d.amountKobo - planPriceKobo,
       },
     });
+    // Underpayment is the one accepted-by-design fraud vector — an audit row
+    // alone is passive. Page it (inert without SENTRY_DSN) when the charge
+    // settled for LESS than the plan price, so a pattern gets noticed.
+    if (d.amountKobo < planPriceKobo) {
+      void captureServerEvent('underpayment accepted on member charge', {
+        paystack_reference: d.reference,
+        gym_id: gymId,
+        plan_id: planId,
+        expected_kobo: planPriceKobo,
+        received_kobo: d.amountKobo,
+      });
+    }
   }
 
   const { error: notifErr } = await admin.from('notifications').insert({

@@ -22,13 +22,25 @@ export default async function AdminAnalytics() {
   const d30 = new Date(now - 30 * 86_400_000).toISOString();
   const d7 = new Date(now - 7 * 86_400_000);
 
-  const [{ data: pay30 }, { data: checkins }, { data: activeSubs }, { data: plans }, { count: members }] = await Promise.all([
+  const [{ data: pay30 }, { data: checkins }, { data: activeSubs }, { data: plans }, { count: members }, { data: lapsed30 }] = await Promise.all([
     supabase.from('payments').select('amount, payment_status, payment_date').eq('gym_id', gym.id).eq('payment_status', 'successful').gte('payment_date', new Date(now - 42 * 86_400_000).toISOString()),
     supabase.from('check_ins').select('checked_in_at').eq('gym_id', gym.id).gte('checked_in_at', d7.toISOString()),
-    supabase.from('member_subscriptions').select('plan_id').eq('gym_id', gym.id).eq('status', 'active'),
+    supabase.from('member_subscriptions').select('plan_id, member_id').eq('gym_id', gym.id).eq('status', 'active'),
     supabase.from('membership_plans').select('id, name').eq('gym_id', gym.id),
     supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('is_active', true),
+    // Churn inputs: subscriptions that ended in the last 30 days. Members who
+    // re-bought have a NEW active row, so they're filtered back out below.
+    supabase.from('member_subscriptions').select('member_id').eq('gym_id', gym.id).in('status', ['expired', 'cancelled']).gte('end_date', d30.slice(0, 10)).limit(2000),
   ]);
+
+  // 30-day churn: members whose subscription lapsed in the window and who have
+  // no active subscription now, over the membership base they lapsed from.
+  const activeMemberIds = new Set((activeSubs ?? []).map((s) => s.member_id).filter(Boolean) as string[]);
+  const churned = new Set(
+    (lapsed30 ?? []).map((s) => s.member_id).filter((id): id is string => Boolean(id) && !activeMemberIds.has(id as string)),
+  ).size;
+  const churnBase = activeMemberIds.size + churned;
+  const churnPct = churnBase ? Math.round((churned / churnBase) * 100) : 0;
 
   const revenue30 = (pay30 ?? []).filter((p) => (p.payment_date ?? '') >= d30).reduce((s, p) => s + Number(p.amount ?? 0), 0);
 
@@ -68,7 +80,10 @@ export default async function AdminAnalytics() {
     { icon: Wallet, fg: '#a8d92e', bg: '#c6f24e1f', val: fmtNaira(revenue30), lbl: 'Revenue (30d)' },
     { icon: ScanLine, fg: '#4080ff', bg: '#4080ff1f', val: String((checkins ?? []).length), lbl: 'Check-ins (7d)' },
     { icon: Users, fg: '#11d18b', bg: '#11d18b1f', val: String(members ?? 0), lbl: 'Active members' },
-    { icon: CreditCard, fg: '#ffb020', bg: '#ffb0201f', val: String(totalSubs), lbl: 'Active subs' },
+    // Churn replaces the old "Active subs" tile — that figure is already the
+    // plan-mix donut's total, while churn had no home despite being a headline
+    // marketing claim ("track revenue, churn & attendance").
+    { icon: CreditCard, fg: '#ffb020', bg: '#ffb0201f', val: `${churnPct}%`, lbl: `Churn (30d) · ${churned} lapsed` },
   ];
 
   return (

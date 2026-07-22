@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { resolveAccount, type ResolveResult } from '@/lib/paystack';
 import { alertInstructorBankChanged } from '@/lib/payout-alerts';
 import { rateLimit } from '@/lib/rate-limit';
+import { storagePathFromPublicUrl } from '@/lib/format';
 
 export type MarkResult = { ok: boolean; error: string | null };
 
@@ -131,11 +132,18 @@ export async function uploadAvatar(_prev: MarkResult, formData: FormData): Promi
     const supabase = await createClient();
     const ext = ((file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
     const path = `${gym.id}/avatars/${user.id}-${Date.now()}.${ext}`;
+    // Snapshot the current avatar BEFORE overwriting the pointer, so the old
+    // object can be deleted (timestamped paths never overwrite → orphans).
+    const { data: prevProfile } = await supabase.from('profiles').select('avatar_url').eq('id', user.id).maybeSingle();
     const { error: upErr } = await supabase.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
     if (upErr) return { ok: false, error: upErr.message };
     const { data: pub } = supabase.storage.from('gym-assets').getPublicUrl(path);
     const { error } = await supabase.from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id);
     if (error) return { ok: false, error: error.message };
+    const oldPath = storagePathFromPublicUrl(prevProfile?.avatar_url);
+    if (oldPath && oldPath !== path) {
+      try { await supabase.storage.from('gym-assets').remove([oldPath]); } catch { /* orphan tolerable */ }
+    }
     revalidatePath('/coach/settings');
     revalidatePath('/coach');
     return { ok: true, error: null };

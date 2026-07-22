@@ -7,6 +7,7 @@ import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
+import { storagePathFromPublicUrl } from '@/lib/format';
 
 export type FState = { ok: boolean; error: string | null };
 
@@ -74,11 +75,22 @@ export async function saveEquipment(_prev: FState, fd: FormData): Promise<FState
       patch.photo_url = null;
     }
 
+    // Photo being replaced or removed on an existing row → capture the old
+    // object path first so it can be deleted (timestamped paths → orphans).
+    let oldPhotoPath: string | null = null;
+    if (id && 'photo_url' in patch) {
+      const { data: prev } = await supabase.from('equipment').select('photo_url').eq('id', id).eq('gym_id', gym.id).maybeSingle();
+      oldPhotoPath = storagePathFromPublicUrl(prev?.photo_url);
+    }
+
     const payload = { ...row, ...patch };
     const { error } = id
       ? await supabase.from('equipment').update(payload).eq('id', id).eq('gym_id', gym.id)
       : await supabase.from('equipment').insert({ gym_id: gym.id, ...payload });
     if (error) return { ok: false, error: error.message };
+    if (oldPhotoPath && oldPhotoPath !== storagePathFromPublicUrl(patch.photo_url)) {
+      try { await storage.storage.from('gym-assets').remove([oldPhotoPath]); } catch { /* orphan tolerable */ }
+    }
     logAudit({ action: id ? 'equipment_updated' : 'equipment_created', table: 'equipment', actorId: user.id, gymId: gym.id, recordId: id, values: { name, status } });
   } catch (e) {
     return { ok: false, error: (e as Error).message };
