@@ -94,6 +94,16 @@ async function findSub(admin: Admin, subCode: string | null, custCode: string | 
   return null;
 }
 
+// Stale-event guard for status-flip events. findSub's customer_code fallback
+// returns the member's LATEST subscription row — so a delayed or replayed
+// disable/dunning event for an OLD (superseded) subscription would otherwise
+// land on the member's current one. If the event names a subscription and the
+// resolved row is bound to a DIFFERENT one, the event is about a subscription
+// we no longer track: no-op.
+function isStaleFor(sub: { paystack_subscription_code: string | null }, eventSubCode: string | null): boolean {
+  return Boolean(eventSubCode && sub.paystack_subscription_code && sub.paystack_subscription_code !== eventSubCode);
+}
+
 // subscription.create: cache the codes so future recurring events resolve back
 // to this member and cancel calls have what Paystack needs.
 async function onSubscriptionCreate(admin: Admin, data: Json): Promise<Result> {
@@ -192,6 +202,7 @@ async function onPaymentFailed(admin: Admin, data: Json): Promise<Result> {
   const customer = (data.customer as Json) ?? {};
   const sub = await findSub(admin, subCode, str(customer.customer_code), null, null);
   if (!sub) return { ok: true, handled: true };
+  if (isStaleFor(sub, subCode)) return { ok: true, handled: true };
 
   await admin.from('member_subscriptions').update({
     status: 'past_due', updated_at: new Date().toISOString(),
@@ -220,6 +231,7 @@ async function onSubscriptionEnd(admin: Admin, data: Json): Promise<Result> {
   const customer = (data.customer as Json) ?? {};
   const sub = await findSub(admin, subCode, str(customer.customer_code), null, null);
   if (!sub) return { ok: true, handled: true };
+  if (isStaleFor(sub, subCode)) return { ok: true, handled: true };
 
   const stillPaid = sub.end_date && new Date(sub.end_date) >= new Date();
   const newStatus = stillPaid ? 'active' : 'expired';

@@ -344,6 +344,115 @@ export async function resolveAccount(accountNumber: string, bankCode: string): P
   }
 }
 
+export type PaystackTxn = {
+  reference: string;
+  status: string;
+  amountKobo: number;
+  paidAt: string | null;
+  channel: string | null;
+};
+
+export type ListTransactionsResult =
+  | { ok: true; transactions: PaystackTxn[] }
+  | { ok: false; error: string };
+
+// List transactions from Paystack — the authoritative charge record. Used by
+// the daily reconciliation pass to catch charges whose charge.success webhook
+// was dropped (they exist at Paystack but not in payments/platform_payments).
+// Pages through up to `maxPages` × 200 rows; date bounds keep the sweep small.
+export async function listTransactions(params: {
+  from: Date;
+  to?: Date;
+  status?: 'success' | 'failed' | 'abandoned';
+  maxPages?: number;
+}): Promise<ListTransactionsResult> {
+  try {
+    const out: PaystackTxn[] = [];
+    const maxPages = params.maxPages ?? 5;
+    for (let page = 1; page <= maxPages; page++) {
+      const qs = new URLSearchParams({
+        perPage: '200',
+        page: String(page),
+        from: params.from.toISOString(),
+        ...(params.to ? { to: params.to.toISOString() } : {}),
+        ...(params.status ? { status: params.status } : {}),
+      });
+      const res = await fetch(`${PAYSTACK_BASE}/transaction?${qs}`, {
+        headers: { Authorization: `Bearer ${secret()}` },
+        cache: 'no-store',
+      });
+      const json = await res.json();
+      if (!res.ok || !json.status || !Array.isArray(json.data)) {
+        return { ok: false, error: json.message ?? 'Transaction list failed' };
+      }
+      for (const t of json.data) {
+        if (!t?.reference) continue;
+        out.push({
+          reference: String(t.reference),
+          status: String(t.status ?? ''),
+          amountKobo: Number(t.amount ?? 0),
+          paidAt: t.paid_at ? String(t.paid_at) : null,
+          channel: t.channel ? String(t.channel) : null,
+        });
+      }
+      if (json.data.length < 200) break; // last page
+    }
+    return { ok: true, transactions: out };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export type TransferVerifyResult =
+  | { ok: true; status: string; transferCode: string | null; reason: string | null }
+  | { ok: false; error: string };
+
+// Fetch a transfer's current status by its transfer_code (stored on the payout
+// row at initiation). Payout completion normally arrives via the
+// transfer.success webhook; when that delivery is dropped the payout sits in
+// 'approved' forever (and blocks the instructor's next request via the
+// one-open-payout guard). Reconciliation polls this to resolve stuck rows.
+export async function getTransfer(codeOrId: string): Promise<TransferVerifyResult> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/transfer/${encodeURIComponent(codeOrId)}`, {
+      headers: { Authorization: `Bearer ${secret()}` },
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Transfer fetch failed' };
+    const d = json.data ?? {};
+    return {
+      ok: true,
+      status: String(d.status ?? ''),
+      transferCode: d.transfer_code ? String(d.transfer_code) : null,
+      reason: d.reason ? String(d.reason) : null,
+    };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export type BalanceResult = { ok: true; balanceKobo: number } | { ok: false; error: string };
+
+// Available NGN balance on the Paystack account. Lets staff see "top up your
+// Paystack balance" instead of a generic transfer failure when paying payouts.
+export async function getBalance(): Promise<BalanceResult> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/balance`, {
+      headers: { Authorization: `Bearer ${secret()}` },
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status || !Array.isArray(json.data)) {
+      return { ok: false, error: json.message ?? 'Balance fetch failed' };
+    }
+    const ngn = json.data.find((b: { currency?: string }) => b?.currency === 'NGN');
+    return { ok: true, balanceKobo: Number(ngn?.balance ?? 0) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export type VerifyResult =
   | { ok: true; status: string; amountKobo: number; reference: string; metadata: Record<string, unknown>; channel: string | null }
   | { ok: false; error: string };

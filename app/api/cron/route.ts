@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'crypto';
 import { createClient as createSb } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { runReconciliation, type ReconcileSummary } from '@/lib/reconcile';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -118,12 +119,21 @@ export async function GET(req: Request) {
     }
   }
 
+  // Paystack ↔ DB reconciliation: flag charges whose webhook was dropped and
+  // resolve payouts stuck in 'approved'. No-ops without PAYSTACK_SECRET_KEY.
+  let reconciliation: ReconcileSummary | null = null;
+  if (admin) reconciliation = await runReconciliation();
+
   // Housekeeping: rate-limit windows are minutes-to-hours; anything older
-  // than 2 days is dead weight. Best-effort.
+  // than 2 days is dead weight. Webhook replay-ledger rows matter only while
+  // Paystack could still retry the same body — 30 days is far beyond that.
+  // Best-effort.
   if (admin) {
     const stale = new Date(Date.now() - 2 * 86_400_000).toISOString();
     await admin.from('rate_limits').delete().lt('window_start', stale);
+    const ledgerStale = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    await admin.from('webhook_events' as never).delete().lt('received_at', ledgerStale);
   }
 
-  return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated, freezesResumed, staleVisitsClosed });
+  return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated, freezesResumed, staleVisitsClosed, reconciliation });
 }

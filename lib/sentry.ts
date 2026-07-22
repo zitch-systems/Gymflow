@@ -16,6 +16,7 @@ type SentryContext = {
   method?: string;
   routeType?: string;
   level?: 'error' | 'fatal' | 'warning';
+  extra?: Record<string, unknown>;
 };
 
 // DSN shape: https://<publicKey>@<host>/<projectId>
@@ -84,6 +85,7 @@ export async function forwardToSentry(err: unknown, ctx: SentryContext = {}): Pr
       transaction: ctx.path,
       request: ctx.path ? { url: ctx.path, method: ctx.method } : undefined,
       tags: ctx.routeType ? { route_type: ctx.routeType } : undefined,
+      extra: ctx.extra,
       exception: { values: [{ type: e.name, value: e.message, stacktrace: framesFromStack(e.stack) }] },
     };
 

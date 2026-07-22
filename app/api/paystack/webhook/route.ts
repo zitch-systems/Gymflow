@@ -1,42 +1,29 @@
-import { createHmac, timingSafeEqual } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { fulfillCharge } from '@/lib/paystack-fulfill';
 import { isPlatformEvent, handlePlatformEvent } from '@/lib/platform-fulfill';
 import { handleRefundEvent, isRefundEvent } from '@/lib/paystack-refund';
 import { isMemberSubEvent, handleMemberSubEvent } from '@/lib/member-sub-fulfill';
 import { isTransferEvent, handleTransferEvent } from '@/lib/transfer-fulfill';
+import { verifyPaystackSignature, webhookBodyHash } from '@/lib/webhook-verify';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { captureServerEvent } from '@/lib/server-error';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Paystack webhook. Verifies the x-paystack-signature (HMAC-SHA512 of the raw
-// body with the secret key), then routes the event:
-//   • PLATFORM (gym → GymFlow) subscription events → lib/platform-fulfill
-//   • MEMBER (member → gym) one-off charges → lib/paystack-fulfill
-// Both fulfillment paths are idempotent and use the service-role client.
-export async function POST(req: NextRequest) {
-  const secret = process.env.PAYSTACK_SECRET_KEY;
-  if (!secret) return NextResponse.json({ error: 'not configured' }, { status: 503 });
+type Json = Record<string, unknown>;
 
-  const raw = await req.text();
-  const signature = req.headers.get('x-paystack-signature') ?? '';
-  const expected = createHmac('sha512', secret).update(raw).digest('hex');
-  // Constant-time compare to avoid leaking the signature byte-by-byte via timing.
-  const sigBuf = Buffer.from(signature);
-  const expBuf = Buffer.from(expected);
-  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
-    return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
-  }
-
-  const event = JSON.parse(raw);
-
+// Route the verified event to its fulfillment module. Extracted so the replay
+// ledger can wrap the whole chain: only a 200 ("we're done with this body")
+// records the hash; a 500 leaves no row so Paystack's retry reprocesses.
+async function dispatch(event: Json): Promise<NextResponse> {
   // Refunds & lost disputes → flip the corresponding payment row's status to
   // 'refunded' (either member or platform table) and audit-log. Handled BEFORE
   // isPlatformEvent so a member refund isn't misclassified.
   if (isRefundEvent(event)) {
     const result = await handleRefundEvent(event);
     if (!result.ok) {
-      console.error(`[paystack/webhook] refund ${event?.event} failed: ${result.error}`);
+      logFailure('refund', event, result.error);
       if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
     }
     return NextResponse.json({ received: true });
@@ -47,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (isTransferEvent(event)) {
     const result = await handleTransferEvent(event);
     if (!result.ok) {
-      console.error(`[paystack/webhook] transfer ${event?.event} failed: ${result.error}`);
+      logFailure('transfer', event, result.error);
       if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
     }
     return NextResponse.json({ received: true });
@@ -60,7 +47,7 @@ export async function POST(req: NextRequest) {
   if (await isMemberSubEvent(event)) {
     const result = await handleMemberSubEvent(event);
     if (!result.ok) {
-      console.error(`[paystack/webhook] member sub ${event?.event} failed: ${result.error}`);
+      logFailure('member sub', event, result.error);
       if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
     }
     return NextResponse.json({ received: true });
@@ -70,7 +57,7 @@ export async function POST(req: NextRequest) {
   if (isPlatformEvent(event)) {
     const result = await handlePlatformEvent(event);
     if (!result.ok) {
-      console.error(`[paystack/webhook] platform ${event?.event} failed: ${result.error}`);
+      logFailure('platform', event, result.error);
       if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
     }
     return NextResponse.json({ received: true });
@@ -79,20 +66,80 @@ export async function POST(req: NextRequest) {
   // Member → gym membership charges.
   if (event?.event !== 'charge.success') return NextResponse.json({ received: true });
 
-  const d = event.data ?? {};
+  const d = (event.data as Json) ?? {};
   const result = await fulfillCharge({
-    reference: d.reference,
+    reference: d.reference as string,
     amountKobo: Number(d.amount ?? 0),
-    channel: d.channel ?? null,
-    metadata: d.metadata ?? {},
+    channel: (d.channel as string) ?? null,
+    metadata: (d.metadata as Json) ?? {},
   });
 
   if (!result.ok) {
-    console.error(`[paystack/webhook] fulfill failed for ${d.reference}: ${result.error}`);
+    logFailure('fulfill', event, result.error);
     // Transient failures (DB/config) → 500 so Paystack retries and the charge
     // isn't silently lost. Permanent ones (unusable metadata) won't improve on
     // retry, so ack to stop the resends.
     if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
   }
   return NextResponse.json({ received: true });
+}
+
+// Fulfillment failures are money-path failures: console for Vercel logs plus a
+// Sentry event (inert without SENTRY_DSN) so they page instead of scrolling by.
+function logFailure(flow: string, event: Json, error?: string) {
+  const name = typeof event?.event === 'string' ? event.event : 'unknown';
+  console.error(`[paystack/webhook] ${flow} ${name} failed: ${error}`);
+  void captureServerEvent(`paystack webhook ${flow} failed`, { event: name, error: error ?? null });
+}
+
+// Paystack webhook. Verifies the x-paystack-signature (HMAC-SHA512 of the raw
+// body with the secret key), consults the replay ledger, then routes the event:
+//   • PLATFORM (gym → GymFlow) subscription events → lib/platform-fulfill
+//   • MEMBER (member → gym) one-off charges → lib/paystack-fulfill
+// Both fulfillment paths are idempotent and use the service-role client.
+export async function POST(req: NextRequest) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) return NextResponse.json({ error: 'not configured' }, { status: 503 });
+
+  const raw = await req.text();
+  const signature = req.headers.get('x-paystack-signature') ?? '';
+  if (!verifyPaystackSignature(raw, signature, secret)) {
+    return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
+  }
+
+  const event = JSON.parse(raw) as Json;
+
+  // Replay ledger. Charge events are internally replay-safe (UNIQUE
+  // paystack_reference), but status-flip events (subscription.disable etc.)
+  // are not — a captured signed body replayed later would re-cancel a paying
+  // account. A replay is byte-identical, so the body hash is the identity.
+  // Fail-open: if the ledger is unreachable the event still processes (the
+  // per-flow idempotency guards remain), matching the rate-limiter's posture.
+  const hash = webhookBodyHash(raw);
+  let ledger: ReturnType<typeof createAdminClient> | null = null;
+  try {
+    ledger = createAdminClient();
+    // `as never`: webhook_events postdates the generated database.types.ts
+    // (same pattern as payout_change_requests in lib/actions/gym.ts).
+    const { data: seen } = await ledger.from('webhook_events' as never).select('body_hash').eq('body_hash', hash).maybeSingle();
+    if (seen) return NextResponse.json({ received: true, replay: true });
+  } catch {
+    ledger = null;
+  }
+
+  const res = await dispatch(event);
+
+  // Only a 200 marks the body as done; a 500 must stay retryable.
+  if (res.status === 200 && ledger) {
+    try {
+      await ledger.from('webhook_events' as never).insert({
+        body_hash: hash,
+        event_name: typeof event.event === 'string' ? event.event : null,
+      } as never);
+    } catch {
+      // Best-effort: a failed ledger write only means a future replay would
+      // reprocess — and the per-flow idempotency guards absorb that.
+    }
+  }
+  return res;
 }
