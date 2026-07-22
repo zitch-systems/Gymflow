@@ -59,12 +59,16 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
 
   let results: { id: string; full_name: string | null; email: string | null }[] = [];
   if (safe) {
-    const { data: links } = await supabase.from('gym_member_links').select('member_id, user_id').eq('gym_id', gym.id).eq('is_active', true).limit(1000);
-    const mids = [...new Set((links ?? []).map((l) => l.member_id ?? l.user_id).filter(Boolean) as string[])];
-    if (mids.length) {
-      const { data: matches } = await supabase.from('profiles').select('id, full_name, email').in('id', mids).or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`).limit(10);
-      results = matches ?? [];
-    }
+    // One gym-scoped query (links !inner join + trigram-indexed ILIKE). The
+    // old two-hop version fetched up to 1000 link rows first, silently
+    // missing members beyond the cap in large gyms.
+    const { data: matches } = await supabase.from('profiles')
+      .select('id, full_name, email, gym_member_links!inner(gym_id)')
+      .eq('gym_member_links.gym_id', gym.id)
+      .eq('gym_member_links.is_active', true)
+      .or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`)
+      .limit(10);
+    results = (matches ?? []).map(({ id, full_name, email }) => ({ id, full_name, email }));
   }
 
   return (

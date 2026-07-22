@@ -53,8 +53,10 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
       .select('amount, payment_status, payment_date')
       .eq('gym_id', gym.id).gte('payment_date', monthStart.toISOString()),
     // Distinct payment methods this gym has used, to populate the filter.
-    supabase.from('payments')
-      .select('payment_method').eq('gym_id', gym.id).not('payment_method', 'is', null).limit(1000),
+    // DB-side DISTINCT via RPC (20260722_search_and_filters.sql) — the old
+    // version fetched up to 1000 payment rows just to dedupe them here.
+    // `as never`: the function postdates the generated types.
+    supabase.rpc('gym_payment_methods' as never, { p_gym: gym.id } as never),
   ]);
 
   const collected = (monthRows ?? []).filter((p) => p.payment_status === 'successful').reduce((s, p) => s + Number(p.amount ?? 0), 0);
@@ -62,8 +64,8 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
   const failed = (monthRows ?? []).filter((p) => p.payment_status !== 'successful' && p.payment_status !== 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
 
   // Method options: the distinct set the gym actually uses, plus the current
-  // selection if a URL pinned one that isn't in the recent sample.
-  const methodSet = new Set((methodRows ?? []).map((r) => r.payment_method).filter(Boolean) as string[]);
+  // selection if a URL pinned one that isn't in the set.
+  const methodSet = new Set(((methodRows ?? []) as unknown as string[]).filter(Boolean));
   if (method) methodSet.add(method);
   const methodOptions = [...methodSet].sort();
 
