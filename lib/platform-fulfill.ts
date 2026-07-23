@@ -179,6 +179,18 @@ async function setStatusBySubscription(admin: Admin, data: Json, status: 'past_d
   const customer = (data.customer as Json) ?? {};
   const gymId = await resolveGymId(admin, { subscriptionCode, customerCode: str(customer.customer_code) });
   if (!gymId) return { ok: true, handled: true };
+
+  // Stale-event guard: a disable/dunning event names the subscription it is
+  // about. If the gym has since re-subscribed, its stored code is the NEW
+  // subscription — an event carrying a DIFFERENT code is about a superseded
+  // subscription (a delayed retry or a replayed capture) and must not demote
+  // the gym's current, paid state. Events without a code (rare) pass through.
+  if (subscriptionCode) {
+    const { data: gym } = await admin.from('gyms').select('paystack_subscription_code').eq('id', gymId).maybeSingle();
+    const current = gym?.paystack_subscription_code ?? null;
+    if (current && current !== subscriptionCode) return { ok: true, handled: true };
+  }
+
   await admin.from('gyms').update({ subscription_status: status, updated_at: new Date().toISOString() }).eq('id', gymId);
   return { ok: true, handled: true };
 }

@@ -52,8 +52,17 @@ export default async function AdminMembers({ searchParams }: { searchParams: Pro
   let matchIds: string[] | null = null;
   if (needle) {
     const safe = q.replace(/[%,()*\\]/g, ' ').trim();
+    // Gym-scoped via the links !inner join (one FK path: member_id → profiles),
+    // so a tenant's search only touches its own roster instead of scanning
+    // profiles platform-wide; the ILIKE is trigram-indexed. The 500 cap now
+    // bounds matches WITHIN the gym, not across the platform.
     const { data: hits } = safe
-      ? await supabase.from('profiles').select('id').or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`).limit(500)
+      ? await supabase.from('profiles')
+          .select('id, gym_member_links!inner(gym_id)')
+          .eq('gym_member_links.gym_id', gym.id)
+          .eq('gym_member_links.is_active', true)
+          .or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`)
+          .limit(500)
       : { data: [] as { id: string }[] };
     matchIds = (hits ?? []).map((h) => h.id);
   }

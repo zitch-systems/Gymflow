@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
 import { rateLimit } from '@/lib/rate-limit';
+import { storagePathFromPublicUrl } from '@/lib/format';
 
 export type GymSaveState = { ok: boolean; error: string | null };
 
@@ -381,6 +382,12 @@ export async function uploadLogo(_prev: GymSaveState, formData: FormData): Promi
     const { data: pub } = storage.storage.from('gym-assets').getPublicUrl(path);
     const { error } = await supabase.from('gyms').update({ logo_url: pub.publicUrl } as never).eq('id', gym.id);
     if (error) return { ok: false, error: error.message };
+    // The timestamped path never overwrites — delete the object the new logo
+    // replaces so re-uploads don't accumulate orphans. Best-effort.
+    const oldPath = storagePathFromPublicUrl((gym as { logo_url?: string | null }).logo_url);
+    if (oldPath && oldPath !== path) {
+      try { await storage.storage.from('gym-assets').remove([oldPath]); } catch { /* orphan tolerable */ }
+    }
     try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
     try { revalidatePath('/dashboard', 'layout'); } catch { /* member-app cache is idempotent */ }
     return { ok: true, error: null };

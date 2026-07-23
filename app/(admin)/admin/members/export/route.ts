@@ -1,5 +1,6 @@
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -18,6 +19,10 @@ function csvCell(v: unknown): string {
 // GET /admin/members/export — CSV of the gym's members (staff only).
 export async function GET() {
   const { gym } = await requireStaff(ADMIN_ROLES);
+  // Tier gate: data exports are Growth+ (enforced here, not just displayed).
+  if (!gymHasFeature(gym, 'analytics_exports')) {
+    return new Response(upgradeMessage('analytics_exports'), { status: 403, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  }
   const supabase = await createClient();
 
   const { data: links } = await supabase

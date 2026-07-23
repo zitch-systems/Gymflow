@@ -59,19 +59,23 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
 
   let results: { id: string; full_name: string | null; email: string | null }[] = [];
   if (safe) {
-    const { data: links } = await supabase.from('gym_member_links').select('member_id, user_id').eq('gym_id', gym.id).eq('is_active', true).limit(1000);
-    const mids = [...new Set((links ?? []).map((l) => l.member_id ?? l.user_id).filter(Boolean) as string[])];
-    if (mids.length) {
-      const { data: matches } = await supabase.from('profiles').select('id, full_name, email').in('id', mids).or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`).limit(10);
-      results = matches ?? [];
-    }
+    // One gym-scoped query (links !inner join + trigram-indexed ILIKE). The
+    // old two-hop version fetched up to 1000 link rows first, silently
+    // missing members beyond the cap in large gyms.
+    const { data: matches } = await supabase.from('profiles')
+      .select('id, full_name, email, gym_member_links!inner(gym_id)')
+      .eq('gym_member_links.gym_id', gym.id)
+      .eq('gym_member_links.is_active', true)
+      .or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`)
+      .limit(10);
+    results = (matches ?? []).map(({ id, full_name, email }) => ({ id, full_name, email }));
   }
 
   return (
     <>
       <div className="page-h"><div><h1>Check-In</h1><p>{gym.name} · {todayRows.length} member{todayRows.length === 1 ? '' : 's'} in so far today</p></div></div>
 
-      <section className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+      <section className="kpis k3">
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><ScanLine strokeWidth={1.9} /></div></div><div className="kpi-val">{todayRows.length}</div><div className="kpi-lbl">Check-ins today</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#4080ff1f', color: '#4080ff' }}><Clock strokeWidth={1.9} /></div></div><div className="kpi-val">{lastTime}</div><div className="kpi-lbl">Last check-in</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#c6f24e1f', color: '#a8d92e' }}><Users strokeWidth={1.9} /></div></div><div className="kpi-val">{inGymIds.size}</div><div className="kpi-lbl">In gym now</div></div>

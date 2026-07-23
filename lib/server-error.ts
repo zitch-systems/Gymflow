@@ -16,6 +16,15 @@ import { forwardToSentry } from '@/lib/sentry';
 type RequestInfo = { path: string; method: string; headers: NodeJS.Dict<string | string[]> };
 type ErrorContext = { routerKind: string; routePath: string; routeType: string };
 
+// Explicit capture for handled-but-noteworthy conditions on the money paths
+// (webhook fulfillment failures, reconciliation discrepancies, underpayment).
+// These were previously console.error-only, which scrolls by unseen; this
+// forwards them to Sentry as grouped events. Inert without SENTRY_DSN, never
+// throws — safe to `void` from any server context.
+export async function captureServerEvent(message: string, extra?: Record<string, unknown>): Promise<void> {
+  await forwardToSentry(new Error(message), { level: 'error', extra });
+}
+
 export async function captureServerError(err: unknown, request: RequestInfo, context: ErrorContext): Promise<void> {
   // Forward to Sentry first and independently of the DB write — a service-role
   // outage (the most likely reason the insert below throws) is exactly when the

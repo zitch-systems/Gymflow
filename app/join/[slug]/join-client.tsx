@@ -16,7 +16,7 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail }: { slug: str
 
   return (
     <div className="auth-shell" style={{ gridTemplateColumns: '1fr' }}>
-      <main className="formside">
+      <main id="main-content" className="formside">
         <div className="formcard">
           <span className="brand" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             {logoUrl ? (

@@ -9,6 +9,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtNaira, fmt12Hr } from '@/lib/format';
+import { ROOT_DOMAIN } from '@/lib/tenant';
 import { Tilt, Reveal } from '@/components/marketing/landing-fx';
 import { InstagramEmbeds } from '@/components/marketing/instagram-embeds';
 import { LandingTrackers } from '@/components/marketing/landing-trackers';
@@ -81,7 +82,12 @@ async function loadGymPage(slug: string): Promise<GymPage | null> {
   };
 }
 
-const ROOT_HOST = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng').replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+// Same source as the middleware's 308 redirect and the sitemap's per-tenant
+// entries (lib/tenant.ts). Deriving a separate host from NEXT_PUBLIC_SITE_URL
+// here made the canonical disagree with both whenever NEXT_PUBLIC_ROOT_DOMAIN
+// was set to a different host — search engines would see the canonical,
+// sitemap URL and redirect target point at different subdomain hosts.
+const ROOT_HOST = ROOT_DOMAIN;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -174,7 +180,7 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
   ].filter(Boolean) as { icon: typeof CalendarDays; val: string; lbl: string }[];
 
   return (
-    <main className="gymland" style={style}>
+    <main id="main-content" className="gymland" style={style}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: gymLd }} />
       {/* decorative backdrop: drifting orbs, outline rings, dotted grid */}
       <div className="gl-decor" aria-hidden>

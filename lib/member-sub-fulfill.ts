@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { logAudit } from '@/lib/audit';
+import { deliverReceipt, deliverPaymentFailed, type NotifyGym } from '@/lib/notify';
 import type { Database } from '@/lib/database.types';
 
 // Fulfillment for the MEMBER auto-billing flow (member → gym recurring
@@ -94,6 +95,34 @@ async function findSub(admin: Admin, subCode: string | null, custCode: string | 
   return null;
 }
 
+// Shared lookup + external delivery for the auto-billing lifecycle emails.
+// Best-effort: a delivery problem must never fail the webhook fulfilment.
+async function emailMember(
+  admin: Admin,
+  gymId: string,
+  memberId: string,
+  send: (gym: NotifyGym, contact: { email: string | null; phone: string | null; fullName: string | null }) => Promise<unknown>,
+): Promise<void> {
+  try {
+    const [{ data: contact }, { data: gym }] = await Promise.all([
+      admin.from('profiles').select('email, phone, full_name').eq('id', memberId).maybeSingle(),
+      admin.from('gyms').select('id, name, subscription_plan, notif_payment_receipts, notif_renewal_nudges').eq('id', gymId).maybeSingle(),
+    ]);
+    if (!contact || !gym) return;
+    await send(gym as unknown as NotifyGym, { email: contact.email, phone: contact.phone, fullName: contact.full_name });
+  } catch { /* bonus channel */ }
+}
+
+// Stale-event guard for status-flip events. findSub's customer_code fallback
+// returns the member's LATEST subscription row — so a delayed or replayed
+// disable/dunning event for an OLD (superseded) subscription would otherwise
+// land on the member's current one. If the event names a subscription and the
+// resolved row is bound to a DIFFERENT one, the event is about a subscription
+// we no longer track: no-op.
+function isStaleFor(sub: { paystack_subscription_code: string | null }, eventSubCode: string | null): boolean {
+  return Boolean(eventSubCode && sub.paystack_subscription_code && sub.paystack_subscription_code !== eventSubCode);
+}
+
 // subscription.create: cache the codes so future recurring events resolve back
 // to this member and cancel calls have what Paystack needs.
 async function onSubscriptionCreate(admin: Admin, data: Json): Promise<Result> {
@@ -181,6 +210,8 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
     gym_id: sub.gym_id, user_id: sub.member_id, type: 'payment', channel: 'in_app',
     title: 'Membership renewed', body: `₦${(amountKobo / 100).toLocaleString('en-NG')} auto-debited — access extended to ${newEnd}.`,
   });
+  await emailMember(admin, sub.gym_id, sub.member_id, (gym, contact) =>
+    deliverReceipt(gym, contact, { amountNaira: amountKobo / 100, endDate: newEnd }));
 
   return { ok: true, handled: true };
 }
@@ -192,6 +223,7 @@ async function onPaymentFailed(admin: Admin, data: Json): Promise<Result> {
   const customer = (data.customer as Json) ?? {};
   const sub = await findSub(admin, subCode, str(customer.customer_code), null, null);
   if (!sub) return { ok: true, handled: true };
+  if (isStaleFor(sub, subCode)) return { ok: true, handled: true };
 
   await admin.from('member_subscriptions').update({
     status: 'past_due', updated_at: new Date().toISOString(),
@@ -201,6 +233,7 @@ async function onPaymentFailed(admin: Admin, data: Json): Promise<Result> {
     gym_id: sub.gym_id, user_id: sub.member_id, type: 'warning', channel: 'in_app',
     title: 'Payment failed', body: 'Your auto-renew charge didn\'t go through. Update your card in the app to keep access.',
   });
+  await emailMember(admin, sub.gym_id, sub.member_id, (gym, contact) => deliverPaymentFailed(gym, contact));
 
   void logAudit({
     action: 'member_auto_renew_payment_failed',
@@ -220,6 +253,7 @@ async function onSubscriptionEnd(admin: Admin, data: Json): Promise<Result> {
   const customer = (data.customer as Json) ?? {};
   const sub = await findSub(admin, subCode, str(customer.customer_code), null, null);
   if (!sub) return { ok: true, handled: true };
+  if (isStaleFor(sub, subCode)) return { ok: true, handled: true };
 
   const stillPaid = sub.end_date && new Date(sub.end_date) >= new Date();
   const newStatus = stillPaid ? 'active' : 'expired';

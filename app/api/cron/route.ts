@@ -1,6 +1,8 @@
 import { createHash, timingSafeEqual } from 'crypto';
 import { createClient as createSb } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { runReconciliation, type ReconcileSummary } from '@/lib/reconcile';
+import { deliverRenewalReminder, inSlices, type NotifyGym } from '@/lib/notify';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -71,7 +73,28 @@ export async function GET(req: Request) {
         });
       if (rows.length) {
         const { error } = await admin.from('notifications').insert(rows);
-        if (!error) remindersCreated = rows.length;
+        if (!error) {
+          remindersCreated = rows.length;
+          // External fan-out (email all tiers, WhatsApp Growth+ — lib/notify
+          // applies the per-gym toggles). Batched contact + gym lookups, then
+          // bounded-parallel delivery capped so the run stays inside the 60s
+          // budget even on a big platform day.
+          const fresh = due.filter((s) => !seen.has(`${s.member_id}:${s.id}`)).slice(0, 200);
+          const gymIds = [...new Set(fresh.map((s) => s.gym_id as string))];
+          const [{ data: contacts }, { data: gyms }] = await Promise.all([
+            admin.from('profiles').select('id, email, phone, full_name').in('id', fresh.map((s) => s.member_id as string)),
+            admin.from('gyms').select('id, name, subscription_plan, notif_renewal_nudges').in('id', gymIds),
+          ]);
+          const contactById = new Map((contacts ?? []).map((c) => [c.id, c]));
+          const gymById = new Map(((gyms ?? []) as unknown as NotifyGym[]).map((g) => [g.id, g]));
+          await inSlices(fresh, 10, async (s) => {
+            const c = contactById.get(s.member_id as string);
+            const g = gymById.get(s.gym_id as string);
+            if (!c || !g) return;
+            const days = Math.max(0, Math.ceil((new Date(s.end_date as string).getTime() - Date.now()) / 86_400_000));
+            await deliverRenewalReminder(g, { email: c.email, phone: c.phone, fullName: c.full_name }, { days, endDate: s.end_date });
+          });
+        }
       }
     }
   }
@@ -118,12 +141,21 @@ export async function GET(req: Request) {
     }
   }
 
+  // Paystack ↔ DB reconciliation: flag charges whose webhook was dropped and
+  // resolve payouts stuck in 'approved'. No-ops without PAYSTACK_SECRET_KEY.
+  let reconciliation: ReconcileSummary | null = null;
+  if (admin) reconciliation = await runReconciliation();
+
   // Housekeeping: rate-limit windows are minutes-to-hours; anything older
-  // than 2 days is dead weight. Best-effort.
+  // than 2 days is dead weight. Webhook replay-ledger rows matter only while
+  // Paystack could still retry the same body — 30 days is far beyond that.
+  // Best-effort.
   if (admin) {
     const stale = new Date(Date.now() - 2 * 86_400_000).toISOString();
     await admin.from('rate_limits').delete().lt('window_start', stale);
+    const ledgerStale = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    await admin.from('webhook_events' as never).delete().lt('received_at', ledgerStale);
   }
 
-  return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated, freezesResumed, staleVisitsClosed });
+  return Response.json({ ok: true, warmed: true, serviceRole: Boolean(admin), remindersCreated, freezesResumed, staleVisitsClosed, reconciliation });
 }

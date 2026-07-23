@@ -63,6 +63,15 @@ export function featuresFor(tier: PlanTier): Feature[] {
   return (Object.keys(FEATURE_MIN_TIER) as Feature[]).filter((f) => tierHasFeature(tier, f));
 }
 
+// Actionable server-action error for a tier-gated feature. Enforcement points
+// return this so a Starter gym sees WHY the button failed and where to fix it,
+// instead of a generic error.
+export function upgradeMessage(feature: Feature): string {
+  const tier = requiredTier(feature);
+  const label = tier.charAt(0).toUpperCase() + tier.slice(1);
+  return `This feature is part of the ${label} plan. Upgrade in Billing → Plans to use it.`;
+}
+
 // The lowest tier that unlocks a feature — for upgrade prompts ("upgrade to X").
 export function requiredTier(feature: Feature): PlanTier {
   return FEATURE_MIN_TIER[feature];

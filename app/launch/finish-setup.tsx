@@ -14,7 +14,7 @@ export function FinishSetup({ defaultGymName }: { defaultGymName?: string }) {
 
   return (
     <div className="auth-shell" style={{ gridTemplateColumns: '1fr' }}>
-      <main className="formside">
+      <main id="main-content" className="formside">
         <div className="formcard">
           <span className="brand" style={{ display: 'inline-flex' }}>
             <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />

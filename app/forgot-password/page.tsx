@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
         </div>
       </aside>
 
-      <main className="formside">
+      <main id="main-content" className="formside">
         <div className="formcard">
           <Link className="brand" href="/" style={{ display: 'inline-flex' }}>
             <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />

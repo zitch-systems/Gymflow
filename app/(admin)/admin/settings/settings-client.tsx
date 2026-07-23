@@ -28,11 +28,17 @@ const NAV = [
 // Mon-anchored display order for the editable weekly grid.
 const DAY_ORDER: [number, string][] = [[1, 'Monday'], [2, 'Tuesday'], [3, 'Wednesday'], [4, 'Thursday'], [5, 'Friday'], [6, 'Saturday'], [0, 'Sunday']];
 
+// Core delivery providers. Whether each is live comes from the server page
+// (real env configuration) — the badge must never claim "Connected" for a
+// channel that has no key, or owners believe reminders are reaching members
+// when they are not.
 const INTEG = [
-  { icon: CreditCard, name: 'Paystack', sub: 'Subscriptions & auto-debit', st: ['gf-badge-success', 'Connected'], domain: 'paystack.com' },
-  { icon: MessageCircle, name: 'WhatsApp (Termii)', sub: 'Reminder & receipt delivery', st: ['gf-badge-success', 'Connected'], domain: 'termii.com' },
-  { icon: Mail, name: 'Email (Resend)', sub: 'Transactional email', st: ['gf-badge-success', 'Connected'], domain: 'resend.com' },
+  { icon: CreditCard, name: 'Paystack', sub: 'Subscriptions & auto-debit', key: 'paystack' as const, domain: 'paystack.com' },
+  { icon: MessageCircle, name: 'WhatsApp (Termii)', sub: 'Reminder delivery', key: 'termii' as const, domain: 'termii.com' },
+  { icon: Mail, name: 'Email (Resend)', sub: 'Reminders & receipts', key: 'resend' as const, domain: 'resend.com' },
 ];
+
+export type ProviderStatus = { paystack: boolean; termii: boolean; resend: boolean };
 
 // HR / payroll systems. These sync staff records and payroll for the gym's
 // team. Each needs the provider's API credentials to be enabled per gym, so
@@ -168,7 +174,7 @@ function MemberCodeField({ code }: { code: string }) {
   );
 }
 
-export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, initialSection = 'profile' }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; payoutAccounts: PayoutAccount[]; initialSection?: string }) {
+export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, initialSection = 'profile', providers = { paystack: false, termii: false, resend: false } }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; payoutAccounts: PayoutAccount[]; initialSection?: string; providers?: ProviderStatus }) {
   const [sec, setSec] = useState<string>(initialSection);
   // Follow the ?onboarding=/?section= query on client-side navigation too.
   // Clicking an onboarding-banner link while ALREADY on /admin/settings changes
@@ -383,13 +389,16 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
               <div className="panel">
                 <div className="panel-title">Integrations</div>
                 <div className="panel-desc">Connected services powering payments and messaging.</div>
-                {INTEG.map((it) => (
-                  <div className="integ" key={it.name}>
-                    <ProviderMark domain={it.domain} icon={it.icon} />
-                    <div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div>
-                    <span className={`gf-badge ${it.st[0]}`}><span className="gf-dot" />{it.st[1]}</span>
-                  </div>
-                ))}
+                {INTEG.map((it) => {
+                  const live = providers[it.key];
+                  return (
+                    <div className="integ" key={it.name}>
+                      <ProviderMark domain={it.domain} icon={it.icon} />
+                      <div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div>
+                      <span className={`gf-badge ${live ? 'gf-badge-success' : 'gf-badge-neutral'}`}><span className="gf-dot" />{live ? 'Connected' : 'Not configured'}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               <form className="panel" action={mktAction} style={{ marginTop: 16 }}>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
+import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 import { Sparkles, Globe, TrendingUp, HeartPulse, BookOpen, ArrowRight } from 'lucide-react';
 
 export const metadata = {
@@ -40,6 +41,7 @@ const ROLES = [
 export default function CareersPage() {
   return (
     <>
+      <BreadcrumbLd name="Careers" path="/careers" />
       <MarketingNav />
 
       <main id="main-content">

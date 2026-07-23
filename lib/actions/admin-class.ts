@@ -6,6 +6,7 @@ import { requireStaff, MANAGER_ROLES, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 import { INTERVAL_PRESETS } from '@/lib/plan-duration';
+import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
 
 export type CState = { ok: boolean; error: string | null; message?: string };
 
@@ -98,6 +99,9 @@ export async function createClass(_prev: CState, formData: FormData): Promise<CS
   if (endTime <= startTime) return { ok: false, error: 'End time must be after the start time.' };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
+    // Tier gate: class scheduling is Growth+ (the pricing matrix the billing
+    // page displays — this is where it's actually enforced).
+    if (!gymHasFeature(gym, 'class_scheduling')) return { ok: false, error: upgradeMessage('class_scheduling') };
     const supabase = await createClient();
     const classId = (globalThis.crypto as Crypto).randomUUID();
     const { error: cErr } = await supabase.from('classes')
@@ -132,6 +136,7 @@ export async function updateClass(_prev: CState, formData: FormData): Promise<CS
   if (endTime <= startTime) return { ok: false, error: 'End time must be after the start time.' };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
+    if (!gymHasFeature(gym, 'class_scheduling')) return { ok: false, error: upgradeMessage('class_scheduling') };
     const supabase = await createClient();
     const { error: cErr } = await supabase.from('classes')
       .update({ name, category, max_capacity: capacity, duration_minutes: duration }).eq('id', classId).eq('gym_id', gym.id);

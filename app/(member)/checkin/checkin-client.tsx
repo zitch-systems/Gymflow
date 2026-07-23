@@ -82,8 +82,17 @@ function VisitHistory({ history }: { history: VisitRow[] }) {
 // full sentences ("Your membership isn't active. Renew to check in."), so the
 // body is the message verbatim — the header just frames it as an action block.
 function ErrorPopup({ message, onClose }: { message: string; onClose: () => void }) {
+  // alertdialog + programmatic focus: without them a screen-reader user never
+  // hears why the check-in failed — the dialog swaps in silently (WCAG 4.1.3).
+  const okRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { okRef.current?.focus(); }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
-    <div className="gfui-bg open" role="dialog" aria-modal="true" aria-labelledby="ci-err-title" onClick={onClose}>
+    <div className="gfui-bg open" role="alertdialog" aria-modal="true" aria-labelledby="ci-err-title" aria-describedby="ci-err-body" onClick={onClose}>
       <div className="gfui-modal" onClick={(e) => e.stopPropagation()}>
         <div className="gfui-h">
           <div className="gfui-ic danger"><AlertCircle strokeWidth={2} /></div>
@@ -96,10 +105,10 @@ function ErrorPopup({ message, onClose }: { message: string; onClose: () => void
           </button>
         </div>
         <div className="gfui-b">
-          <p className="gfui-text">{message}</p>
+          <p className="gfui-text" id="ci-err-body">{message}</p>
         </div>
         <div className="gfui-f">
-          <button type="button" className="gf-btn gf-btn-primary" onClick={onClose}>Got it</button>
+          <button type="button" ref={okRef} className="gf-btn gf-btn-primary" onClick={onClose}>Got it</button>
         </div>
       </div>
     </div>
@@ -226,7 +235,9 @@ export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props)
   if (done) {
     return (
       <section className="view on" data-v="checkin">
-        <div className="ci-ok on">
+        {/* role=status: the whole view swaps on success, which screen readers
+            otherwise miss entirely (WCAG 4.1.3). */}
+        <div className="ci-ok on" role="status">
           <div className="ring"><Check strokeWidth={2.4} /></div>
           <h2 style={{ fontFamily: 'var(--gf-font-display)', fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>
             {done === 'in' ? 'You’re in!' : 'See you next time!'}

@@ -109,6 +109,16 @@ export function splitName(full: string | null | undefined): { first_name: string
 // (0XXXXXXXXXX). Accepts common inputs — spaces/dashes, a +234/234 country
 // code, or a leading-zero-less 10-digit number. Returns null when it isn't a
 // valid NG mobile (must be 11 digits, 0 then 7/8/9), so callers can reject it.
+// Extract the object path from a Supabase Storage public URL, so a re-upload
+// can delete the object it replaces (timestamped paths never overwrite, so
+// without this every logo/avatar/equipment re-upload orphaned the old file).
+export function storagePathFromPublicUrl(url: string | null | undefined, bucket = 'gym-assets'): string | null {
+  if (!url) return null;
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const i = url.indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(url.slice(i + marker.length).split('?')[0]) || null;
+}
+
 export function normalizeNgPhone(input: string | null | undefined): string | null {
   if (!input) return null;
   let d = input.replace(/[^\d+]/g, '').replace(/^\+/, '');

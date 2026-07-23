@@ -62,3 +62,61 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           NEXT_PUBLIC_SITE_URL: https://gymflow.ng
+
+  # Schema-drift gate: the repo's migrations are supposed to BE the schema
+  # (DR depends on it). Build a shadow DB from them, fingerprint its structure,
+  # and diff against the live Supabase database. Requires the SUPABASE_DB_URL
+  # secret (the project's direct Postgres connection string); without it the
+  # job no-ops so forks and secret-less PRs stay green.
+  schema-drift:
+    name: schema drift vs live
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gate on secret presence
+        id: gate
+        run: echo "on=${{ secrets.SUPABASE_DB_URL != '' }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.on == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.on == 'true'
+        run: npm ci
+
+      - name: Build shadow DB from migrations
+        if: steps.gate.outputs.on == 'true'
+        id: shadow
+        run: echo "url=$(node scripts/shadow-db.mjs | tail -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Diff schema fingerprints (shadow vs live)
+        if: steps.gate.outputs.on == 'true'
+        env:
+          SHADOW_URL: ${{ steps.shadow.outputs.url }}
+          LIVE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$SHADOW_URL" -X -q -f scripts/schema-fingerprint.sql > shadow.txt
+          psql "$LIVE_URL" -X -q -f scripts/schema-fingerprint.sql > live.txt
+          if ! diff -u shadow.txt live.txt; then
+            echo '::error::Live Supabase schema has drifted from the checked-in migrations (see diff above).'
+            exit 1
+          fi
+          echo "No drift: live schema matches the migrations."

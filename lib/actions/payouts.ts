@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createTransferRecipient, initiateTransfer } from '@/lib/paystack';
 import { availableBalance } from '@/lib/payout-balance';
 import { logAudit } from '@/lib/audit';
+import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
 
 // Instructor payout runs — the money-movement half of the commission feature.
 // Lifecycle (status is DB-check-constrained to these four values):
@@ -31,6 +32,9 @@ export async function requestPayout(_prev: ActionState, formData: FormData): Pro
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Enter an amount greater than zero.' };
   try {
     const { user, gym } = await requireInstructor();
+    // Tier gate: in-app payout runs are a Scale feature. Lower tiers still see
+    // earnings; the gym settles instructors outside the app.
+    if (!gymHasFeature(gym, 'instructor_payouts')) return { ok: false, error: 'In-app payouts are part of your gym\'s Scale plan. Ask the gym to upgrade, or settle directly with them.' };
     const supabase = await createClient();
 
     const [{ data: bank }, { data: open }] = await Promise.all([
@@ -111,6 +115,7 @@ export async function payPayout(_prev: ActionState, formData: FormData): Promise
   if (!process.env.PAYSTACK_SECRET_KEY) return { ok: false, error: 'Payments are not configured yet (missing PAYSTACK_SECRET_KEY).' };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
+    if (!gymHasFeature(gym, 'instructor_payouts')) return { ok: false, error: upgradeMessage('instructor_payouts') };
     const supabase = await createClient();
 
     // 1 ── claim the row. status='requested' in the WHERE makes this a
