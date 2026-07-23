@@ -2772,3 +2772,106 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
   .ds-member .receipt { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; }
   .no-print, .ds-member .tabbar, .ds-member .mhead { display: none !important; }
 }
+
+/* ═══════════════ Mobile console fixes (phone-viewport review) ═══════════════
+   Findings from a 390px-wide walkthrough of the admin console. Two classes of
+   bug: (1) inline gridTemplateColumns styles beat the .grid2/.kpis media
+   collapse (CSS can never override an inline style), crushing panels into
+   slivers; (2) wide tables/chip-rows truncate with no visual hint that they
+   scroll. Modifier classes below replace the inline styles, and the
+   scroll-affordance layers make every horizontal scroller announce itself. */
+
+/* grid2 ratio modifiers — desktop ratio here, and the SAME selectors collapse
+   below, so no inline style is needed at the call sites. */
+.ds-admin .grid2.g-side { grid-template-columns: 1fr 340px; }
+.ds-admin .grid2.g-even { grid-template-columns: 1fr 1fr; }
+.ds-admin .kpis.k3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 1000px) {
+  .ds-admin .grid2.g-side, .ds-admin .grid2.g-even { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .ds-admin .kpis.k3 { grid-template-columns: 1fr 1fr; }
+  .ds-admin .kpis.k3 > :last-child { grid-column: 1 / -1; }
+}
+
+/* Wallet hero: the collected amount clipped mid-digit ("₦184,0…") inside the
+   two-up money grid. Scale the numeral instead of clipping, and stack the
+   cards on phones. */
+.ds-admin .balance .amt { font-size: clamp(1.7rem, 8.5vw, 2.8rem); overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .ds-admin .wtop { grid-template-columns: 1fr; }
+}
+
+/* Scroll affordance for panel tables: edge shadows that appear only when
+   there is more content in that direction (background-attachment local vs
+   scroll), so a cut-off column reads as "swipe me", not "missing data". */
+.tbl-scroll {
+  background:
+    linear-gradient(90deg, var(--gf-surface) 30%, transparent) 0 0 / 48px 100%,
+    linear-gradient(270deg, var(--gf-surface) 30%, transparent) 100% 0 / 48px 100%,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.28), transparent) 0 0 / 16px 100%,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.28), transparent) 100% 0 / 16px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+/* Keep the row you're scanning anchored: the identity column stays pinned
+   while the rest of the table scrolls under it. */
+@media (max-width: 700px) {
+  .ds-admin .tbl-scroll :is(th, td):first-child {
+    position: sticky; left: 0; z-index: 1;
+    background: var(--gf-surface);
+  }
+}
+
+/* Onboarding banner ate ~40% of the first screen on every admin page. On
+   phones, show only what's actionable: title, progress, and the open steps —
+   completed (struck-through) items add nothing on a small screen. */
+@media (max-width: 700px) {
+  .onboarding-banner .ob-steps li.done { display: none; }
+}
+
+/* Segmented filters + settings subnav: scrollable with edge shadows instead
+   of a silent hard cut ("Freeze requests" was half-visible with no hint). */
+@media (max-width: 700px) {
+  .ds-admin .seg {
+    max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    background:
+      linear-gradient(90deg, var(--gf-elevated) 30%, transparent) 0 0 / 40px 100%,
+      linear-gradient(270deg, var(--gf-elevated) 30%, transparent) 100% 0 / 40px 100%,
+      radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.3), transparent) 0 0 / 14px 100%,
+      radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.3), transparent) 100% 0 / 14px 100%,
+      var(--gf-elevated);
+    background-repeat: no-repeat;
+    background-attachment: local, local, scroll, scroll, scroll;
+  }
+  .ds-admin .seg::-webkit-scrollbar { display: none; }
+  .ds-admin .seg :is(button, a) { flex: 0 0 auto; white-space: nowrap; }
+  .ds-admin .subnav {
+    background:
+      linear-gradient(90deg, var(--gf-bg) 30%, transparent) 0 0 / 40px 100%,
+      linear-gradient(270deg, var(--gf-bg) 30%, transparent) 100% 0 / 40px 100%,
+      radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.3), transparent) 0 0 / 14px 100%,
+      radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.3), transparent) 100% 0 / 14px 100%;
+    background-repeat: no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+}
+
+/* Toolbar buttons wrapped into a ragged 2+1 stack on phones — give the
+   primary action its own full-width row and let secondaries share one. */
+@media (max-width: 480px) {
+  .ds-admin .toolbar { row-gap: 10px; }
+  .ds-admin .toolbar :is(a, button).gf-btn-primary { flex: 1 1 100%; justify-content: center; }
+}
+
+/* Phone table density: a big naira figure must shrink before it clips the
+   KPI card, and the identity column can't hog the whole first screen of a
+   scrollable table — cap it so the money column lands inside the viewport. */
+@media (max-width: 700px) {
+  .ds-admin .kpi-val { font-size: clamp(1.05rem, 7vw, 1.4rem); overflow-wrap: anywhere; }
+  .ds-admin .tbl .who strong { max-width: 168px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ds-admin .tbl-scroll > :is(.tbl, .mtbl, .gt, table) { min-width: 560px; }
+}
+/* Money never line-breaks — "+₦25,000" must not split after the sign. */
+.ds-admin td.naira { white-space: nowrap; }

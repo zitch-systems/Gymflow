@@ -75,7 +75,7 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
     <>
       <div className="page-h"><div><h1>Check-In</h1><p>{gym.name} · {todayRows.length} member{todayRows.length === 1 ? '' : 's'} in so far today</p></div></div>
 
-      <section className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+      <section className="kpis k3">
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><ScanLine strokeWidth={1.9} /></div></div><div className="kpi-val">{todayRows.length}</div><div className="kpi-lbl">Check-ins today</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#4080ff1f', color: '#4080ff' }}><Clock strokeWidth={1.9} /></div></div><div className="kpi-val">{lastTime}</div><div className="kpi-lbl">Last check-in</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#c6f24e1f', color: '#a8d92e' }}><Users strokeWidth={1.9} /></div></div><div className="kpi-val">{inGymIds.size}</div><div className="kpi-lbl">In gym now</div></div>

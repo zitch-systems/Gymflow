@@ -126,7 +126,9 @@ export default async function AdminAnalytics() {
         </div>
       </section>
 
-      <section className="grid2" style={{ gridTemplateColumns: '1fr 1fr' }}>
+      {/* g-even, not an inline gridTemplateColumns — the inline style beat the
+          mobile collapse and the two charts overlapped at phone widths. */}
+      <section className="grid2 g-even">
         <div className="panel">
           <div className="panel-h"><div><h3>Check-ins by day</h3><div className="sub">Last 7 days</div></div></div>
           <div className="bars">

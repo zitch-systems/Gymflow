@@ -156,7 +156,11 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
         ) : (
           <div className="tbl-scroll">
             <table className="tbl">
-              <thead><tr><th>Description</th><th>Method</th><th>Date</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
+              {/* Amount sits right after Description: on phones the table
+                  scrolls horizontally, and the old order hid the one column a
+                  payments list exists for. The Method column is dropped — it
+                  duplicated the sub-label under every description. */}
+              <thead><tr><th>Description</th><th style={{ textAlign: 'right' }}>Amount</th><th>Date</th><th>Status</th></tr></thead>
               <tbody>
                 {(rows ?? []).map((p) => {
                   const st = STATUS[p.payment_status ?? ''] ?? ['gf-badge-neutral', p.payment_status ?? '—'];
@@ -164,10 +168,9 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
                   return (
                     <tr key={p.id}>
                       <td><div className="who"><span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)', border: 'none' }}><CreditCard strokeWidth={1.9} size={15} /></span><div><strong>{(p.plan_id && planById.get(p.plan_id)) || 'Payment'} · {p.member_id ? nameById.get(p.member_id) : '—'}</strong><small>{p.payment_method ?? 'Paystack'}</small></div></div></td>
-                      <td style={{ color: 'var(--gf-text-secondary)' }}>{p.payment_method ?? 'Paystack'}</td>
+                      <td className={`naira tx-amt ${ok ? 'in' : 'out'}`} style={{ textAlign: 'right' }}>{ok ? '+' : ''}{fmtNaira(Number(p.amount ?? 0))}</td>
                       <td style={{ color: 'var(--gf-text-secondary)' }}>{fmtDate(p.payment_date ?? p.created_at)}</td>
                       <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
-                      <td className={`naira tx-amt ${ok ? 'in' : 'out'}`} style={{ textAlign: 'right' }}>{ok ? '+' : ''}{fmtNaira(Number(p.amount ?? 0))}</td>
                     </tr>
                   );
                 })}

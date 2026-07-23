@@ -49,7 +49,10 @@ export default async function AdminFacility() {
         ); })}
       </section>
 
-      <div className="grid2" style={{ gridTemplateColumns: '1fr 340px' }}>
+      {/* g-side, not an inline gridTemplateColumns: inline styles can't be
+          overridden by the mobile media collapse, which crushed the Equipment
+          panel to a sliver at phone widths. */}
+      <div className="grid2 g-side">
         <div className="panel">
           <div className="panel-h"><div><h3>Equipment</h3><div className="sub">{eq.length} unit{eq.length === 1 ? '' : 's'} · {needsService.length} flagged</div></div><Link href="/admin/operations/equipment/new" className="link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Plus strokeWidth={2} size={14} /> Add</Link></div>
           {eq.length === 0 ? (

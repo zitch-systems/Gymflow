@@ -153,20 +153,25 @@ export default async function AdminDashboard() {
             {memberRows.length === 0 ? (
               <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No members yet</h3><p>New sign-ups will appear here.</p></div>
             ) : (
-              <table className="mtbl">
-                <thead><tr><th>Member</th><th>Plan</th><th>Status</th><th>Renews</th><th style={{ textAlign: 'right' }}>Value</th></tr></thead>
-                <tbody>
-                  {memberRows.map((m) => (
-                    <tr key={m.id}>
-                      <td><Link href={`/admin/members/${m.id}`} className="who"><span className="gf-avatar gf-avatar-sm">{m.initial}</span><div><strong>{m.name}</strong><small>{m.email}</small></div></Link></td>
-                      <td>{m.plan}</td>
-                      <td><span className={`gf-badge ${m.status[0]}`}>{m.status[1]}</span></td>
-                      <td>{m.renews}</td>
-                      <td className="naira" style={{ textAlign: 'right' }}>{m.value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              // .tbl-scroll: without it the ~620px-wide table stretches the
+              // whole document (~276px of body-level horizontal scroll on a
+              // 390px phone). Same wrapper the members page uses.
+              <div className="tbl-scroll">
+                <table className="mtbl">
+                  <thead><tr><th>Member</th><th>Plan</th><th>Status</th><th>Renews</th><th style={{ textAlign: 'right' }}>Value</th></tr></thead>
+                  <tbody>
+                    {memberRows.map((m) => (
+                      <tr key={m.id}>
+                        <td><Link href={`/admin/members/${m.id}`} className="who"><span className="gf-avatar gf-avatar-sm">{m.initial}</span><div><strong>{m.name}</strong><small>{m.email}</small></div></Link></td>
+                        <td>{m.plan}</td>
+                        <td><span className={`gf-badge ${m.status[0]}`}>{m.status[1]}</span></td>
+                        <td>{m.renews}</td>
+                        <td className="naira" style={{ textAlign: 'right' }}>{m.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
