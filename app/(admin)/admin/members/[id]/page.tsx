@@ -216,6 +216,9 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
           <div className="panel">
             <div className="panel-h"><h3>Payment history</h3><span className="sub">{pays.length} payment{pays.length === 1 ? '' : 's'} · {fmtNaira(totalSpent)} collected</span></div>
             {pays.length ? (
+              // .tbl-scroll: without it the table stretches the page sideways
+              // on phones (same fix as the dashboard Members table).
+              <div className="tbl-scroll">
               <table className="tbl">
                 <thead><tr><th>Date</th><th>Plan</th><th>Method</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
                 <tbody>
@@ -233,6 +236,7 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
                   })}
                 </tbody>
               </table>
+              </div>
             ) : (
               <div className="empty sm"><div className="eic"><CreditCard strokeWidth={1.6} /></div><h3>No payments yet</h3><p>Payments show here once this member is billed.</p></div>
             )}

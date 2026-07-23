@@ -94,7 +94,11 @@ export default async function SuperRevenue() {
       <section className="grid2">
         <div className="panel">
           <div className="panel-h"><div><h3>Platform revenue</h3><div className="sub">Subscription income · trailing 12 months</div></div></div>
-          <div className="bars" style={{ height: 200 }}>{months.map((m, i) => <div className="bcol" key={i}><div className="bar" style={{ height: `${Math.max(2, Math.round((m.total / maxT) * 100))}%` }} data-v={fmtNaira(m.total)} /><div className="blbl">{m.label}</div></div>)}</div>
+          {/* bars--dense: 12 month columns can't shrink below their label's
+              min-content width, so on phones the tail of the chart rendered
+              OUTSIDE the panel. The modifier lets columns compress and shows
+              alternate labels at phone widths. */}
+          <div className="bars bars--dense" style={{ height: 200 }}>{months.map((m, i) => <div className="bcol" key={i}><div className="bar" style={{ height: `${Math.max(2, Math.round((m.total / maxT) * 100))}%` }} data-v={fmtNaira(m.total)} /><div className="blbl">{m.label}</div></div>)}</div>
         </div>
         <div className="panel">
           <div className="panel-h"><div><h3>Subscriptions by plan</h3><div className="sub">Active gyms per tier</div></div></div>
