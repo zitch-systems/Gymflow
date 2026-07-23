@@ -2875,3 +2875,14 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
 }
 /* Money never line-breaks — "+₦25,000" must not split after the sign. */
 .ds-admin td.naira { white-space: nowrap; }
+
+/* Dense bar charts (12+ columns, e.g. superadmin revenue): flex items refuse
+   to shrink below their label's min-content width, so the chart's tail
+   rendered outside the panel on phones. Let columns compress; at phone
+   widths show alternating labels so what remains is legible. */
+.ds-admin .bars .bcol { min-width: 0; }
+.ds-admin .bars .blbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 700px) {
+  .ds-admin .bars.bars--dense { gap: 4px; }
+  .ds-admin .bars.bars--dense .bcol:nth-child(even) .blbl { visibility: hidden; }
+}

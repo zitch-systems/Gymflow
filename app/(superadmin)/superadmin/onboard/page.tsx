@@ -11,7 +11,10 @@ export default async function SuperOnboard() {
   return (
     <>
       <div className="hdr"><div><span className="pill-plat">Operations</span><h1>Onboard a gym</h1><p>Provision a new tenant with a branded subdomain in minutes</p></div></div>
-      <div className="two" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, alignItems: 'start' }}>
+      {/* grid2 g-side, not an inline gridTemplateColumns: the inline style had
+          no mobile collapse at all — the form was crushed to one-character
+          inputs under the Setup-steps card at phone widths. */}
+      <div className="grid2 g-side">
         <OnboardForm />
         <div className="panel">
           <div className="panel-title">Setup steps</div>
