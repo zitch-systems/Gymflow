@@ -42,6 +42,30 @@ const TOLERANCE_SECONDS = 300;
 export type StandardWebhookHeaders = { id: string; timestamp: string; signature: string };
 
 /**
+ * Decode an endpoint secret to the raw HMAC key.
+ *
+ * The same scheme is presented three different ways by the two providers we
+ * take webhooks from, and the difference is invisible until every signature
+ * fails:
+ *
+ *   Supabase auth hook   v1,whsec_<base64>   ← what its dashboard copy button gives
+ *   Resend / Svix        whsec_<base64>
+ *   already-stripped     <base64>
+ *
+ * Base64 decoding is lenient about junk characters rather than throwing, so
+ * leaving `v1,` on the front silently yields a WRONG key of plausible length
+ * instead of an error — the hook then 401s every request and no auth mail is
+ * ever delivered. Normalising here is what stops a correct copy-paste from
+ * being wrong.
+ */
+function signingKey(secret: string): Buffer {
+  let s = secret.trim();
+  if (s.startsWith('v1,')) s = s.slice(3);
+  if (s.startsWith('whsec_')) s = s.slice(6);
+  return Buffer.from(s, 'base64');
+}
+
+/**
  * Verify a Standard Webhooks signature.
  *
  * @param raw       the exact request body, unparsed — re-serialising JSON changes
@@ -63,11 +87,7 @@ export function verifyStandardWebhook(
   const ts = Number(timestamp);
   if (!Number.isFinite(ts) || Math.abs(nowSeconds - ts) > TOLERANCE_SECONDS) return false;
 
-  // `whsec_` prefixes a base64 key. A secret without the prefix is treated as
-  // raw bytes so a caller that already stripped it still works.
-  const keyBytes = secret.startsWith('whsec_')
-    ? Buffer.from(secret.slice(6), 'base64')
-    : Buffer.from(secret, 'base64');
+  const keyBytes = signingKey(secret);
   if (keyBytes.length === 0) return false;
 
   const expected = createHmac('sha256', keyBytes).update(`${id}.${timestamp}.${raw}`).digest();
