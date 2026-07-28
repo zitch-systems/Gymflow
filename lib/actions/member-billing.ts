@@ -6,6 +6,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { initSubscription, createPlan, planIntervalFor, getSubscription, disableSubscription } from '@/lib/paystack';
 import { logAudit } from '@/lib/audit';
+import { firstName, fmtDate } from '@/lib/format';
+import { getContact, getEmailGym } from '@/lib/email/recipients';
+import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
+import { MEMBER_TEMPLATES, autoRenewDisabled } from '@/lib/email/templates/member';
 
 // Member auto-recurring billing. Mirrors the platform-billing pattern for
 // members: opt-in creates a Paystack Subscription (lazy-creating the Plan on
@@ -75,6 +79,53 @@ export async function startAutoRenewal(planId: string): Promise<StartResult> {
   return res.ok ? { ok: true, url: res.authorization_url } : { ok: false, error: res.error };
 }
 
+/**
+ * Tell the member their standing card mandate has ended.
+ *
+ * `byStaff` decides the whole shape of the message, which is why it's threaded
+ * down from the two entry points rather than guessed here: a member who pressed
+ * the button needs a confirmation, and a member who DIDN'T needs a notice —
+ * otherwise the first they hear of it is a charge that never happened and a
+ * membership that quietly lapsed.
+ *
+ * Reuses the caller's service-role client (the member can't read their gym's
+ * branding row, and staff can't read the member's notification_email). Swallows
+ * everything: Paystack has already stopped billing by this point, and a mail
+ * failure must not report a completed cancellation as an error.
+ */
+async function mailAutoRenewOff(
+  admin: ReturnType<typeof createAdminClient>,
+  sub: { gymId: string; memberId: string; endDate: string | null; planId: string | null },
+  byStaff: boolean,
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    const [gym, contact] = await Promise.all([
+      getEmailGym(admin, sub.gymId),
+      getContact(admin, sub.memberId),
+    ]);
+    if (!gym || !contact?.email) return;
+    const { data: plan } = sub.planId
+      ? await admin.from('membership_plans').select('name').eq('id', sub.planId).maybeSingle()
+      : { data: null };
+    const spec = MEMBER_TEMPLATES.autoRenewDisabled;
+    await sendGymEmail({
+      gym,
+      to: { email: contact.email, fullName: contact.fullName, wantsEmail: contact.wantsEmail },
+      template: spec.template,
+      category: spec.category,
+      ...autoRenewDisabled({
+        gymName: (gym.name ?? '').trim() || 'Your gym',
+        firstName: firstName(contact.fullName),
+        byStaff,
+        endDate: sub.endDate ? fmtDate(sub.endDate) : null,
+        renewUrl: memberAppUrl(gym, '/dashboard/renew'),
+        planName: plan?.name ?? null,
+      }),
+    });
+  } catch { /* bonus channel */ }
+}
+
 // Shared disable path. Loads the sub via admin client (member and staff both
 // need to be able to cancel), verifies gym-scoping against the caller's gym,
 // hits Paystack /subscription/disable, then reflects locally.
@@ -85,9 +136,11 @@ async function disableSub(
   if (!process.env.PAYSTACK_SECRET_KEY) return { ok: false, error: 'Billing is not configured.' };
 
   const admin = createAdminClient();
+  // end_date and plan_id come along for the notice below: "no more automatic
+  // charges" is only actionable next to the date the paid-for access runs out.
   const { data: sub } = await admin
     .from('member_subscriptions')
-    .select('id, gym_id, member_id, paystack_subscription_code, paystack_email_token, auto_debit_enabled')
+    .select('id, gym_id, member_id, end_date, plan_id, paystack_subscription_code, paystack_email_token, auto_debit_enabled')
     .eq('id', subId)
     .maybeSingle();
   if (!sub) return { ok: false, error: 'Subscription not found.' };
@@ -124,6 +177,12 @@ async function disableSub(
     actorId: actor.userId, gymId: sub.gym_id, recordId: sub.id,
     values: { member_id: sub.member_id, paystack_subscription_code: sub.paystack_subscription_code },
   });
+
+  await mailAutoRenewOff(
+    admin,
+    { gymId: sub.gym_id, memberId: sub.member_id, endDate: sub.end_date, planId: sub.plan_id },
+    actor.role === 'staff',
+  );
 
   return { ok: true, error: null, message: 'Auto-renew turned off. Access continues until the current period ends.' };
 }

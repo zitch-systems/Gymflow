@@ -39,8 +39,14 @@ async function loadGym(slug: string): Promise<LoginGym | null> {
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   // Post-action notices (signup → check-email, confirm link → confirmed,
-  // password reset → reset). Previously these params were silently ignored.
-  const notice: LoginNotice = sp['check-email'] ? 'check-email' : sp.confirmed ? 'confirmed' : sp.reset ? 'reset' : null;
+  // password reset → reset, expired/used auth link → link-expired). Previously
+  // these params were silently ignored, so /auth/confirm's ?error=link_expired
+  // landed on a normal login page with no explanation.
+  const notice: LoginNotice = sp['check-email'] ? 'check-email'
+    : sp.confirmed ? 'confirmed'
+    : sp.reset ? 'reset'
+    : sp.error === 'link_expired' ? 'link-expired'
+    : null;
 
   const slug = gymSlugFromHost((await headers()).get('host'));
   const gym = slug ? await loadGym(slug) : null;

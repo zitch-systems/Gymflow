@@ -8,6 +8,9 @@ import { logAudit } from '@/lib/audit';
 import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
 import { rateLimit } from '@/lib/rate-limit';
 import { storagePathFromPublicUrl } from '@/lib/format';
+import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
+import { getGymOwnerEmails } from '@/lib/email/recipients';
+import { payoutAccountReviewed } from '@/lib/email/templates/platform';
 
 export type GymSaveState = { ok: boolean; error: string | null };
 
@@ -48,6 +51,39 @@ export async function verifyBankAccount(accountNumber: string, bankCode: string)
 // new bank into the gym row and (with Paystack keys) rebuilds the subaccount.
 // Reject just marks the request rejected with an optional reason.
 export type ReviewPayoutState = { ok: boolean; error: string | null };
+
+// Both branches of the review tell the same audience the same kind of thing,
+// and neither may fail the decision over a mail — it is already written and the
+// superadmin has moved on. The gym's name is loaded here rather than at the two
+// call sites because the reject path never needed it before.
+async function mailPayoutReview(
+  db: ReturnType<typeof createAdminClient>,
+  req: { gym_id: string; bank_name: string; account_number: string },
+  approved: boolean,
+  reason: string | null,
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    const [{ data: gym }, owners] = await Promise.all([
+      db.from('gyms').select('name').eq('id', req.gym_id).maybeSingle(),
+      getGymOwnerEmails(db, req.gym_id),
+    ]);
+    if (owners.length === 0) return;
+    await sendPlatformEmail({
+      to: owners,
+      ...payoutAccountReviewed({
+        gymName: (gym as { name: string } | null)?.name ?? 'your gym',
+        approved,
+        bankName: req.bank_name,
+        last4: req.account_number.slice(-4),
+        reason,
+        payoutSettingsUrl: platformAppUrl('/admin/settings'),
+      }),
+      template: 'payout_account_reviewed',
+    });
+  } catch { /* the decision is recorded either way */ }
+}
+
 export async function reviewPayoutRequest(_prev: ReviewPayoutState, formData: FormData): Promise<ReviewPayoutState> {
   const requestId = String(formData.get('request_id') ?? '');
   const decision = String(formData.get('decision') ?? ''); // 'approve' | 'reject'
@@ -75,6 +111,9 @@ export async function reviewPayoutRequest(_prev: ReviewPayoutState, formData: Fo
       } as never).eq('id', r.id);
       if (error) return { ok: false, error: error.message };
       logAudit({ action: 'payout_request_rejected', table: 'payout_change_requests', actorId: adminUser.id, gymId: r.gym_id, recordId: r.id, values: { reject_reason: rejectReason } });
+      // Payouts stay paused until they send valid details, and the reason is
+      // the only thing that stops them resubmitting the same account.
+      await mailPayoutReview(db, r, false, rejectReason);
       revalidatePath('/superadmin/payout-approvals');
       return { ok: true, error: null };
     }
@@ -113,6 +152,7 @@ export async function reviewPayoutRequest(_prev: ReviewPayoutState, formData: Fo
     if (doneErr) return { ok: false, error: doneErr.message };
 
     logAudit({ action: 'payout_request_approved', table: 'payout_change_requests', actorId: adminUser.id, gymId: r.gym_id, recordId: r.id, values: { allow_name_mismatch: allowNameMismatch } });
+    await mailPayoutReview(db, r, true, null);
     revalidatePath('/superadmin/payout-approvals');
     try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
     return { ok: true, error: null };
@@ -337,14 +377,17 @@ export async function saveBusinessHours(_prev: GymSaveState, formData: FormData)
   }
 }
 
-// Toggle the three reminder channels the Settings → Notifications section
-// renders. Cron / reminder writers check these flags before enqueueing.
-// Owners/managers only.
+// Toggle the four notification channels the Settings → Notifications section
+// renders. Cron / reminder writers and lib/email/send.ts both check these flags
+// before sending. Owners/managers only.
 export async function updateNotifications(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  // Unchecked boxes don't post, so every flag is derived from presence — a
+  // missing field is OFF, never "leave as-is".
   const patch = {
-    notif_class_reminders:  formData.get('notif_class_reminders')  === 'on',
-    notif_renewal_nudges:   formData.get('notif_renewal_nudges')   === 'on',
-    notif_payment_receipts: formData.get('notif_payment_receipts') === 'on',
+    notif_class_reminders:    formData.get('notif_class_reminders')    === 'on',
+    notif_renewal_nudges:     formData.get('notif_renewal_nudges')     === 'on',
+    notif_payment_receipts:   formData.get('notif_payment_receipts')   === 'on',
+    notif_membership_updates: formData.get('notif_membership_updates') === 'on',
   };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);

@@ -147,6 +147,7 @@ export type GymProfile = {
   payouts_connected: boolean; payouts_locked: boolean; commission_pct: number;
   member_freeze_enabled: boolean;
   notif_class_reminders: boolean; notif_renewal_nudges: boolean; notif_payment_receipts: boolean;
+  notif_membership_updates: boolean;
 };
 
 export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
@@ -364,7 +365,7 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                 <div className="panel-title">Notifications</div>
                 <div className="panel-desc">Automated reminders sent to members. Toggle a channel off to stop those messages platform-wide for this gym.</div>
                 <label className="set-row" style={{ cursor: 'pointer' }}>
-                  <div className="m"><strong>Class reminders</strong><small>WhatsApp + push, 1 hour before</small></div>
+                  <div className="m"><strong>Class reminders</strong><small>A morning email of each member&apos;s classes for the day</small></div>
                   <input type="checkbox" name="notif_class_reminders" defaultChecked={gym.notif_class_reminders} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
                 </label>
                 <label className="set-row" style={{ cursor: 'pointer' }}>
@@ -374,6 +375,10 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                 <label className="set-row" style={{ cursor: 'pointer' }}>
                   <div className="m"><strong>Payment receipts</strong><small>Emailed on every charge</small></div>
                   <input type="checkbox" name="notif_payment_receipts" defaultChecked={gym.notif_payment_receipts} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
+                </label>
+                <label className="set-row" style={{ cursor: 'pointer' }}>
+                  <div className="m"><strong>Membership updates</strong><small>Pauses, freezes and status changes to a member&apos;s plan</small></div>
+                  <input type="checkbox" name="notif_membership_updates" defaultChecked={gym.notif_membership_updates} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
                   <button className="gf-btn gf-btn-primary" type="submit" disabled={notifPending}>{notifPending ? 'Saving…' : 'Save changes'}</button>

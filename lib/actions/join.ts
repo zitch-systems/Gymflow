@@ -3,21 +3,33 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { splitName, normalizeNgPhone } from '@/lib/format';
+import { splitName, normalizeNgPhone, firstName } from '@/lib/format';
 import { validatePassword } from '@/lib/auth/password';
+import { GYM_EMAIL_COLUMNS, type EmailGym } from '@/lib/email/recipients';
+import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
+import { MEMBER_TEMPLATES, welcome } from '@/lib/email/templates/member';
 
 export type JoinState = { error: string | null };
+
+/** The gym as the join flow needs it: enough to link a member, plus everything
+ *  the welcome mail is dressed in. member_code isn't in GYM_EMAIL_COLUMNS — it's
+ *  the code a member types to find their gym from a fresh app install. */
+type JoinGym = EmailGym & { member_code: string | null };
 
 // Link an auth user to a gym as a member (idempotent). Service-role: the
 // joining user has no privileges on the gym yet. Never demotes an existing
 // profile's role — staff joining another gym as a member keep their role.
-async function provisionMember(params: { userId: string; email: string; gymId: string; fullName?: string | null; phone?: string | null }): Promise<{ ok: boolean; error?: string }> {
+// `created` distinguishes "linked just now" from "was already a member here":
+// this function is idempotent by design (it also backs /launch's self-heal), so
+// without it re-opening a join link mails the welcome again to someone who has
+// been training there for a year.
+async function provisionMember(params: { userId: string; email: string; gymId: string; fullName?: string | null; phone?: string | null }): Promise<{ ok: boolean; created?: boolean; error?: string }> {
   let admin: ReturnType<typeof createAdminClient>;
   try { admin = createAdminClient(); } catch (e) { return { ok: false, error: (e as Error).message }; }
 
   const { data: existing } = await admin
     .from('gym_member_links').select('id').eq('user_id', params.userId).eq('gym_id', params.gymId).limit(1).maybeSingle();
-  if (existing) return { ok: true };
+  if (existing) return { ok: true, created: false };
 
   const { data: profile } = await admin.from('profiles').select('id, phone').eq('id', params.userId).maybeSingle();
   if (!profile) {
@@ -36,20 +48,49 @@ async function provisionMember(params: { userId: string; email: string; gymId: s
     is_active: true, status: 'active', onboarding_method: 'join_link', joined_at: new Date().toISOString(),
   });
   if (linkErr) return { ok: false, error: linkErr.message };
-  return { ok: true };
+  return { ok: true, created: true };
 }
 
-async function gymBySlug(slug: string): Promise<{ id: string; name: string } | null> {
+// Both join paths end in a welcome email dressed in the gym's own logo, colour
+// and subdomain, so this reads the branding columns in the lookup the flow was
+// doing anyway — a second round-trip on the join path buys nothing.
+const JOIN_GYM_COLUMNS = `${GYM_EMAIL_COLUMNS}, member_code`;
+
+async function gymBySlug(slug: string): Promise<JoinGym | null> {
   try {
     const admin = createAdminClient();
-    const { data } = await admin.from('gyms').select('id, name').eq('slug', slug).maybeSingle();
-    return data ?? null;
+    const { data } = await admin.from('gyms').select(JOIN_GYM_COLUMNS).eq('slug', slug).maybeSingle();
+    return (data as unknown as JoinGym | null) ?? null;
   } catch {
     // No service key (preview env) — gyms are publicly readable, fall back.
     const supabase = await createClient();
-    const { data } = await supabase.from('gyms').select('id, name').eq('slug', slug).maybeSingle();
-    return data ?? null;
+    const { data } = await supabase.from('gyms').select(JOIN_GYM_COLUMNS).eq('slug', slug).maybeSingle();
+    return (data as unknown as JoinGym | null) ?? null;
   }
+}
+
+/**
+ * The welcome both join paths send.
+ *
+ * Same template as a front-desk addition (lib/actions/admin-member.ts), minus
+ * the set-a-password link: someone who signed themselves up chose their own
+ * password on the way in. Best-effort and last in the action — the membership
+ * link is already written, and joining must not fail because Resend did.
+ */
+async function sendJoinWelcome(gym: JoinGym, to: { email: string; fullName: string | null }): Promise<void> {
+  if (!to.email) return;
+  try {
+    const spec = MEMBER_TEMPLATES.welcome;
+    await sendGymEmail({
+      gym, to, template: spec.template, category: spec.category,
+      ...welcome({
+        gymName: (gym.name ?? '').trim() || 'Your gym',
+        firstName: firstName(to.fullName),
+        dashboardUrl: memberAppUrl(gym),
+        memberCode: gym.member_code,
+      }),
+    });
+  } catch { /* bonus channel */ }
 }
 
 // New member: create the auth account, confirm + sign in (same no-email-
@@ -100,6 +141,10 @@ export async function joinAsNew(_prev: JoinState, formData: FormData): Promise<J
   const prov = await provisionMember({ userId: data.user.id, email, gymId: gym.id, fullName, phone });
   if (!prov.ok) console.error(`[join] provisioning failed for ${data.user.id}: ${prov.error}`); // /launch self-heals via join_gym_slug
 
+  // Name and address both came off the form, so there's nothing to look up.
+  // Must run before the redirect below — redirect() throws to unwind.
+  if (prov.created) await sendJoinWelcome(gym, { email, fullName });
+
   if (session) redirect('/dashboard');
   redirect('/login?check-email=1');
 }
@@ -118,6 +163,16 @@ export async function joinAsCurrent(_prev: JoinState, formData: FormData): Promi
 
   const prov = await provisionMember({ userId: user.id, email: user.email ?? '', gymId: gym.id });
   if (!prov.ok) return { error: prov.error ?? 'Could not join. Please try again.' };
+
+  // Reading the profile just to greet them by name isn't worth a round-trip when
+  // email is switched off — or when they were already a member here.
+  if (prov.created && process.env.RESEND_API_KEY) {
+    const { data: profile } = await supabase.from('profiles').select('email, full_name').eq('id', user.id).maybeSingle();
+    await sendJoinWelcome(gym, {
+      email: (profile?.email ?? user.email ?? '').trim(),
+      fullName: profile?.full_name ?? null,
+    });
+  }
   redirect('/launch');
 }
 

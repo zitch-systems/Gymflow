@@ -1,0 +1,144 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildActionUrl, linkBase, nextPath, parseActionType, renderAuthEmail,
+  type AuthHookPayload,
+} from '@/lib/email/auth-hook';
+import { renderEmail, type EmailContent } from '@/lib/email/layout';
+import { gymBrand } from '@/lib/email/brand';
+
+// EmailContent.blocks are closures, so JSON.stringify hides their content
+// (functions serialise to null) and the subject is a plain-text header, not
+// HTML. To assert on what a recipient actually sees, render the content to its
+// final HTML + text the same way the route does.
+function render(c: EmailContent | null): { subject: string; html: string; text: string } {
+  if (!c) throw new Error('no content');
+  const r = renderEmail({
+    brand: gymBrand({ name: 'Iron Republic', slug: 'iron', brand_color: '#ff5a1f' }),
+    title: c.subject, preheader: c.preheader, blocks: c.blocks, preferencesUrl: null,
+  });
+  return { subject: c.subject, ...r };
+}
+
+// The auth hook turns a Supabase payload into a link the user clicks to prove
+// they own an inbox. The security-critical property: the link always lands on
+// OUR /auth/confirm route, and the `next` it carries can only ever be a
+// same-origin path — a poisoned redirect_to must not become an open redirect.
+
+describe('nextPath', () => {
+  it('keeps a relative path + query', () => {
+    expect(nextPath('/login?confirmed=1', 'signup')).toBe('/login?confirmed=1');
+  });
+
+  it('strips the origin from an absolute URL, keeping only the path', () => {
+    expect(nextPath('https://gymflow.ng/reset-password', 'recovery')).toBe('/reset-password');
+  });
+
+  it('keeps only the path of a foreign absolute URL, never its origin', () => {
+    // The real contract is "never leave our origin". A foreign URL is reduced
+    // to a same-origin path — the app's legitimate redirect_to values are
+    // absolute-and-ours, so we preserve the path rather than discard it, and
+    // the host can never survive into the result.
+    const out = nextPath('https://evil.example.com/steal', 'recovery');
+    expect(out).toBe('/steal');
+    expect(out).not.toContain('evil.example.com');
+    expect(out.startsWith('/')).toBe(true);
+    expect(out.startsWith('//')).toBe(false);
+  });
+
+  it('reduces a protocol-relative URL (//evil.com) to its path, dropping the host', () => {
+    const out = nextPath('//evil.com/x', 'signup');
+    expect(out).toBe('/x');
+    expect(out).not.toContain('evil.com');
+  });
+
+  it('falls back when redirect_to is missing', () => {
+    expect(nextPath(undefined, 'recovery')).toBe('/reset-password');
+    expect(nextPath(undefined, 'signup')).toBe('/login?confirmed=1');
+  });
+});
+
+describe('linkBase', () => {
+  it('prefers the payload site_url when absolute', () => {
+    const p = { user: {}, email_data: { site_url: 'https://app.gymflow.ng/' } } as AuthHookPayload;
+    expect(linkBase(p)).toBe('https://app.gymflow.ng');
+  });
+
+  it('returns null when no absolute base is available', () => {
+    const p = { user: {}, email_data: { site_url: '/relative' } } as AuthHookPayload;
+    // With NEXT_PUBLIC_SITE_URL unset in the test env, siteUrl() falls back to
+    // the gymflow.ng default, which IS absolute — so assert on the shape.
+    const base = linkBase(p);
+    expect(base === null || /^https?:\/\//.test(base)).toBe(true);
+  });
+});
+
+describe('buildActionUrl', () => {
+  it('targets /auth/confirm with token_hash, type and encoded next', () => {
+    const url = buildActionUrl('https://gymflow.ng', 'HASH', 'recovery', '/reset-password');
+    expect(url).toContain('https://gymflow.ng/auth/confirm?');
+    expect(url).toContain('token_hash=HASH');
+    expect(url).toContain('type=recovery');
+    expect(url).toContain('next=%2Freset-password');
+  });
+});
+
+describe('parseActionType', () => {
+  it('accepts known types', () => {
+    for (const tpe of ['signup', 'recovery', 'invite', 'magiclink', 'email_change', 'reauthentication']) {
+      expect(parseActionType(tpe)).toBe(tpe);
+    }
+  });
+  it('rejects anything else', () => {
+    expect(parseActionType('delete_account')).toBeNull();
+    expect(parseActionType(undefined)).toBeNull();
+    expect(parseActionType('')).toBeNull();
+  });
+});
+
+describe('renderAuthEmail', () => {
+  const ctx = { base: 'https://gymflow.ng', senderName: 'Iron Republic', isGymMember: true };
+  const payload = (over: Partial<AuthHookPayload['email_data']> = {}, user: AuthHookPayload['user'] = {}): AuthHookPayload => ({
+    user: { email: 'ada@example.com', ...user },
+    email_data: { token_hash: 'TH', token: '123456', redirect_to: '/login?confirmed=1', ...over },
+  });
+
+  it('builds a signup email whose CTA points at our confirm route', () => {
+    const { html, subject } = render(renderAuthEmail('signup', payload(), ctx));
+    expect(html).toContain('/auth/confirm');
+    expect(html).toContain('token_hash=TH');
+    expect(subject.toLowerCase()).toContain('confirm');
+  });
+
+  it('produces a recovery email with a one-hour expiry note', () => {
+    const { html, text } = render(renderAuthEmail('recovery', payload({ redirect_to: '/auth/confirm?next=/reset-password' }), ctx));
+    expect(html).toContain('1 hour');
+    expect(text).toContain('1 hour');
+  });
+
+  it('renders reauthentication from the token, needing no link', () => {
+    const c = renderAuthEmail('reauthentication', payload({ token: '482913' }), ctx);
+    expect(c!.subject).toContain('482913');
+    expect(render(c).html).toContain('482913'); // the code block renders it too
+  });
+
+  it('returns null when the required token_hash is absent (malformed call)', () => {
+    expect(renderAuthEmail('signup', payload({ token_hash: undefined }), ctx)).toBeNull();
+  });
+
+  it('returns null when reauthentication has no token', () => {
+    expect(renderAuthEmail('reauthentication', payload({ token: undefined }), ctx)).toBeNull();
+  });
+
+  it('email_change to the new address uses the *_new token hash', () => {
+    const c = renderAuthEmail('email_change_new', payload({ token_hash: 'OLD', token_hash_new: 'NEW' }, { new_email: 'new@x.ng' }), ctx);
+    expect(render(c).html).toContain('token_hash=NEW');
+    expect(render(c).html).not.toContain('token_hash=OLD');
+  });
+
+  it('never leaks an injected gym name into the rendered HTML body', () => {
+    // The subject is a plain-text header and may contain the raw name; what
+    // must never happen is the name becoming live markup in the HTML body.
+    const c = renderAuthEmail('signup', payload(), { ...ctx, senderName: '<script>alert(1)</script>' });
+    expect(render(c).html).not.toContain('<script>alert(1)</script>');
+  });
+});

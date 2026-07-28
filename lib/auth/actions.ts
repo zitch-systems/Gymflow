@@ -128,6 +128,16 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
 export async function resendConfirmation(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get('email') ?? '').trim();
   if (!email) return { error: 'Enter your email above first, then resend.' };
+  // Each call sends a real (now branded) confirmation email to an arbitrary
+  // address with no auth — throttle per target inbox and per caller IP so it
+  // can't be turned into a free mail cannon that torches the sending domain's
+  // reputation. Fail-open, like the other auth limiters.
+  const ip = await clientIp();
+  const [ipOk, emailOk] = await Promise.all([
+    rateLimit(`resend:ip:${ip}`, 5, 3600),
+    rateLimit(`resend:email:${email.toLowerCase()}`, 3, 3600),
+  ]);
+  if (!ipOk || !emailOk) return { error: 'Too many requests. Please wait a while and try again.' };
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({
     type: 'signup',

@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { logAudit } from '@/lib/audit';
 import { deliverReceipt, type NotifyGym } from '@/lib/notify';
+import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
 import { captureServerEvent } from '@/lib/server-error';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
@@ -140,17 +141,25 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
 
   // Email receipt (respects the gym's payment-receipts toggle; inert without
   // RESEND_API_KEY). Best-effort like the in-app row — never fails fulfilment.
+  // The key check comes first so a gym with email switched off doesn't pay for
+  // two extra round-trips inside the webhook just to discover that.
   try {
-    const [{ data: contact }, { data: gymRow }] = await Promise.all([
-      admin.from('profiles').select('email, phone, full_name').eq('id', memberId).maybeSingle(),
-      admin.from('gyms').select('id, name, subscription_plan, notif_payment_receipts').eq('id', gymId).maybeSingle(),
-    ]);
-    if (contact && gymRow) {
-      await deliverReceipt(
-        gymRow as unknown as NotifyGym,
-        { email: contact.email, phone: contact.phone, fullName: contact.full_name },
-        { amountNaira: d.amountKobo / 100, endDate: endIso },
-      );
+    if (process.env.RESEND_API_KEY) {
+      const [{ data: contact }, { data: gymRow }] = await Promise.all([
+        admin.from('profiles').select('email, phone, full_name').eq('id', memberId).maybeSingle(),
+        // GYM_EMAIL_COLUMNS, not the four columns the old plain-text mail needed:
+        // the receipt now renders in the gym's own logo, colour and subdomain,
+        // and a narrow select silently downgrades every member's receipt to
+        // GymFlow branding with a link to the wrong host.
+        admin.from('gyms').select(GYM_EMAIL_COLUMNS).eq('id', gymId).maybeSingle(),
+      ]);
+      if (contact && gymRow) {
+        await deliverReceipt(
+          gymRow as unknown as NotifyGym,
+          { email: contact.email, phone: contact.phone, fullName: contact.full_name },
+          { amountNaira: d.amountKobo / 100, endDate: endIso },
+        );
+      }
     }
   } catch { /* delivery is a bonus channel */ }
   return { ok: true, created: true };

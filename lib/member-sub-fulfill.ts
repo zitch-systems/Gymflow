@@ -3,6 +3,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { logAudit } from '@/lib/audit';
 import { deliverReceipt, deliverPaymentFailed, type NotifyGym } from '@/lib/notify';
+import { firstName, fmtDate } from '@/lib/format';
+import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
+import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
+import { MEMBER_TEMPLATES, autoRenewEnabled, autoRenewEnded } from '@/lib/email/templates/member';
 import type { Database } from '@/lib/database.types';
 
 // Fulfillment for the MEMBER auto-billing flow (member → gym recurring
@@ -103,15 +107,41 @@ async function emailMember(
   memberId: string,
   send: (gym: NotifyGym, contact: { email: string | null; phone: string | null; fullName: string | null }) => Promise<unknown>,
 ): Promise<void> {
+  // Two service-role reads inside a payment webhook are not worth paying for
+  // when the sender is going to skip anyway.
+  if (!process.env.RESEND_API_KEY) return;
   try {
     const [{ data: contact }, { data: gym }] = await Promise.all([
       admin.from('profiles').select('email, phone, full_name').eq('id', memberId).maybeSingle(),
-      admin.from('gyms').select('id, name, subscription_plan, notif_payment_receipts, notif_renewal_nudges').eq('id', gymId).maybeSingle(),
+      // GYM_EMAIL_COLUMNS rather than just the toggles: these messages carry the
+      // gym's logo, colour and subdomain, and a narrow select quietly sends them
+      // dressed as GymFlow with links pointing at the wrong host.
+      admin.from('gyms').select(GYM_EMAIL_COLUMNS).eq('id', gymId).maybeSingle(),
     ]);
     if (!contact || !gym) return;
     await send(gym as unknown as NotifyGym, { email: contact.email, phone: contact.phone, fullName: contact.full_name });
   } catch { /* bonus channel */ }
 }
+
+// The plan name as the MEMBER knows it. Paystack's own plan object is named
+// "<plan> (auto-renew)" (see ensurePlanCode in lib/actions/member-billing.ts),
+// which is our plumbing showing through in a message they read.
+async function planNameOf(admin: Admin, planId: string | null): Promise<string | null> {
+  if (!planId) return null;
+  const { data } = await admin.from('membership_plans').select('name').eq('id', planId).maybeSingle();
+  return data?.name ?? null;
+}
+
+// Paystack's billing intervals in the house voice. An unknown interval yields
+// null and the row is dropped rather than printing a raw enum at a member.
+const INTERVAL_LABELS: Record<string, string> = {
+  daily: 'Every day',
+  weekly: 'Every week',
+  monthly: 'Every month',
+  quarterly: 'Every 3 months',
+  biannually: 'Every 6 months',
+  annually: 'Every year',
+};
 
 // Stale-event guard for status-flip events. findSub's customer_code fallback
 // returns the member's LATEST subscription row — so a delayed or replayed
@@ -141,6 +171,37 @@ async function onSubscriptionCreate(admin: Admin, data: Json): Promise<Result> {
 
   const { error } = await admin.from('member_subscriptions').update(patch).eq('id', sub.id);
   if (error) return { ok: false, handled: true, error: error.message };
+
+  // A standing mandate to charge someone's card now exists. Telling them the
+  // amount, the date and where the off switch is belongs in the same beat —
+  // the alternative is that they find out from a bank alert. Paystack's payload
+  // is the authority on what will actually be charged and when; our own plan row
+  // only supplies the name the member recognises.
+  const plan = (data.plan as Json) ?? {};
+  const amountKobo = Number(data.amount ?? plan.amount ?? 0);
+  const nextCharge = str(data.next_payment_date) ?? sub.end_date;
+  const spec = MEMBER_TEMPLATES.autoRenewEnabled;
+  // The plan read sits INSIDE the callback so it only runs once emailMember has
+  // cleared its RESEND_API_KEY check and actually found someone to write to.
+  await emailMember(admin, sub.gym_id, sub.member_id, async (gym, contact) => sendGymEmail({
+    gym,
+    to: { email: contact.email, fullName: contact.fullName },
+    template: spec.template,
+    category: spec.category,
+    ...autoRenewEnabled({
+      gymName: gym.name ?? 'Your gym',
+      firstName: firstName(contact.fullName),
+      amountNaira: amountKobo / 100,
+      nextChargeDate: fmtDate(nextCharge),
+      manageUrl: memberAppUrl(gym, '/dashboard/profile'),
+      planName: await planNameOf(admin, sub.plan_id ?? null),
+      intervalLabel: INTERVAL_LABELS[str(plan.interval) ?? ''] ?? null,
+    }),
+    // Paystack redelivers subscription.create on its own retry schedule, and the
+    // update above is idempotent, so nothing else here stops a second send.
+    idempotencyKey: subCode ? `auto_renew_on:${subCode}` : undefined,
+  }));
+
   return { ok: true, handled: true };
 }
 
@@ -261,6 +322,27 @@ async function onSubscriptionEnd(admin: Admin, data: Json): Promise<Result> {
   await admin.from('member_subscriptions').update({
     status: newStatus, auto_debit_enabled: false, updated_at: new Date().toISOString(),
   }).eq('id', sub.id);
+
+  // The mandate is gone either way — whether access lapsed with it or still has
+  // paid-for time on it. Silence here is how a member discovers the card stopped
+  // renewing by being turned away at the door.
+  const spec = MEMBER_TEMPLATES.autoRenewEnded;
+  await emailMember(admin, sub.gym_id, sub.member_id, async (gym, contact) => sendGymEmail({
+    gym,
+    to: { email: contact.email, fullName: contact.fullName },
+    template: spec.template,
+    category: spec.category,
+    ...autoRenewEnded({
+      gymName: gym.name ?? 'Your gym',
+      firstName: firstName(contact.fullName),
+      endDate: fmtDate(sub.end_date),
+      renewUrl: memberAppUrl(gym, '/dashboard/renew'),
+      planName: await planNameOf(admin, sub.plan_id ?? null),
+    }),
+    // subscription.disable and subscription.not_renew can both land for the same
+    // subscription, and Paystack retries each of them.
+    idempotencyKey: subCode ? `auto_renew_ended:${subCode}` : undefined,
+  }));
 
   return { ok: true, handled: true };
 }

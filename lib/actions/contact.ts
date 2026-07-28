@@ -2,6 +2,9 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
+import { platformAlertRecipients } from '@/lib/email';
+import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
+import { contactAck, contactReceived } from '@/lib/email/templates/platform';
 
 export type ContactState = { ok: boolean; error: string | null };
 
@@ -27,16 +30,58 @@ export async function submitContact(_prev: ContactState, formData: FormData): Pr
     return { ok: false, error: 'Too many messages in a short time — please wait a few minutes, or email hello@gymflow.ng.' };
   }
 
+  const name = [first, last].filter(Boolean).join(' ');
+  const priority = topic === 'Booking a demo' ? 'high' : 'normal';
+
   try {
     const admin = createAdminClient();
     const { error } = await admin.from('support_tickets').insert({
-      subject: `${topic} — ${[first, last].filter(Boolean).join(' ')}`,
-      body: [`From: ${[first, last].filter(Boolean).join(' ')} <${email}>`, gymName ? `Gym: ${gymName}` : null, '', message || '(no message)'].filter((s) => s !== null).join('\n'),
-      status: 'open', priority: topic === 'Booking a demo' ? 'high' : 'normal',
+      subject: `${topic} — ${name}`,
+      body: [`From: ${name} <${email}>`, gymName ? `Gym: ${gymName}` : null, '', message || '(no message)'].filter((s) => s !== null).join('\n'),
+      status: 'open', priority,
     });
     if (error) return { ok: false, error: 'Could not send right now — email us at hello@gymflow.ng.' };
-    return { ok: true, error: null };
   } catch {
     return { ok: false, error: 'Could not send right now — email us at hello@gymflow.ng.' };
   }
+
+  // The ticket row is the system of record; these two are what make anyone look
+  // at it. Both best-effort — a form that says "couldn't send" after the ticket
+  // landed is worse than a silent mail failure.
+  try {
+    const alerts = platformAlertRecipients();
+    // allSettled, not all: one rejected send must not leave the other's
+    // rejection unhandled.
+    await Promise.allSettled([
+      // Unset PLATFORM_ALERT_EMAILS means nobody is paged; skip rather than
+      // throw, the same posture the rest of lib/email takes on missing config.
+      alerts.length ? sendPlatformEmail({
+        to: alerts,
+        ...contactReceived({
+          name,
+          email,
+          gymName: gymName || null,
+          topic,
+          message: message || '',
+          priority,
+          ticketUrl: platformAppUrl('/superadmin/support'),
+        }),
+        // Replies go straight to the person who wrote in, not to our own inbox.
+        replyTo: email,
+        template: 'contact_received',
+      }) : Promise.resolve(),
+      sendPlatformEmail({
+        to: email,
+        ...contactAck({
+          name: first,
+          topic,
+          responseTime: priority === 'high' ? 'one working day' : 'two working days',
+          pricingUrl: platformAppUrl('/pricing'),
+        }),
+        template: 'contact_ack',
+      }),
+    ]);
+  } catch { /* the ticket is already open */ }
+
+  return { ok: true, error: null };
 }

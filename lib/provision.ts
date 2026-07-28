@@ -1,5 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { splitName } from '@/lib/format';
+import { splitName, fmtDate } from '@/lib/format';
+import { gymUrl } from '@/lib/email/brand';
+import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
+import { ownerWelcome } from '@/lib/email/templates/platform';
 
 export type ProvisionResult = { ok: boolean; error?: string };
 
@@ -27,6 +30,9 @@ export async function provisionOwner(params: { userId: string; email: string; gy
   // Unique slug: name, name-2 … name-6, then a random suffix as last resort.
   const base = slugify(params.gymName);
   let gymId: string | null = null;
+  // The slug the insert actually won, not `base`: collisions push the gym onto
+  // name-2 … and the welcome mail must point at the address that exists.
+  let gymSlug = base;
   let lastErr = '';
   // New gyms are 'active' (the value the gyms_status_check constraint accepts and
   // the rest of the app treats as live). The 14-day trial lives in trial_ends_at,
@@ -39,7 +45,7 @@ export async function provisionOwner(params: { userId: string; email: string; gy
       .insert({ name: params.gymName, slug, status: 'active', subscription_plan: 'starter', trial_ends_at: trialEndsAt })
       .select('id')
       .maybeSingle();
-    if (data) { gymId = data.id; break; }
+    if (data) { gymId = data.id; gymSlug = slug; break; }
     lastErr = error?.message ?? 'gym insert failed';
     // Anything other than a slug collision won't be fixed by another candidate.
     if (!/duplicate|unique/i.test(lastErr)) break;
@@ -57,6 +63,24 @@ export async function provisionOwner(params: { userId: string; email: string; gy
     .from('gym_staff_links')
     .insert({ user_id: params.userId, gym_id: gymId, role: 'gym_owner', is_active: true });
   if (linkErr) return { ok: false, error: linkErr.message };
+
+  // Welcome mail. Best-effort and last: this function is idempotent and the
+  // early return above means it only reaches here on the one run that actually
+  // created the gym, so the owner gets exactly one — and a Resend failure must
+  // not report a gym that exists as un-provisioned.
+  try {
+    await sendPlatformEmail({
+      to: params.email,
+      ...ownerWelcome({
+        ownerName: params.fullName,
+        gymName: params.gymName,
+        gymUrl: gymUrl(gymSlug),
+        adminUrl: platformAppUrl('/admin'),
+        trialEndDate: fmtDate(trialEndsAt),
+      }),
+      template: 'owner_welcome',
+    });
+  } catch { /* the gym is live either way */ }
 
   return { ok: true };
 }

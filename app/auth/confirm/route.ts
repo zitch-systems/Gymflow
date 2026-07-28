@@ -12,7 +12,15 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get('code');
   const tokenHash = searchParams.get('token_hash');
-  const type = searchParams.get('type') as 'recovery' | 'signup' | 'magiclink' | null;
+  // Narrow `type` against an allowlist rather than casting it: it is forwarded
+  // straight to verifyOtp, so an unchecked value lets a crafted link drive that
+  // call with an arbitrary string. Anything unrecognised is dropped to null,
+  // which falls through to the link-expired branch.
+  const rawType = searchParams.get('type');
+  const VERIFIABLE = ['recovery', 'signup', 'magiclink', 'email', 'email_change', 'invite'] as const;
+  const type = (VERIFIABLE as readonly string[]).includes(rawType ?? '')
+    ? (rawType as (typeof VERIFIABLE)[number])
+    : null;
   const rawNext = searchParams.get('next') ?? '/';
 
   // Only allow relative paths — reject anything that looks like an absolute URL
