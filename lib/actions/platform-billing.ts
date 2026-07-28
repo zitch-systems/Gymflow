@@ -6,6 +6,10 @@ import { requireStaff } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { initSubscription, getSubscription, disableSubscription } from '@/lib/paystack';
 import { PLATFORM_PLANS, isPlanTier } from '@/lib/platform-plans';
+import { fmtDate } from '@/lib/format';
+import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
+import { adminOrNull, getGymOwnerEmails } from '@/lib/email/recipients';
+import { subscriptionCancelled } from '@/lib/email/templates/platform';
 
 // Platform (gym → GymFlow) subscription management. OWNER-only: the dal treats
 // 'manager' as "all but billing", so paying for GymFlow is the owner's call.
@@ -64,6 +68,33 @@ export async function cancelPlatformSubscription(): Promise<void> {
     const admin = createAdminClient();
     await admin.from('gyms').update({ subscription_status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', gym.id);
   } catch { /* webhook will still flip it */ }
+
+  // Confirmation to every owner, not just whoever clicked: cancelling reads as
+  // "did I just delete my gym?", and the paid-through date is the answer. The
+  // subscription.disable webhook sends the same mail, and Resend's idempotency
+  // key collapses the pair into one delivery.
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const admin = adminOrNull();
+      const owners = admin ? await getGymOwnerEmails(admin, gym.id) : [];
+      if (owners.length) {
+        await sendPlatformEmail({
+          to: owners,
+          ...subscriptionCancelled({
+            gymName: gym.name,
+            // Not computed here — the paid period is whatever the last charge
+            // bought, and cancelling doesn't shorten it.
+            accessEndDate: gym.subscription_current_period_end
+              ? fmtDate(gym.subscription_current_period_end)
+              : 'the end of your paid period',
+            billingUrl: platformAppUrl('/admin/billing'),
+          }),
+          template: 'subscription_cancelled',
+          idempotencyKey: `platform-cancelled-${code}`,
+        });
+      }
+    } catch { /* the cancel itself stands */ }
+  }
 
   revalidatePath('/admin/billing');
   redirect('/admin/billing?billing_cancelled=1');

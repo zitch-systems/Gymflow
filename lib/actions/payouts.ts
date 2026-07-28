@@ -8,6 +8,10 @@ import { createTransferRecipient, initiateTransfer } from '@/lib/paystack';
 import { availableBalance } from '@/lib/payout-balance';
 import { logAudit } from '@/lib/audit';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
+import { fmtDate } from '@/lib/format';
+import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
+import { adminOrNull, getContact, getGymOwnerEmails, type EmailContact } from '@/lib/email/recipients';
+import { payoutRejected, payoutRequested, payoutSent } from '@/lib/email/templates/platform';
 
 // Instructor payout runs — the money-movement half of the commission feature.
 // Lifecycle (status is DB-check-constrained to these four values):
@@ -23,6 +27,26 @@ import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
 export type ActionState = { ok: boolean; error: string | null; message?: string };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type PayoutMailCtx = {
+  admin: NonNullable<ReturnType<typeof adminOrNull>>;
+  /** The instructor whose money this is. Null when their profile can't be read. */
+  instructor: EmailContact | null;
+};
+
+// All three send sites below want the same two things: the service-role client
+// (an instructor's profile and a gym's owner links are both outside the
+// caller's RLS) and that instructor's contact row. Bundling the skip-when-off
+// check, the client and the swallow here is what stops a payout action ever
+// failing because of an email.
+async function mailAboutPayout(instructorId: string, send: (ctx: PayoutMailCtx) => Promise<unknown>): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+  const admin = adminOrNull();
+  if (!admin) return;
+  try {
+    await send({ admin, instructor: await getContact(admin, instructorId) });
+  } catch { /* best-effort — the money has already moved (or hasn't) either way */ }
+}
 
 // Instructor requests a payout of `amount` naira. Bank details are snapshotted
 // onto the row (the payouts table is denormalised by design — what staff pay
@@ -64,6 +88,37 @@ export async function requestPayout(_prev: ActionState, formData: FormData): Pro
     if (error?.code === '23505') return { ok: false, error: 'You already have a payout in progress. Wait for it to complete first.' };
     if (error) return { ok: false, error: error.message };
 
+    // In-app row first — it is the system of record; the mail below is the
+    // second channel. Written through the user client, not the service role:
+    // notif_insert_self covers an instructor's own row, so the receipt an
+    // instructor sees never depends on the service key being configured.
+    const { error: nErr } = await supabase.from('notifications').insert({
+      gym_id: gym.id, user_id: user.id, type: 'payment', channel: 'in_app',
+      title: 'Payout requested',
+      body: `Your ₦${amount.toLocaleString('en-NG')} payout request is with the gym for approval.`,
+    });
+    if (nErr) console.warn(`[payout] request notification failed: ${nErr.message}`); // the request itself succeeded
+
+    // Owners get the mail, not the requester: nothing moves until one of them
+    // approves it, so they are the only people who can act on this.
+    await mailAboutPayout(user.id, async ({ admin, instructor }) => {
+      const owners = await getGymOwnerEmails(admin, gym.id);
+      if (owners.length === 0) return;
+      return sendPlatformEmail({
+        to: owners,
+        ...payoutRequested({
+          gymName: gym.name ?? 'your gym',
+          instructorName: instructor?.fullName?.trim() || bank.account_name || 'An instructor',
+          amountNaira: amount,
+          bankName: bank.bank_name ?? '',
+          last4: (bank.account_number ?? '').slice(-4),
+          requestedDate: fmtDate(new Date().toISOString()),
+          payoutsUrl: platformAppUrl('/admin/instructors'),
+        }),
+        template: 'payout_requested',
+      });
+    });
+
     void logAudit({
       action: 'payout_requested', table: 'instructor_payouts',
       actorId: user.id, gymId: gym.id, recordId: row.id,
@@ -91,11 +146,36 @@ export async function rejectPayout(_prev: ActionState, formData: FormData): Prom
       .select('id, instructor_id, amount');
     if (error) return { ok: false, error: error.message };
     if (!rows?.length) return { ok: false, error: 'This payout is no longer open.' };
+    const rejected = rows[0];
+
+    // In-app row first (notif_insert_staff covers a manager writing to their
+    // own gym's instructor), then the mail that carries the staff note.
+    const { error: nErr } = await supabase.from('notifications').insert({
+      gym_id: gym.id, user_id: rejected.instructor_id, type: 'warning', channel: 'in_app',
+      title: 'Payout request declined',
+      body: `Your ₦${Number(rejected.amount).toLocaleString('en-NG')} payout request was declined${note ? `: ${note}` : '.'}`,
+    });
+    if (nErr) console.warn(`[payout] rejection notification failed: ${nErr.message}`); // the rejection itself succeeded
+
+    await mailAboutPayout(rejected.instructor_id, ({ instructor }) => {
+      if (!instructor?.email) return Promise.resolve();
+      return sendPlatformEmail({
+        to: instructor.email,
+        ...payoutRejected({
+          instructorName: instructor.fullName,
+          gymName: gym.name ?? 'your gym',
+          amountNaira: Number(rejected.amount),
+          note,
+          earningsUrl: platformAppUrl('/coach/earnings'),
+        }),
+        template: 'payout_rejected',
+      });
+    });
 
     void logAudit({
       action: 'payout_rejected', table: 'instructor_payouts',
       actorId: user.id, gymId: gym.id, recordId: payoutId,
-      values: { amount: rows[0].amount, note: note || null },
+      values: { amount: rejected.amount, note: note || null },
     });
     revalidatePath('/admin/instructors');
     return { ok: true, error: null, message: 'Payout rejected.' };
@@ -123,7 +203,9 @@ export async function payPayout(_prev: ActionState, formData: FormData): Promise
     const { data: claimed, error: claimErr } = await supabase.from('instructor_payouts')
       .update({ status: 'approved', processed_by: user.id, processed_at: new Date().toISOString() })
       .eq('id', payoutId).eq('gym_id', gym.id).eq('status', 'requested')
-      .select('id, instructor_id, amount, bank_code, account_number, account_name, paystack_recipient_code');
+      // bank_name rides along for the payout email — the row's snapshot is what
+      // the money actually went to, which is the point of telling them.
+      .select('id, instructor_id, amount, bank_code, bank_name, account_number, account_name, paystack_recipient_code');
     if (claimErr) return { ok: false, error: claimErr.message };
     const payout = claimed?.[0];
     if (!payout) return { ok: false, error: 'This payout is no longer open (already paid, rejected, or being processed).' };
@@ -203,6 +285,25 @@ export async function payPayout(_prev: ActionState, formData: FormData): Promise
       gym_id: gym.id, user_id: payout.instructor_id, type: 'payment', channel: 'in_app',
       title: paidNow ? 'Payout sent' : 'Payout on the way',
       body: `₦${Number(payout.amount).toLocaleString('en-NG')} ${paidNow ? 'has been transferred to' : 'is being transferred to'} your ${payout.account_name} account.`,
+    });
+
+    // Money in flight is the moment an instructor most wants a written record —
+    // and the one that stops "you said you paid me" an hour later.
+    await mailAboutPayout(payout.instructor_id, ({ instructor }) => {
+      if (!instructor?.email) return Promise.resolve();
+      return sendPlatformEmail({
+        to: instructor.email,
+        ...payoutSent({
+          instructorName: instructor.fullName,
+          gymName: gym.name ?? 'your gym',
+          amountNaira: Number(payout.amount),
+          bankName: payout.bank_name ?? '',
+          last4: (payout.account_number ?? '').slice(-4),
+          reference,
+          earningsUrl: platformAppUrl('/coach/earnings'),
+        }),
+        template: 'payout_sent',
+      });
     });
 
     revalidatePath('/admin/instructors');

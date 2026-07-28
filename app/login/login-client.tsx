@@ -16,7 +16,7 @@ const ROLES = [
 
 const initial: AuthState = { error: null };
 
-export type LoginNotice = 'check-email' | 'confirmed' | 'reset' | null;
+export type LoginNotice = 'check-email' | 'confirmed' | 'reset' | 'link-expired' | null;
 
 // Branding for a gym subdomain sign-in (<slug>.gymflow.ng/login). When present,
 // the login screen is the gym's own member sign-in, not the platform login.
@@ -24,10 +24,14 @@ export type LoginGym = {
   name: string; slug: string; logo_url: string | null; tagline: string | null; brand_color: string | null;
 };
 
-const NOTICES: Record<NonNullable<LoginNotice>, { tone: 'info' | 'success'; text: string }> = {
+const NOTICES: Record<NonNullable<LoginNotice>, { tone: 'info' | 'success' | 'error'; text: string }> = {
   'check-email': { tone: 'info', text: 'Account created — check your email (and spam) for the confirmation link, then sign in.' },
   confirmed: { tone: 'success', text: 'Email confirmed — sign in below.' },
   reset: { tone: 'success', text: 'Password updated — sign in with your new password.' },
+  // The /auth/confirm callback bounces here with ?error=link_expired when a
+  // confirmation or reset link is stale or already used — say so, otherwise the
+  // user lands on a normal login page with no idea why their link didn't work.
+  'link-expired': { tone: 'error', text: 'That link has expired or was already used. Request a new one below.' },
 };
 
 // revamp/login.html: brand-split layout, email + password. On the apex it's the
@@ -146,10 +150,16 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
             <p role="status" style={{
               display: 'flex', alignItems: 'flex-start', gap: 8, margin: '0 0 16px', padding: '10px 12px',
               borderRadius: 10, fontSize: '0.86rem', lineHeight: 1.45,
-              background: banner.tone === 'success' ? 'var(--gf-success-soft, rgba(17,209,139,0.12))' : 'var(--gf-info-soft, rgba(64,128,255,0.12))',
-              color: banner.tone === 'success' ? 'var(--gf-success, #11d18b)' : 'var(--gf-info, #4080ff)',
+              background: banner.tone === 'success' ? 'var(--gf-success-soft, rgba(17,209,139,0.12))'
+                : banner.tone === 'error' ? 'var(--gf-danger-soft, rgba(255,69,96,0.12))'
+                : 'var(--gf-info-soft, rgba(64,128,255,0.12))',
+              color: banner.tone === 'success' ? 'var(--gf-success, #11d18b)'
+                : banner.tone === 'error' ? 'var(--gf-danger, #ff4560)'
+                : 'var(--gf-info, #4080ff)',
             }}>
-              {banner.tone === 'success' ? <CheckCircle2 size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} /> : <MailCheck size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />}
+              {banner.tone === 'success' ? <CheckCircle2 size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                : banner.tone === 'error' ? <AlertCircle size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                : <MailCheck size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />}
               {banner.text}
             </p>
           )}

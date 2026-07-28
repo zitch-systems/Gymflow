@@ -5,6 +5,12 @@ import { requireMember, requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
+import { firstName, fmtDate } from '@/lib/format';
+import type { EmailContent } from '@/lib/email/layout';
+import { adminOrNull, getContact, getGymStaffEmails } from '@/lib/email/recipients';
+import { memberAppUrl, platformAppUrl, sendGymEmail, sendPlatformEmail, type EmailCategory } from '@/lib/email/send';
+import { MEMBER_TEMPLATES, freezeApproved, freezeDenied, freezeResumed, freezeStarted } from '@/lib/email/templates/member';
+import { freezeRequested } from '@/lib/email/templates/platform';
 
 // Membership freeze — staff-approved flow with an explicit date window.
 //
@@ -43,6 +49,46 @@ const daysBetween = (a: string, b: string) =>
 // so freezing right before expiry gives the member nothing back. Mirrors the
 // admin "Expiring" cutoff used on /admin/members.
 const MIN_DAYS_TO_FREEZE = 7;
+
+type Sb = Awaited<ReturnType<typeof createClient>>;
+type StaffGym = Awaited<ReturnType<typeof requireStaff>>['gym'];
+
+/**
+ * Mail the member about a freeze decision staff just made.
+ *
+ * All four staff-side transitions below need the same thing — the member's
+ * address, their own email opt-out, and a first name for the greeting — so the
+ * lookup, the gate and the swallow live here once. The RESEND_API_KEY check
+ * comes first: a gym with email switched off must not pay for a profile read on
+ * every freeze. Staff read their own members' profiles under the existing RLS
+ * policy, so no service role is involved.
+ *
+ * Swallows everything by design. A freeze is already written by the time this
+ * runs, and a Resend outage must not turn a completed action into an error the
+ * member's membership state doesn't match.
+ */
+async function mailMember(
+  supabase: Sb,
+  gym: StaffGym,
+  memberId: string | null,
+  spec: { template: string; category: EmailCategory },
+  build: (name: string) => EmailContent,
+): Promise<void> {
+  if (!memberId || !process.env.RESEND_API_KEY) return;
+  try {
+    const { data } = await supabase
+      .from('profiles').select('email, full_name, notification_email').eq('id', memberId).maybeSingle();
+    const email = (data?.email ?? '').trim();
+    if (!email) return;
+    await sendGymEmail({
+      gym,
+      to: { email, fullName: data?.full_name ?? null, wantsEmail: data?.notification_email !== false },
+      template: spec.template,
+      category: spec.category,
+      ...build(firstName(data?.full_name)),
+    });
+  } catch { /* bonus channel */ }
+}
 
 async function currentMemberSub(userId: string, gymId: string) {
   // Prefer an active/pause_requested/paused sub; ignore expired history.
@@ -102,6 +148,37 @@ export async function requestFreeze(_prev: ActionState, formData: FormData): Pro
       actorId: user.id, gymId: gym.id, recordId: sub.id,
       values: { reason: reason || null, pause_start: win.start, pause_end: win.end },
     });
+
+    // The request now sits in 'pause_requested' until a human decides, and
+    // nothing on the staff side polls for that. Service role is not incidental:
+    // a member cannot read gym_staff_links or another profile's email under RLS.
+    // GymFlow-branded, not gym-branded — this goes to the people who RUN the gym.
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const emailAdmin = adminOrNull();
+        if (emailAdmin) {
+          const [staff, me] = await Promise.all([
+            getGymStaffEmails(emailAdmin, gym.id),
+            getContact(emailAdmin, user.id),
+          ]);
+          if (staff.length) {
+            await sendPlatformEmail({
+              to: staff,
+              template: 'gym_freeze_requested',
+              ...freezeRequested({
+                gymName: gym.name,
+                memberName: (me?.fullName ?? '').trim() || me?.email || 'A member',
+                startDate: fmtDate(win.start),
+                endDate: fmtDate(win.end),
+                reason: reason || null,
+                reviewUrl: platformAppUrl(`/admin/members/${user.id}`),
+              }),
+            });
+          }
+        }
+      } catch { /* bonus channel — the request is already recorded */ }
+    }
+
     revalidatePath('/dashboard');
     revalidatePath('/dashboard/profile');
     return { ok: true, error: null, message: 'Freeze requested. Staff will review shortly.' };
@@ -148,6 +225,18 @@ export async function freezeMembership(_prev: ActionState, formData: FormData): 
       actorId: user.id, gymId: gym.id, recordId: sub.id,
       values: { member_id: sub.member_id, pause_start: win.start, pause_end: win.end },
     });
+
+    // Staff froze this without the member asking, so the member finds out here
+    // or at the door.
+    await mailMember(supabase, gym, sub.member_id, MEMBER_TEMPLATES.freezeStarted, (name) => freezeStarted({
+      gymName: gym.name,
+      firstName: name,
+      freezeStart: fmtDate(win.start),
+      freezeEnd: fmtDate(win.end),
+      dashboardUrl: memberAppUrl(gym),
+      reason: reason || null,
+    }));
+
     revalidatePath(`/admin/members/${sub.member_id}`);
     return { ok: true, error: null, message: `Frozen ${win.start} → ${win.end}.` };
   } catch (e) {
@@ -165,9 +254,11 @@ export async function approveFreeze(_prev: ActionState, formData: FormData): Pro
     const { user, gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
     // Load the row scoped to this gym; RLS also enforces this but we need the
-    // status to sanity-check the transition.
+    // status to sanity-check the transition. pause_reason is the member's own
+    // words from the request — the approval mail quotes it back so the member
+    // can see which request was approved.
     const { data: sub } = await supabase
-      .from('member_subscriptions').select('id, status, member_id')
+      .from('member_subscriptions').select('id, status, member_id, pause_reason')
       .eq('id', subId).eq('gym_id', gym.id).maybeSingle();
     if (!sub) return { ok: false, error: 'Subscription not found in this gym.' };
     if (sub.status !== 'pause_requested') return { ok: false, error: 'No pending freeze request on this membership.' };
@@ -184,6 +275,16 @@ export async function approveFreeze(_prev: ActionState, formData: FormData): Pro
       actorId: user.id, gymId: gym.id, recordId: sub.id,
       values: { member_id: sub.member_id, pause_start: win.start, pause_end: win.end },
     });
+
+    await mailMember(supabase, gym, sub.member_id, MEMBER_TEMPLATES.freezeApproved, (name) => freezeApproved({
+      gymName: gym.name,
+      firstName: name,
+      freezeStart: fmtDate(win.start),
+      freezeEnd: fmtDate(win.end),
+      dashboardUrl: memberAppUrl(gym),
+      reason: sub.pause_reason,
+    }));
+
     revalidatePath(`/admin/members/${sub.member_id}`);
     return { ok: true, error: null, message: 'Membership frozen.' };
   } catch (e) {
@@ -197,8 +298,10 @@ export async function denyFreeze(_prev: ActionState, formData: FormData): Promis
   try {
     const { user, gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
+    // end_date comes along because the refusal mail's whole reassurance is that
+    // it hasn't moved.
     const { data: sub } = await supabase
-      .from('member_subscriptions').select('id, status, member_id')
+      .from('member_subscriptions').select('id, status, member_id, end_date')
       .eq('id', subId).eq('gym_id', gym.id).maybeSingle();
     if (!sub) return { ok: false, error: 'Subscription not found in this gym.' };
     if (sub.status !== 'pause_requested') return { ok: false, error: 'No pending freeze request on this membership.' };
@@ -215,6 +318,18 @@ export async function denyFreeze(_prev: ActionState, formData: FormData): Promis
       actorId: user.id, gymId: gym.id, recordId: sub.id,
       values: { member_id: sub.member_id },
     });
+
+    await mailMember(supabase, gym, sub.member_id, MEMBER_TEMPLATES.freezeDenied, (name) => freezeDenied({
+      gymName: gym.name,
+      firstName: name,
+      dashboardUrl: memberAppUrl(gym),
+      endDate: sub.end_date ? fmtDate(sub.end_date) : null,
+      // Deliberately blank. The form gives staff nowhere to write one, and the
+      // only note on the row is the MEMBER's reason for asking — printing that
+      // under "Reason" would read as the gym's grounds for refusing.
+      reason: null,
+    }));
+
     revalidatePath(`/admin/members/${sub.member_id}`);
     return { ok: true, error: null, message: 'Freeze request denied.' };
   } catch (e) {
@@ -268,6 +383,17 @@ export async function resumeFreeze(_prev: ActionState, formData: FormData): Prom
       actorId: user.id, gymId: gym.id, recordId: sub.id,
       values: { member_id: sub.member_id, days_credited: days, new_end_date: newEnd },
     });
+
+    // The credited days are the point of the whole flow — a member who was never
+    // told how many they got back has no way to check the gym kept its word.
+    await mailMember(supabase, gym, sub.member_id, MEMBER_TEMPLATES.freezeResumed, (name) => freezeResumed({
+      gymName: gym.name,
+      firstName: name,
+      daysCredited: days,
+      newEndDate: fmtDate(newEnd),
+      classesUrl: memberAppUrl(gym, '/classes'),
+    }));
+
     revalidatePath(`/admin/members/${sub.member_id}`);
     return { ok: true, error: null, message: `Resumed. Added ${days} day${days === 1 ? '' : 's'}.` };
   } catch (e) {

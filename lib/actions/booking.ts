@@ -4,7 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { watNow } from '@/lib/format';
+import { watNow, firstName, fmtDate, fmt12Hr } from '@/lib/format';
+import { GYM_EMAIL_COLUMNS, type EmailGym } from '@/lib/email/recipients';
+import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
+import { MEMBER_TEMPLATES, classBooked, classPromoted, classWaitlisted } from '@/lib/email/templates/member';
 
 export type BookState = { ok: boolean; error: string | null; message?: string; waitlisted?: boolean };
 
@@ -14,6 +17,13 @@ export type BookState = { ok: boolean; error: string | null; message?: string; w
 // when the key isn't configured, so booking still works (without caps) locally.
 function adminOrNull() {
   try { return createAdminClient(); } catch { return null; }
+}
+
+// PostgREST hands back a to-one embed as an object, but the generated types
+// model some of them as an array — and a wrong guess here is a class name that
+// silently renders as "Class" in a member's inbox.
+function one<T>(v: T | T[] | null | undefined): T | null {
+  return Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 }
 
 // Next calendar date (YYYY-MM-DD) on or after today matching a weekday (0=Sun).
@@ -42,11 +52,14 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
   try {
     const { user, gym } = await requireMember();
     const supabase = await createClient();
+    // room + the class name/instructor ride along for the confirmation email:
+    // "you're booked in" without saying what, when or where is a notification
+    // the member has to open the app to act on.
     const { data: sched } = await supabase
-      .from('class_schedules').select('id, class_id, day_of_week, start_time, classes(max_capacity)')
+      .from('class_schedules').select('id, class_id, day_of_week, start_time, room, classes(name, instructor, max_capacity)')
       .eq('id', scheduleId).eq('gym_id', gym.id).maybeSingle();
     if (!sched) return { ok: false, error: 'Class not found.' };
-    const cls = Array.isArray(sched.classes) ? sched.classes[0] : sched.classes;
+    const cls = one(sched.classes);
     const capacity = Number(cls?.max_capacity ?? 0);
 
     const bookingDate = nextDateForDow(sched.day_of_week, sched.start_time);
@@ -98,6 +111,51 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
       title: waitlisted ? 'Added to waitlist' : 'Class booked', body,
     });
     if (nErr) console.warn(`[booking] notification failed: ${nErr.message}`); // booking itself succeeded
+
+    // Same fact, out of the app. Best-effort: the seat is already held and a
+    // mail failure must not tell the member their booking didn't work.
+    try {
+      if (process.env.RESEND_API_KEY) {
+        const { data: me } = await supabase
+          .from('profiles').select('email, full_name, notification_email').eq('id', user.id).maybeSingle();
+        const email = (me?.email ?? '').trim();
+        if (email) {
+          // Their place in the queue, when the service-role client is there to
+          // see other members' rows. The row written above is the newest
+          // waitlisted one for this occurrence, so the total IS the place.
+          let position: number | null = null;
+          if (waitlisted) {
+            const counter = adminOrNull();
+            if (counter) {
+              const { count } = await counter
+                .from('class_bookings').select('id', { count: 'exact', head: true })
+                .eq('gym_id', gym.id).eq('class_schedule_id', scheduleId)
+                .eq('booking_date', bookingDate).eq('status', 'waitlisted');
+              position = count ?? null;
+            }
+          }
+          const facts = {
+            gymName: gym.name,
+            firstName: firstName(me?.full_name),
+            className: cls?.name ?? 'Class',
+            date: fmtDate(bookingDate),
+            time: fmt12Hr(sched.start_time),
+            instructor: cls?.instructor ?? null,
+            location: sched.room ?? null,
+            classUrl: memberAppUrl(gym, '/classes'),
+          };
+          const spec = waitlisted ? MEMBER_TEMPLATES.classWaitlisted : MEMBER_TEMPLATES.classBooked;
+          await sendGymEmail({
+            gym,
+            to: { email, fullName: me?.full_name ?? null, wantsEmail: me?.notification_email !== false },
+            template: spec.template,
+            category: spec.category,
+            ...(waitlisted ? classWaitlisted({ ...facts, position }) : classBooked(facts)),
+          });
+        }
+      }
+    } catch { /* bonus channel */ }
+
     revalidatePath('/classes'); revalidatePath('/dashboard');
     return { ok: true, error: null, waitlisted, message: waitlisted ? 'Added to the waitlist.' : 'You’re booked in.' };
   } catch (e) {
@@ -112,9 +170,12 @@ export async function cancelBooking(_prev: BookState, formData: FormData): Promi
     const { user } = await requireMember();
     const supabase = await createClient();
     // Read the row first so we know whether a real seat is being freed (and for
-    // which occurrence) before we cancel it.
+    // which occurrence) before we cancel it. The embeds carry what the promotion
+    // email needs — the gym's branding and the class facts. Freeing this seat is
+    // the only chance to load them: cancelling doesn't tell us who gets promoted,
+    // and the promoted member's own gym row is outside this member's RLS.
     const { data: row } = await supabase.from('class_bookings')
-      .select('id, status, gym_id, class_schedule_id, booking_date')
+      .select(`id, status, gym_id, class_schedule_id, booking_date, gyms(${GYM_EMAIL_COLUMNS}), class_schedules(start_time, room, classes(name, instructor))`)
       .eq('id', bookingId).eq('member_id', user.id).maybeSingle();
     if (!row) return { ok: false, error: 'Booking not found.' };
 
@@ -129,8 +190,10 @@ export async function cancelBooking(_prev: BookState, formData: FormData): Promi
     if (row.status === 'booked' && row.gym_id && row.class_schedule_id && row.booking_date) {
       const admin = adminOrNull();
       if (admin) {
+        // profiles rides along so the promotion email has an address without a
+        // second service-role round-trip.
         const { data: next } = await admin.from('class_bookings')
-          .select('id, member_id')
+          .select('id, member_id, profiles(email, full_name, notification_email)')
           .eq('gym_id', row.gym_id).eq('class_schedule_id', row.class_schedule_id)
           .eq('booking_date', row.booking_date).eq('status', 'waitlisted')
           .order('booked_at', { ascending: true }).limit(1).maybeSingle();
@@ -141,6 +204,44 @@ export async function cancelBooking(_prev: BookState, formData: FormData): Promi
               gym_id: row.gym_id, user_id: next.member_id, type: 'class', channel: 'in_app',
               title: 'A spot opened up', body: `Good news — a spot opened and you’re now booked in for ${row.booking_date}.`,
             });
+            // The most time-critical mail on the platform. This member last heard
+            // "you're on the waitlist", has planned their day around not going,
+            // and the in-app row only reaches them if they happen to open the
+            // app before the class starts. Best-effort — the promotion itself is
+            // already committed, and this member's cancellation must not fail
+            // because someone else's mail did.
+            try {
+              if (process.env.RESEND_API_KEY) {
+                const promoted = one(next.profiles);
+                // gyms.brand_color and the notif_* switches postdate
+                // lib/database.types.ts, so the generated select parser rejects
+                // an embed naming them. Same cast the other email senders use
+                // (lib/actions/reminders.ts, lib/paystack-fulfill.ts).
+                const gym = one(row.gyms) as unknown as EmailGym | null;
+                const email = (promoted?.email ?? '').trim();
+                if (email && gym) {
+                  const sched = one(row.class_schedules);
+                  const cls = one(sched?.classes);
+                  const spec = MEMBER_TEMPLATES.classPromoted;
+                  await sendGymEmail({
+                    gym,
+                    to: { email, fullName: promoted?.full_name ?? null, wantsEmail: promoted?.notification_email !== false },
+                    template: spec.template,
+                    category: spec.category,
+                    ...classPromoted({
+                      gymName: (gym.name ?? '').trim() || 'Your gym',
+                      firstName: firstName(promoted?.full_name),
+                      className: cls?.name ?? 'Class',
+                      date: fmtDate(row.booking_date),
+                      time: sched?.start_time ? fmt12Hr(sched.start_time) : '',
+                      instructor: cls?.instructor ?? null,
+                      location: sched?.room ?? null,
+                      classUrl: memberAppUrl(gym, '/classes'),
+                    }),
+                  });
+                }
+              }
+            } catch { /* bonus channel */ }
           }
         }
       }

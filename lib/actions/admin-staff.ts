@@ -5,6 +5,10 @@ import { requireStaff } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { splitName } from '@/lib/format';
 import { logAudit } from '@/lib/audit';
+import { supportAddress, type EmailContent } from '@/lib/email';
+import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
+import { getContact } from '@/lib/email/recipients';
+import { staffAccessChanged, staffInvite, staffPasswordReset, staffRoleChanged } from '@/lib/email/templates/platform';
 
 export type StaffState = { ok: boolean; error: string | null; message?: string; tempPassword?: string; email?: string };
 
@@ -19,6 +23,32 @@ const PROFILE_ROLE: Record<string, string> = { manager: 'manager', instructor: '
 
 function tempPassword(): string {
   return `Gym-${Math.random().toString(36).slice(2, 8)}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+type Admin = ReturnType<typeof createAdminClient>;
+type StaffTo = { email: string | null; fullName: string | null } | null;
+
+// Mail one staff member about their own account. Never throws: the change has
+// already been written and shown on screen, so a Resend hiccup must not turn a
+// completed action into a failed one.
+async function mailStaff(to: StaffTo, content: EmailContent, template: string): Promise<void> {
+  if (!to?.email) return;
+  try {
+    await sendPlatformEmail({ to: to.email, ...content, template });
+  } catch { /* the screen already reports what changed */ }
+}
+
+// The activate/deactivate and role actions hold no address of their own, and
+// the profile read exists ONLY to find one — so it is skipped entirely when
+// email is off (the lib/payout-alerts.ts:51 pattern) and its failure degrades
+// to "no email sent" rather than to a failed action.
+async function staffContact(admin: Admin, userId: string): Promise<StaffTo> {
+  if (!process.env.RESEND_API_KEY) return null;
+  try {
+    return await getContact(admin, userId);
+  } catch {
+    return null;
+  }
 }
 
 // Add a staff member to the caller's gym: create (or link an existing) account,
@@ -89,6 +119,20 @@ export async function inviteStaff(_prev: StaffState, formData: FormData): Promis
   }
 
   logAudit({ action: 'staff_added', table: 'gym_staff_links', actorId, gymId, recordId: uid, values: { email, role } });
+
+  // Only a brand-new account has credentials to hand over; someone who already
+  // had a GymFlow login just gained a link, not a password.
+  if (pwd) {
+    await mailStaff({ email, fullName }, staffInvite({
+      staffName: fullName,
+      gymName,
+      role,
+      email,
+      tempPassword: pwd,
+      signInUrl: platformAppUrl('/login'),
+    }), 'staff_invite');
+  }
+
   revalidatePath('/admin/instructors');
   return {
     ok: true,
@@ -108,10 +152,10 @@ export async function setStaffActive(_prev: StaffState, formData: FormData): Pro
   const targetUserId = String(formData.get('user_id') ?? '');
   const active = formData.get('active') === 'on' || String(formData.get('active')) === 'true';
   if (!targetUserId) return { ok: false, error: 'Missing staff member.' };
-  let actorId: string, gymId: string;
+  let actorId: string, gymId: string, gymName: string;
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
-    actorId = user.id; gymId = gym.id;
+    actorId = user.id; gymId = gym.id; gymName = gym.name;
   } catch {
     return { ok: false, error: 'Only an owner or manager can manage staff.' };
   }
@@ -126,6 +170,18 @@ export async function setStaffActive(_prev: StaffState, formData: FormData): Pro
   const { error } = await admin.from('gym_staff_links').update({ is_active: active }).eq('id', (link as { id: string }).id);
   if (error) return { ok: false, error: error.message };
   logAudit({ action: active ? 'staff_activated' : 'staff_deactivated', table: 'gym_staff_links', actorId, gymId, recordId: targetUserId });
+
+  // Losing access is the change people query, and they query it by walking into
+  // a page that no longer opens — so say it in the one channel that reaches
+  // someone who can no longer sign in to this gym.
+  const contact = await staffContact(admin, targetUserId);
+  await mailStaff(contact, staffAccessChanged({
+    staffName: contact?.fullName,
+    gymName,
+    active,
+    signInUrl: platformAppUrl('/launch'),
+  }), 'staff_access_changed');
+
   revalidatePath('/admin/instructors');
   return { ok: true, error: null, message: active ? 'Staff access restored.' : 'Staff access revoked.' };
 }
@@ -138,10 +194,10 @@ export async function setStaffRole(_prev: StaffState, formData: FormData): Promi
   const role = String(formData.get('role') ?? '');
   if (!targetUserId) return { ok: false, error: 'Missing staff member.' };
   if (!STAFF_ROLES.has(role)) return { ok: false, error: 'Choose a valid role.' };
-  let actorId: string, gymId: string;
+  let actorId: string, gymId: string, gymName: string;
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
-    actorId = user.id; gymId = gym.id;
+    actorId = user.id; gymId = gym.id; gymName = gym.name;
   } catch {
     return { ok: false, error: 'Only an owner or manager can manage staff.' };
   }
@@ -159,6 +215,18 @@ export async function setStaffRole(_prev: StaffState, formData: FormData): Promi
   // points at this gym — never touch a profile that belongs elsewhere).
   await admin.from('profiles').update({ role: PROFILE_ROLE[role] as never }).eq('id', targetUserId).eq('gym_id', gymId);
   logAudit({ action: 'staff_role_changed', table: 'gym_staff_links', actorId, gymId, recordId: targetUserId, values: { role } });
+
+  // The old → new pair only exists here: the link row has already been
+  // overwritten, so a demotion nobody announced is discovered as a missing page.
+  const contact = await staffContact(admin, targetUserId);
+  await mailStaff(contact, staffRoleChanged({
+    staffName: contact?.fullName,
+    gymName,
+    previousRole: (link as { role: string }).role,
+    newRole: role,
+    signInUrl: platformAppUrl('/launch'),
+  }), 'staff_role_changed');
+
   revalidatePath('/admin/instructors');
   return { ok: true, error: null, message: 'Role updated.' };
 }
@@ -172,10 +240,10 @@ export async function setStaffRole(_prev: StaffState, formData: FormData): Promi
 export async function resetStaffPassword(_prev: StaffState, formData: FormData): Promise<StaffState> {
   const targetUserId = String(formData.get('user_id') ?? '');
   if (!targetUserId) return { ok: false, error: 'Missing staff member.' };
-  let actorId: string, gymId: string;
+  let actorId: string, gymId: string, gymName: string;
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
-    actorId = user.id; gymId = gym.id;
+    actorId = user.id; gymId = gym.id; gymName = gym.name;
   } catch {
     return { ok: false, error: 'Only an owner or manager can reset staff passwords.' };
   }
@@ -191,17 +259,33 @@ export async function resetStaffPassword(_prev: StaffState, formData: FormData):
   if (!link) return { ok: false, error: 'That person isn’t staff at this gym.' };
   if ((link as { role: string }).role === 'gym_owner') return { ok: false, error: 'The gym owner’s password can’t be reset here.' };
 
-  const { data: prof } = await admin.from('profiles').select('email').eq('id', targetUserId).maybeSingle();
+  // Unconditional (not staffContact): the address is returned in the state so
+  // the manager can hand the password over in person, which is the flow whether
+  // or not email is configured.
+  const contact = await getContact(admin, targetUserId);
   const pwd = tempPassword();
   const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: pwd });
   if (error) return { ok: false, error: error.message };
 
   logAudit({ action: 'staff_password_reset', table: 'gym_staff_links', actorId, gymId, recordId: targetUserId });
+
+  // A reset nobody asked for is what an account takeover looks like from the
+  // inside, so the person whose password changed hears it from us directly and
+  // not only from whoever is standing at the front desk.
+  await mailStaff(contact, staffPasswordReset({
+    staffName: contact?.fullName,
+    gymName,
+    email: contact?.email ?? '',
+    tempPassword: pwd,
+    signInUrl: platformAppUrl('/login'),
+    supportUrl: `mailto:${supportAddress()}`,
+  }), 'staff_password_reset');
+
   return {
     ok: true,
     error: null,
     message: 'New temporary password generated.',
     tempPassword: pwd,
-    email: (prof as { email: string | null } | null)?.email ?? undefined,
+    email: contact?.email ?? undefined,
   };
 }

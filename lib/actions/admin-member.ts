@@ -5,15 +5,28 @@ import { redirect } from 'next/navigation';
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
-import { splitName, normalizeNgPhone } from '@/lib/format';
+import { splitName, normalizeNgPhone, firstName, fmtDate } from '@/lib/format';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
+import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
+import {
+  MEMBER_TEMPLATES, membershipPaused, membershipResumed, receipt, welcome,
+  type ReceiptMethod,
+} from '@/lib/email/templates/member';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type ActionState = { ok: boolean; error: string | null; message?: string };
 
 const PAYMENT_METHODS = new Set(['card', 'bank_transfer', 'cash', 'crypto']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// payments.payment_method → the spelling the receipt template prints. 'crypto'
+// is the one front-desk option the template has no word for; 'transfer' is the
+// closest true statement (the member moved funds, they didn't present a card)
+// and a receipt with a coarse method beats no receipt for money that was paid.
+const RECEIPT_METHOD: Record<string, ReceiptMethod> = {
+  cash: 'cash', card: 'card', bank_transfer: 'bank_transfer', crypto: 'transfer',
+};
 
 // Resolve the acting staff's gym + a member-scoped client, and verify the
 // target member actually belongs to this gym. RLS (staff_* policies) is the
@@ -31,11 +44,41 @@ async function ctx(memberId: string) {
     .or(`member_id.eq.${memberId},user_id.eq.${memberId}`)
     .maybeSingle();
   if (!link) throw new Error('Member not found in this gym.');
-  return { gymId: gym.id, supabase, actorId: user.id, isActive: link.is_active !== false };
+  // `gym` is the full row requireStaff already loaded — the member-facing mail
+  // below is dressed in its logo, colour and subdomain, so handing it back here
+  // saves every send site re-reading the gym it is already acting as.
+  return { gymId: gym.id, gym, supabase, actorId: user.id, isActive: link.is_active !== false };
+}
+
+// The member's address + their own email opt-out. Three send sites in this file
+// need exactly this, and the RESEND_API_KEY check belongs in front of the read:
+// a gym with email switched off shouldn't pay for a round-trip on every payment,
+// renewal and suspension just to discover that. Staff can read their own
+// members' profiles under the existing RLS policy — no service role needed.
+async function mailTarget(supabase: SupabaseClient, memberId: string) {
+  if (!process.env.RESEND_API_KEY) return null;
+  const { data } = await supabase
+    .from('profiles').select('email, full_name, notification_email').eq('id', memberId).maybeSingle();
+  const email = (data?.email ?? '').trim();
+  if (!email) return null;
+  return { email, fullName: data?.full_name ?? null, wantsEmail: data?.notification_email !== false };
+}
+
+// Name + price of a plan, scoped to this gym. Receipts quote both; the welcome
+// mail quotes the name. Same gym scoping as extendSubscription — a plan_id from
+// a form never gets to name another gym's plan in a member's inbox.
+async function planFor(supabase: SupabaseClient, gymId: string, planId: string | null) {
+  if (!planId) return null;
+  const { data } = await supabase
+    .from('membership_plans').select('name, price').eq('id', planId).eq('gym_id', gymId).maybeSingle();
+  return data ? { name: (data.name as string | null) ?? null, price: Number(data.price ?? 0) } : null;
 }
 
 // Extend the member's latest subscription by the plan duration (or create one).
-async function extendSubscription(supabase: SupabaseClient, gymId: string, memberId: string, planId: string) {
+// Returns the new end date (YYYY-MM-DD): the member-facing mail these callers
+// send has to state what the member actually bought, and re-reading the row to
+// find out invites a race with a concurrent renewal.
+async function extendSubscription(supabase: SupabaseClient, gymId: string, memberId: string, planId: string): Promise<string> {
   // Scope the plan to THIS gym — never trust a plan_id from the form to belong
   // to the caller's gym. A foreign plan id would otherwise leak another gym's
   // plan duration into this member's subscription.
@@ -60,12 +103,13 @@ async function extendSubscription(supabase: SupabaseClient, gymId: string, membe
     const { error } = await supabase.from('member_subscriptions')
       .update({ end_date: iso(end), status: 'active', plan_id: planId }).eq('id', sub.id);
     if (error) throw new Error(error.message);
-  } else {
-    const end = extendDate(today, dur);
-    const { error } = await supabase.from('member_subscriptions')
-      .insert({ gym_id: gymId, member_id: memberId, plan_id: planId, start_date: iso(today), end_date: iso(end), status: 'active' });
-    if (error) throw new Error(error.message);
+    return iso(end);
   }
+  const end = extendDate(today, dur);
+  const { error } = await supabase.from('member_subscriptions')
+    .insert({ gym_id: gymId, member_id: memberId, plan_id: planId, start_date: iso(today), end_date: iso(end), status: 'active' });
+  if (error) throw new Error(error.message);
+  return iso(end);
 }
 
 // True when the member has an active subscription that hasn't expired today
@@ -213,20 +257,52 @@ export async function recordPayment(_prev: ActionState, formData: FormData): Pro
   if (!amount || amount <= 0) return { ok: false, error: 'Enter a valid amount.' };
   if (!PAYMENT_METHODS.has(method)) return { ok: false, error: 'Invalid payment method.' };
   try {
-    const { gymId, supabase, actorId } = await ctx(memberId);
+    const { gymId, gym, supabase, actorId } = await ctx(memberId);
     const { error } = await supabase.from('payments').insert({
       gym_id: gymId, member_id: memberId, plan_id: planId, amount, currency: 'NGN',
       payment_method: method, status: 'success', payment_status: 'successful',
       payment_date: new Date().toISOString(), paystack_reference: `MANUAL-${Date.now()}-${(globalThis.crypto as Crypto).randomUUID()}`,
     });
     if (error) return { ok: false, error: error.message };
-    if (extend && planId) await extendSubscription(supabase, gymId, memberId, planId);
+    const newEnd = extend && planId ? await extendSubscription(supabase, gymId, memberId, planId) : null;
     const { error: nErr } = await supabase.from('notifications').insert({
       gym_id: gymId, user_id: memberId, type: 'payment', channel: 'in_app',
       title: 'Payment received', body: `₦${amount.toLocaleString('en-NG')} payment recorded. Thank you!`,
     });
     if (nErr) console.warn(`[recordPayment] notification failed: ${nErr.message}`); // payment itself recorded
     logAudit({ action: 'payment_recorded', table: 'payments', actorId: actorId, gymId, recordId: memberId, values: { amount, method, planId, extend } });
+
+    // Cash and bank transfer are how most Nigerian gyms actually get paid, and
+    // until now those payments left the member with nothing at all — every
+    // emailed receipt on the platform came from a Paystack charge. Best-effort:
+    // the money is already recorded and a mail failure must not undo it.
+    try {
+      const to = await mailTarget(supabase, memberId);
+      if (to) {
+        const plan = await planFor(supabase, gymId, planId);
+        const spec = MEMBER_TEMPLATES.receipt;
+        await sendGymEmail({
+          gym, to, template: spec.template, category: spec.category,
+          ...receipt({
+            gymName: gym.name,
+            firstName: firstName(to.fullName),
+            amountNaira: amount,
+            method: RECEIPT_METHOD[method] ?? 'cash',
+            planName: plan?.name ?? null,
+            // Dated from the WAT calendar day, not the UTC server one: a payment
+            // taken at 00:30 in Lagos is not yesterday's on the member's receipt.
+            paidOn: fmtDate(watDateISO()),
+            endDate: newEnd ? fmtDate(newEnd) : null,
+            // paystack_reference here is an internal idempotency key
+            // (MANUAL-<epoch>-<uuid>) — nobody reads that off a receipt, and the
+            // amount and date are what identify the payment at the desk.
+            reference: null,
+            dashboardUrl: memberAppUrl(gym),
+          }),
+        });
+      }
+    } catch { /* receipt is a bonus channel — never fails the payment */ }
+
     revalidatePath(`/admin/members/${memberId}`);
     return { ok: true, error: null, message: extend && planId ? 'Payment recorded and membership extended.' : 'Payment recorded.' };
   } catch (e) {
@@ -239,9 +315,37 @@ export async function renewMembership(_prev: ActionState, formData: FormData): P
   const planId = String(formData.get('planId') ?? '');
   if (!planId) return { ok: false, error: 'Choose a plan.' };
   try {
-    const { gymId, supabase, actorId } = await ctx(memberId);
-    await extendSubscription(supabase, gymId, memberId, planId);
+    const { gymId, gym, supabase, actorId } = await ctx(memberId);
+    const newEnd = await extendSubscription(supabase, gymId, memberId, planId);
     logAudit({ action: 'membership_renewed', table: 'member_subscriptions', actorId, gymId, recordId: memberId, values: { planId } });
+
+    // A front-desk renewal: staff picked a priced plan and confirmed it, which
+    // in this market means the member handed over the money at the counter. The
+    // receipt states the plan price and — the part they actually want — the date
+    // their membership now runs to. Method is the desk default: staff who took a
+    // card or a transfer record it through Record payment, which carries the
+    // real one. Best-effort; the membership is already extended.
+    try {
+      const to = await mailTarget(supabase, memberId);
+      if (to) {
+        const plan = await planFor(supabase, gymId, planId);
+        const spec = MEMBER_TEMPLATES.receipt;
+        await sendGymEmail({
+          gym, to, template: spec.template, category: spec.category,
+          ...receipt({
+            gymName: gym.name,
+            firstName: firstName(to.fullName),
+            amountNaira: plan?.price ?? 0,
+            method: 'cash',
+            planName: plan?.name ?? null,
+            paidOn: fmtDate(watDateISO()),
+            endDate: fmtDate(newEnd),
+            dashboardUrl: memberAppUrl(gym),
+          }),
+        });
+      }
+    } catch { /* receipt is a bonus channel — never fails the renewal */ }
+
     revalidatePath(`/admin/members/${memberId}`);
     return { ok: true, error: null, message: 'Membership renewed.' };
   } catch (e) {
@@ -253,13 +357,47 @@ export async function setMemberActive(_prev: ActionState, formData: FormData): P
   const memberId = String(formData.get('memberId') ?? '');
   const active = formData.get('active') === 'true';
   try {
-    const { gymId, supabase, actorId } = await ctx(memberId);
+    const { gymId, gym, supabase, actorId } = await ctx(memberId);
     const { error } = await supabase.from('gym_member_links')
       .update({ is_active: active })
       .eq('gym_id', gymId)
       .or(`member_id.eq.${memberId},user_id.eq.${memberId}`);
     if (error) return { ok: false, error: error.message };
     logAudit({ action: active ? 'member_reactivated' : 'member_suspended', table: 'gym_member_links', actorId, gymId, recordId: memberId });
+
+    // Suspension is invisible from the member's side until they're turned away
+    // at the door, so it's the one membership state change that has to leave the
+    // building. Category 'updates' — a gym that finds the renewal nudges pushy
+    // can switch those off without also muting "your card stopped working".
+    try {
+      const to = await mailTarget(supabase, memberId);
+      if (to) {
+        const spec = active ? MEMBER_TEMPLATES.membershipResumed : MEMBER_TEMPLATES.membershipPaused;
+        // Only the reactivation quotes an end date ("you're covered to…"), so
+        // only that branch pays for the read.
+        const { data: sub } = active
+          ? await supabase
+            .from('member_subscriptions').select('end_date')
+            .eq('gym_id', gymId).eq('member_id', memberId).eq('status', 'active')
+            .order('end_date', { ascending: false }).limit(1).maybeSingle()
+          : { data: null };
+        const content = active
+          ? membershipResumed({
+            gymName: gym.name,
+            firstName: firstName(to.fullName),
+            classesUrl: memberAppUrl(gym, '/classes'),
+            endDate: sub?.end_date ? fmtDate(sub.end_date) : null,
+          })
+          : membershipPaused({
+            gymName: gym.name,
+            firstName: firstName(to.fullName),
+            dashboardUrl: memberAppUrl(gym),
+            pausedOn: fmtDate(watDateISO()),
+          });
+        await sendGymEmail({ gym, to, template: spec.template, category: spec.category, ...content });
+      }
+    } catch { /* bonus channel — the member is already suspended/reactivated */ }
+
     revalidatePath(`/admin/members/${memberId}`);
     return { ok: true, error: null, message: active ? 'Member reactivated.' : 'Member suspended.' };
   } catch (e) {
@@ -293,8 +431,37 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
     });
     if (lErr) return { ok: false, error: lErr.message };
 
-    if (planId) await extendSubscription(supabase, gym.id, newId, planId);
+    const newEnd = planId ? await extendSubscription(supabase, gym.id, newId, planId) : null;
     logAudit({ action: 'member_added', table: 'profiles', actorId: user.id, gymId: gym.id, recordId: newId, values: { planId } });
+
+    // Email is the ONLY channel that reaches a managed member. Their profiles.id
+    // is a UUID we minted above, not an auth.users id, so there is no account to
+    // sign in to and no in-app notifications row that anyone could ever read —
+    // notifications.user_id would point at a user that doesn't exist. Which also
+    // means no set-password link: there's no account to set a password on.
+    // Best-effort, and last: the member exists either way.
+    try {
+      if (email && process.env.RESEND_API_KEY) {
+        const plan = planId ? await planFor(supabase, gym.id, planId) : null;
+        const spec = MEMBER_TEMPLATES.welcome;
+        await sendGymEmail({
+          gym,
+          // notification_email defaults true on the row just inserted, so there
+          // is nothing to look up — and welcome is 'critical' regardless.
+          to: { email, fullName },
+          template: spec.template,
+          category: spec.category,
+          ...welcome({
+            gymName: gym.name,
+            firstName: firstName(fullName),
+            dashboardUrl: memberAppUrl(gym),
+            memberCode: gym.member_code,
+            planName: plan?.name ?? null,
+            endDate: newEnd ? fmtDate(newEnd) : null,
+          }),
+        });
+      }
+    } catch { /* bonus channel — the member is already created */ }
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

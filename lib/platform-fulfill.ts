@@ -1,6 +1,11 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isPlanTier, PLATFORM_PLANS, type PlanTier } from '@/lib/platform-plans';
+import { fmtDate } from '@/lib/format';
+import type { EmailContent } from '@/lib/email';
+import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
+import { getGymOwnerEmails } from '@/lib/email/recipients';
+import { subscriptionCancelled, subscriptionPastDue, subscriptionReceipt } from '@/lib/email/templates/platform';
 import type { Database } from '@/lib/database.types';
 
 type GymUpdate = Database['public']['Tables']['gyms']['Update'];
@@ -93,6 +98,64 @@ function addMonths(base: Date, n: number): Date {
   return d;
 }
 
+// ── Owner mail ───────────────────────────────────────────────────────────────
+
+type BillingGym = {
+  name: string | null;
+  subscription_plan: string | null;
+  subscription_current_period_end: string | null;
+};
+
+/** 'growth' → 'Growth'. The column holds the plan code; an owner reading a
+ *  receipt should see the name that's on the pricing page. */
+function planLabel(plan: string | null | undefined): string {
+  const p = (plan ?? '').trim();
+  return isPlanTier(p) ? PLATFORM_PLANS[p].name : 'GymFlow';
+}
+
+/** Price to quote when the event carries no amount. An unrecognised plan falls
+ *  back to the entry tier rather than zero: an owner who reads "₦0 was
+ *  declined" concludes the email is broken and ignores the deadline it
+ *  carries. */
+function planKobo(plan: string | null | undefined): number {
+  const p = (plan ?? '').trim();
+  return isPlanTier(p) ? PLATFORM_PLANS[p].amountKobo : PLATFORM_PLANS.starter.amountKobo;
+}
+
+/** The paid-through date is what makes both the dunning and the cancellation
+ *  mail actionable; a gym with none recorded gets the honest vague form rather
+ *  than an em dash. */
+function accessUntil(iso: string | null): string {
+  return iso ? fmtDate(iso) : 'the end of your paid period';
+}
+
+/**
+ * Mail a gym's owners about its GymFlow subscription.
+ *
+ * All three billing emails go to the same audience off the same two reads, so
+ * they live here once. Skipped wholesale when email is off — a webhook must not
+ * pay for two round-trips to discover it has nothing to send — and never
+ * allowed to fail fulfilment: the money has already moved, and a non-2xx makes
+ * Paystack redeliver an event we have already applied.
+ */
+async function mailOwners(
+  admin: Admin,
+  gymId: string,
+  build: (gym: BillingGym) => EmailContent,
+  template: string,
+  idempotencyKey?: string,
+): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+  try {
+    const [{ data: gym }, owners] = await Promise.all([
+      admin.from('gyms').select('name, subscription_plan, subscription_current_period_end').eq('id', gymId).maybeSingle(),
+      getGymOwnerEmails(admin, gymId),
+    ]);
+    if (!gym || owners.length === 0) return;
+    await sendPlatformEmail({ to: owners, ...build(gym as BillingGym), template, idempotencyKey });
+  } catch { /* fulfilment already succeeded — this is the second channel */ }
+}
+
 // charge.success for a platform subscription: record the payment (idempotent on
 // reference) and advance the gym's paid-through. Also captures the Paystack
 // customer/subscription codes so future recurring events resolve back here.
@@ -154,6 +217,19 @@ async function fulfillCharge(admin: Admin, data: Json): Promise<PlatformResult> 
     return { ok: false, handled: true, error: gymErr.message };
   }
 
+  // Only the writer that recorded the payment gets here, so the receipt is sent
+  // once per charge; the reference keys it so a Resend-side retry can't double
+  // it either.
+  await mailOwners(admin, gymId, (gym) => subscriptionReceipt({
+    gymName: gym.name ?? 'your gym',
+    amountNaira: amountKobo / 100,
+    tier: planLabel(tier ?? gym.subscription_plan),
+    paidDate: fmtDate(paidAt.toISOString()),
+    periodEnd: fmtDate(periodEnd.toISOString()),
+    reference,
+    billingUrl: platformAppUrl('/admin/billing'),
+  }), 'subscription_receipt', `platform-receipt-${reference}`);
+
   return { ok: true, handled: true };
 }
 
@@ -192,6 +268,37 @@ async function setStatusBySubscription(admin: Admin, data: Json, status: 'past_d
   }
 
   await admin.from('gyms').update({ subscription_status: status, updated_at: new Date().toISOString() }).eq('id', gymId);
+
+  // Both states lock the console at a date the owner has no other way of
+  // learning — the console itself is what stops opening.
+  if (status === 'past_due') {
+    const amountKobo = Number(data.amount ?? 0);
+    // Keyed per subscription per DAY, not per event. Paystack dunning fires a
+    // separate invoice.payment_failed for each retry, and the owner should hear
+    // about a failing card — but once a day, not once per attempt. The date
+    // stamp lets tomorrow's attempt through while collapsing a same-day retry
+    // (and any webhook redelivery that slips past the replay ledger).
+    const stamp = new Date().toISOString().slice(0, 10);
+    await mailOwners(admin, gymId, (gym) => subscriptionPastDue({
+      gymName: gym.name ?? 'your gym',
+      amountNaira: (amountKobo > 0 ? amountKobo : planKobo(gym.subscription_plan)) / 100,
+      tier: planLabel(gym.subscription_plan),
+      attemptedDate: fmtDate(new Date().toISOString()),
+      graceEndDate: accessUntil(gym.subscription_current_period_end),
+      billingUrl: platformAppUrl('/admin/billing'),
+    }), 'subscription_past_due', `platform-pastdue-${subscriptionCode ?? gymId}:${stamp}`);
+  } else {
+    // Keyed on the subscription so this and the owner-initiated cancel in
+    // lib/actions/platform-billing.ts — which fire seconds apart for the same
+    // cancellation — arrive as one email. Falls back to the gym id so the rare
+    // code-less event is still deduped against its own redelivery.
+    await mailOwners(admin, gymId, (gym) => subscriptionCancelled({
+      gymName: gym.name ?? 'your gym',
+      accessEndDate: accessUntil(gym.subscription_current_period_end),
+      billingUrl: platformAppUrl('/admin/billing'),
+    }), 'subscription_cancelled', `platform-cancelled-${subscriptionCode ?? gymId}`);
+  }
+
   return { ok: true, handled: true };
 }
 

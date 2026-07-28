@@ -7,8 +7,14 @@ import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 import { INTERVAL_PRESETS } from '@/lib/plan-duration';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
+import { firstName, fmt12Hr, fmtDate, watDateISO } from '@/lib/format';
+import { inSlices } from '@/lib/notify';
+import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
+import { MEMBER_TEMPLATES, classCancelled } from '@/lib/email/templates/member';
 
 export type CState = { ok: boolean; error: string | null; message?: string };
+
+type Sb = Awaited<ReturnType<typeof createClient>>;
 
 // Resolve the plan form's billing period into stored columns. duration_days is
 // the source of truth for daily/weekly; duration_months (NOT NULL) carries the
@@ -157,6 +163,78 @@ export async function updateClass(_prev: CState, formData: FormData): Promise<CS
   redirect('/admin/classes');
 }
 
+/** One member with a live seat on a class that is about to be deleted. */
+type CancelledSeat = {
+  email: string;
+  fullName: string | null;
+  wantsEmail: boolean;
+  className: string;
+  instructor: string | null;
+  /** booking_date of the occurrence they hold. */
+  date: string;
+  /** Schedule start_time (24h), or null if the row went missing. */
+  time: string | null;
+  location: string | null;
+};
+
+/**
+ * Everyone still holding a seat on this class, with the facts their
+ * cancellation email needs.
+ *
+ * MUST be called BEFORE the schedules are deleted:
+ * class_bookings.class_schedule_id is ON DELETE CASCADE, so deleting them takes
+ * every booking with it and the recipient list stops existing.
+ *
+ * Only 'booked' rows and only future occurrences — a waitlist place isn't a
+ * booking to release, and "your class is cancelled" about last Tuesday's session
+ * is noise. A member booked onto two weekdays of the same class gets one email
+ * per cancelled session, because that is two sessions they planned around.
+ */
+async function cancelledSeats(supabase: Sb, gymId: string, classId: string): Promise<CancelledSeat[]> {
+  // Three reads to build a list nobody will be mailed from is not worth paying
+  // for on a delete.
+  if (!process.env.RESEND_API_KEY) return [];
+  const [{ data: cls }, { data: scheds }] = await Promise.all([
+    supabase.from('classes').select('name, instructor').eq('id', classId).eq('gym_id', gymId).maybeSingle(),
+    supabase.from('class_schedules').select('id, start_time, room').eq('class_id', classId).eq('gym_id', gymId),
+  ]);
+  const schedById = new Map((scheds ?? []).map((s) => [s.id, s]));
+  if (schedById.size === 0) return [];
+
+  // Keyed on the schedule ids rather than class_bookings.class_id: that column
+  // is ON DELETE SET NULL and nullable, and a booking whose class_id was cleared
+  // is still a member standing outside a locked studio.
+  const { data: bookings } = await supabase
+    .from('class_bookings').select('member_id, booking_date, class_schedule_id')
+    .eq('gym_id', gymId).in('class_schedule_id', [...schedById.keys()])
+    .eq('status', 'booked').gte('booking_date', watDateISO());
+  const ids = [...new Set((bookings ?? []).map((b) => b.member_id).filter(Boolean) as string[])];
+  if (ids.length === 0) return [];
+
+  const { data: people } = await supabase
+    .from('profiles').select('id, email, full_name, notification_email').in('id', ids);
+  const byId = new Map((people ?? []).map((p) => [p.id, p]));
+
+  const seats: CancelledSeat[] = [];
+  for (const b of bookings ?? []) {
+    const person = b.member_id ? byId.get(b.member_id) : null;
+    const email = (person?.email ?? '').trim();
+    if (!email || !b.booking_date) continue;
+    const sched = b.class_schedule_id ? schedById.get(b.class_schedule_id) : null;
+    seats.push({
+      email,
+      fullName: person?.full_name ?? null,
+      wantsEmail: person?.notification_email !== false,
+      className: cls?.name ?? 'Class',
+      instructor: cls?.instructor ?? null,
+      date: b.booking_date,
+      time: sched?.start_time ?? null,
+      location: sched?.room ?? null,
+    });
+  }
+  return seats;
+}
+
 // #4 — remove a class and its schedules (owner/manager via RLS).
 export async function deleteClass(_prev: CState, formData: FormData): Promise<CState> {
   const classId = String(formData.get('class_id') ?? '');
@@ -164,10 +242,46 @@ export async function deleteClass(_prev: CState, formData: FormData): Promise<CS
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
+
+    // Read the recipients BEFORE anything is deleted. The delete below cascades
+    // through class_bookings, so by the time it returns there is no list left to
+    // query — which is why deleting a class used to silently strand every member
+    // who had booked it.
+    //
+    // Fail-soft on its own: collecting who to email must never block the delete
+    // the staff member actually asked for. If this read throws, we lose the
+    // notifications, not the action.
+    const seats = await cancelledSeats(supabase, gym.id, classId).catch(() => []);
+
     await supabase.from('class_schedules').delete().eq('class_id', classId).eq('gym_id', gym.id);
     const { error } = await supabase.from('classes').delete().eq('id', classId).eq('gym_id', gym.id);
     if (error) return { ok: false, error: error.message };
     logAudit({ action: 'class_deleted', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId });
+
+    // Now tell them. Sliced so a popular class doesn't fire eighty sends at once
+    // and time the action out. Best-effort: the class is already gone.
+    try {
+      const spec = MEMBER_TEMPLATES.classCancelled;
+      await inSlices(seats, 5, (seat) => sendGymEmail({
+        gym,
+        to: { email: seat.email, fullName: seat.fullName, wantsEmail: seat.wantsEmail },
+        template: spec.template,
+        category: spec.category,
+        ...classCancelled({
+          gymName: gym.name,
+          firstName: firstName(seat.fullName),
+          className: seat.className,
+          date: fmtDate(seat.date),
+          time: seat.time ? fmt12Hr(seat.time) : '',
+          instructor: seat.instructor,
+          location: seat.location,
+          // The delete form gives staff nowhere to write one, and an invented
+          // reason on a cancellation is worse than none.
+          reason: null,
+          classesUrl: memberAppUrl(gym, '/classes'),
+        }),
+      }));
+    } catch { /* bonus channel */ }
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

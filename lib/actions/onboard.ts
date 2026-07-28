@@ -1,12 +1,33 @@
 'use server';
 
+import { randomBytes } from 'node:crypto';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { splitName } from '@/lib/format';
+import { validatePassword } from '@/lib/auth/password';
 import { logAudit } from '@/lib/audit';
 import { DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
+import { gymUrl } from '@/lib/email/brand';
+import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
+import { ownerGymProvisioned } from '@/lib/email/templates/platform';
 
-export type OnboardState = { ok: boolean; error: string | null; message?: string };
+// tempPassword/email ride back in the state for the same reason admin-staff.ts
+// returns them: the superadmin needs a credential to relay by hand when the
+// mail bounces, or when RESEND_API_KEY isn't set at all.
+export type OnboardState = { ok: boolean; error: string | null; message?: string; tempPassword?: string; email?: string };
+
+// A brand-new owner account needs a password it can actually sign in with, and
+// one the app's own reset form would accept: 18 random bytes is 144 bits of
+// entropy, but a raw base64url draw can legitimately contain no digit or no
+// symbol, which validatePassword rejects. Draw until the policy passes, then
+// fall back to a suffix that pins the four character classes.
+function tempPassword(): string {
+  for (let i = 0; i < 8; i++) {
+    const candidate = randomBytes(18).toString('base64url');
+    if (!validatePassword(candidate)) return candidate;
+  }
+  return `${randomBytes(18).toString('base64url')}-Aa1`;
+}
 
 // Provision a new gym (+ optional owner account). Platform-admin only.
 // Uses the service-role admin client: creates the gym row, and if an owner
@@ -41,6 +62,10 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
   if (gymErr || !gym) return { ok: false, error: gymErr?.message ?? 'Could not create gym.' };
 
   // Owner account (optional): create the auth user + profile + owner staff link.
+  // `pwd` is set only for a brand-new account — an existing one keeps the
+  // password its owner already knows, and must never be handed a new one from
+  // here.
+  let pwd: string | undefined;
   if (ownerEmail) {
     // SECURITY: if the email already maps to an account, do NOT createUser again
     // (it errors) and do NOT rewrite that account's existing profile role/gym
@@ -56,8 +81,13 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
       }
       uid = (existing as { id: string }).id;
     } else {
+      // A password is not optional here. createUser without one mints an
+      // account with no credential at all: the owner we just "provisioned"
+      // could never sign in, and nothing told them the gym existed.
+      pwd = tempPassword();
       const { data: created, error: authErr } = await admin.auth.admin.createUser({
         email: ownerEmail,
+        password: pwd,
         email_confirm: true,
         user_metadata: { full_name: ownerName, gym_id: gym.id },
       });
@@ -70,5 +100,36 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
   }
 
   logAudit({ action: 'gym_provisioned', table: 'gyms', actorId: actor.id, gymId: gym.id, recordId: gym.id, values: { name, slug, plan, ownerEmail: ownerEmail || null } });
-  return { ok: true, error: null, message: `${name} provisioned at ${slug}.gymflow.ng.` };
+
+  // Mail the credentials. Best-effort: the gym and the account exist either
+  // way, and `mailed` only decides which half of the message the superadmin
+  // reads — the password comes back in the state regardless.
+  let mailed = false;
+  if (pwd) {
+    try {
+      const res = await sendPlatformEmail({
+        to: ownerEmail,
+        ...ownerGymProvisioned({
+          ownerName,
+          gymName: name,
+          email: ownerEmail,
+          tempPassword: pwd,
+          signInUrl: platformAppUrl('/login'),
+          gymUrl: gymUrl(slug),
+        }),
+        template: 'owner_gym_provisioned',
+      });
+      mailed = res.ok;
+    } catch { /* the temp password is still on screen */ }
+  }
+
+  return {
+    ok: true,
+    error: null,
+    message: pwd
+      ? `${name} provisioned at ${slug}.gymflow.ng. ${mailed ? `Sign-in details emailed to ${ownerEmail}.` : 'Email didn’t go out — share the sign-in details below.'}`
+      : `${name} provisioned at ${slug}.gymflow.ng.`,
+    tempPassword: pwd,
+    email: pwd ? ownerEmail : undefined,
+  };
 }

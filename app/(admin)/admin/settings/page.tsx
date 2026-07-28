@@ -100,9 +100,10 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
         payouts_locked: (gym as { payouts_locked?: boolean }).payouts_locked ?? false,
         commission_pct: gym.platform_commission_pct ?? 0,
         member_freeze_enabled: (gym as { member_freeze_enabled?: boolean }).member_freeze_enabled !== false,
-        notif_class_reminders:  (gym as { notif_class_reminders?: boolean }).notif_class_reminders !== false,
-        notif_renewal_nudges:   (gym as { notif_renewal_nudges?: boolean }).notif_renewal_nudges !== false,
-        notif_payment_receipts: (gym as { notif_payment_receipts?: boolean }).notif_payment_receipts !== false,
+        notif_class_reminders:    (gym as { notif_class_reminders?: boolean }).notif_class_reminders !== false,
+        notif_renewal_nudges:     (gym as { notif_renewal_nudges?: boolean }).notif_renewal_nudges !== false,
+        notif_payment_receipts:   (gym as { notif_payment_receipts?: boolean }).notif_payment_receipts !== false,
+        notif_membership_updates: (gym as { notif_membership_updates?: boolean }).notif_membership_updates !== false,
       }}
       staffCount={count ?? 0}
       providers={{
