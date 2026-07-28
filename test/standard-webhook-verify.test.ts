@@ -32,6 +32,21 @@ describe('verifyStandardWebhook', () => {
     expect(verifyStandardWebhook(BODY, headers, KEY_BYTES.toString('base64'), NOW)).toBe(true);
   });
 
+  // Supabase's dashboard hands out the auth-hook secret as `v1,whsec_<base64>`,
+  // Resend's as `whsec_<base64>`. Base64 decoding ignores junk rather than
+  // throwing, so an unstripped `v1,` used to yield a wrong-but-plausible key and
+  // 401 every single auth email — signup confirmation and password reset both
+  // dead, with a correct copy-paste. All three accepted forms are pinned here.
+  it.each([
+    ['v1,whsec_ + base64 (Supabase dashboard)', `v1,whsec_${KEY_BYTES.toString('base64')}`],
+    ['whsec_ + base64 (Resend / Svix)', `whsec_${KEY_BYTES.toString('base64')}`],
+    ['bare base64 (already stripped)', KEY_BYTES.toString('base64')],
+    ['surrounding whitespace from a copy-paste', `  v1,whsec_${KEY_BYTES.toString('base64')}  `],
+  ])('accepts the secret formatted as %s', (_label, secret) => {
+    const headers = { id: ID, timestamp: String(NOW), signature: sign(ID, NOW, BODY) };
+    expect(verifyStandardWebhook(BODY, headers, secret, NOW)).toBe(true);
+  });
+
   it('rejects a signature made with a different key', () => {
     const wrong = Buffer.from('different-32-byte-signing-key-0000');
     const headers = { id: ID, timestamp: String(NOW), signature: sign(ID, NOW, BODY, wrong) };

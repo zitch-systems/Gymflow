@@ -125,8 +125,12 @@ templates and Resend instead.
 
 1. Supabase → Authentication → Emails → Hooks → **Send email** → enable.
 2. URL: `https://gymflow.ng/api/auth/email-hook`.
-3. Copy the generated secret → set `SUPABASE_AUTH_HOOK_SECRET=v1,whsec_...`
-   (Supabase shows it with the `v1,` prefix; store it as shown).
+3. Copy the generated secret → set `SUPABASE_AUTH_HOOK_SECRET`. Paste it exactly
+   as Supabase gives it, `v1,whsec_...` prefix and all — the verifier normalises
+   the `v1,` and `whsec_` prefixes itself, so all three forms work. (Don't
+   hand-strip it: base64 decoding ignores stray characters instead of failing,
+   so a half-stripped secret produces a wrong key and 401s every auth email
+   rather than erroring visibly.)
 4. Confirm the Supabase project **Site URL** is `https://gymflow.ng` and the
    redirect allow-list includes `https://gymflow.ng/**` and `https://*.gymflow.ng/**`
    (gym subdomains) — the hook builds links against it.
