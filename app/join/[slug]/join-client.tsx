@@ -5,12 +5,15 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Mail, Lock, User, Phone, ArrowRight, AlertCircle, Dumbbell } from 'lucide-react';
 import { joinAsNew, joinAsCurrent, type JoinState } from '@/lib/actions/join';
+import { fmtNaira } from '@/lib/format';
 
 const initial: JoinState = { error: null };
 
 // Gym invite landing — create a member account (or join with the signed-in
 // one) linked to this gym.
-export function JoinClient({ slug, gymName, logoUrl, currentEmail }: { slug: string; gymName: string; logoUrl: string | null; currentEmail: string | null }) {
+export type JoinPlan = { name: string; price: number | null; duration_months: number | null };
+
+export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }: { slug: string; gymName: string; logoUrl: string | null; currentEmail: string | null; plan?: JoinPlan | null }) {
   const [newState, newAction, newPending] = useActionState(joinAsNew, initial);
   const [curState, curAction, curPending] = useActionState(joinAsCurrent, initial);
 
@@ -28,6 +31,17 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail }: { slug: str
           </span>
           <h1>Join {gymName}</h1>
           <p className="lede">Create your member account — check in, book classes and renew from your phone.</p>
+
+          {plan && (
+            // Honest about what this screen does: it creates the account. The
+            // plan is paid for afterwards, from the dashboard — saying
+            // otherwise would promise a charge that isn't happening here.
+            <p className="join-plan">
+              <span>Chosen plan</span>
+              <b>{plan.name}{plan.price != null && <> · {fmtNaira(Number(plan.price))}{plan.duration_months === 1 ? ' / month' : plan.duration_months ? ` / ${plan.duration_months} months` : ''}</>}</b>
+              <small>Create your account first — you can pay for this plan from your dashboard straight after.</small>
+            </p>
+          )}
 
           {currentEmail ? (
             <form action={curAction}>

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireMember, requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requestOrigin } from '@/lib/request-origin';
 import { initSubscription, createPlan, planIntervalFor, getSubscription, disableSubscription } from '@/lib/paystack';
 import { logAudit } from '@/lib/audit';
 import { firstName, fmtDate } from '@/lib/format';
@@ -73,7 +74,8 @@ export async function startAutoRenewal(planId: string): Promise<StartResult> {
   const codeResult = await ensurePlanCode(planId, gym.id);
   if (!codeResult.ok) return { ok: false, error: codeResult.error };
 
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  // Same host the member started on — see lib/request-origin.ts.
+  const site = await requestOrigin();
   const res = await initSubscription({
     email: user.email ?? '',
     planCode: codeResult.code,

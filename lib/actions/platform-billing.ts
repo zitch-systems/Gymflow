@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireStaff } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requestOrigin } from '@/lib/request-origin';
 import { initSubscription, getSubscription, disableSubscription } from '@/lib/paystack';
 import { PLATFORM_PLANS, isPlanTier } from '@/lib/platform-plans';
 import { fmtDate } from '@/lib/format';
@@ -32,7 +33,9 @@ export async function startPlatformSubscription(tier: string): Promise<StartResu
   }
 
   const { user, gym } = await requireStaff(OWNER_ROLES);
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  // Owners reach the console on the apex and on their gym's subdomain; return
+  // them to whichever they were using, or the session is gone on arrival.
+  const site = await requestOrigin();
   const res = await initSubscription({
     email: gym.email ?? user.email ?? '',
     planCode,
