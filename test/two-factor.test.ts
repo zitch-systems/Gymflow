@@ -1,0 +1,184 @@
+import { describe, expect, it } from 'vitest';
+import { asSuperuser } from './db';
+import {
+  CODE_TTL_SECONDS, MAX_ATTEMPTS,
+  deviceLabel, generateCode, generateDeviceToken, hashCode, hashDeviceToken,
+  hashesMatch, isWellFormedCode, judgeChallenge, normalizeCode, verdictMessage,
+} from '@/lib/two-factor';
+
+// The rules that decide whether an emailed second factor is accepted. These
+// are the difference between "2FA" and "a form that says 2FA", so each way a
+// code can be rejected is asserted rather than assumed.
+
+const CHALLENGE = '11111111-2222-3333-4444-555555555555';
+const future = (secs: number) => new Date(Date.now() + secs * 1000).toISOString();
+const past = (secs: number) => new Date(Date.now() - secs * 1000).toISOString();
+
+function row(over: Partial<Parameters<typeof judgeChallenge>[0]> = {}) {
+  return {
+    id: CHALLENGE,
+    code_hash: hashCode(CHALLENGE, '123456'),
+    attempts: 0,
+    expires_at: future(CODE_TTL_SECONDS),
+    consumed_at: null,
+    ...over,
+  };
+}
+
+describe('code generation', () => {
+  it('is always six digits', () => {
+    for (let i = 0; i < 200; i++) expect(generateCode()).toMatch(/^\d{6}$/);
+  });
+
+  it('keeps leading zeros rather than emitting a short code', () => {
+    // padStart is the whole point: a numeric code would render 42 as "42".
+    expect(normalizeCode('000042')).toBe('000042');
+    expect(isWellFormedCode('000042')).toBe(true);
+  });
+
+  it('produces distinct device tokens', () => {
+    const tokens = new Set(Array.from({ length: 50 }, () => generateDeviceToken()));
+    expect(tokens.size).toBe(50);
+  });
+});
+
+describe('normalisation', () => {
+  it('accepts what a human would call the right code', () => {
+    expect(normalizeCode('123 456')).toBe('123456');
+    expect(normalizeCode('123-456')).toBe('123456');
+    expect(normalizeCode('  123456  ')).toBe('123456');
+  });
+
+  it('rejects anything that is not six digits', () => {
+    expect(isWellFormedCode('12345')).toBe(false);
+    expect(isWellFormedCode('')).toBe(false);
+    expect(isWellFormedCode(null)).toBe(false);
+    expect(isWellFormedCode('abcdef')).toBe(false);
+  });
+});
+
+describe('hashing', () => {
+  it('salts with the challenge id, so the same code hashes differently per challenge', () => {
+    expect(hashCode(CHALLENGE, '123456')).not.toBe(hashCode('99999999-2222-3333-4444-555555555555', '123456'));
+  });
+
+  it('never stores the code itself', () => {
+    expect(hashCode(CHALLENGE, '123456')).not.toContain('123456');
+  });
+
+  it('matches regardless of user spacing', () => {
+    expect(hashCode(CHALLENGE, '123 456')).toBe(hashCode(CHALLENGE, '123456'));
+  });
+
+  it('compares safely across lengths', () => {
+    expect(hashesMatch('abc', 'abcd')).toBe(false);
+    expect(hashesMatch('abc', 'abc')).toBe(true);
+  });
+
+  it('hashes device tokens deterministically', () => {
+    const token = generateDeviceToken();
+    expect(hashDeviceToken(token)).toBe(hashDeviceToken(token));
+    expect(hashDeviceToken(token)).not.toBe(token);
+  });
+});
+
+describe('judgeChallenge', () => {
+  const now = new Date();
+
+  it('accepts the right code', () => {
+    expect(judgeChallenge(row(), '123456', now)).toEqual({ ok: true });
+  });
+
+  it('rejects the wrong code', () => {
+    expect(judgeChallenge(row(), '654321', now)).toEqual({ ok: false, reason: 'mismatch' });
+  });
+
+  it('rejects an expired challenge', () => {
+    expect(judgeChallenge(row({ expires_at: past(1) }), '123456', now)).toEqual({ ok: false, reason: 'expired' });
+  });
+
+  it('rejects a challenge that was already used', () => {
+    expect(judgeChallenge(row({ consumed_at: past(5) }), '123456', now)).toEqual({ ok: false, reason: 'consumed' });
+  });
+
+  it('locks out after MAX_ATTEMPTS, even with the right code', () => {
+    expect(judgeChallenge(row({ attempts: MAX_ATTEMPTS }), '123456', now)).toEqual({ ok: false, reason: 'locked' });
+  });
+
+  it('checks expiry and consumption BEFORE the code', () => {
+    // Otherwise a burned challenge answers "wrong code" vs "expired"
+    // differently and becomes an oracle for guessing.
+    expect(judgeChallenge(row({ consumed_at: past(5) }), '000000', now)).toEqual({ ok: false, reason: 'consumed' });
+    expect(judgeChallenge(row({ expires_at: past(1) }), '000000', now)).toEqual({ ok: false, reason: 'expired' });
+  });
+
+  it('does not leak which failure happened in the message shown for a bad code', () => {
+    expect(verdictMessage('mismatch')).not.toMatch(/expired|used/i);
+  });
+});
+
+describe('device labels', () => {
+  it('summarises without storing the raw user-agent', () => {
+    expect(deviceLabel('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) AppleWebKit/605.1.15 Safari/604.1')).toBe('Safari on iOS');
+    expect(deviceLabel('Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36')).toBe('Chrome on Windows');
+    expect(deviceLabel(null)).toBe('Browser on device');
+  });
+});
+
+describe('schema (20260729_gym_two_factor)', () => {
+  it('defaults every gym to requiring two-factor', async () => {
+    const value = await asSuperuser(async (c) => {
+      const { rows } = await c.query<{ column_default: string; is_nullable: string }>(
+        `select column_default, is_nullable from information_schema.columns
+         where table_schema='public' and table_name='gyms' and column_name='two_factor_required'`,
+      );
+      return rows[0];
+    });
+    expect(value?.column_default).toMatch(/true/);
+    expect(value?.is_nullable).toBe('NO');
+  });
+
+  it('keeps the challenge tables off the PostgREST surface entirely', async () => {
+    // Same posture as rate_limits and webhook_events: RLS on, no policies, and
+    // no privileges for anon/authenticated. A challenge row readable by a
+    // signed-in user would hand them every pending code hash in the platform.
+    const grants = await asSuperuser(async (c) => {
+      const { rows } = await c.query<{ table_name: string; grantee: string }>(
+        `select table_name, grantee from information_schema.role_table_grants
+         where table_schema='public' and table_name in ('auth_challenges','trusted_devices')
+           and grantee in ('anon','authenticated')`,
+      );
+      return rows;
+    });
+    expect(grants).toEqual([]);
+
+    const rls = await asSuperuser(async (c) => {
+      const { rows } = await c.query<{ relname: string; relrowsecurity: boolean }>(
+        `select relname, relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname='public' and relname in ('auth_challenges','trusted_devices')`,
+      );
+      return rows;
+    });
+    expect(rls).toHaveLength(2);
+    expect(rls.every((r) => r.relrowsecurity)).toBe(true);
+  });
+
+  it('enforces one row per device token', async () => {
+    await asSuperuser(async (c) => {
+      const { rows: [user] } = await c.query<{ id: string }>(
+        `insert into auth.users (email) values ('2fa-probe@example.com') returning id`,
+      );
+      const insert = (hash: string) => c.query(
+        `insert into public.trusted_devices (user_id, token_hash, expires_at)
+         values ($1, $2, now() + interval '30 days')`,
+        [user.id, hash],
+      );
+      await insert('deadbeef');
+      await expect(insert('deadbeef')).rejects.toMatchObject({ code: '23505' });
+      // auth.users cascade takes the device row with it.
+      await c.query(`delete from auth.users where id = $1`, [user.id]);
+      const { rows } = await c.query(`select 1 from public.trusted_devices where user_id = $1`, [user.id]);
+      expect(rows).toHaveLength(0);
+    });
+  });
+});

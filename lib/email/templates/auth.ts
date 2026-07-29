@@ -48,12 +48,11 @@ export type AuthArgs = {
 /**
  * Confirm a new sign-up.
  *
- * Note the app auto-confirms most signups server-side (lib/auth/actions.ts,
- * lib/actions/join.ts), so in production this usually loses a race with the
- * service-role confirm and is never opened. It is still a live, user-visible
- * surface anywhere SUPABASE_SERVICE_ROLE_KEY is absent — preview environments
- * and any deploy where the key is rotated out — so it is written to stand on
- * its own, not as a formality.
+ * For a gym owner this is now the critical path, not a formality: signup
+ * creates the auth account and nothing else, and the gym itself is provisioned
+ * only when this link is opened (lib/auth/actions.ts). Member joins still
+ * auto-confirm server-side (lib/actions/join.ts) — a member arriving from a
+ * gym's invite link has already been vouched for by the gym.
  */
 export function confirmSignup(a: AuthArgs): EmailContent {
   const who = greeting(a.fullName, a.email);
@@ -158,6 +157,30 @@ export function changeEmail(a: AuthArgs & { newEmail: string; toNewAddress: bool
       p(t`Approve it here — both addresses have to confirm before the change takes effect:`),
       button('Approve the change', a.actionUrl),
       callout('warning', t`If you didn't ask for this, do not approve it, and change your password now — someone else may have access to your account.`),
+    ],
+  };
+}
+
+/**
+ * Sign-in second factor: a 6-digit code for gym staff.
+ *
+ * Not a link. A magic link in a 2FA mail would let anyone who can read the
+ * inbox complete a sign-in with one click from any device; a code has to be
+ * typed into the session that already passed the password, which is the whole
+ * point of the second factor. The code goes in the subject too, so it can be
+ * read from a phone's lock screen without opening the message.
+ */
+export function twoFactorCode(a: { code: string; minutes: number; fullName?: string | null; email?: string | null }): EmailContent {
+  const who = greeting(a.fullName, a.email ?? '');
+  return {
+    subject: `${a.code} is your GymFlow sign-in code`,
+    preheader: `Enter this code to finish signing in. It expires in ${a.minutes} minutes.`,
+    blocks: [
+      h1(t`Finish signing in`),
+      p(t`Hi ${who}, someone entered your password on the GymFlow sign-in page. Enter this code to continue:`),
+      code(a.code),
+      small(t`The code expires in ${String(a.minutes)} minutes and can only be used once.`),
+      callout('warning', t`If this wasn't you, someone knows your password. Don't enter the code — change your password now and tell your gym owner.`),
     ],
   };
 }

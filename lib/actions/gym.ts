@@ -325,7 +325,9 @@ export async function removeGymPhoto(_prev: GymSaveState, formData: FormData): P
 // simply disappears.
 export async function saveBusinessHours(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
   type Session = 'all' | 'morning' | 'afternoon' | 'evening';
-  type Row = { gym_id: string; day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean; session: Session };
+  // No gym_id: replace_business_hours takes it once as p_gym, so a row shape
+  // that can't name a gym is a row shape that can't be pointed at another one.
+  type Row = { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean; session: Session };
   const SPLIT_SESSIONS: Session[] = ['morning', 'afternoon', 'evening'];
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
@@ -334,7 +336,7 @@ export async function saveBusinessHours(_prev: GymSaveState, formData: FormData)
     for (let d = 0; d <= 6; d++) {
       const mode = String(formData.get(`mode_${d}`) ?? 'single'); // 'single' | 'split' | 'closed'
       if (mode === 'closed') {
-        rows.push({ gym_id: gym.id, day_of_week: d, open_time: null, close_time: null, is_closed: true, session: 'all' });
+        rows.push({ day_of_week: d, open_time: null, close_time: null, is_closed: true, session: 'all' });
         continue;
       }
       if (mode === 'split') {
@@ -349,7 +351,7 @@ export async function saveBusinessHours(_prev: GymSaveState, formData: FormData)
           if (open >= close) {
             return { ok: false, error: `A session's close time must be after its open time.` };
           }
-          dayRows.push({ gym_id: gym.id, day_of_week: d, open_time: open, close_time: close, is_closed: false, session: s });
+          dayRows.push({ day_of_week: d, open_time: open, close_time: close, is_closed: false, session: s });
         }
         if (!dayRows.length) {
           return { ok: false, error: `Enable at least one session for a split day, or mark it closed.` };
@@ -362,12 +364,20 @@ export async function saveBusinessHours(_prev: GymSaveState, formData: FormData)
       const close = String(formData.get(`close_${d}`) ?? '').trim();
       if (!open || !close) return { ok: false, error: `Set open and close times for every open day, or mark it closed.` };
       if (open >= close) return { ok: false, error: `Close time must be after open time.` };
-      rows.push({ gym_id: gym.id, day_of_week: d, open_time: open, close_time: close, is_closed: false, session: 'all' });
+      rows.push({ day_of_week: d, open_time: open, close_time: close, is_closed: false, session: 'all' });
     }
-    const { error: delErr } = await supabase.from('business_hours').delete().eq('gym_id', gym.id);
-    if (delErr) return { ok: false, error: delErr.message };
-    const { error: insErr } = await supabase.from('business_hours').insert(rows as never);
-    if (insErr) return { ok: false, error: insErr.message };
+    // One RPC, not delete-then-insert: the two-statement version committed the
+    // delete before the insert was accepted, so a rejected insert left the gym
+    // with no opening hours at all — published on its landing page. The
+    // function body is a single transaction, so a bad row rolls the delete back
+    // too (20260729_business_hours_split_sessions.sql). SECURITY INVOKER, so
+    // the same RLS still decides whether this user may write these rows.
+    // `as never`: the function postdates the generated types.
+    const { error: saveErr } = await supabase.rpc('replace_business_hours' as never, {
+      p_gym: gym.id,
+      p_rows: rows,
+    } as never);
+    if (saveErr) return { ok: false, error: saveErr.message };
     logAudit({ action: 'business_hours_updated', table: 'business_hours', actorId: user.id, gymId: gym.id, recordId: gym.id });
     try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
     revalidatePath(`/g/${gym.slug}`);
@@ -451,6 +461,32 @@ export async function updateFreezePolicy(_prev: GymSaveState, formData: FormData
     logAudit({ action: 'gym_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { member_freeze_enabled: enabled } });
     try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
     revalidatePath('/dashboard/profile');
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/**
+ * Turn the emailed second factor on or off for this gym's staff.
+ *
+ * Manager-and-above only, and audited: switching it off weakens every staff
+ * account at the gym at once, so the log needs to show who did it. Takes
+ * effect on the next sign-in — existing sessions are not torn down, matching
+ * how the rest of the settings behave.
+ *
+ * `two_factor_required` postdates the generated types, hence the cast (same
+ * pattern as brand_color below).
+ */
+export async function updateSecurity(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const required = formData.get('two_factor_required') === 'on';
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const { error } = await supabase.from('gyms').update({ two_factor_required: required } as never).eq('id', gym.id);
+    if (error) return { ok: false, error: error.message };
+    logAudit({ action: 'security_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { two_factor_required: required } });
+    try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
     return { ok: true, error: null };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
