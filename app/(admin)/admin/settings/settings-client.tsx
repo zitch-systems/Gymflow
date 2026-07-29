@@ -5,7 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, ShieldCheck, type LucideIcon } from 'lucide-react';
-import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, updateSecurity, type GymSaveState } from '@/lib/actions/gym';
+import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, updateSecurity, uploadCacCertificate, type GymSaveState } from '@/lib/actions/gym';
+import { formatCacNumber } from '@/lib/cac';
 import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
 import { GalleryManager } from '@/components/admin/gallery-manager';
 import type { Bank } from '@/lib/paystack';
@@ -150,6 +151,7 @@ export type GymProfile = {
   notif_class_reminders: boolean; notif_renewal_nudges: boolean; notif_payment_receipts: boolean;
   notif_membership_updates: boolean;
   two_factor_required: boolean;
+  cac_number: string | null;
 };
 
 export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
@@ -177,7 +179,7 @@ function MemberCodeField({ code }: { code: string }) {
   );
 }
 
-export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, initialSection = 'profile', providers = { paystack: false, termii: false, resend: false } }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; payoutAccounts: PayoutAccount[]; initialSection?: string; providers?: ProviderStatus }) {
+export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, initialSection = 'profile', providers = { paystack: false, termii: false, resend: false }, cacUrl = null }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; payoutAccounts: PayoutAccount[]; initialSection?: string; providers?: ProviderStatus; cacUrl?: string | null }) {
   const [sec, setSec] = useState<string>(initialSection);
   // Follow the ?onboarding=/?section= query on client-side navigation too.
   // Clicking an onboarding-banner link while ALREADY on /admin/settings changes
@@ -199,6 +201,7 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
   const [freezeState, freezeAction, freezePending] = useActionState(updateFreezePolicy, GYM_INIT);
   const [notifState, notifAction, notifPending] = useActionState(updateNotifications, GYM_INIT);
   const [secState, secAction, secPending] = useActionState(updateSecurity, GYM_INIT);
+  const [cacState, cacAction, cacPending] = useActionState(uploadCacCertificate, GYM_INIT);
   const [mktState, mktAction, mktPending] = useActionState(updateMarketing, GYM_INIT);
 
   return (
@@ -242,6 +245,14 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                 <div className="gf-form-group"><label className="gf-form-label">Website</label><input className="gf-input" name="website" type="url" defaultValue={gym.website ?? ''} placeholder="https://" /></div>
                 <div className="gf-form-group"><label className="gf-form-label">Amenities</label><input className="gf-input" name="amenities" defaultValue={(gym.amenities ?? []).join(', ')} placeholder="Free parking, Sauna, 24/7 access" /><small style={{ display: 'block', marginTop: 6, color: 'var(--gf-text-muted)', fontSize: '0.78rem' }}>Separate each with a comma. Shown as tags on your public page.</small></div>
 
+                <div className="gf-form-group">
+                  <label className="gf-form-label" htmlFor="cac-number">CAC registration number</label>
+                  <input className="gf-input" id="cac-number" name="cac_number" defaultValue={formatCacNumber(gym.cac_number)} placeholder="RC 1234567" />
+                  <small style={{ display: 'block', marginTop: 6, color: 'var(--gf-text-muted)', fontSize: '0.78rem' }}>
+                    Your Corporate Affairs Commission number — RC for a company, BN for a business name, IT for incorporated trustees. Kept private; used to verify the business behind your payout account.
+                  </small>
+                </div>
+
                 <div className="panel-title" style={{ marginTop: 8 }}>Social media</div>
                 <div className="panel-desc">Handle or full link — shown as icons on your public page.</div>
                 <div className="frow">
@@ -268,6 +279,45 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                   <button className="gf-btn gf-btn-primary" type="submit" disabled={gymPending}>{gymPending ? 'Saving…' : 'Save changes'}</button>
                   {gymState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
                   {gymState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{gymState.error}</span>}
+                </div>
+              </form>
+            </section>
+          )}
+
+          {sec === 'profile' && (
+            <section className="sec on" style={{ marginTop: 16 }}>
+              {/* Its own <form> and its own action: a file upload nested inside
+                  the profile form would post the whole profile on every file
+                  pick, and multipart uploads have their own failure modes. */}
+              <form className="panel" action={cacAction}>
+                <div className="panel-title">CAC certificate</div>
+                <div className="panel-desc">
+                  Your certificate of incorporation. Stored privately — only your gym&apos;s staff and GymFlow can open it, through a link that expires after ten minutes. Never shown on your public page.
+                </div>
+                {cacUrl ? (
+                  <div className="set-row">
+                    <div className="m">
+                      <strong>Certificate on file</strong>
+                      <small>Uploading a new one replaces it.</small>
+                    </div>
+                    <a href={cacUrl} target="_blank" rel="noreferrer" className="gf-btn gf-btn-ghost" style={{ flexShrink: 0 }}>View ↗</a>
+                  </div>
+                ) : (
+                  <div className="set-row">
+                    <div className="m">
+                      <strong>No certificate uploaded</strong>
+                      <small>PDF, PNG, JPEG or WebP, up to 5 MB.</small>
+                    </div>
+                  </div>
+                )}
+                <div className="gf-form-group" style={{ marginTop: 12 }}>
+                  <label className="gf-form-label" htmlFor="cac-file">{cacUrl ? 'Replace certificate' : 'Upload certificate'}</label>
+                  <input className="gf-input" id="cac-file" name="certificate" type="file" accept=".pdf,image/png,image/jpeg,image/webp" required />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+                  <button className="gf-btn gf-btn-primary" type="submit" disabled={cacPending}>{cacPending ? 'Uploading…' : 'Upload'}</button>
+                  {cacState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Uploaded ✓</span>}
+                  {cacState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{cacState.error}</span>}
                 </div>
               </form>
             </section>

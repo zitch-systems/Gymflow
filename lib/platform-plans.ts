@@ -7,9 +7,11 @@ export type PlanTier = 'starter' | 'growth' | 'scale';
 export type PlatformPlan = {
   tier: PlanTier;
   name: string;
-  // Display price. MUST match the amount of the Paystack Plan referenced by
-  // planCodeEnv — Paystack is the source of truth for the actual charge (we send
-  // no amount), so a mismatch only mis-displays, it can't mis-charge.
+  // Display price, and the `amount` sent to /transaction/initialize because
+  // that endpoint requires one even alongside a plan code. MUST match the
+  // amount of the Paystack Plan referenced by planCodeEnv — Paystack charges
+  // the plan's amount regardless of what we send, so a mismatch here only
+  // mis-displays, it can't mis-charge.
   amountKobo: number; // naira × 100
   tagline: string;
   // Env var holding the Paystack Plan code (created once in the Paystack

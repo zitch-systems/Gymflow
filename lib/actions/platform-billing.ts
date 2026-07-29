@@ -36,6 +36,10 @@ export async function startPlatformSubscription(tier: string): Promise<StartResu
   const res = await initSubscription({
     email: gym.email ?? user.email ?? '',
     planCode,
+    // Paystack requires an amount even alongside a plan code; the plan's own
+    // price is still what recurs. Catalogue value, kept in sync with the
+    // Paystack Plan (lib/platform-plans.ts).
+    amountKobo: plan.amountKobo,
     metadata: { kind: 'platform_subscription', gym_id: gym.id, plan: tier },
     callbackUrl: site ? `${site}/billing/callback` : undefined,
   });

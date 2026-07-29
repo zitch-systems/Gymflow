@@ -29,7 +29,10 @@ export type ActionState = { ok: boolean; error: string | null; message?: string 
 // UPDATE isn't blocked by RLS (membership_plans staff-write policy exists but
 // we want member auto-billing to work even when the member is the one
 // triggering creation).
-async function ensurePlanCode(planId: string, gymId: string): Promise<{ ok: true; code: string } | { ok: false; error: string }> {
+// Returns the amount alongside the code: initSubscription has to send one
+// (Paystack requires it even with a plan code), and the membership_plans row
+// read here is where the price already is.
+async function ensurePlanCode(planId: string, gymId: string): Promise<{ ok: true; code: string; amountKobo: number } | { ok: false; error: string }> {
   const admin = createAdminClient();
   const { data: plan, error } = await admin
     .from('membership_plans')
@@ -38,14 +41,15 @@ async function ensurePlanCode(planId: string, gymId: string): Promise<{ ok: true
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!plan) return { ok: false, error: 'Plan not found.' };
-  if (plan.paystack_plan_code) return { ok: true, code: plan.paystack_plan_code };
+  const amountKobo = Math.round(Number(plan.price) * 100);
+  if (plan.paystack_plan_code) return { ok: true, code: plan.paystack_plan_code, amountKobo };
 
   const interval = planIntervalFor(plan.duration_days ?? null, plan.duration_months ?? null);
   if (!interval) return { ok: false, error: `Plan "${plan.name}" duration doesn't map to a Paystack billing interval.` };
 
   const res = await createPlan({
     name: `${plan.name} (auto-renew)`,
-    amountKobo: Math.round(Number(plan.price) * 100),
+    amountKobo,
     interval,
   });
   if (!res.ok) return { ok: false, error: res.error };
@@ -54,7 +58,7 @@ async function ensurePlanCode(planId: string, gymId: string): Promise<{ ok: true
   // eventual code) — Paystack will just have two Plan objects with the same
   // config, harmless.
   await admin.from('membership_plans').update({ paystack_plan_code: res.planCode }).eq('id', plan.id);
-  return { ok: true, code: res.planCode };
+  return { ok: true, code: res.planCode, amountKobo };
 }
 
 // Start an auto-renewing subscription for the signed-in member. Same shape as
@@ -73,6 +77,7 @@ export async function startAutoRenewal(planId: string): Promise<StartResult> {
   const res = await initSubscription({
     email: user.email ?? '',
     planCode: codeResult.code,
+    amountKobo: codeResult.amountKobo,
     metadata: { kind: 'member_subscription', gym_id: gym.id, member_id: user.id, plan_id: planId },
     callbackUrl: site ? `${site}/dashboard/renew/callback` : undefined,
   });

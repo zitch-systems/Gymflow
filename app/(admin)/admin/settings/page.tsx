@@ -1,6 +1,7 @@
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { listBanks, type Bank } from '@/lib/paystack';
+import { cacCertificateUrl } from '@/lib/actions/gym';
 import { SettingsClient } from './settings-client';
 
 export const metadata = { title: 'Settings' };
@@ -37,6 +38,11 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
       .select('id, bank_name, bank_code, account_number, account_name, verified, is_active')
       .eq('gym_id', gym.id).order('is_active', { ascending: false }).order('created_at', { ascending: true }),
   ]);
+
+  // Signed per view (10 minutes) rather than stored: the URL IS the read
+  // capability for a private document, so it should outlive this page by as
+  // little as possible. Null when the gym hasn't uploaded a certificate.
+  const cacUrl = await cacCertificateUrl((gym as { cac_certificate_path?: string | null }).cac_certificate_path);
 
   const payoutAccounts = ((payoutRows as unknown as {
     id: string; bank_name: string; bank_code: string; account_number: string;
@@ -77,6 +83,9 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
   return (
     <SettingsClient
       banks={banks}
+      // Signed here, in the server component: the URL is a capability with a
+      // ten-minute life, so it's minted per page view rather than stored.
+      cacUrl={cacUrl}
       hours={hours}
       initialSection={initialSection}
       payoutAccounts={payoutAccounts}
@@ -104,6 +113,7 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
         notif_renewal_nudges:     (gym as { notif_renewal_nudges?: boolean }).notif_renewal_nudges !== false,
         notif_payment_receipts:   (gym as { notif_payment_receipts?: boolean }).notif_payment_receipts !== false,
         notif_membership_updates: (gym as { notif_membership_updates?: boolean }).notif_membership_updates !== false,
+        cac_number: (gym as { cac_number?: string | null }).cac_number ?? null,
         // `!== false` like the rest: a gym row that predates the column reads
         // as required, which is the same default the sign-in check applies.
         two_factor_required: (gym as { two_factor_required?: boolean }).two_factor_required !== false,

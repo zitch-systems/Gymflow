@@ -8,6 +8,7 @@ import { logAudit } from '@/lib/audit';
 import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
 import { rateLimit } from '@/lib/rate-limit';
 import { storagePathFromPublicUrl } from '@/lib/format';
+import { cacDocError, parseCacNumber } from '@/lib/cac';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
 import { getGymOwnerEmails } from '@/lib/email/recipients';
 import { payoutAccountReviewed } from '@/lib/email/templates/platform';
@@ -186,8 +187,21 @@ export async function updateGym(_prev: GymSaveState, formData: FormData): Promis
       .split(/[\n,]+/).map((s) => s.trim())
       .filter((u) => /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels|tv)\/[A-Za-z0-9_-]+/i.test(u)),
   )).slice(0, 6);
+  // CAC registration number. Optional — a gym mid-registration shouldn't be
+  // locked out of saving its address — but rejected outright when it's present
+  // and malformed, rather than stored as typed: this number gets read off the
+  // profile by a human checking a payout account against a real company.
+  const cacRaw = String(formData.get('cac_number') ?? '').trim();
+  let cac_number: string | null = null;
+  if (cacRaw) {
+    const parsed = parseCacNumber(cacRaw);
+    if (!parsed.ok) return { ok: false, error: parsed.error };
+    cac_number = parsed.value;
+  }
+
   const patch = {
     name,
+    cac_number,
     tagline: String(formData.get('tagline') ?? '').trim() || null,
     description: String(formData.get('description') ?? '').trim() || null,
     city: String(formData.get('city') ?? '').trim() || null,
@@ -446,6 +460,77 @@ export async function uploadLogo(_prev: GymSaveState, formData: FormData): Promi
     return { ok: true, error: null };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
+  }
+}
+
+/**
+ * Upload (or replace) the gym's CAC certificate.
+ *
+ * Goes to the PRIVATE gym-docs bucket, not gym-assets: this document carries
+ * the company's registration number and its directors, and gym-assets objects
+ * serve off the public CDN without RLS. There is no public URL to store, so the
+ * gym row keeps the object PATH and readers mint a short-lived signed URL
+ * (cacCertificateUrl below).
+ *
+ * Uses the caller's own client rather than the service role — the gym_docs_*
+ * policies are the access control, and going through them here means the
+ * storage layer is exercised as written instead of bypassed.
+ */
+export async function uploadCacCertificate(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const file = formData.get('certificate');
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Choose a file to upload.' };
+  const fileErr = cacDocError(file);
+  if (fileErr) return { ok: false, error: fileErr };
+
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const ext = ((file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'pdf';
+    const path = `${gym.id}/cac-certificate-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('gym-docs').upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) return { ok: false, error: upErr.message };
+
+    const { error } = await supabase.from('gyms').update({ cac_certificate_path: path } as never).eq('id', gym.id);
+    if (error) return { ok: false, error: error.message };
+
+    // Drop the document this one replaces — a superseded certificate is a
+    // liability to keep, not an asset. Best-effort.
+    const oldPath = (gym as { cac_certificate_path?: string | null }).cac_certificate_path;
+    if (oldPath && oldPath !== path) {
+      try { await supabase.storage.from('gym-docs').remove([oldPath]); } catch { /* orphan tolerable */ }
+    }
+
+    // Values, not the file: the audit log records that the certificate changed
+    // and who changed it, never the document itself.
+    logAudit({ action: 'cac_certificate_uploaded', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { cac_certificate_path: path } });
+    try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/**
+ * A short-lived link to a stored certificate, or null if there isn't one.
+ *
+ * Signed per view rather than stored: the URL is the capability, so it should
+ * outlive the page that shows it by as little as possible. Ten minutes covers
+ * "click through and read it" without leaving a working link in a browser
+ * history for a week.
+ */
+export async function cacCertificateUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  try {
+    // Gate on the caller being staff of the gym whose folder this is — the
+    // bucket policy says the same thing, but this function is exported and
+    // shouldn't rely on its only caller being careful.
+    const { gym } = await requireStaff();
+    if (path.split('/')[0] !== gym.id) return null;
+    const supabase = await createClient();
+    const { data } = await supabase.storage.from('gym-docs').createSignedUrl(path, 600);
+    return data?.signedUrl ?? null;
+  } catch {
+    return null;
   }
 }
 

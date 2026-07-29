@@ -1,4 +1,5 @@
 import 'server-only';
+import { isChargeableKobo, subscriptionInitBody } from '@/lib/paystack-payloads';
 // Paystack server helpers. Uses PAYSTACK_SECRET_KEY (server-only). All calls
 // are no-throw on missing key at module load — callers check + surface errors.
 
@@ -49,25 +50,36 @@ export async function initTransaction(params: {
 
 // Initialize a transaction tied to a Paystack Plan. Passing `plan` makes
 // Paystack auto-create a Subscription after the first successful charge and
-// bill it monthly thereafter (firing charge.success each cycle). The amount is
-// taken from the plan, so we don't pass one. Used for platform (gym → GymFlow)
-// SaaS billing.
+// bill it monthly thereafter (firing charge.success each cycle). Used for
+// platform (gym → GymFlow) SaaS billing and member auto-renew.
+//
+// The amount is sent even though the plan defines the price: /transaction/
+// initialize requires it, and omitting it failed every plan checkout with
+// "Invalid Amount Sent". Paystack charges the plan's amount regardless.
 export async function initSubscription(params: {
   email: string;
   planCode: string;
+  /** The plan's price in kobo. Required by /transaction/initialize even when a
+   *  plan code is present — see subscriptionInitBody. Paystack still charges
+   *  the plan's own amount. */
+  amountKobo: number;
   metadata: Record<string, unknown>;
   callbackUrl?: string;
 }): Promise<InitResult> {
+  if (!isChargeableKobo(params.amountKobo)) {
+    return { ok: false, error: 'This plan has no price set, so it can’t be billed.' };
+  }
   try {
     const res = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body: JSON.stringify(subscriptionInitBody({
         email: params.email,
-        plan: params.planCode,
+        planCode: params.planCode,
+        amountKobo: params.amountKobo,
         metadata: params.metadata,
-        callback_url: params.callbackUrl,
-      }),
+        callbackUrl: params.callbackUrl,
+      })),
       cache: 'no-store',
     });
     const json = await res.json();
