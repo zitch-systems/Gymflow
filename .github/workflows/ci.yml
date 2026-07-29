@@ -90,7 +90,14 @@ jobs:
 
       - name: Gate on secret presence
         id: gate
-        run: echo "on=${{ secrets.SUPABASE_DB_URL != '' }}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "on=${{ secrets.SUPABASE_DB_URL != '' }}" >> "$GITHUB_OUTPUT"
+          # Say so out loud. A silently-skipped drift gate reads exactly like a
+          # passing one in the checks list — which is how three migrations once
+          # sat unapplied on the live project without CI noticing.
+          if [ "${{ secrets.SUPABASE_DB_URL != '' }}" != "true" ]; then
+            echo '::warning::SUPABASE_DB_URL is not set — the schema-drift gate did NOT run. Live schema is unverified against the checked-in migrations.'
+          fi
 
       - uses: actions/setup-node@v4
         if: steps.gate.outputs.on == 'true'

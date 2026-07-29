@@ -101,6 +101,33 @@ the repo:
 | `PAYSTACK_PLAN_STARTER/GROWTH/SCALE` | platform SaaS plans | gym billing checkout returns "not set up" |
 | `CRON_SECRET` | authorizes `/api/cron` | reminders/expiry sweeps stop; rotate freely |
 | `NEXT_PUBLIC_SITE_URL` / `NEXT_PUBLIC_ROOT_DOMAIN` | callbacks + subdomains | Paystack callbacks misroute |
+| `RESEND_API_KEY` / `RESEND_FROM` / `EMAIL_TENANT_DOMAIN` | transactional + gym-branded email | email silently skipped (fail-open); reminders/receipts stay in-app only |
+| `SUPABASE_AUTH_HOOK_SECRET` / `RESEND_WEBHOOK_SECRET` | branded auth mail, bounce ledger | hook 501s and Supabase's default templates take over; bounces stop being suppressed |
+| `TERMII_API_KEY` | WhatsApp/SMS reminders (Growth+) | WhatsApp sends skipped (fail-open) |
+| `SENTRY_DSN` | server error forwarding + CSP reports | errors land in `client_errors` only |
+
+Repo-side (GitHub → Settings → Secrets → Actions), not Vercel:
+
+| Secret | Purpose | If unset |
+|---|---|---|
+| `SUPABASE_DB_URL` | the CI schema-drift gate's live-side connection | the gate **skips** and CI stays green while the live schema drifts unnoticed (the job now emits a warning annotation when this happens) |
+
+## 4b. Supabase project settings (not captured by migrations)
+
+Restoring the schema does not restore project configuration. After §1, in the
+Supabase dashboard:
+
+- **Authentication → Providers → Email**: enable **leaked-password protection**
+  (HaveIBeenPwned check) and confirm the minimum password length matches
+  `lib/auth/password.ts`.
+- **Authentication → URL Configuration**: redirect allow-list must include
+  `https://<root-domain>/**` *and* `https://*.<root-domain>/**`, or per-gym
+  subdomain sign-in links break.
+- **Authentication → Emails → Hooks → Send email**: point at
+  `https://<site>/api/auth/email-hook` and paste the generated secret into
+  `SUPABASE_AUTH_HOOK_SECRET` verbatim (`v1,whsec_…` prefix included) — see
+  `docs/EMAIL.md` §5.
+- **Storage**: recreate the public `gym-assets` bucket (§1.5).
 
 ## 5. Re-point Paystack
 
