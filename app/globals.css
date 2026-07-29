@@ -2613,6 +2613,116 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
 .gl-appdl-badge:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -10px rgba(0,0,0,0.55); }
 @media (display-mode: standalone) { .gl-appdl-wrap { display: none !important; } }
 
+/* Chosen-plan chip on the join screen — carries the landing page's "Choose
+   Gold" through to the account form so the choice isn't silently dropped. */
+.join-plan { display: flex; flex-direction: column; gap: 3px; margin: 0 0 18px; padding: 12px 14px;
+  border-radius: var(--gf-radius-sm); background: var(--gf-brand-soft); border: 1px solid var(--gf-brand-glow); }
+.join-plan span { color: var(--gf-text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; }
+.join-plan b { font-family: var(--gf-font-display); font-size: 1rem; font-weight: 700; }
+.join-plan small { color: var(--gf-text-secondary); font-size: 0.78rem; line-height: 1.45; margin-top: 3px; }
+
+/* ── Sticky gym bar ──────────────────────────────────────────────────────
+   Appears once the hero scrolls away, so the join CTA is never more than a
+   tap away on a page this long. Translated (not display:none) so it can
+   animate in and so its links stay in the a11y tree with tabIndex control. */
+.gl-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  background: color-mix(in srgb, var(--gf-bg) 88%, transparent);
+  backdrop-filter: saturate(150%) blur(14px); -webkit-backdrop-filter: saturate(150%) blur(14px);
+  border-bottom: 1px solid transparent;
+  transform: translateY(-100%); opacity: 0; visibility: hidden;
+  transition: transform 0.32s cubic-bezier(.2,.7,.2,1), opacity 0.25s ease, visibility 0.32s, border-color 0.32s ease; }
+.gl-nav.on { transform: none; opacity: 1; visibility: visible; border-bottom-color: var(--gf-border); }
+.gl-nav-in { max-width: 980px; margin: 0 auto; padding: 9px 16px; display: flex; align-items: center; gap: 16px; }
+.gl-nav-id { display: inline-flex; align-items: center; gap: 9px; min-width: 0; flex-shrink: 0; }
+.gl-nav-id img { width: 30px; height: 30px; border-radius: 9px; object-fit: cover; }
+.gl-nav-id b { font-family: var(--gf-font-display); font-size: 0.95rem; font-weight: 700; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34vw; }
+.gl-nav-mark { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  border-radius: 9px; background: var(--gf-brand-soft); color: var(--gf-brand); }
+.gl-nav-links { list-style: none; display: flex; align-items: center; gap: 4px; margin: 0 auto 0 8px; padding: 0;
+  overflow-x: auto; scrollbar-width: none; }
+.gl-nav-links::-webkit-scrollbar { display: none; }
+.gl-nav-links a { display: block; padding: 7px 11px; border-radius: 8px; text-decoration: none; white-space: nowrap;
+  color: var(--gf-text-secondary); font-size: 0.86rem; font-weight: 600; transition: color 0.2s ease, background 0.2s ease; }
+.gl-nav-links a:hover { color: var(--gf-text); background: var(--gf-surface); }
+.gl-nav-links a.on { color: var(--gf-brand); background: var(--gf-brand-soft); }
+.gl-nav-cta { flex-shrink: 0; text-decoration: none; }
+/* Phones: the gym name plus the CTA is all that fits — jump links would wrap
+   the bar onto a second line and eat the viewport. */
+@media (max-width: 640px) { .gl-nav-links { display: none; } .gl-nav-in { justify-content: space-between; } }
+/* The bar is fixed, so in-page anchors must clear it. */
+.gymland { scroll-behavior: smooth; }
+.gymland [id] { scroll-margin-top: 76px; }
+@media (prefers-reduced-motion: reduce) { .gymland { scroll-behavior: auto; } .gl-nav { transition: none; } }
+
+/* ── Live open/closed badge ── */
+.gl-status { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 14px; padding: 6px 13px;
+  border-radius: 999px; background: var(--gf-surface); border: 1px solid var(--gf-border);
+  font-size: 0.82rem; color: var(--gf-text-secondary); }
+.gl-status b { font-weight: 700; color: var(--gf-text); }
+.gl-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gf-text-muted); flex-shrink: 0; }
+.gl-status.is-open { border-color: color-mix(in srgb, var(--gf-success, #11d18b) 40%, transparent);
+  background: color-mix(in srgb, var(--gf-success, #11d18b) 12%, transparent); }
+.gl-status.is-open b { color: var(--gf-success, #11d18b); }
+.gl-status.is-open .gl-status-dot { background: var(--gf-success, #11d18b); box-shadow: 0 0 0 0 color-mix(in srgb, var(--gf-success, #11d18b) 60%, transparent); animation: gl-pulse 2.4s ease-out infinite; }
+@keyframes gl-pulse { 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .gl-status.is-open .gl-status-dot { animation: none; } }
+
+/* ── Hero facts: price anchor, today's hours, days open ── */
+.gl-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; margin-top: 30px; text-align: left; }
+.gl-fact { display: flex; flex-direction: column; gap: 3px; padding: 13px 15px; border-radius: var(--gf-radius-sm);
+  background: var(--gf-surface); border: 1px solid var(--gf-border); text-decoration: none;
+  transition: border-color 0.25s ease, transform 0.25s ease; }
+a.gl-fact:hover { border-color: var(--gf-brand-glow); transform: translateY(-2px); }
+.gl-fact-k { color: var(--gf-text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; }
+.gl-fact b { font-family: var(--gf-font-display); font-size: 1.02rem; font-weight: 700; color: var(--gf-text); line-height: 1.25; }
+.gl-fact b small { font-size: 0.76rem; font-weight: 600; color: var(--gf-text-muted); margin-left: 2px; }
+
+.gl-section-lede { color: var(--gf-text-secondary); font-size: 0.92rem; line-height: 1.55; margin: -8px 0 18px; }
+
+/* ── Plan card: best-value flag + monthly equivalent ── */
+.gl-plan { position: relative; }
+.gl-plan.is-best { border-color: var(--gf-brand); box-shadow: 0 18px 44px -22px var(--gf-brand-glow); }
+.gl-plan-flag { position: absolute; top: -10px; left: 18px; padding: 3px 10px; border-radius: 999px;
+  background: var(--gf-brand); color: #04140d; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.gl-plan-permonth { color: var(--gf-text-muted); font-size: 0.8rem; font-weight: 600; margin-top: -6px; }
+
+/* ── Weekly timetable ── */
+.gl-timetable { display: flex; flex-direction: column; gap: 10px; }
+.gl-tt-day { display: grid; grid-template-columns: 76px 1fr; gap: 14px; align-items: start;
+  background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 14px 16px; }
+.gl-tt-dayname { display: flex; flex-direction: column; }
+.gl-tt-dayname b { font-family: var(--gf-font-display); font-size: 0.98rem; font-weight: 800; }
+.gl-tt-dayname span { color: var(--gf-text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.gl-tt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.gl-tt-item { display: grid; grid-template-columns: 84px 1fr auto; gap: 10px; align-items: baseline; font-size: 0.9rem; }
+.gl-tt-time { color: var(--gf-brand); font-weight: 700; font-variant-numeric: tabular-nums; }
+.gl-tt-name { font-weight: 600; }
+.gl-tt-meta { color: var(--gf-text-muted); font-size: 0.78rem; text-transform: capitalize; text-align: right; }
+@media (max-width: 560px) {
+  .gl-tt-day { grid-template-columns: 1fr; gap: 8px; }
+  .gl-tt-dayname { flex-direction: row; align-items: baseline; gap: 7px; }
+  .gl-tt-item { grid-template-columns: 76px 1fr; }
+  .gl-tt-meta { grid-column: 2; text-align: left; }
+}
+
+/* ── Hours + contact, side by side on desktop ── */
+.gl-visit { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 760px) { .gl-visit { grid-template-columns: 1.1fr 0.9fr; align-items: start; } }
+.gl-hours-row.is-today { background: var(--gf-brand-soft); }
+.gl-hours-row.is-today span:first-child { color: var(--gf-text); }
+.gl-hours-row em { font-style: normal; color: var(--gf-brand); font-weight: 700; font-size: 0.8rem; }
+.gl-directions { font-weight: 700; color: var(--gf-brand); }
+.gl-visit .gl-socials { justify-content: flex-start; margin-top: 4px; }
+
+/* ── App CTA inside the membership section ── */
+.gl-app-cta { margin-top: 22px; padding: 20px; border-radius: var(--gf-radius); text-align: center;
+  background: var(--gf-surface); border: 1px solid var(--gf-border); }
+.gl-app-cta p { color: var(--gf-text-secondary); font-size: 0.92rem; line-height: 1.55; margin: 0 auto 16px; max-width: 46ch; }
+
+.gl-final-note { display: inline-flex; align-items: center; gap: 7px; color: var(--gf-success, #11d18b);
+  font-size: 0.86rem; font-weight: 600; margin: -10px 0 18px; }
+
 .gymland-by { display: block; text-align: center; margin-top: 40px; color: var(--gf-text-muted); font-size: 0.78rem; text-decoration: none; }
 .gymland-by strong { color: var(--gf-text-secondary); font-family: var(--gf-font-display); }
 
