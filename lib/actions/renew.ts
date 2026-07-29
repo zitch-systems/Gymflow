@@ -1,6 +1,7 @@
 'use server';
 
 import { requireMember } from '@/lib/auth/dal';
+import { requestOrigin } from '@/lib/request-origin';
 import { createClient } from '@/lib/supabase/server';
 import { initTransaction } from '@/lib/paystack';
 
@@ -24,7 +25,10 @@ export async function startRenewal(planId: string): Promise<RenewResult> {
     .maybeSingle();
   if (!plan) return { ok: false, error: 'Plan not found.' };
 
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+  // The host the member is ON, not the apex: sessions are host-scoped, so a
+  // callback to gymflow.ng from a member browsing <gym>.gymflow.ng arrives
+  // signed out and bounces them to the login page after they've paid.
+  const site = await requestOrigin();
   const res = await initTransaction({
     email: user.email ?? '',
     amountKobo: Math.round(Number(plan.price) * 100),
