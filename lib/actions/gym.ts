@@ -457,6 +457,32 @@ export async function updateFreezePolicy(_prev: GymSaveState, formData: FormData
   }
 }
 
+/**
+ * Turn the emailed second factor on or off for this gym's staff.
+ *
+ * Manager-and-above only, and audited: switching it off weakens every staff
+ * account at the gym at once, so the log needs to show who did it. Takes
+ * effect on the next sign-in — existing sessions are not torn down, matching
+ * how the rest of the settings behave.
+ *
+ * `two_factor_required` postdates the generated types, hence the cast (same
+ * pattern as brand_color below).
+ */
+export async function updateSecurity(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
+  const required = formData.get('two_factor_required') === 'on';
+  try {
+    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const supabase = await createClient();
+    const { error } = await supabase.from('gyms').update({ two_factor_required: required } as never).eq('id', gym.id);
+    if (error) return { ok: false, error: error.message };
+    logAudit({ action: 'security_updated', table: 'gyms', actorId: user.id, gymId: gym.id, recordId: gym.id, values: { two_factor_required: required } });
+    try { revalidatePath('/admin/settings'); } catch { /* stale-cache tolerable — don't fail the action */ }
+    return { ok: true, error: null };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 // Save the gym's accent colour (applied across the member app).

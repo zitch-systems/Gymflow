@@ -25,7 +25,9 @@ export type LoginGym = {
 };
 
 const NOTICES: Record<NonNullable<LoginNotice>, { tone: 'info' | 'success' | 'error'; text: string }> = {
-  'check-email': { tone: 'info', text: 'Account created — check your email (and spam) for the confirmation link, then sign in.' },
+  // Signup no longer self-confirms: the gym is created when the link is
+  // clicked, so say that rather than "then sign in" — the link does both.
+  'check-email': { tone: 'info', text: 'Almost there — check your email (and spam) for the confirmation link. Your gym is set up the moment you open it.' },
   confirmed: { tone: 'success', text: 'Email confirmed — sign in below.' },
   reset: { tone: 'success', text: 'Password updated — sign in with your new password.' },
   // The /auth/confirm callback bounces here with ?error=link_expired when a
@@ -59,6 +61,15 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
       setResendMsg(res.error ? res.error : 'Confirmation email sent — check your inbox.');
     });
   }
+
+  // Signup-only: both password fields are controlled so the mismatch hint can
+  // react as the second one is typed instead of waiting for a round-trip.
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  // Only complain once there's something to compare — flagging a mismatch
+  // against an empty box while someone is still typing is noise.
+  const mismatch = up && confirmPassword.length > 0 && password !== confirmPassword;
+  const confirmErrorId = 'auth-confirm-password-error';
 
   const banner = notice ? NOTICES[notice] : null;
 
@@ -203,9 +214,34 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
               <label className="gf-form-label">Password</label>
               <div className="gf-input-group">
                 <Lock className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
+                <input className="gf-input" type="password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} value={up ? password : undefined} onChange={up ? (e) => setPassword(e.target.value) : undefined} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
               </div>
             </div>
+            {up && (
+              // Confirm-password is signup-only: a typo in the password you're
+              // CHOOSING locks you out of an account you can't sign into yet,
+              // while a typo when signing in just fails and you retype it.
+              // Mismatch is reported here as you type and re-checked in the
+              // action, which is the check that actually counts.
+              <div className="field gf-form-group">
+                <label className="gf-form-label" htmlFor="confirm-password">Confirm password</label>
+                <div className="gf-input-group">
+                  <Lock className="gf-input-icon" strokeWidth={1.75} />
+                  <input
+                    className="gf-input" type="password" id="confirm-password" name="confirm_password"
+                    placeholder="••••••••" required minLength={8}
+                    value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                    aria-invalid={mismatch ? true : undefined}
+                    aria-describedby={mismatch ? confirmErrorId : undefined}
+                  />
+                </div>
+                {mismatch && (
+                  <p id={confirmErrorId} role="alert" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--gf-danger)', fontSize: '0.8rem', margin: '6px 0 0' }}>
+                    <AlertCircle size={14} strokeWidth={2} style={{ flexShrink: 0 }} /> Both passwords must match.
+                  </p>
+                )}
+              </div>
+            )}
             {!up && (
               <div className="row">
                 <label><input type="checkbox" defaultChecked style={{ accentColor: 'var(--gf-brand)' }} /> Remember me</label>

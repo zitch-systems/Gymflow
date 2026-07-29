@@ -377,6 +377,17 @@ export async function GET(req: Request) {
     await admin.from('rate_limits').delete().lt('window_start', stale);
     const ledgerStale = new Date(Date.now() - 30 * 86_400_000).toISOString();
     await admin.from('webhook_events' as never).delete().lt('received_at', ledgerStale);
+
+    // Two-factor leftovers. A challenge is dead 10 minutes after it is issued
+    // and a trusted device at its expiry; both are kept a day past that purely
+    // so an "it logged me out early" report can still be checked, then dropped.
+    // Expired rows are already inert — judgeChallenge and hasTrustedDevice
+    // both test expiry — so this is hygiene, not enforcement.
+    const authStale = new Date(Date.now() - 86_400_000).toISOString();
+    try {
+      await admin.from('auth_challenges' as never).delete().lt('expires_at', authStale);
+      await admin.from('trusted_devices' as never).delete().lt('expires_at', authStale);
+    } catch { /* housekeeping never fails the run */ }
   }
 
   // Resend's delivery ledger: ops telemetry that answers "did the receipt

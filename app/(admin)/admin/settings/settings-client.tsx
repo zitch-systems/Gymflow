@@ -4,8 +4,8 @@ import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, type LucideIcon } from 'lucide-react';
-import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, type GymSaveState } from '@/lib/actions/gym';
+import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, updateSecurity, type GymSaveState } from '@/lib/actions/gym';
 import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
 import { GalleryManager } from '@/components/admin/gallery-manager';
 import type { Bank } from '@/lib/paystack';
@@ -21,6 +21,7 @@ const NAV = [
   { id: 'membership', label: 'Membership', icon: Snowflake },
   { id: 'payouts', label: 'Payouts', icon: Banknote },
   { id: 'notif', label: 'Notifications', icon: Bell },
+  { id: 'security', label: 'Security', icon: ShieldCheck },
   { id: 'integ', label: 'Integrations', icon: Plug },
   { id: 'team', label: 'Team', icon: Users },
 ] as const;
@@ -148,11 +149,12 @@ export type GymProfile = {
   member_freeze_enabled: boolean;
   notif_class_reminders: boolean; notif_renewal_nudges: boolean; notif_payment_receipts: boolean;
   notif_membership_updates: boolean;
+  two_factor_required: boolean;
 };
 
 export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
 
-const VALID_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'integ', 'team']);
+const VALID_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'security', 'integ', 'team']);
 
 // The gym's member code for the native mobile app — members type it into the
 // app to reach this gym, then sign in / up. Read-only, with a copy button.
@@ -196,6 +198,7 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
   const [hoursState, hoursAction, hoursPending] = useActionState(saveBusinessHours, GYM_INIT);
   const [freezeState, freezeAction, freezePending] = useActionState(updateFreezePolicy, GYM_INIT);
   const [notifState, notifAction, notifPending] = useActionState(updateNotifications, GYM_INIT);
+  const [secState, secAction, secPending] = useActionState(updateSecurity, GYM_INIT);
   const [mktState, mktAction, mktPending] = useActionState(updateMarketing, GYM_INIT);
 
   return (
@@ -384,6 +387,30 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                   <button className="gf-btn gf-btn-primary" type="submit" disabled={notifPending}>{notifPending ? 'Saving…' : 'Save changes'}</button>
                   {notifState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
                   {notifState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{notifState.error}</span>}
+                </div>
+              </form>
+            </section>
+          )}
+
+          {sec === 'security' && (
+            <section className="sec on">
+              <form className="panel" action={secAction}>
+                <div className="panel-title">Security</div>
+                <div className="panel-desc">How staff prove who they are when signing in to this gym&apos;s console.</div>
+                <label className="set-row" style={{ cursor: 'pointer' }}>
+                  <div className="m">
+                    <strong>Two-factor sign-in</strong>
+                    <small>Staff enter a 6-digit code emailed to them, on top of their password. Applies to every staff account here — owner, managers, front desk, accountants and instructors.</small>
+                  </div>
+                  <input type="checkbox" name="two_factor_required" defaultChecked={gym.two_factor_required} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
+                </label>
+                <p style={{ color: 'var(--gf-text-muted)', fontSize: '0.8rem', lineHeight: 1.5, margin: '10px 2px 0' }}>
+                  Staff can tick &ldquo;trust this device&rdquo; to skip the code for 30 days on a browser they use every shift. Turning this off leaves passwords as the only thing between a leaked credential and your member data, payments and payout account.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+                  <button className="gf-btn gf-btn-primary" type="submit" disabled={secPending}>{secPending ? 'Saving…' : 'Save changes'}</button>
+                  {secState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
+                  {secState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{secState.error}</span>}
                 </div>
               </form>
             </section>
