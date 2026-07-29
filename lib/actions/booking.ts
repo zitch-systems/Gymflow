@@ -5,6 +5,7 @@ import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { watNow, firstName, fmtDate, fmt12Hr } from '@/lib/format';
+import { nextOccurrenceDate } from '@/lib/class-dates';
 import { GYM_EMAIL_COLUMNS, type EmailGym } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, classBooked, classPromoted, classWaitlisted } from '@/lib/email/templates/member';
@@ -26,24 +27,11 @@ function one<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 }
 
-// Next calendar date (YYYY-MM-DD) on or after today matching a weekday (0=Sun).
-// If the slot falls today but its start time has already passed, roll to next
-// week so we never book a session that already happened.
+// Which date this slot next runs on. Shared with the class-detail page via
+// lib/class-dates.ts — when the two had their own copies they disagreed about a
+// slot whose time had passed, and a booked member was shown "Book your spot".
 function nextDateForDow(dow: number, startTime?: string | null): string {
-  // Anchor to WAT wall-clock (getUTC* on a +1h-shifted Date) so the booking date
-  // matches the member's local calendar day, not the UTC server day. Using local
-  // server time would book the wrong date for late-evening WAT bookings.
-  const now = watNow();
-  const d = new Date(now); d.setUTCHours(0, 0, 0, 0);
-  let diff = (((dow - d.getUTCDay()) % 7) + 7) % 7;
-  if (diff === 0 && startTime) {
-    const [h, m] = startTime.split(':').map(Number);
-    const startMins = (h || 0) * 60 + (m || 0);
-    const nowMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-    if (startMins <= nowMins) diff = 7;
-  }
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return nextOccurrenceDate(dow, startTime, watNow());
 }
 
 export async function bookClass(_prev: BookState, formData: FormData): Promise<BookState> {

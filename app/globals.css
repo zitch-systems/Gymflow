@@ -2613,6 +2613,9 @@ a.gl-contact-row:hover { color: var(--gf-brand); }
 .gl-appdl-badge:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -10px rgba(0,0,0,0.55); }
 @media (display-mode: standalone) { .gl-appdl-wrap { display: none !important; } }
 
+/* Class detail: which occurrence a booking is actually for. */
+.cd-booked-for { text-align: center; color: var(--gf-text-muted); font-size: 0.8rem; margin: 8px 0 0; }
+
 /* Chosen-plan chip on the join screen — carries the landing page's "Choose
    Gold" through to the account form so the choice isn't silently dropped. */
 .join-plan { display: flex; flex-direction: column; gap: 3px; margin: 0 0 18px; padding: 12px 14px;

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { verifyTransaction } from '@/lib/paystack';
@@ -35,8 +36,17 @@ export default async function RenewCallback({ searchParams }: { searchParams: Pr
       }
       const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata });
       if (!f.ok) console.error(`[renew/callback] fulfill failed for ${v.reference}: ${f.error}`);
+      // Success belongs in the member's own portal, not on a standalone page
+      // that reads like part of the payment processor. The dashboard raises a
+      // confirmation modal from this reference, showing the amount, plan and
+      // the new expiry date the renewal just bought.
+      //
+      // Only on a fulfilled charge: if fulfilment failed, fall through to the
+      // page below, which explains what to do rather than congratulating
+      // someone whose membership did not move.
+      if (f.ok) redirect(`/dashboard?paid=${encodeURIComponent(v.reference)}`);
       ok = true;
-      msg = 'Your membership has been renewed. Thank you!';
+      msg = 'Your payment went through. Your membership will update shortly.';
     } else if (v.ok) {
       msg = `Payment status: ${v.status}. No charge was completed.`;
     } else {

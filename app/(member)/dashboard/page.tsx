@@ -1,3 +1,4 @@
+import type { Route } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -6,9 +7,10 @@ import {
 } from 'lucide-react';
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate, daysLeft, firstName, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
+import { fmtDate, daysLeft, firstName, fmtNaira, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ShareInvite } from '@/components/member/share-invite';
+import { PaymentSuccess, type PaidReceipt } from '@/components/member/payment-success';
 
 export const metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
@@ -16,7 +18,11 @@ export const maxDuration = 60;
 
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // Mon..Sun
 
-export default async function MemberHome() {
+export default async function MemberHome({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // ?paid=<reference> arrives from the Paystack callback after it has verified
+  // and fulfilled the charge — see app/(member)/dashboard/renew/callback.
+  const sp = await searchParams;
+  const paidRef = typeof sp.paid === 'string' ? sp.paid : null;
   // Parallel: getProfile() only needs the cached getUser(), so its query
   // overlaps the membership-link resolution instead of waiting behind it.
   const [{ user, gym }, profile] = await Promise.all([requireMember(), getProfile()]);
@@ -101,8 +107,40 @@ export default async function MemberHome() {
   const unreadCount = unread ?? 0;
   const recent = checkins.slice(0, 3);
 
+  // Receipt for the payment just completed. Read back from the DB rather than
+  // trusted from the query string: the URL only names a reference, and this
+  // query is scoped to this member and gym, so a hand-edited ?paid= can only
+  // ever surface a payment that is genuinely theirs — or nothing.
+  let paidReceipt: PaidReceipt | null = null;
+  if (paidRef) {
+    const { data: paidRow } = await supabase
+      .from('payments')
+      .select('id, amount, payment_method, plan_id, payment_status')
+      .eq('paystack_reference', paidRef)
+      .eq('member_id', user.id)
+      .eq('gym_id', gym.id)
+      .maybeSingle();
+    const paid = paidRow as { id: string; amount: number | null; payment_method: string | null; plan_id: string | null; payment_status: string | null } | null;
+    if (paid && paid.payment_status === 'successful') {
+      const { data: planRow } = paid.plan_id
+        ? await supabase.from('membership_plans').select('name').eq('id', paid.plan_id).maybeSingle()
+        : { data: null };
+      paidReceipt = {
+        reference: paidRef,
+        amount: fmtNaira(Number(paid.amount ?? 0)),
+        method: paid.payment_method,
+        planName: (planRow as { name: string } | null)?.name ?? null,
+        // sub is this member's active subscription, already loaded above — its
+        // end_date is exactly what the renewal just moved.
+        activeUntil: sub?.end_date ? fmtDate(sub.end_date) : null,
+        receiptHref: `/dashboard/wallet/${paid.id}` as Route,
+      };
+    }
+  }
+
   return (
     <section className="view on" data-v="home">
+      {paidReceipt && <PaymentSuccess receipt={paidReceipt} />}
       <div className="mhead">
         {gymLogo
           ? // .gym-logo is a fixed 42×42 box (object-fit:cover via CSS).

@@ -5,7 +5,8 @@ import { ArrowLeft, Check, Clock, Users, Gauge, MapPin, CalendarCheck } from 'lu
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { watNow } from '@/lib/format';
-import { BookButtonLarge } from '@/components/member/class-actions';
+import { isSameWatDate, nextOccurrenceDate } from '@/lib/class-dates';
+import { BookButtonLarge, CancelButton } from '@/components/member/class-actions';
 
 export const metadata = { title: 'Class details' };
 export const dynamic = 'force-dynamic';
@@ -35,14 +36,6 @@ function fmtTime(t: string | null): string {
   return `${h12}:${m.padStart(2, '0')} ${ap}`;
 }
 
-// The next calendar date (YYYY-MM-DD, WAT) on/after today that falls on `dow`.
-function nextDateForDow(dow: number): string {
-  const now = watNow();
-  const delta = ((dow - now.getUTCDay()) % 7 + 7) % 7;
-  const d = new Date(now.getTime() + delta * 86_400_000);
-  return d.toISOString().slice(0, 10);
-}
-
 export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { user, gym } = await requireMember();
@@ -61,8 +54,14 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   }).classes;
 
   const dow = Number(sched.day_of_week);
-  const bookingDate = nextDateForDow(dow);
-  const isToday = bookingDate === watNow().toISOString().slice(0, 10);
+  // The SAME calculation the booking action uses, including the roll to next
+  // week once today's start time has passed. This page used to compute a plain
+  // next-weekday date, so an afternoon visitor to a 7:00 AM class looked for a
+  // booking dated today, found the one stored against next week, and was told
+  // to book a class they had already booked.
+  const now = watNow();
+  const bookingDate = nextOccurrenceDate(dow, sched.start_time, now);
+  const isToday = isSameWatDate(bookingDate, now);
 
   // Already booked this occurrence? (mirrors the schedule page's bookedSet.)
   const { data: existing } = await supabase
@@ -134,9 +133,22 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
       <div className="cd-book">
         {existing
           ? (
-            <div className="gf-btn gf-btn-full gf-btn-lg" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)', cursor: 'default', justifyContent: 'center' }}>
-              {existing.status === 'waitlisted' ? 'On the waitlist' : 'You’re booked ✓'}
-            </div>
+            <>
+              <div className="gf-btn gf-btn-full gf-btn-lg" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)', cursor: 'default', justifyContent: 'center' }}>
+                {existing.status === 'waitlisted' ? 'On the waitlist' : 'You’re booked ✓'}
+              </div>
+              {/* Which occurrence, spelled out. "You're booked" on a page
+                  headed "Today" was ambiguous when the booking was for next
+                  week — the confusion that made this page look broken. */}
+              <p className="cd-booked-for">
+                {isToday ? 'For today' : `For ${DAYS[dow]} ${bookingDate}`} · {fmtTime(sched.start_time)}
+              </p>
+              {/* A booked member had no way out of this page except going back
+                  to the schedule to find the same booking again. */}
+              <div style={{ textAlign: 'center', marginTop: 4 }}>
+                <CancelButton bookingId={existing.id} />
+              </div>
+            </>
           )
           : <BookButtonLarge scheduleId={sched.id} />}
       </div>
