@@ -322,6 +322,7 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
           <Image src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" fill priority sizes="100vw" />
         </div>
         <div className="wrap hero-in">
+          <div className="hero-copy">
           <h1>{gym.tagline || <>Train at <em>{gym.name}</em>.</>}</h1>
           {gym.description && <p className="pitch">{gym.description}</p>}
           <div className="hero-cta">
@@ -340,6 +341,15 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
               <div className="fact"><dt>Joining fee</dt><dd>{Number(gym.joining_fee) === 0 ? 'None' : fmtNaira(Number(gym.joining_fee))}</dd></div>
             )}
           </dl>
+          </div>
+          {/* Sign-up QR — the same code the gym prints from its console. Desktop
+              only, and drawn as a background-image inside a media query so
+              phones never download it. Sits on its own white tile because the
+              code has to stay black-on-white over the hero photo. */}
+          <div className="hero-qr" style={{ ['--qr' as string]: `url(/g/${gym.slug}/join-qr)` }}>
+            <i aria-hidden="true" />
+            <span><QrCode strokeWidth={1.75} /> Scan to join on your phone</span>
+          </div>
         </div>
       </header>
 
@@ -628,23 +638,11 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
       {/* ── CTA ── */}
       <section className="cta">
         <div className="wrap cta-in">
-          <div className="cta-copy">
-            <h2>Your first session can be today.</h2>
-            <p>Join online in under two minutes, or walk in and we&apos;ll set you up at the desk.</p>
-            <div className="row">
-              <Link href={joinHref} className="b b-dark"><ArrowRight strokeWidth={1.75} /> Join {gym.name}</Link>
-              {waHref && <a href={waHref} className="b b-line" target="_blank" rel="noreferrer"><MessageCircle strokeWidth={1.75} /> Ask us a question</a>}
-            </div>
-          </div>
-          {/* Sign-up QR — the same code the gym prints from its console.
-              Desktop only, and drawn as a background-image inside a media query
-              so phones never download it: scanning a code on the screen you're
-              already holding is pointless, and the button above is the path
-              there. Sits on its own white tile because the code has to stay
-              black-on-white to scan whatever accent the gym picked. */}
-          <div className="cta-qr" style={{ ['--qr' as string]: `url(/g/${gym.slug}/join-qr)` }}>
-            <i aria-hidden="true" />
-            <span><QrCode strokeWidth={1.75} /> Scan to join on your phone</span>
+          <h2>Your first session can be today.</h2>
+          <p>Join online in under two minutes, or walk in and we&apos;ll set you up at the desk.</p>
+          <div className="row">
+            <Link href={joinHref} className="b b-dark"><ArrowRight strokeWidth={1.75} /> Join {gym.name}</Link>
+            {waHref && <a href={waHref} className="b b-line" target="_blank" rel="noreferrer"><MessageCircle strokeWidth={1.75} /> Ask us a question</a>}
           </div>
         </div>
       </section>
