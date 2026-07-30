@@ -685,9 +685,13 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
             </Tilt>
           ); })}
         </div>
+        {/* Install badges lead, copy explains underneath — the buttons are the
+            point of this panel, and burying them to the right of a paragraph
+            made them read as a footnote. DOM order matches visual order so the
+            reading and tab order lead with the action too. */}
         <div className="gl-app-cta">
-          <p>Install it free on your phone — it works offline and sits on your home screen like any other app.</p>
           <AppInstall gymName={gym.name} />
+          <p>Install it free on your phone — it works offline and sits on your home screen like any other app.</p>
         </div>
       </section></Reveal>
 

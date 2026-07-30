@@ -16,8 +16,7 @@ type InstallPromptEvent = Event & {
 
 const BADGE_BG = '#0b0b0d';
 
-// Simple, generic platform glyphs (an apple for iOS, a play triangle for
-// Android) — the labels carry the meaning; these are just recognisable marks.
+// Platform marks: the Apple logo for iOS, the Android robot for Android.
 function AppleGlyph() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="22" fill="currentColor" aria-hidden focusable="false">
@@ -26,8 +25,13 @@ function AppleGlyph() {
   );
 }
 function AndroidGlyph() {
+  // The robot only occupies y≈5.2–19 of the source 24×24 viewBox, so drawing it
+  // into a 22×22 box rendered it as a small flat band — barely readable as the
+  // Android mark, and visually half the weight of the Apple logo beside it.
+  // Cropping the viewBox to the mark's own bounds lets it fill the badge at the
+  // same optical size as the apple.
   return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden focusable="false">
+    <svg viewBox="0 5.2 24 13.8" width="24" height="14" fill="currentColor" aria-hidden focusable="false">
       <path d="M17.523 15.341c-.552 0-1-.449-1-1 0-.552.448-1 1-1 .551 0 .999.448.999 1 0 .551-.448 1-1 1m-11.046 0c-.552 0-1-.449-1-1 0-.552.448-1 1-1 .551 0 .999.448.999 1 0 .551-.448 1-1 1m11.405-6.02l1.997-3.459a.416.416 0 00-.72-.416l-2.022 3.503A12.6 12.6 0 0012 7.851c-1.831 0-3.581.4-5.137 1.098L4.841 5.446a.416.416 0 00-.72.416l1.997 3.46C2.689 11.187.343 14.659 0 18.761h24c-.343-4.102-2.689-7.574-6.118-9.44" />
     </svg>
   );
