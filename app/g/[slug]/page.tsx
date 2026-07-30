@@ -40,6 +40,7 @@ type Gym = {
   hero_image_url: string | null; description: string | null;
   city: string | null; state: string | null; address: string | null; phone: string | null;
   email: string | null; social_links: Record<string, string> | null;
+  status: string | null;
   accent_color: string | null; accent_ink: string | null;
   capacity: number | null; day_pass_price: number | null; joining_fee: number | null;
 };
@@ -93,6 +94,9 @@ async function loadGym(slug: string) {
   const { data: gymRow } = await db.from('gyms').select('*').eq('slug', slug).maybeSingle();
   if (!gymRow) return null;
   const gym = gymRow as unknown as Gym;
+  // A gym GymFlow has suspended has no public page — 404 rather than advertise
+  // memberships nobody can buy. Set from /superadmin/gyms/[id].
+  if (gym.status === 'suspended') return null;
 
   const now = watNow();
   const todayDow = now.getDay();

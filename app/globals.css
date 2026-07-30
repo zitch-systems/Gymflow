@@ -2286,7 +2286,9 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .kpis {grid-template-columns:1fr 1fr}
 .ds-admin .grid {grid-template-columns:1fr}
 }
-.ds-admin .gt tbody tr { cursor:pointer; }
+/* Only rows that actually navigate get the hand cursor — .gt is also used by
+   /superadmin/members, whose rows go nowhere. */
+.ds-admin .gt tbody tr.rowlink { cursor:pointer; }
 .ds-admin .drawer-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:opacity var(--gf-t); z-index:300; }
 .ds-admin .drawer-bg.open { opacity:1; pointer-events:auto; }
 .ds-admin .drawer { position:fixed; top:0; right:0; bottom:0; width:420px; max-width:92vw; background:var(--gf-surface); border-left:1px solid var(--gf-border); box-shadow:var(--gf-shadow-lg); transform:translateX(100%); transition:transform var(--gf-t-slow); z-index:310; overflow-y:auto; }
@@ -2305,11 +2307,12 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .empty h3 { font-family:var(--gf-font-display); font-weight:800; font-size:1.0rem; margin:0 0 5px; }
 .ds-admin .empty p { color:var(--gf-text-muted); font-size:0.84rem; margin:0; }
 
-/* Clickable table rows + chevron */
-.ds-admin .tbl tr.rowlink:hover { background:var(--gf-elevated); }
-.ds-admin a.who { text-decoration:none; color:inherit; }
+/* Clickable table rows + chevron. .gt is the superadmin gym table, .tbl the
+   admin ones — the row-link treatment is identical on both. */
+.ds-admin :is(.tbl, .gt) tr.rowlink:hover { background:var(--gf-elevated); }
+.ds-admin :is(a.who, a.gname) { text-decoration:none; color:inherit; }
 .ds-admin .row-chev { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:8px; color:var(--gf-text-muted); transition:all var(--gf-t); }
-.ds-admin .tbl tr.rowlink:hover .row-chev { color:var(--gf-brand); background:var(--gf-surface); }
+.ds-admin :is(.tbl, .gt) tr.rowlink:hover .row-chev { color:var(--gf-brand); background:var(--gf-surface); }
 
 /* Member detail header */
 .ds-admin .mdh { display:flex; align-items:center; gap:18px; margin:16px 0 22px; flex-wrap:wrap; }

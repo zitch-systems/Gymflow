@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { CommissionEditor } from '@/components/superadmin/commission-editor';
@@ -49,23 +51,30 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
   return (
     <div className="tbl-scroll">
       <table className="gt">
-        <thead><tr><th>Gym</th><th>Plan</th><th>Members</th><th>Commission</th><th>Status</th><th style={{ textAlign: 'right' }}>Subdomain</th></tr></thead>
+        <thead><tr><th>Gym</th><th>Plan</th><th>Members</th><th>Commission</th><th>Status</th><th style={{ textAlign: 'right' }}>Subdomain</th><th /></tr></thead>
         <tbody>
           {gyms.map((g, i) => {
             const st = STATUS[g.subscription_status ?? 'trial'] ?? ['gf-badge-success', g.subscription_status ?? 'Active'];
+            // rowlink: the gym name and the trailing chevron are real links to
+            // the detail page. Not a whole-row onclick — the row also holds the
+            // commission input and the subdomain link, and a row handler would
+            // swallow clicks meant for those (and be unreachable by keyboard).
             return (
-              <tr key={g.id}>
+              <tr key={g.id} className="rowlink">
                 <td>
-                  <div className="gname">
+                  <Link href={`/superadmin/gyms/${g.id}`} className="gname">
                     <span className="sq" style={{ background: GRADS[i % GRADS.length] }}>{g.name.charAt(0).toUpperCase()}</span>
                     <div><strong>{g.name}</strong><small>{g.slug}.gymflow.ng{g.city ? ` · ${g.city}` : ''}</small></div>
-                  </div>
+                  </Link>
                 </td>
                 <td style={{ textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
                 <td>{memberCount.get(g.id) ?? 0}</td>
                 <td><CommissionEditor gymId={g.id} pct={g.platform_commission_pct ?? 0} /></td>
                 <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
                 <td className="naira" style={{ textAlign: 'right' }}><a href={`/g/${g.slug}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title="Open public page">{g.slug} ↗</a></td>
+                <td style={{ textAlign: 'right', width: 36 }}>
+                  <Link href={`/superadmin/gyms/${g.id}`} className="row-chev" aria-label={`Open ${g.name}`}><ChevronRight strokeWidth={2} size={16} /></Link>
+                </td>
               </tr>
             );
           })}

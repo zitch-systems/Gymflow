@@ -1,5 +1,6 @@
 import { AdminShell } from '@/components/admin/admin-shell';
 import { BillingWall } from '@/components/admin/billing-wall';
+import { SuspendedWall } from '@/components/admin/suspended-wall';
 import { OnboardingBanner } from '@/components/admin/onboarding-banner';
 import { requireAdminStaff, getProfile, getStaffGyms, ADMIN_ROLES } from '@/lib/auth/dal';
 import { gymBillingState, isBlocked, isPlanTier } from '@/lib/platform-plans';
@@ -20,6 +21,11 @@ export const metadata = { robots: { index: false, follow: false } };
 // PII, payments, pricing or gym settings. Content sits inside .ds-admin.
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, gym, role } = await requireAdminStaff();
+
+  // Platform suspension comes first, and is checked before billing: a gym
+  // GymFlow has taken offline must not be shown a checkout it can pay to get
+  // back in. gyms.status is set only from /superadmin/gyms/[id].
+  if (gym.status === 'suspended') return <SuspendedWall gymName={gym.name} />;
 
   // Platform-billing gate: a gym whose free trial has lapsed (or whose GymFlow
   // subscription was cancelled) sees the access wall instead of the console. The
