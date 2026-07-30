@@ -2550,7 +2550,13 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .gl-social:hover { color: var(--gf-brand); border-color: var(--gf-brand-glow); transform: translateY(-2px); }
 
 .gl-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-.gl-gallery-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--gf-radius); border: 1px solid var(--gf-border); background: var(--gf-surface); }
+/* `height: auto` is load-bearing, not tidiness: next/image emits width/height
+   attributes, which Chrome maps to presentational width/height. The author
+   `width: 100%` beat the width hint, but nothing overrode the height hint — so
+   `height` computed to 600px, `aspect-ratio` was ignored (it only applies when
+   one axis is auto), and every thumbnail rendered 245×600. That one bug made
+   the gallery the tallest section on the page. */
+.gl-gallery-img { width: 100%; height: auto; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--gf-radius); border: 1px solid var(--gf-border); background: var(--gf-surface); }
 
 /* Add-to-calendar popover (native <details>, member bookings) */
 .cal-add { position: relative; }
@@ -2578,7 +2584,9 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .gl-plan { display: flex; flex-direction: column; gap: 10px; background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); padding: 22px; }
 .gl-plan-name { font-family: var(--gf-font-display); font-weight: 700; font-size: 1.05rem; }
 .gl-plan-price { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.7rem; color: var(--gf-brand); letter-spacing: -0.02em; }
-.gl-plan-price small { color: var(--gf-text-muted); font-size: 0.8rem; font-weight: 600; margin-left: 4px; }
+/* nowrap so a "/ 6 months" period breaks to its own line as a unit rather than
+   splitting into "/6" + "months" in a narrow plan track. */
+.gl-plan-price small { color: var(--gf-text-muted); font-size: 0.8rem; font-weight: 600; margin-left: 4px; white-space: nowrap; }
 .gl-plan-desc { color: var(--gf-text-secondary); font-size: 0.88rem; line-height: 1.5; margin: 0; }
 .gl-plan-feats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .gl-plan-feats li { display: flex; align-items: center; gap: 8px; color: var(--gf-text-secondary); font-size: 0.86rem; }
@@ -2876,6 +2884,190 @@ a.gl-fact:hover { border-color: var(--gf-brand-glow); transform: translateY(-2px
   .gl-cta .gf-btn { width: 100%; justify-content: center; }
   .gl-stat b { font-size: 1.3rem; }
   .gl-plan-price { font-size: 1.5rem; }
+}
+
+/* ═══════════ gymland: compact desktop rhythm + the added detail ═══════════
+   The page was ~6.3 viewport-heights at 1440×900: eleven full-width bands
+   stacked down a 760–1080px centre column, each using a fraction of the row it
+   occupied, with 84px of air between them. Nothing was wrong with the content
+   — it was laid out as if the viewport were a phone.
+
+   Two moves fix the length without deleting anything: pair sections that answer
+   related questions into columns (hero + at-a-glance, about + amenities,
+   coaches + PT rates), and turn the vertical lists that were already grids in
+   disguise (the timetable, the gallery) into real multi-column grids. */
+
+/* ── At-a-glance card (hero aside) ── */
+.gl-glance { display: flex; flex-direction: column; gap: 14px; padding: 20px;
+  text-align: left; border-radius: var(--gf-radius); border: 1px solid var(--gf-border);
+  background: color-mix(in srgb, var(--gf-surface) 92%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: var(--gf-shadow-md); }
+.gl-glance-head { display: flex; flex-direction: column; gap: 2px; text-decoration: none;
+  padding-bottom: 14px; border-bottom: 1px solid var(--gf-border); }
+.gl-glance-price { font-family: var(--gf-font-display); font-size: 1.8rem; font-weight: 800;
+  color: var(--gf-brand); letter-spacing: -0.02em; line-height: 1.1; }
+.gl-glance-price small { color: var(--gf-text-muted); font-size: 0.78rem; font-weight: 600; margin-left: 3px; }
+.gl-glance-list { display: flex; flex-direction: column; gap: 9px; margin: 0; }
+.gl-glance-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.gl-glance-list dt { display: inline-flex; align-items: center; gap: 7px; margin: 0;
+  color: var(--gf-text-muted); font-size: 0.84rem; }
+.gl-glance-list dt svg { color: var(--gf-brand); flex-shrink: 0; }
+.gl-glance-list dd { margin: 0; font-size: 0.88rem; font-weight: 700; color: var(--gf-text); text-align: right; }
+.gl-glance-cta { display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px 14px; border-radius: var(--gf-radius-sm); text-decoration: none;
+  background: var(--gf-brand-soft); border: 1px solid var(--gf-brand-glow);
+  color: var(--gf-brand); font-size: 0.86rem; font-weight: 700; transition: border-color 0.2s ease; }
+.gl-glance-cta:hover { border-color: var(--gf-brand); }
+
+/* ── Trust strip under the hero CTAs ── */
+.gl-trust { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 22px 0 0; padding: 0;
+  justify-content: center; }
+.gl-trust li { display: inline-flex; align-items: center; gap: 6px; color: var(--gf-text-secondary);
+  font-size: 0.8rem; font-weight: 600; }
+.gl-trust svg { color: var(--gf-brand); flex-shrink: 0; }
+
+/* ── About band: prose + membership terms + amenities ── */
+.gl-h3 { font-family: var(--gf-font-display); font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 12px; }
+.gl-know { list-style: none; display: flex; flex-direction: column; gap: 11px; margin: 20px 0 0; padding: 0; }
+.gl-know li { display: flex; align-items: flex-start; gap: 10px; color: var(--gf-text-secondary);
+  font-size: 0.9rem; line-height: 1.5; }
+.gl-know svg { color: var(--gf-brand); flex-shrink: 0; margin-top: 2px; }
+.gl-know b { color: var(--gf-text); font-weight: 700; }
+
+/* ── Class category / level chips ── */
+.gl-tags { display: flex; flex-wrap: wrap; gap: 7px; margin: -6px 0 16px; }
+.gl-tag-chip { padding: 5px 11px; border-radius: 999px; background: var(--gf-brand-soft);
+  border: 1px solid var(--gf-brand-glow); color: var(--gf-brand); font-size: 0.76rem; font-weight: 700;
+  text-transform: capitalize; letter-spacing: 0.01em; }
+.gl-tag-chip.is-level { background: var(--gf-surface); border-color: var(--gf-border); color: var(--gf-text-secondary); }
+
+/* ── Coaches ── */
+.gl-coaches { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.gl-coach { display: flex; flex-direction: column; gap: 5px; padding: 20px 18px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease; }
+.gl-coach:hover { border-color: var(--gf-brand-glow); box-shadow: 0 16px 38px -16px var(--gf-brand-glow); }
+.gl-coach-face { display: inline-flex; align-items: center; justify-content: center; overflow: hidden;
+  width: 52px; height: 52px; border-radius: 50%; margin-bottom: 6px;
+  background: var(--gf-brand-soft); border: 1px solid var(--gf-brand-glow); color: var(--gf-brand); }
+.gl-coach-face img { width: 100%; height: 100%; object-fit: cover; }
+.gl-coach-face b { font-family: var(--gf-font-display); font-size: 1.05rem; font-weight: 800; }
+.gl-coach-face svg { width: 22px; height: 22px; }
+.gl-coach strong { font-family: var(--gf-font-display); font-size: 1rem; font-weight: 700; }
+.gl-coach-spec { color: var(--gf-brand); font-size: 0.82rem; font-weight: 700; }
+.gl-coach-cert { display: inline-flex; align-items: center; gap: 5px; color: var(--gf-text-muted); font-size: 0.76rem; font-weight: 600; }
+.gl-coach p { color: var(--gf-text-secondary); font-size: 0.85rem; line-height: 1.5; margin: 6px 0 0; }
+
+/* ── Personal training (rides along under the coaches) ── */
+.gl-pt { display: grid; gap: 16px; margin-top: 18px; padding: 20px;
+  background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius); }
+.gl-pt-intro h3 { margin-bottom: 6px; }
+.gl-pt-intro p { color: var(--gf-text-secondary); font-size: 0.9rem; line-height: 1.55; margin: 0; max-width: 44ch; }
+.gl-pt-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.gl-pt-plan { padding: 15px 16px; border-radius: var(--gf-radius-sm);
+  background: var(--gf-bg); border: 1px solid var(--gf-border); }
+.gl-pt-name { display: block; font-size: 0.8rem; font-weight: 700; color: var(--gf-text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; }
+.gl-pt-plan > b { display: block; font-family: var(--gf-font-display); font-size: 1.25rem; font-weight: 800;
+  color: var(--gf-brand); letter-spacing: -0.02em; margin-top: 4px; }
+.gl-pt-plan > b small { color: var(--gf-text-muted); font-size: 0.74rem; font-weight: 600; margin-left: 3px; }
+.gl-pt-plan ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.gl-pt-plan li { display: flex; align-items: center; gap: 7px; color: var(--gf-text-secondary); font-size: 0.82rem; }
+.gl-pt-plan svg { color: var(--gf-brand); flex-shrink: 0; }
+
+/* ── Tablet and up: the two column pairings ──
+   These start at 760px rather than 1024px: a portrait tablet has room
+   for copy beside a facts card, and leaving it stacked there was costing ~1200px
+   of scroll for no reason. */
+@media (min-width: 760px) {
+  /* Hero: copy left, glance card right. */
+  .gl-hero { text-align: left; }
+  .gl-hero-in { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 40px; align-items: center; }
+  .gl-hero-copy { min-width: 0; }
+  .gl-logo { width: 60px; height: 60px; border-radius: 16px; margin-bottom: 14px; }
+  .gl-logo svg { width: 28px; height: 28px; }
+  .gl-tag { margin-left: 0; margin-right: 0; max-width: 44ch; }
+  .gl-cta, .gl-trust { justify-content: flex-start; }
+
+  /* About + membership terms + amenities in one band. */
+  .gl-about-band { display: grid; grid-template-columns: 1.5fr 0.85fr; gap: 36px; align-items: start; }
+  .gl-about-main { min-width: 0; }
+  .gl-about-side { min-width: 0; padding: 20px; border-radius: var(--gf-radius);
+    background: var(--gf-surface); border: 1px solid var(--gf-border); }
+}
+
+/* ── Desktop: two-column hero, paired bands, real grids, tighter rhythm ── */
+@media (min-width: 1024px) {
+  /* One container width for the whole page instead of four different ones —
+     the mixed 720/760/1080 max-widths were what made the page read as a
+     narrow phone column parked in the middle of a desktop screen. */
+  .gl-section,
+  .gl-section:has(.gl-features),
+  .gl-section:has(.gl-plans),
+  .gl-section:has(.gl-gallery),
+  .gl-section:has(.ig-embeds),
+  .gl-section:has(.gl-classes),
+  .gl-section:has(.gl-about) { max-width: 1180px; }
+  /* 84px between bands is a lot of nothing when there are nine of them. */
+  .gl-section { padding-top: 48px; }
+  .gl-final { margin-top: 48px; padding: 36px 32px; }
+  .gymland-by { margin-top: 32px; }
+
+  .gl-hero-photo { padding-top: 92px; padding-bottom: 64px; }
+  .gl-hero-in { max-width: 1180px; }
+  .gl-name { font-size: clamp(2.4rem, 3.4vw, 3.1rem); }
+  .gl-hero::after { width: 520px; height: 380px; left: 26%; }
+
+  /* Plans: five sit on one row instead of 3 + a 2-card orphan. auto-FILL, not
+     auto-fit — auto-fit collapses the empty tracks, so a gym with one plan got
+     a single 1100px-wide card. auto-fill keeps the track grid and the lone card
+     stays card-sized. */
+  .gl-plans { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .gl-plan { padding: 18px; gap: 8px; }
+  .gl-plan-price { font-size: 1.45rem; }
+
+  /* The timetable was seven stacked rows in a 1080px column — three-quarters of
+     each row was empty. It's a grid of days now. */
+  .gl-timetable { display: grid; grid-template-columns: repeat(auto-fit, minmax(285px, 1fr)); gap: 12px; align-items: start; }
+  .gl-tt-day { padding: 12px 14px; }
+  .gl-tt-item { grid-template-columns: 78px 1fr; row-gap: 2px; }
+  .gl-tt-meta { grid-column: 2; text-align: left; }
+
+  /* Coaches + PT side by side within the PT panel. */
+  .gl-pt { grid-template-columns: 0.8fr 1.2fr; align-items: center; gap: 24px; }
+
+  .gl-gallery { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .gl-features { grid-template-columns: repeat(3, 1fr); }
+  .gl-app-cta { display: flex; align-items: center; justify-content: center; gap: 24px; text-align: left; }
+  .gl-app-cta p { margin: 0; }
+  .gl-hours { max-width: none; }
+}
+
+@media (min-width: 1600px) {
+  .gl-section,
+  .gl-section:has(.gl-features),
+  .gl-section:has(.gl-plans),
+  .gl-section:has(.gl-gallery),
+  .gl-section:has(.ig-embeds),
+  .gl-section:has(.gl-classes),
+  .gl-section:has(.gl-about) { max-width: 1280px; }
+  .gl-hero-in { max-width: 1280px; }
+  .gl-hero-photo { padding-top: 104px; padding-bottom: 76px; }
+  .gl-name { font-size: clamp(2.8rem, 3vw, 3.4rem); }
+}
+
+/* Phones/tablets: the glance card sits under the copy as a facts panel, and the
+   paired bands fall back to one column. */
+@media (max-width: 759px) {
+  .gl-hero-in { display: flex; flex-direction: column; gap: 24px; }
+  .gl-about-band { display: block; }
+  .gl-about-side { margin-top: 24px; }
+}
+@media (max-width: 600px) {
+  .gl-coaches, .gl-pt-plans { grid-template-columns: 1fr; }
+  .gl-glance { padding: 16px; }
+  .gl-know li { font-size: 0.86rem; }
+  .gl-trust { gap: 6px 12px; }
 }
 
 /* Print: receipt-only (Download PDF on the wallet receipt page) */
