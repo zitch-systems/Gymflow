@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import {
   ArrowRight, CalendarDays, CalendarCheck, MessageCircle, MapPin, Phone, Navigation,
-  Check, ShieldCheck, Zap,
+  Check, ShieldCheck, Zap, QrCode,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -628,11 +628,23 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
       {/* ── CTA ── */}
       <section className="cta">
         <div className="wrap cta-in">
-          <h2>Your first session can be today.</h2>
-          <p>Join online in under two minutes, or walk in and we&apos;ll set you up at the desk.</p>
-          <div className="row">
-            <Link href={joinHref} className="b b-dark"><ArrowRight strokeWidth={1.75} /> Join {gym.name}</Link>
-            {waHref && <a href={waHref} className="b b-line" target="_blank" rel="noreferrer"><MessageCircle strokeWidth={1.75} /> Ask us a question</a>}
+          <div className="cta-copy">
+            <h2>Your first session can be today.</h2>
+            <p>Join online in under two minutes, or walk in and we&apos;ll set you up at the desk.</p>
+            <div className="row">
+              <Link href={joinHref} className="b b-dark"><ArrowRight strokeWidth={1.75} /> Join {gym.name}</Link>
+              {waHref && <a href={waHref} className="b b-line" target="_blank" rel="noreferrer"><MessageCircle strokeWidth={1.75} /> Ask us a question</a>}
+            </div>
+          </div>
+          {/* Sign-up QR — the same code the gym prints from its console.
+              Desktop only, and drawn as a background-image inside a media query
+              so phones never download it: scanning a code on the screen you're
+              already holding is pointless, and the button above is the path
+              there. Sits on its own white tile because the code has to stay
+              black-on-white to scan whatever accent the gym picked. */}
+          <div className="cta-qr" style={{ ['--qr' as string]: `url(/g/${gym.slug}/join-qr)` }}>
+            <i aria-hidden="true" />
+            <span><QrCode strokeWidth={1.75} /> Scan to join on your phone</span>
           </div>
         </div>
       </section>
