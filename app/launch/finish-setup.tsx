@@ -1,9 +1,9 @@
 'use client';
 
 import { useActionState } from 'react';
-import Image from 'next/image';
 import { Building2, ArrowRight, AlertCircle } from 'lucide-react';
 import { completeSetup, type AuthState } from '@/lib/auth/actions';
+import { LogoMark } from '@/components/ui/logo';
 
 const initial: AuthState = { error: null };
 
@@ -17,7 +17,7 @@ export function FinishSetup({ defaultGymName }: { defaultGymName?: string }) {
       <main id="main-content" className="formside">
         <div className="formcard">
           <span className="brand" style={{ display: 'inline-flex' }}>
-            <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />
+            <LogoMark size={30} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </span>
           <h1>One last step</h1>

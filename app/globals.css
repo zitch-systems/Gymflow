@@ -230,24 +230,27 @@ body {
 }
 
 /* ── Logo ── */
+/* Logo lockup. The mark is the Flowbell (components/ui/logo.tsx), which is
+   emerald *itself* — the old mark was a white glyph on an emerald gradient tile,
+   so the tile, its inner sheen and the `stroke: #fff` override are all gone. Any
+   of them left in place would render the new mark invisible or muddy it. */
 .gf-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
+.gf-logo svg, .gf-logo-mark { color: var(--gf-brand); flex-shrink: 0; }
 .gf-logo-mark {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: linear-gradient(135deg, var(--gf-brand-light), var(--gf-brand-dark));
+  width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 12px var(--gf-brand-glow);
-  flex-shrink: 0; position: relative; overflow: hidden;
+  background: none; border-radius: 0;
 }
-.gf-logo-mark::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 60%); }
-.gf-logo-mark svg { width: 20px; height: 20px; fill: none; stroke: #fff; position: relative; z-index: 1; }
+.gf-logo-mark svg { width: 100%; height: 100%; fill: none; }
 .gf-logo-text { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.25rem; color: var(--gf-text); letter-spacing: -0.03em; }
 .gf-logo-text em { font-style: normal; color: var(--gf-brand); }
-.gf-logo-sm .gf-logo-mark { width: 28px; height: 28px; border-radius: 8px; }
-.gf-logo-sm .gf-logo-mark svg { width: 16px; height: 16px; }
+.gf-logo-sm .gf-logo-mark { width: 28px; height: 28px; }
 .gf-logo-sm .gf-logo-text { font-size: 1rem; }
-.gf-logo-lg .gf-logo-mark { width: 48px; height: 48px; border-radius: 14px; }
-.gf-logo-lg .gf-logo-mark svg { width: 28px; height: 28px; }
+.gf-logo-lg .gf-logo-mark { width: 48px; height: 48px; }
 .gf-logo-lg .gf-logo-text { font-size: 1.625rem; }
+/* The mark sits on an emerald fill in a few places (filled buttons, badges) —
+   there it must flip to near-black rather than disappear. */
+.gf-btn-primary .gf-logo-mark, .gf-btn-primary > svg[aria-hidden] { color: var(--gf-brand-ink, #06140d); }
 
 /* ── Cards ── */
 .gf-card {
@@ -528,9 +531,9 @@ body {
 /* animated 3D scene — sits above the photo, below the copy; see HeroBackground3D */
 .hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
 .hero-in { position: relative; z-index: 2; text-align: center; max-width: 860px; margin: 0 auto; }
-/* hero logomark — reuses Logo3D (components/marketing/logo-3d.tsx) at hero
-   scale; softer perspective than the 30px nav mark so the tumble reads cleanly. */
-.logo3d-hero { display: block; margin: 0 auto 4px; perspective: 760px; }
+/* hero logomark — the flat Flowbell (components/ui/logo.tsx) at hero scale.
+   Emerald on the dark hero; no tile, no gradient (see LOGO-ROLLOUT §0). */
+.logo-hero { display: block; margin: 0 auto 4px; color: var(--gf-brand); }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.78rem; letter-spacing: 0.02em; color: var(--gf-brand); background: var(--gf-brand-soft); border: 1px solid var(--gf-border-glow); padding: 7px 14px; border-radius: var(--gf-radius-pill); }
 .hero h1 { font-family: var(--gf-font-display); font-size: clamp(2.4rem, 6vw, 4.2rem); font-weight: 800; line-height: 1.04; letter-spacing: -0.04em; margin: 22px auto 0; max-width: 16ch; }
 .hero h1 .g { background: linear-gradient(120deg, var(--gf-brand-light), var(--gf-accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
@@ -802,46 +805,15 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
 /* ── Brand v2 logo lockup (theme-adaptive text) ── */
 .brand { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; }
 .brand img { display: block; }
+/* .brand holds the Flowbell mark (an inline svg) + the wordmark. The mark is
+   emerald itself, so .brand sets the colour rather than painting a tile. */
+.brand svg { color: var(--gf-brand); flex-shrink: 0; }
 .brand .mark-sm { width: 30px; height: 30px; }
 .brand .mark-md { width: 38px; height: 38px; }
 .brand .mark-lg { width: 52px; height: 52px; }
 .brand-tx { font-family: var(--gf-font-display); font-weight: 800; letter-spacing: -0.03em; color: var(--gf-text); font-size: 1.25rem; }
 .brand-tx em { font-style: normal; color: var(--gf-brand); }
 .brand-tx.lg { font-size: 1.5rem; }
-
-/* ── Logo3D — animated 3D logomark (see components/marketing/logo-3d.tsx) ── */
-.logo3d { position: relative; display: inline-block; flex-shrink: 0; perspective: 360px; vertical-align: middle; }
-.logo3d-card {
-  position: absolute; inset: 0; transform-style: preserve-3d;
-  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  transition: transform 0.45s var(--gf-ease-out);
-}
-.logo3d-spin {
-  position: absolute; inset: 0; transform-style: preserve-3d;
-  animation: logo3d-float 7s var(--gf-ease-std) infinite;
-}
-.logo3d:hover .logo3d-spin { animation-play-state: paused; }
-.logo3d-face {
-  position: absolute; inset: 0;
-  background: linear-gradient(150deg, #262a33, #11141b 50%, #06070a);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.45);
-  overflow: hidden;
-}
-.logo3d-face::before {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(120% 100% at 28% 18%, rgba(74,82,99,0.5), transparent 60%);
-}
-.logo3d-bar { position: absolute; transform-origin: center; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
-
-@keyframes logo3d-float {
-  0%, 100% { transform: rotateY(-17deg) rotateX(7deg) translateY(0); }
-  50%      { transform: rotateY(17deg) rotateX(-5deg) translateY(-1px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .logo3d-card { transition: none; }
-  .logo3d-spin { animation: none; transform: rotateY(-12deg) rotateX(6deg); }
-}
 
 /* ── App shell (sidebar + main) ── */
 .app { display: grid; grid-template-columns: var(--gf-sidebar-w) 1fr; min-height: 100vh; }

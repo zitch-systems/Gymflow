@@ -2,7 +2,6 @@
 
 import type { Route } from 'next';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
@@ -13,6 +12,7 @@ import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
   CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
 } from 'lucide-react';
+import { LogoMark } from '@/components/ui/logo';
 
 const NAV: { href: Route; label: string; icon: LucideIcon }[] = [
   { href: '/coach', label: 'Today', icon: CalendarCheck },
@@ -37,7 +37,7 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
       <aside className="gf-sidebar">
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
-            <Image src="/images/logomark-v3.svg" alt="" width={28} height={28} className="mark-sm" />
+            <LogoMark size={28} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <div className="sb-role">

@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Logo3D } from '@/components/marketing/logo-3d';
+import { LogoMark } from '@/components/ui/logo';
 
 // Shared marketing nav + footer, recreated from revamp/marketing.html chrome.
 // `cur` highlights the active top-level link.
@@ -9,7 +8,7 @@ export function MarketingNav({ cur }: { cur?: 'features' | 'pricing' | 'about' |
   return (
     <nav className="nav">
       <Link href="/" className="brand" aria-label="GymFlow home">
-        <Logo3D size={30} />
+        <LogoMark size={30} className="mark-sm" />
         <span className="brand-tx">Gym<em>Flow</em></span>
       </Link>
       <div className="links">
@@ -31,7 +30,7 @@ export function MarketingFooter() {
       <div className="wrap foot">
         <div>
           <Link href="/" className="brand">
-            <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />
+            <LogoMark size={30} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <p>Modern gym management for Nigerian fitness businesses. 41 Ogudu Road, Lagos · hello@gymflow.ng</p>

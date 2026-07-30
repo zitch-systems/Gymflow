@@ -2,7 +2,6 @@
 
 import type { Route } from 'next';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
@@ -14,6 +13,7 @@ import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
   GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode,
 } from 'lucide-react';
+import { LogoMark } from '@/components/ui/logo';
 
 // `roles`, when set, limits the nav item to those staff roles. Owners/managers
 // see everything (they're a superset). Unrestricted items show for all admin
@@ -94,7 +94,7 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
       <aside className="gf-sidebar">
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
-            <Image src="/images/logomark-v3.svg" alt="" width={28} height={28} className="mark-sm" />
+            <LogoMark size={28} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <div className="sb-gym">

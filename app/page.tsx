@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
 import { HeroBackground3D } from '@/components/marketing/hero-background-3d';
-import { Logo3D } from '@/components/marketing/logo-3d';
+import { LogoMark } from '@/components/ui/logo';
 import {
   MapPin, ScanLine, CreditCard, CalendarDays, Users, BarChart3, Smartphone,
   Check, Star, ShieldCheck, Mail, MessageCircle, Sparkles,
@@ -55,7 +55,7 @@ export default function MarketingHome() {
         />
         <HeroBackground3D />
         <div className="wrap hero-in">
-          <Logo3D size={132} className="logo3d-hero" />
+          <LogoMark size={132} className="logo-hero" />
           <span className="eyebrow">
             <MapPin strokeWidth={1.75} /> Built in Lagos · Made for Nigerian gyms
           </span>

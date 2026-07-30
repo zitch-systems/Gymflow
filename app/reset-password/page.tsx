@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Lock, Check, ArrowRight, AlertCircle } from 'lucide-react';
 import { updatePassword } from '@/lib/auth/actions';
+import { LogoMark } from '@/components/ui/logo';
 
 // revamp/reset-password.html — set-password with a live strength meter +
 // requirement checklist, then a "password updated" success state.
@@ -50,7 +50,7 @@ export default function ResetPasswordPage() {
       <aside className="brandside">
         <div className="brandside-bg" aria-hidden />
         <Link className="brand" href="/">
-          <Image src="/images/logomark-v3.svg" alt="" width={38} height={38} className="mark-md" priority />
+          <LogoMark size={38} className="mark-md" />
           <span className="brand-tx lg">Gym<em>Flow</em></span>
         </Link>
         <div className="bs-quote">
@@ -62,7 +62,7 @@ export default function ResetPasswordPage() {
       <main id="main-content" className="formside">
         <div className="formcard">
           <Link className="brand" href="/" style={{ display: 'inline-flex' }}>
-            <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />
+            <LogoMark size={30} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
 
