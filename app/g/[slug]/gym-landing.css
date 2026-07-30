@@ -41,6 +41,26 @@
 .gym-public .gym { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .gym-public .gym .sq { width: 42px; height: 42px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.15rem; flex: none; overflow: hidden; }
 .gym-public .gym .sq img { width: 100%; height: 100%; object-fit: cover; }
+
+/* The accent tile is the FALLBACK treatment, for the gym's initial letter.
+   An uploaded logo must never sit on the accent: gym logos are usually
+   transparent PNGs, so the accent showed through as a block of brand colour
+   behind the mark that the gym never chose.
+   A FIXED dark neutral, not a theme token: the common case is a white or light
+   mark on transparency, and it has to stay visible in both themes —
+   --gf-surface is near-white in light mode, which would erase it. #16181c is
+   the same dark this page already uses for .cta .b-dark.
+   Padding + contain because object-fit:cover crops a wordmark to a square. */
+.gym-public .sq.has-logo,
+.gym-public .app-ic.has-logo {
+  background: #16181c;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.45);
+}
+.gym-public .sq.has-logo img,
+.gym-public .app-ic.has-logo img { object-fit: contain; }
+.gym-public .sq.has-logo { padding: 5px; }
+.gym-public .app-ic.has-logo { padding: 18px; }
 .gym-public .gym .nm { min-width: 0; }
 .gym-public .gym .nm strong { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.06rem; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gf-text); }
 .gym-public .gym .nm small { color: var(--gf-text-muted); font-size: .74rem; }
