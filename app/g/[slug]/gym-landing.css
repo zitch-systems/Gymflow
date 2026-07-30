@@ -214,6 +214,33 @@
 .gym-public .cta .b-dark:hover { background: #000; transform: translateY(-2px); color: #fff; }
 .gym-public .cta .b-line { background: transparent; color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent-ink) 30%, transparent); }
 .gym-public .cta .b-line:hover { border-color: var(--accent-ink); color: var(--accent-ink); }
+.gym-public .cta-copy { display: flex; flex-direction: column; align-items: center; }
+
+/* Sign-up QR. Hidden by default and only switched on at desktop widths — the
+   background-image lives inside the media query, so a phone never requests the
+   PNG at all (an <img> would download it even under display:none). */
+.gym-public .cta-qr { display: none; }
+@media (min-width: 900px) {
+  .gym-public .cta-in { flex-direction: row; justify-content: center; align-items: center; gap: clamp(36px, 5vw, 72px); text-align: left; }
+  .gym-public .cta-copy { align-items: flex-start; }
+  .gym-public .cta .row { justify-content: flex-start; }
+  .gym-public .cta-qr { display: flex; flex-direction: column; align-items: center; gap: 12px; flex-shrink: 0; }
+  /* White tile, always — the code must stay black-on-white to scan reliably
+     whatever accent the gym has chosen behind it. */
+  .gym-public .cta-qr i {
+    width: 168px; height: 168px; border-radius: 18px; background-color: #fff;
+    background-image: var(--qr); background-size: 100% 100%; background-repeat: no-repeat;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.16);
+  }
+  .gym-public .cta-qr span {
+    /* flex-start, not center: the label wraps to two lines at this width, and a
+       centred icon floats between them. */
+    display: inline-flex; align-items: flex-start; gap: 7px; max-width: 168px;
+    color: color-mix(in srgb, var(--accent-ink) 76%, transparent);
+    font-weight: 600; font-size: 0.82rem; line-height: 1.35; text-align: left;
+  }
+  .gym-public .cta-qr span svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+}
 
 /* ── FOOTER ── */
 .gym-public footer { border-top: 1px solid var(--gf-border); padding: 44px 0 40px; }
