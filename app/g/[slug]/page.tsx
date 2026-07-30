@@ -288,7 +288,7 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
       <nav className="nav">
         <div className="wrap nav-in">
           <a className="gym" href="#top">
-            <span className="sq">
+            <span className={gym.logo_url ? 'sq has-logo' : 'sq'}>
               {gym.logo_url ? <Image src={gym.logo_url} alt="" width={42} height={42} /> : initial(gym.name)}
             </span>
             <span className="nm">
@@ -393,7 +393,7 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
       <section className="sec alt" id="app">
         <div className="wrap app-in">
           <div className="app-vis">
-            <span className="app-ic">
+            <span className={gym.logo_url ? 'app-ic has-logo' : 'app-ic'}>
               {gym.logo_url ? <Image src={gym.logo_url} alt="" width={132} height={132} /> : initial(gym.name)}
             </span>
             <span className="nmx">
@@ -654,7 +654,7 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
         <div className="wrap">
           <div className="f-top">
             <div className="gym">
-              <span className="sq">
+              <span className={gym.logo_url ? 'sq has-logo' : 'sq'}>
                 {gym.logo_url ? <Image src={gym.logo_url} alt="" width={42} height={42} /> : initial(gym.name)}
               </span>
               <span className="nm">
