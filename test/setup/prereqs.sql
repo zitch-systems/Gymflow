@@ -59,3 +59,11 @@ do $$ begin create role service_role nologin bypassrls; exception when duplicate
 
 -- Let the test runner (postgres superuser) hand out these roles via SET ROLE.
 grant anon, authenticated, service_role to current_user;
+
+-- Hosted Supabase grants USAGE on the auth schema to these roles, so a signed-in
+-- user can call auth.uid() directly. Without it, only RLS policy expressions
+-- (evaluated with the table owner's privileges) can reach auth.uid() — a bare
+-- `select auth.uid()`, or a STABLE-but-not-SECURITY-DEFINER helper like
+-- can_see_profile() invoked by the user, fails with "permission denied for
+-- schema auth" here while working in production. Match production.
+grant usage on schema auth to anon, authenticated, service_role;

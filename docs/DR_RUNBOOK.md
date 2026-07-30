@@ -54,6 +54,18 @@ incrementals before any test executes. If CI is green, the rebuild path works.
    ```sql
    select count(*) from pg_policies where schemaname = 'public';
    ```
+   Counting policies is necessary but not sufficient — a policy can exist with
+   the wrong *predicate*. For the real check, fingerprint both sides and diff:
+
+   ```bash
+   node scripts/shadow-db.mjs                                  # prints a shadow URL
+   psql "$SHADOW_URL" -X -q -f scripts/schema-fingerprint.sql > shadow.txt
+   psql "$NEW_DB_URL" -X -q -f scripts/schema-fingerprint.sql > live.txt
+   diff -u shadow.txt live.txt                                 # must be empty
+   ```
+   The fingerprint's `POLICYBODY`/`FUNCTIONBODY` sections hash the predicates
+   and function bodies, so a same-named policy with a stale definition fails
+   the diff. Run the shadow on the **same Postgres major** as the target.
 5. Recreate the `gym-assets` storage bucket (public) — bucket creation isn't
    in migrations; the policy lockdown for it is
    (`20260620_restrict_gym_assets_bucket.sql` re-applies on push).
@@ -110,7 +122,7 @@ Repo-side (GitHub → Settings → Secrets → Actions), not Vercel:
 
 | Secret | Purpose | If unset |
 |---|---|---|
-| `SUPABASE_DB_URL` | the CI schema-drift gate's live-side connection | the gate **skips** and CI stays green while the live schema drifts unnoticed (the job now emits a warning annotation when this happens) |
+| `SUPABASE_DB_URL` | the CI schema-drift gate's live-side connection | on a PR the gate **skips** with a warning annotation (forks never get secrets); on a push to `main` it **fails the build** — an unverifiable live schema is treated as drift, because a silently-skipped gate looks exactly like a passing one |
 
 ## 4b. Supabase project settings (not captured by migrations)
 

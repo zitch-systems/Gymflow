@@ -15,7 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        # Match the live Supabase project's major version (17): the drift gate
+        # compares deparsed policy/function bodies, and pg_get_expr output can
+        # differ between majors.
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -73,7 +76,10 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        # Match the live Supabase project's major version (17): the drift gate
+        # compares deparsed policy/function bodies, and pg_get_expr output can
+        # differ between majors.
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -92,12 +98,18 @@ jobs:
         id: gate
         run: |
           echo "on=${{ secrets.SUPABASE_DB_URL != '' }}" >> "$GITHUB_OUTPUT"
-          # Say so out loud. A silently-skipped drift gate reads exactly like a
-          # passing one in the checks list — which is how three migrations once
-          # sat unapplied on the live project without CI noticing.
-          if [ "${{ secrets.SUPABASE_DB_URL != '' }}" != "true" ]; then
-            echo '::warning::SUPABASE_DB_URL is not set — the schema-drift gate did NOT run. Live schema is unverified against the checked-in migrations.'
+          if [ "${{ secrets.SUPABASE_DB_URL != '' }}" = "true" ]; then exit 0; fi
+          # A silently-skipped drift gate reads exactly like a passing one in the
+          # checks list — which is how three security migrations once sat
+          # unapplied on the live project for two weeks without CI noticing. On
+          # PRs (including from forks, which never receive secrets) warn and
+          # skip; on main, where the whole point is to know the live database
+          # matches what shipped, an unverifiable schema is a failure.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo '::error::SUPABASE_DB_URL is not set — the live schema cannot be verified against the checked-in migrations. Add the secret (the project'"'"'s direct Postgres connection string) in Settings → Secrets → Actions.'
+            exit 1
           fi
+          echo '::warning::SUPABASE_DB_URL is not set — the schema-drift gate did NOT run. Live schema is unverified against the checked-in migrations.'
 
       - uses: actions/setup-node@v4
         if: steps.gate.outputs.on == 'true'
