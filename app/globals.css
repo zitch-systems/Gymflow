@@ -2729,7 +2729,9 @@ a.gl-fact:hover { border-color: var(--gf-brand-glow); transform: translateY(-2px
 /* ── App CTA inside the membership section ── */
 .gl-app-cta { margin-top: 22px; padding: 20px; border-radius: var(--gf-radius); text-align: center;
   background: var(--gf-surface); border: 1px solid var(--gf-border); }
-.gl-app-cta p { color: var(--gf-text-secondary); font-size: 0.92rem; line-height: 1.55; margin: 0 auto 16px; max-width: 46ch; }
+/* Badges first, copy under them (see the panel in app-install/page.tsx), so the
+   margin goes on top of the paragraph rather than below it. */
+.gl-app-cta p { color: var(--gf-text-secondary); font-size: 0.92rem; line-height: 1.55; margin: 14px auto 0; max-width: 46ch; }
 
 .gl-final-note { display: inline-flex; align-items: center; gap: 7px; color: var(--gf-success, #11d18b);
   font-size: 0.86rem; font-weight: 600; margin: -10px 0 18px; }
@@ -3038,8 +3040,9 @@ a.gl-fact:hover { border-color: var(--gf-brand-glow); transform: translateY(-2px
 
   .gl-gallery { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
   .gl-features { grid-template-columns: repeat(3, 1fr); }
-  .gl-app-cta { display: flex; align-items: center; justify-content: center; gap: 24px; text-align: left; }
-  .gl-app-cta p { margin: 0; }
+  /* Stays a centred column on desktop: the row version put the badges to the
+     right of the paragraph, which read as a footnote to it. */
+  .gl-app-cta p { margin-top: 12px; }
   .gl-hours { max-width: none; }
 }
 
