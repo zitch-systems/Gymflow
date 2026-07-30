@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Star, Mail, Lock, ArrowRight, Users, Shield, GraduationCap, Globe, AlertCircle, MailCheck, CheckCircle2, Dumbbell, CalendarCheck, QrCode, UserPlus } from 'lucide-react';
 import { signIn, signUp, resendConfirmation, type AuthState } from '@/lib/auth/actions';
+import { LogoMark } from '@/components/ui/logo';
 
 const ROLES = [
   { label: 'Member', href: '/dashboard', icon: Users },
@@ -115,7 +116,7 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
         ) : (
           <>
             <Link className="brand" href="/">
-              <Image src="/images/logomark-v3.svg" alt="" width={38} height={38} className="mark-md" priority />
+              <LogoMark size={38} className="mark-md" />
               <span className="brand-tx lg">Gym<em>Flow</em></span>
             </Link>
             <div className="bs-quote">
@@ -150,7 +151,7 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
             </span>
           ) : (
             <Link className="brand" href="/" style={{ display: 'inline-flex' }}>
-              <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />
+              <LogoMark size={30} className="mark-sm" />
               <span className="brand-tx">Gym<em>Flow</em></span>
             </Link>
           )}

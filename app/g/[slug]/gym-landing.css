@@ -1,0 +1,256 @@
+/* Tenant gym landing page — ported from revamp/gym-landing.html's <style> block
+   (GYM-LANDING-BUILD.md §2). This page is the only consumer, so it lives here
+   rather than in globals.css.
+
+   EVERYTHING is scoped under `.gym-public`. The prototype's class names are
+   deliberately short (.b, .sec, .plan, .zone, .hours, .map) and two of them —
+   .nav and .hero — already exist in globals.css for GymFlow's own marketing
+   site. Unscoped, this stylesheet would restyle the marketing pages.
+
+   The accent is set inline on the wrapper from gym settings; nothing here
+   hardcodes a brand colour. The gf-* surface tokens carry the dark/light theme
+   exactly as they do everywhere else — only the accent is tenant-owned. */
+
+.gym-public { --accent: #11d18b; --accent-l: #4fe3a8; --accent-soft: rgba(17,209,139,.13); --accent-glow: rgba(17,209,139,.32); --accent-ink: #06140d; }
+.gym-public { background: var(--gf-bg); color: var(--gf-text); overflow-x: hidden; }
+.gym-public a { color: var(--accent); text-decoration: none; }
+.gym-public a:hover { color: var(--accent-l); }
+.gym-public .wrap { max-width: 1200px; margin: 0 auto; padding: 0 clamp(16px,4vw,40px); }
+.gym-public h1, .gym-public h2, .gym-public h3 { font-family: var(--gf-font-display); letter-spacing: -.03em; margin: 0; }
+
+/* buttons — accent-driven */
+.gym-public .b { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--gf-font-display); font-weight: 700; font-size: .94rem; padding: 14px 24px; border-radius: var(--gf-radius-pill); border: 1px solid transparent; cursor: pointer; transition: transform var(--gf-t), box-shadow var(--gf-t), background var(--gf-t), border-color var(--gf-t), color var(--gf-t); white-space: nowrap; }
+.gym-public .b svg { width: 17px; height: 17px; }
+.gym-public .b-acc { background: var(--accent); color: var(--accent-ink); box-shadow: 0 6px 20px -6px var(--accent-glow); }
+.gym-public .b-acc:hover { background: var(--accent-l); transform: translateY(-2px); color: var(--accent-ink); }
+.gym-public .b-out { background: transparent; color: var(--gf-text); border-color: var(--gf-border-light); }
+.gym-public .b-out:hover { border-color: var(--accent); color: var(--accent); }
+.gym-public .b-wa { background: #25d366; color: #05230f; }
+.gym-public .b-wa:hover { background: #4ae285; transform: translateY(-2px); color: #05230f; }
+.gym-public .b-sm { font-size: .84rem; padding: 10px 18px; }
+
+/* status pill */
+.gym-public .open { display: inline-flex; align-items: center; gap: 7px; font-family: var(--gf-font-display); font-weight: 700; font-size: .76rem; color: var(--gf-success); background: var(--gf-success-soft); border: 1px solid var(--gf-success-soft); padding: 6px 12px; border-radius: var(--gf-radius-pill); }
+.gym-public .open .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gf-success); box-shadow: 0 0 0 3px rgba(0,200,150,.22); }
+.gym-public .open.shut { color: var(--gf-text-muted); background: var(--gf-elevated); border-color: var(--gf-border); }
+.gym-public .open.shut .dot { background: var(--gf-text-muted); box-shadow: none; }
+
+/* ── NAV ── */
+.gym-public .nav { position: sticky; top: 0; z-index: 60; background: color-mix(in srgb, var(--gf-bg) 86%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--gf-border); }
+.gym-public .nav-in { display: flex; align-items: center; justify-content: space-between; gap: 14px; height: 72px; }
+.gym-public .gym { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.gym-public .gym .sq { width: 42px; height: 42px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.15rem; flex: none; overflow: hidden; }
+.gym-public .gym .sq img { width: 100%; height: 100%; object-fit: cover; }
+.gym-public .gym .nm { min-width: 0; }
+.gym-public .gym .nm strong { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.06rem; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--gf-text); }
+.gym-public .gym .nm small { color: var(--gf-text-muted); font-size: .74rem; }
+.gym-public .nav-r { display: flex; align-items: center; gap: 10px; }
+.gym-public .nav-links { display: flex; align-items: center; gap: 26px; margin-right: 8px; }
+.gym-public .nav-links a { color: var(--gf-text-secondary); font-size: .9rem; font-weight: 500; }
+.gym-public .nav-links a:hover { color: var(--gf-text); }
+@media (max-width: 1000px) { .gym-public .nav-links { display: none; } }
+@media (max-width: 560px) { .gym-public .nav .open, .gym-public .nav .b-out { display: none; } }
+
+/* ── HERO ── */
+.gym-public .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--gf-border); }
+.gym-public .hero-bg { position: absolute; inset: 0; filter: grayscale(.2) contrast(1.05); }
+.gym-public .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
+.gym-public .hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, var(--gf-bg) 26%, color-mix(in srgb, var(--gf-bg) 86%, transparent) 52%, color-mix(in srgb, var(--gf-bg) 50%, transparent) 100%); }
+.gym-public .hero-in { position: relative; padding: clamp(44px,7vw,92px) 0 clamp(34px,4vw,54px); }
+.gym-public .hero h1 { font-size: clamp(2.4rem,7vw,4.6rem); font-weight: 800; line-height: .98; margin: 18px 0 0; max-width: 15ch; }
+.gym-public .hero h1 em { font-style: normal; color: var(--accent); }
+.gym-public .hero .pitch { margin-top: 18px; color: var(--gf-text-secondary); font-size: clamp(1rem,1.6vw,1.16rem); line-height: 1.6; max-width: 44ch; }
+.gym-public .hero-cta { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+.gym-public .hero-facts { display: flex; gap: clamp(20px,4vw,48px); margin-top: 36px; flex-wrap: wrap; }
+.gym-public .fact dt { font-family: var(--gf-font-display); font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; color: var(--gf-text-muted); }
+.gym-public .fact dd { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem; margin: 5px 0 0; letter-spacing: -.02em; }
+.gym-public .fact dd span { color: var(--accent); }
+.gym-public .fact dd small { font-family: var(--gf-font-body); font-weight: 500; font-size: .78rem; color: var(--gf-text-muted); }
+
+/* ── LIVE STRIP — only possible because GymFlow owns the check-in data ── */
+.gym-public .live { background: var(--gf-surface); border-bottom: 1px solid var(--gf-border); }
+.gym-public .live-in { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: clamp(18px,3vw,40px); padding: 22px 0; align-items: center; }
+.gym-public .live .lab { font-family: var(--gf-font-display); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gf-text-muted); display: flex; align-items: center; gap: 7px; }
+.gym-public .live .lab .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--gf-success); animation: gp-pulse 2s ease-in-out infinite; }
+@keyframes gp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .gym-public .live .lab .pulse { animation: none; } }
+.gym-public .occ { margin-top: 10px; }
+.gym-public .occ .top { display: flex; align-items: baseline; gap: 9px; }
+.gym-public .occ .n { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.5rem; letter-spacing: -.02em; }
+.gym-public .occ .st { font-family: var(--gf-font-display); font-weight: 700; font-size: .78rem; color: var(--gf-success); }
+.gym-public .occ .st.busy { color: var(--gf-warning); }
+.gym-public .occ .st.packed { color: var(--gf-danger); }
+.gym-public .occ .bar { margin-top: 9px; height: 8px; border-radius: 99px; background: var(--gf-elevated); overflow: hidden; position: relative; }
+.gym-public .occ .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: linear-gradient(90deg, var(--gf-success), var(--accent)); }
+.gym-public .occ .hint { margin-top: 9px; font-size: .76rem; color: var(--gf-text-muted); }
+.gym-public .live .nx { margin-top: 10px; }
+.gym-public .live .nx strong { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.06rem; letter-spacing: -.02em; }
+.gym-public .live .nx small { display: block; color: var(--gf-text-muted); font-size: .79rem; margin-top: 3px; }
+@media (max-width: 820px) { .gym-public .live-in { grid-template-columns: 1fr; gap: 20px; } }
+
+/* ── SECTION ── */
+.gym-public .sec { padding: clamp(52px,7vw,96px) 0; }
+.gym-public .sec.alt { background: var(--gf-surface); border-top: 1px solid var(--gf-border); border-bottom: 1px solid var(--gf-border); }
+.gym-public .sh { margin-bottom: clamp(28px,4vw,44px); display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.gym-public .eb { font-family: var(--gf-font-display); font-weight: 700; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.gym-public .sh h2, .gym-public .sech2 { font-size: clamp(1.7rem,3.6vw,2.7rem); font-weight: 800; line-height: 1.04; margin: 11px 0 0; }
+.gym-public .sh p, .gym-public .secp { color: var(--gf-text-secondary); font-size: .98rem; line-height: 1.6; margin: 12px 0 0; max-width: 52ch; }
+
+/* ── PLANS ── */
+.gym-public .plans { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; align-items: start; }
+.gym-public .plan { background: var(--gf-bg); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 28px 26px; display: flex; flex-direction: column; position: relative; }
+.gym-public .sec.alt .plan { background: var(--gf-elevated); }
+.gym-public .plan.pop { border-color: var(--accent); box-shadow: 0 20px 50px -24px var(--accent-glow); }
+.gym-public .plan .tag { position: absolute; top: -11px; left: 24px; background: var(--accent); color: var(--accent-ink); font-family: var(--gf-font-display); font-weight: 800; font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; padding: 5px 11px; border-radius: var(--gf-radius-pill); }
+.gym-public .plan .pn { font-family: var(--gf-font-display); font-weight: 700; font-size: .86rem; color: var(--gf-text-secondary); }
+.gym-public .plan .amt { font-family: var(--gf-font-display); font-weight: 800; font-size: 2.3rem; letter-spacing: -.035em; line-height: 1.1; margin-top: 8px; }
+.gym-public .plan .amt small { font-family: var(--gf-font-body); font-weight: 500; font-size: .88rem; color: var(--gf-text-muted); letter-spacing: 0; white-space: nowrap; }
+.gym-public .plan .save { margin-top: 8px; font-family: var(--gf-font-display); font-weight: 700; font-size: .78rem; color: var(--gf-success); }
+.gym-public .plan .save.plain { color: var(--gf-text-muted); }
+.gym-public .plan ul { list-style: none; padding: 0; margin: 20px 0 24px; display: flex; flex-direction: column; gap: 11px; flex: 1; }
+.gym-public .plan li { display: flex; gap: 10px; font-size: .9rem; color: var(--gf-text-secondary); line-height: 1.45; }
+.gym-public .plan li svg { width: 16px; height: 16px; color: var(--accent); flex: none; margin-top: 2px; }
+.gym-public .paynote { display: flex; align-items: center; gap: 9px; margin-top: 22px; color: var(--gf-text-muted); font-size: .82rem; flex-wrap: wrap; }
+.gym-public .paynote svg { width: 15px; height: 15px; color: var(--gf-success); }
+@media (max-width: 900px) { .gym-public .plans { grid-template-columns: 1fr; } }
+
+/* ── TIMETABLE ── */
+.gym-public .tt { border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); overflow: hidden; background: var(--gf-bg); }
+.gym-public .sec.alt .tt { background: var(--gf-elevated); }
+.gym-public .tt-row { display: grid; grid-template-columns: 88px 1.6fr 1fr auto auto; gap: 16px; align-items: center; padding: 17px 22px; border-bottom: 1px solid var(--gf-border); }
+.gym-public .tt-row:last-child { border-bottom: none; }
+.gym-public .tt-row .t { font-family: var(--gf-font-mono); font-weight: 500; font-size: .94rem; color: var(--gf-text); }
+.gym-public .tt-row .cn { font-family: var(--gf-font-display); font-weight: 700; font-size: 1rem; letter-spacing: -.01em; }
+.gym-public .tt-row .cn small { display: block; font-family: var(--gf-font-body); font-weight: 400; color: var(--gf-text-muted); font-size: .79rem; margin-top: 2px; letter-spacing: 0; }
+.gym-public .tt-row .co { display: flex; align-items: center; gap: 9px; color: var(--gf-text-secondary); font-size: .87rem; }
+.gym-public .tt-row .co .av { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 700; font-size: .76rem; flex: none; }
+.gym-public .spots { font-family: var(--gf-font-display); font-weight: 700; font-size: .76rem; padding: 5px 11px; border-radius: var(--gf-radius-pill); white-space: nowrap; }
+.gym-public .spots.ok { color: var(--gf-success); background: var(--gf-success-soft); }
+.gym-public .spots.low { color: var(--gf-warning); background: var(--gf-warning-soft); }
+.gym-public .spots.full { color: var(--gf-danger); background: var(--gf-danger-soft); }
+.gym-public .tt-empty { padding: 26px 22px; color: var(--gf-text-secondary); font-size: .92rem; }
+@media (max-width: 860px) {
+  .gym-public .tt-row { grid-template-columns: 70px 1fr auto; gap: 12px; padding: 15px 16px; }
+  .gym-public .tt-row .co { display: none; }
+  .gym-public .tt-row .b { display: none; }
+}
+
+/* ── ZONES ── */
+.gym-public .zones { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+.gym-public .zone { position: relative; border-radius: var(--gf-radius-lg); overflow: hidden; aspect-ratio: 3/4; display: block; background: var(--gf-elevated); }
+.gym-public .zone img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.28); transition: filter .4s, transform .6s; }
+.gym-public .zone::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 42%, rgba(10,10,18,.9)); }
+.gym-public .zone:hover img { filter: grayscale(0); transform: scale(1.06); }
+.gym-public .zone .cap { position: absolute; left: 16px; right: 16px; bottom: 15px; z-index: 2; }
+/* captions always sit on the photo's dark scrim, in both themes */
+.gym-public .zone .cap strong { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.02rem; letter-spacing: -.02em; color: #fff; }
+.gym-public .zone .cap small { color: rgba(255,255,255,.72); font-size: .78rem; }
+@media (max-width: 860px) { .gym-public .zones { grid-template-columns: 1fr 1fr; } }
+@media (prefers-reduced-motion: reduce) { .gym-public .zone:hover img { transform: none; } }
+
+/* ── COACHES ── */
+.gym-public .coaches { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.gym-public .coach { background: var(--gf-bg); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 24px; display: flex; gap: 16px; align-items: center; }
+.gym-public .sec.alt .coach { background: var(--gf-elevated); }
+.gym-public .coach .av { width: 60px; height: 60px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.35rem; flex: none; overflow: hidden; }
+.gym-public .coach .av img { width: 100%; height: 100%; object-fit: cover; }
+.gym-public .coach strong { display: block; font-family: var(--gf-font-display); font-weight: 700; font-size: 1.04rem; letter-spacing: -.02em; }
+.gym-public .coach small { display: block; color: var(--accent); font-size: .79rem; font-weight: 600; margin-top: 3px; }
+.gym-public .coach p { margin: 8px 0 0; color: var(--gf-text-secondary); font-size: .86rem; line-height: 1.5; }
+@media (max-width: 860px) { .gym-public .coaches { grid-template-columns: 1fr; } }
+
+/* ── VISIT ── */
+.gym-public .visit { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(24px,4vw,52px); align-items: start; }
+.gym-public .hours { border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); overflow: hidden; background: var(--gf-bg); margin-top: 8px; }
+.gym-public .sec.alt .hours { background: var(--gf-elevated); }
+.gym-public .hours > div { display: flex; justify-content: space-between; gap: 16px; padding: 13px 20px; border-bottom: 1px solid var(--gf-border); font-size: .89rem; }
+.gym-public .hours > div:last-child { border-bottom: none; }
+.gym-public .hours > div.now { background: var(--accent-soft); }
+.gym-public .hours span:first-child { color: var(--gf-text-secondary); }
+.gym-public .hours span:last-child { font-family: var(--gf-font-mono); font-size: .85rem; }
+.gym-public .addr { display: flex; gap: 13px; margin-bottom: 20px; }
+.gym-public .addr .ic { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex: none; }
+.gym-public .addr .ic svg { width: 19px; height: 19px; }
+.gym-public .addr strong { display: block; font-family: var(--gf-font-display); font-weight: 700; font-size: .98rem; color: var(--gf-text); }
+.gym-public .addr small { display: block; color: var(--gf-text-secondary); font-size: .87rem; margin-top: 3px; line-height: 1.5; }
+.gym-public .map { border-radius: var(--gf-radius-lg); overflow: hidden; border: 1px solid var(--gf-border); aspect-ratio: 4/3; position: relative; background: var(--gf-elevated); display: block; }
+.gym-public .map img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.5) brightness(.72); }
+.gym-public .map .pin { position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%); width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; box-shadow: 0 8px 26px -6px var(--accent-glow); }
+.gym-public .map .pin svg { width: 21px; height: 21px; }
+@media (max-width: 860px) { .gym-public .visit { grid-template-columns: 1fr; } }
+
+/* ── APP INSTALL ── */
+.gym-public .app-in { display: grid; grid-template-columns: .85fr 1.15fr; gap: clamp(28px,5vw,64px); align-items: center; }
+.gym-public .app-vis { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.gym-public .app-ic { width: 132px; height: 132px; border-radius: 30px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-family: var(--gf-font-display); font-weight: 800; font-size: 3.6rem; letter-spacing: -.04em; box-shadow: 0 24px 54px -18px var(--accent-glow); overflow: hidden; }
+.gym-public .app-ic img { width: 100%; height: 100%; object-fit: cover; }
+.gym-public .app-vis .nmx { text-align: center; }
+.gym-public .app-vis .nmx strong { display: block; font-family: var(--gf-font-display); font-weight: 700; font-size: .98rem; letter-spacing: -.02em; }
+.gym-public .app-vis .nmx small { color: var(--gf-text-muted); font-size: .78rem; }
+.gym-public .app-feats { list-style: none; padding: 0; margin: 20px 0 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 11px 20px; }
+.gym-public .app-feats li { display: flex; gap: 9px; align-items: flex-start; font-size: .9rem; color: var(--gf-text-secondary); line-height: 1.45; }
+.gym-public .app-feats li svg { width: 16px; height: 16px; color: var(--accent); flex: none; margin-top: 2px; }
+.gym-public .inst { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.gym-public .ins { background: var(--gf-bg); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 20px; }
+.gym-public .sec.alt .ins { background: var(--gf-elevated); }
+.gym-public .ins .hd { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+.gym-public .ins .hd .ic { width: 32px; height: 32px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex: none; }
+.gym-public .ins .hd .ic svg { width: 17px; height: 17px; }
+.gym-public .ins .hd strong { font-family: var(--gf-font-display); font-weight: 700; font-size: .94rem; letter-spacing: -.01em; }
+.gym-public .ins ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.gym-public .ins li { font-size: .86rem; color: var(--gf-text-secondary); line-height: 1.5; }
+.gym-public .ins li b { color: var(--gf-text); font-weight: 600; }
+.gym-public .app-note { display: flex; align-items: center; gap: 9px; margin-top: 18px; color: var(--gf-text-muted); font-size: .82rem; }
+.gym-public .app-note svg { width: 15px; height: 15px; color: var(--gf-success); flex: none; }
+@media (max-width: 900px) { .gym-public .app-in { grid-template-columns: 1fr; } .gym-public .inst, .gym-public .app-feats { grid-template-columns: 1fr; } }
+
+/* ── CTA ── */
+.gym-public .cta { position: relative; overflow: hidden; background: var(--accent); }
+.gym-public .cta-in { position: relative; padding: clamp(52px,7vw,92px) 0; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.gym-public .cta h2 { color: var(--accent-ink); font-size: clamp(1.9rem,4.6vw,3.4rem); font-weight: 800; line-height: 1.02; max-width: 20ch; }
+.gym-public .cta p { color: color-mix(in srgb, var(--accent-ink) 76%, transparent); font-weight: 500; margin: 16px 0 0; font-size: clamp(.95rem,1.6vw,1.1rem); max-width: 44ch; }
+.gym-public .cta .row { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; justify-content: center; }
+.gym-public .cta .b-dark { background: var(--gf-bg); color: var(--gf-text); }
+.gym-public .cta .b-dark:hover { background: #000; transform: translateY(-2px); color: #fff; }
+.gym-public .cta .b-line { background: transparent; color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent-ink) 30%, transparent); }
+.gym-public .cta .b-line:hover { border-color: var(--accent-ink); color: var(--accent-ink); }
+
+/* ── FOOTER ── */
+.gym-public footer { border-top: 1px solid var(--gf-border); padding: 44px 0 40px; }
+.gym-public .f-top { display: flex; justify-content: space-between; gap: 28px; flex-wrap: wrap; }
+.gym-public .f-links { display: flex; gap: 30px; flex-wrap: wrap; }
+.gym-public .f-links a { color: var(--gf-text-secondary); font-size: .89rem; }
+.gym-public .f-links a:hover { color: var(--accent); }
+.gym-public .f-base { border-top: 1px solid var(--gf-border); margin-top: 30px; padding-top: 22px; display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; align-items: center; color: var(--gf-text-muted); font-size: .79rem; }
+/* The one and only place GymFlow appears on a tenant page. */
+.gym-public .pw { display: inline-flex; align-items: center; gap: 8px; color: var(--gf-text-muted); }
+.gym-public .pw svg { width: 19px; height: 19px; color: var(--gf-brand); opacity: .85; }
+.gym-public .pw b { color: var(--gf-text-secondary); font-weight: 600; }
+
+/* ── STICKY JOIN BAR (mobile) ── */
+.gym-public .joinbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; display: none; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 16px; background: color-mix(in srgb, var(--gf-bg) 94%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--gf-border); }
+.gym-public .joinbar .pr { min-width: 0; }
+.gym-public .joinbar .pr strong { display: block; font-family: var(--gf-font-display); font-weight: 800; font-size: 1.02rem; letter-spacing: -.02em; }
+.gym-public .joinbar .pr small { display: block; color: var(--gf-text-muted); font-size: .74rem; }
+@media (max-width: 760px) { .gym-public .joinbar { display: flex; } .gym-public { padding-bottom: 78px; } }
+
+/* theme toggle in nav */
+.gym-public .th { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--gf-border); background: var(--gf-elevated); color: var(--gf-text-secondary); display: grid; place-items: center; cursor: pointer; flex: none; transition: color var(--gf-t), border-color var(--gf-t); }
+.gym-public .th:hover { color: var(--accent); border-color: var(--accent); }
+.gym-public .th svg { width: 17px; height: 17px; }
+
+/* anchors clear the sticky nav */
+.gym-public { scroll-behavior: smooth; }
+.gym-public [id] { scroll-margin-top: 86px; }
+@media (prefers-reduced-motion: reduce) { .gym-public { scroll-behavior: auto; } }
+
+/* ── LIGHT THEME — the prototype's dark overlays are hardcoded; these undo them.
+   The colour-mix() surfaces above already follow the theme, so only the photo
+   treatments need overriding. ── */
+[data-theme="light"] .gym-public .hero-bg { filter: grayscale(.15) contrast(1.02) brightness(1.04); }
+[data-theme="light"] .gym-public .map img { filter: grayscale(.3) brightness(.95); }
+[data-theme="light"] .gym-public .cta .b-dark { background: #16181c; color: #fff; }
+[data-theme="light"] .gym-public .cta .b-dark:hover { background: #000; color: #fff; }
+
+/* focus visibility — the page is public and keyboard-navigable */
+.gym-public a:focus-visible, .gym-public button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--gf-radius-sm); }

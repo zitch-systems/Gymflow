@@ -4,7 +4,7 @@ import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Building2, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Building2, Dumbbell, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, updateSecurity, uploadCacCertificate, type GymSaveState } from '@/lib/actions/gym';
 import { formatCacNumber } from '@/lib/cac';
 import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
@@ -329,9 +329,16 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                 <div className="panel-title">Logo</div>
                 <div className="panel-desc">Appears across the member app.</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
+                  {/* Placeholder is deliberately neutral, not GymFlow's mark: this
+                      slot is the GYM's logo, and showing Flowbell here reads as
+                      "your logo is GymFlow's". */}
                   {gym.logo_url
                     ? <Image src={gym.logo_url} alt="Gym logo" width={56} height={56} style={{ borderRadius: 12, objectFit: 'cover', background: 'var(--gf-elevated)' }} />
-                    : <Image src="/images/logomark-v3.svg" alt="" width={56} height={56} />}
+                    : (
+                      <span aria-hidden style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--gf-elevated)', border: '1px solid var(--gf-border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gf-text-muted)' }}>
+                        <Dumbbell strokeWidth={1.75} />
+                      </span>
+                    )}
                   <input type="file" name="logo" accept="image/*" className="gf-input" style={{ padding: 8 }} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

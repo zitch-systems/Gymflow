@@ -2,9 +2,9 @@
 
 import { useActionState, useId } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { AlertCircle, ArrowLeft, ArrowRight, KeyRound, MailCheck, ShieldCheck } from 'lucide-react';
 import { resendTwoFactor, verifyTwoFactor, type TwoFactorState } from '@/lib/auth/actions';
+import { LogoMark } from '@/components/ui/logo';
 
 const initial: TwoFactorState = { error: null };
 
@@ -25,7 +25,7 @@ export function VerifyClient({ maskedEmail }: { maskedEmail: string }) {
       <aside className="brandside">
         <div className="brandside-bg" aria-hidden />
         <Link className="brand" href="/">
-          <Image src="/images/logomark-v3.svg" alt="" width={38} height={38} className="mark-md" priority />
+          <LogoMark size={38} className="mark-md" />
           <span className="brand-tx lg">Gym<em>Flow</em></span>
         </Link>
         <div className="bs-quote">
@@ -37,7 +37,7 @@ export function VerifyClient({ maskedEmail }: { maskedEmail: string }) {
       <main id="main-content" className="formside">
         <div className="formcard">
           <Link className="brand" href="/" style={{ display: 'inline-flex' }}>
-            <Image src="/images/logomark-v3.svg" alt="" width={30} height={30} className="mark-sm" />
+            <LogoMark size={30} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
 

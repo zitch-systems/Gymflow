@@ -4,246 +4,252 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import {
-  ArrowRight, LogIn, UserPlus, Dumbbell, MapPin, Phone, Mail, Globe,
-  Clock, Check, CalendarDays, QrCode, CalendarCheck, Wallet, Navigation,
-  ShieldCheck, Snowflake, CreditCard, Ticket, Users, Award,
+  ArrowRight, CalendarDays, CalendarCheck, MessageCircle, MapPin, Phone, Navigation,
+  Check, ShieldCheck, Zap,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtNaira, fmt12Hr, watNow } from '@/lib/format';
-import { openStateFor, todayHoursLabel, openDaysPerWeek } from '@/lib/opening-hours';
+import { openStateFor, todayHoursLabel } from '@/lib/opening-hours';
 import { ROOT_DOMAIN } from '@/lib/tenant';
 import { ldJson } from '@/lib/ld-json';
-import { Tilt, Reveal } from '@/components/marketing/landing-fx';
-import { GymNav, type GymNavSection } from '@/components/marketing/gym-nav';
-import { InstagramEmbeds } from '@/components/marketing/instagram-embeds';
-import { LandingTrackers } from '@/components/marketing/landing-trackers';
-import { AppInstall } from '@/components/marketing/app-install';
+import { accentVars } from '@/lib/accent';
+import { LogoMark } from '@/components/ui/logo';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { InstallCards } from '@/components/gym/install-cards';
+import './gym-landing.css';
 
+// ── The gym's own public page, at the root of its subdomain ──────────────────
+// Built from revamp/gym-landing.html (GYM-LANDING-BUILD.md). This is a different
+// surface for a different audience than GymFlow's marketing site: a prospective
+// member in Lagos, on a phone, deciding whether to join THIS gym.
+//
+// Route note: the doc specifies `app/[slug]/(public)/page.tsx`. A dynamic segment
+// at the app root would match `/login`, `/pricing`, `/about`, `/signup`… and
+// shadow every marketing and auth route, so this repo resolves the subdomain
+// root to `/g/<slug>` in middleware.ts instead. Same URL for the visitor
+// (`powerhouse.gymflow.ng/`), no route collisions.
+//
+// Live occupancy has to be fresh, and it's above the fold, so the page as a
+// whole is dynamic rather than ISR with a nested dynamic hole.
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 type Gym = {
   id: string; name: string; slug: string; logo_url: string | null; tagline: string | null;
-  hero_image_url: string | null; brand_color: string | null; description: string | null;
-  city: string | null; state: string | null; address: string | null; phone: string | null; email: string | null; website: string | null;
-  amenities: string[] | null;
-  social_links: Record<string, string> | null; gallery_urls: string[] | null;
-  instagram_posts: string[] | null;
-  integrations: Record<string, string> | null;
-  cac_number: string | null; member_freeze_enabled: boolean | null;
+  hero_image_url: string | null; description: string | null;
+  city: string | null; state: string | null; address: string | null; phone: string | null;
+  email: string | null; social_links: Record<string, string> | null;
+  accent_color: string | null; accent_ink: string | null;
+  capacity: number | null; day_pass_price: number | null; joining_fee: number | null;
 };
-type Plan = { id: string; name: string; price: number | null; currency: string | null; duration_months: number | null; duration_days: number | null; description: string | null; features: unknown };
-type Klass = {
-  id: string; name: string; category: string | null; duration_minutes: number | null; level: string | null; description: string | null;
-  day_of_week: number | null; start_time: string | null;
+type Plan = { id: string; name: string; price: number | null; duration_months: number | null; duration_days: number | null; description: string | null; features: unknown };
+type Hours = { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean | null };
+type Zone = { id: string; name: string; blurb: string | null; photo_path: string | null };
+type Coach = { id: string; full_name: string | null; photo_url: string | null; avatar_url: string | null; specialisation: string | null; bio: string | null };
+type Slot = {
+  id: string; start_time: string; room: string | null;
+  name: string; duration: number | null; capacity: number | null; category: string | null;
+  coach: string | null; booked: number | null;
 };
-type Hours = { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean | null; session: string | null };
-type Coach = { id: string; full_name: string | null; photo_url: string | null; avatar_url: string | null; specialisation: string | null; certifications: string | null; bio: string | null };
-type PtPlan = { id: string; plan_name: string | null; price: number | null; billing_period: string | null; duration_days: number | null; features: unknown };
-
-type GymPage = { gym: Gym; plans: Plan[]; classes: Klass[]; hours: Hours[]; coaches: Coach[]; ptPlans: PtPlan[] };
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-// Week starts Monday for a timetable a Nigerian gym-goer reads.
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
 
-// Social platforms shown on the landing page. `href` turns the stored value
-// (a handle or a full URL) into a link; `path` is a brand glyph (simple-icons,
-// 24×24) rendered inline so it doesn't depend on lucide having the brand icon.
-const clean = (v: string) => v.trim().replace(/^@+/, '');
-const SOCIALS: { key: string; label: string; path: string; href: (v: string) => string }[] = [
-  { key: 'instagram', label: 'Instagram', href: (v) => v.startsWith('http') ? v : `https://instagram.com/${clean(v)}`,
-    path: 'M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z' },
-  { key: 'facebook', label: 'Facebook', href: (v) => v.startsWith('http') ? v : `https://facebook.com/${clean(v)}`,
-    path: 'M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z' },
-  { key: 'x', label: 'X', href: (v) => v.startsWith('http') ? v : `https://x.com/${clean(v)}`,
-    path: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' },
-  { key: 'tiktok', label: 'TikTok', href: (v) => v.startsWith('http') ? v : `https://tiktok.com/@${clean(v)}`,
-    path: 'M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.08-.14 1.62.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z' },
-  { key: 'youtube', label: 'YouTube', href: (v) => v.startsWith('http') ? v : `https://youtube.com/${clean(v)}`,
-    path: 'M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z' },
-  { key: 'whatsapp', label: 'WhatsApp', href: (v) => v.startsWith('http') ? v : `https://wa.me/${v.replace(/\D/g, '')}`,
-    path: 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z' },
-];
-
-// One client for the whole page: the service-role client when available (so the
-// public page works regardless of how gym-asset RLS is set), else the anon
-// client. gyms/plans/classes are intended to be publicly visible.
+/** Service-role when configured (needed to count bookings and read coach
+ *  profiles), else the anon client. Matches the rest of the app; sections that
+ *  depend on privileged reads degrade rather than showing wrong numbers. */
 async function getClient() {
-  try { return createAdminClient(); } catch { return await createClient(); }
+  try { return { db: createAdminClient(), privileged: true }; } catch { return { db: await createClient(), privileged: false }; }
 }
 
-async function loadGymPage(slug: string): Promise<GymPage | null> {
-  const db = await getClient();
-  // select('*') — generated types are stale for brand_color; the row is small.
-  const { data: gymRow } = await db.from('gyms').select('*').eq('slug', slug).maybeSingle();
-  if (!gymRow) return null;
-  const gym = gymRow as unknown as Gym;
+const initial = (s: string) => (s.trim()[0] ?? '?').toUpperCase();
 
-  const [plansRes, classesRes, hoursRes, staffRes, ptRes] = await Promise.all([
-    db.from('membership_plans').select('id, name, price, currency, duration_months, duration_days, description, features').eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
-    // day_of_week/start_time turn the class list into a real timetable — "what
-    // runs here" is a weaker answer than "what runs here on Tuesday at 6".
-    db.from('classes').select('id, name, category, duration_minutes, level, description, day_of_week, start_time').eq('gym_id', gym.id).eq('is_active', true).order('name', { ascending: true }).limit(24),
-    db.from('business_hours').select('day_of_week, open_time, close_time, is_closed, session').eq('gym_id', gym.id).order('day_of_week', { ascending: true }).order('open_time', { ascending: true }),
-    // Who you'd actually be trained by. Only the display columns — profiles also
-    // holds health notes and next-of-kin, which must never reach this page.
-    db.from('gym_staff_links').select('user_id').eq('gym_id', gym.id).eq('role', 'instructor').eq('is_active', true).limit(8),
-    // Personal-training rates. instructor_pricing has a public-read policy for
-    // active rows, so this one survives the no-service-key fallback.
-    db.from('instructor_pricing').select('id, plan_name, price, billing_period, duration_days, features').eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }).limit(3),
-  ]);
+/** `as never` on an rpc NAME collapses the whole builder to `never`, so the two
+ *  aggregate functions (which also postdate the generated types) go through this
+ *  narrow wrapper instead. */
+type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }> };
 
-  // profiles is readable by can_see_profile() — i.e. signed-in viewers only — so
-  // coaches render on the service-role path (production) and are simply absent
-  // on the anon fallback. Same posture as getClient(): the page degrades a
-  // section rather than depending on public PII exposure.
-  const coachIds = ((staffRes.data as { user_id: string }[] | null) ?? []).map((s) => s.user_id);
-  const coaches = coachIds.length
-    ? (((await db.from('profiles').select('id, full_name, photo_url, avatar_url, specialisation, certifications, bio').in('user_id', coachIds)).data as Coach[] | null) ?? [])
-    : [];
-
-  return {
-    gym,
-    plans: (plansRes.data as Plan[] | null) ?? [],
-    classes: (classesRes.data as Klass[] | null) ?? [],
-    hours: (hoursRes.data as Hours[] | null) ?? [],
-    coaches,
-    ptPlans: (ptRes.data as PtPlan[] | null) ?? [],
-  };
-}
-
-// Same source as the middleware's 308 redirect and the sitemap's per-tenant
-// entries (lib/tenant.ts). Deriving a separate host from NEXT_PUBLIC_SITE_URL
-// here made the canonical disagree with both whenever NEXT_PUBLIC_ROOT_DOMAIN
-// was set to a different host — search engines would see the canonical,
-// sitemap URL and redirect target point at different subdomain hosts.
-const ROOT_HOST = ROOT_DOMAIN;
-
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const page = await loadGymPage(slug);
-  if (!page) return { title: 'Gym not found', robots: { index: false } };
-  const { gym } = page;
-  const title = `${gym.name} — Members`;
-  const description = gym.tagline || gym.description || `Sign in or join ${gym.name}. Check in, book classes and manage your membership.`;
-  // Point canonical at the subdomain URL — the same page is reachable at both
-  // <slug>.<root>/ and <root>/g/<slug>, which would otherwise create duplicate content.
-  const canonical = `https://${slug}.${ROOT_HOST}/`;
-  const ogImg = gym.hero_image_url || gym.logo_url || '/images/og.png';
-  return {
-    title,
-    description,
-    alternates: { canonical },
-    openGraph: { title: gym.name, description, type: 'website', url: canonical, images: [{ url: ogImg, alt: gym.name }] },
-    twitter: { card: 'summary_large_image', title: gym.name, description, images: [ogImg] },
-  };
-}
-
-function planPeriod(p: Plan): string {
-  if (p.duration_months) return `/ ${p.duration_months === 1 ? 'month' : `${p.duration_months} months`}`;
-  if (p.duration_days) return `/ ${p.duration_days === 1 ? 'day' : `${p.duration_days} days`}`;
-  return '';
-}
-
-/** Monthly-equivalent cost, for comparing a 12-month plan against a monthly one.
- *  Null when the plan has no price or no duration to divide by. */
-function monthlyEquivalent(p: Plan): number | null {
+/** Monthly-equivalent price, so "from ₦X/mo" compares a 12-month plan against a
+ *  monthly one honestly (§3: lowest PER MONTH, not the cheapest total). */
+function perMonth(p: Plan): number | null {
   if (p.price == null) return null;
   const months = p.duration_months ?? (p.duration_days ? p.duration_days / 30 : null);
   if (!months || months <= 0) return null;
   return Number(p.price) / months;
 }
 
-export default async function GymLanding({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const page = await loadGymPage(slug);
-  if (!page) notFound();
-  const { gym, plans, classes, hours, coaches, ptPlans } = page;
-  const amenities = (gym.amenities ?? []).filter((a) => typeof a === 'string' && a.trim());
-  const socials = SOCIALS
-    .map((s) => ({ ...s, value: (gym.social_links ?? {})[s.key] }))
-    .filter((s): s is typeof s & { value: string } => typeof s.value === 'string' && s.value.trim().length > 0);
-  const gallery = (gym.gallery_urls ?? []).filter((u) => typeof u === 'string' && u.trim());
-  const igPosts = (gym.instagram_posts ?? []).filter((u) => typeof u === 'string' && u.trim()).slice(0, 6);
-  const igHandle = (gym.social_links ?? {}).instagram;
-  const integ = gym.integrations ?? {};
+function planPeriod(p: Plan): string {
+  if (p.duration_months === 1) return ' /mo';
+  if (p.duration_months === 12) return ' /yr';
+  if (p.duration_months) return ` /${p.duration_months} mo`;
+  if (p.duration_days === 1) return ' /day';
+  if (p.duration_days) return ` /${p.duration_days} days`;
+  return '';
+}
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+async function loadGym(slug: string) {
+  const { db, privileged } = await getClient();
+  const { data: gymRow } = await db.from('gyms').select('*').eq('slug', slug).maybeSingle();
+  if (!gymRow) return null;
+  const gym = gymRow as unknown as Gym;
 
-  // Default to GymFlow green when the gym hasn't picked a brand colour.
-  const brand = gym.brand_color || '#11d18b';
-  const style: CSSProperties = {
-    '--gf-brand': brand,
-    '--gf-brand-light': `color-mix(in srgb, ${brand} 72%, white)`,
-    '--gf-brand-dark': `color-mix(in srgb, ${brand} 78%, black)`,
-    '--gf-brand-soft': `color-mix(in srgb, ${brand} 14%, transparent)`,
-    '--gf-brand-glow': `color-mix(in srgb, ${brand} 32%, transparent)`,
-  } as CSSProperties;
-
-  const openDays = hours.filter((h) => !h.is_closed && h.open_time);
-
-  // Live status. Gyms and their members are in WAT, so the clock has to be too
-  // — a UTC "now" would call a 9pm-closing gym shut an hour early.
   const now = watNow();
+  const todayDow = now.getDay();
+
+  const [plansRes, hoursRes, zonesRes, schedRes, staffRes, occRes, trafficRes] = await Promise.all([
+    db.from('membership_plans').select('id, name, price, duration_months, duration_days, description, features')
+      .eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
+    db.from('business_hours').select('day_of_week, open_time, close_time, is_closed')
+      .eq('gym_id', gym.id).order('day_of_week', { ascending: true }).order('open_time', { ascending: true }),
+    // `as never` on gym_zones and the two rpcs: all three postdate the generated
+    // lib/database.types.ts, the same pattern webhook_events uses in the Paystack
+    // route. Results are cast to the local row types below.
+    db.from('gym_zones' as never).select('id, name, blurb, photo_path').eq('gym_id', gym.id)
+      .order('sort_order', { ascending: true }).limit(8),
+    // Today's timetable, in the order it runs.
+    db.from('class_schedules')
+      .select('id, start_time, room, class_id, instructor_id, classes(name, duration_minutes, max_capacity, category, instructor)')
+      .eq('gym_id', gym.id).eq('is_active', true).eq('day_of_week', todayDow)
+      .order('start_time', { ascending: true }),
+    db.from('gym_staff_links').select('user_id').eq('gym_id', gym.id).eq('role', 'instructor').eq('is_active', true).limit(6),
+    (db as unknown as RpcClient).rpc('gym_live_occupancy', { p_gym: gym.id }),
+    (db as unknown as RpcClient).rpc('gym_hourly_traffic', { p_gym: gym.id, p_days: 30 }),
+  ]);
+
+  // Coach profiles are only readable with the service role (profiles is gated by
+  // can_see_profile), so this section is absent rather than empty on the anon path.
+  const coachIds = ((staffRes.data as { user_id: string }[] | null) ?? []).map((s) => s.user_id);
+  const coaches = coachIds.length
+    ? (((await db.from('profiles').select('id, full_name, photo_url, avatar_url, specialisation, bio').in('user_id', coachIds)).data as Coach[] | null) ?? [])
+    : [];
+
+  // Spot counts need to see other members' bookings — privileged only. Without
+  // it we render the class with no count rather than an inflated one.
+  const rawSlots = (schedRes.data ?? []) as unknown as {
+    id: string; start_time: string; room: string | null; instructor_id: string | null;
+    classes: { name: string; duration_minutes: number | null; max_capacity: number | null; category: string | null; instructor: string | null } | null;
+  }[];
+  let bookedBySchedule = new Map<string, number>();
+  if (privileged && rawSlots.length) {
+    const todayIso = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+    const { data: bk } = await db.from('class_bookings')
+      .select('class_schedule_id')
+      .eq('gym_id', gym.id).eq('booking_date', todayIso).eq('status', 'booked')
+      .in('class_schedule_id', rawSlots.map((s) => s.id));
+    bookedBySchedule = ((bk ?? []) as { class_schedule_id: string | null }[]).reduce((m, r) => {
+      if (r.class_schedule_id) m.set(r.class_schedule_id, (m.get(r.class_schedule_id) ?? 0) + 1);
+      return m;
+    }, new Map<string, number>());
+  }
+
+  const slots: Slot[] = rawSlots
+    .filter((s) => s.classes)
+    .map((s) => ({
+      id: s.id,
+      start_time: s.start_time,
+      room: s.room,
+      name: s.classes!.name,
+      duration: s.classes!.duration_minutes,
+      capacity: s.classes!.max_capacity,
+      category: s.classes!.category,
+      coach: s.classes!.instructor,
+      booked: privileged ? (bookedBySchedule.get(s.id) ?? 0) : null,
+    }));
+
+  return {
+    gym,
+    plans: (plansRes.data as Plan[] | null) ?? [],
+    hours: (hoursRes.data as Hours[] | null) ?? [],
+    zones: (zonesRes.data as unknown as Zone[] | null) ?? [],
+    coaches: coaches.filter((c) => (c.full_name ?? '').trim()),
+    slots,
+    inNow: typeof occRes.data === 'number' ? (occRes.data as number) : null,
+    traffic: (trafficRes.data as unknown as { hour_of_day: number; visits: number }[] | null) ?? [],
+    now,
+  };
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const page = await loadGym(slug);
+  if (!page) return { title: 'Gym not found', robots: { index: false } };
+  const { gym } = page;
+  const where = [gym.city, gym.state].filter(Boolean).join(', ');
+  const canonical = `https://${slug}.${ROOT_DOMAIN}/`;
+  const description = gym.description || gym.tagline
+    || `Membership, classes and opening hours at ${gym.name}${where ? ` in ${where}` : ''}. Join online and train today.`;
+  const og = gym.hero_image_url || gym.logo_url || '/images/og.png';
+  return {
+    title: where ? `${gym.name} — ${where}` : gym.name,
+    description,
+    alternates: { canonical },
+    openGraph: { title: gym.name, description, type: 'website', url: canonical, images: [{ url: og, alt: gym.name }] },
+    twitter: { card: 'summary_large_image', title: gym.name, description, images: [og] },
+  };
+}
+
+export default async function GymPublicPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const page = await loadGym(slug);
+  if (!page) notFound();
+  const { gym, plans, hours, zones, coaches, slots, inNow, traffic, now } = page;
+
+  // ── Tenant theme. Set inline on the server-rendered wrapper so there's never
+  // a flash of GymFlow's colour on a gym's page. ──
+  const style = accentVars(gym.accent_color, gym.accent_ink) as unknown as CSSProperties;
+
+  const area = [gym.city, gym.state].filter(Boolean).join(' · ');
   const status = openStateFor(hours, now);
   const todayHours = todayHoursLabel(hours, now);
-  const daysPerWeek = openDaysPerWeek(hours);
+  const joinHref = `/join/${gym.slug}` as Route;
 
-  // Cheapest monthly-equivalent price, for the hero's price anchor. "From
-  // ₦12,000/month" answers the first question a visitor actually has; a count
-  // of how many plans exist answers nobody's.
-  const monthlyPrices = plans.map(monthlyEquivalent).filter((v): v is number => v != null && v > 0);
-  const fromPrice = monthlyPrices.length ? Math.min(...monthlyPrices) : null;
-  // Best value = lowest cost per month among plans that state a duration. Named
-  // from the data rather than a "Most popular" badge we'd have to invent.
-  const bestValueId = (() => {
-    const priced = plans.map((p) => ({ id: p.id, m: monthlyEquivalent(p) })).filter((x): x is { id: string; m: number } => x.m != null && x.m > 0);
-    if (priced.length < 2) return null;
-    return priced.reduce((a, b) => (b.m < a.m ? b : a)).id;
-  })();
-
-  const scheduled = classes.filter((c) => c.day_of_week != null && c.start_time);
-
-  // Details derived from the real rows, for the glance card and "Good to know".
-  // Each one is a fact the gym has entered — nothing here is a stock claim.
-  const dayPass = plans.find((p) => p.duration_days === 1 && p.price != null) ?? null;
-  const hasRollingMonthly = plans.some((p) => p.duration_months === 1);
-  const freezeEnabled = gym.member_freeze_enabled !== false;
-  const cac = gym.cac_number?.trim() || null;
-  const categories = [...new Set(classes.map((c) => c.category).filter((c): c is string => !!c && c.trim().length > 0))];
-  const levels = [...new Set(classes.map((c) => c.level).filter((l): l is string => !!l && l !== 'all'))];
-  const coachList = coaches.filter((c) => (c.full_name ?? '').trim().length > 0);
-  const ptFrom = ptPlans.map((p) => Number(p.price)).filter((n) => Number.isFinite(n) && n > 0);
-  const ptFromPrice = ptFrom.length ? Math.min(...ptFrom) : null;
-
+  const whatsapp = (gym.social_links ?? {}).whatsapp?.replace(/\D/g, '') || null;
+  const waHref = whatsapp
+    ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(`Hi ${gym.name}, I'd like to know more about joining.`)}`
+    : null;
   const directionsHref = (gym.address || gym.city)
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([gym.name, gym.address, gym.city, gym.state].filter(Boolean).join(', '))}`
     : null;
 
-  // typedRoutes: a dynamic path assembled into a const loses its route type,
-  // so it is asserted once here (house pattern — see components/pagination.tsx).
-  const joinHref = `/join/${gym.slug}` as Route;
+  // Hero facts + the sticky bar's price all come off the true cheapest per-month.
+  const monthly = plans.map(perMonth).filter((v): v is number => v != null && v > 0);
+  const fromPrice = monthly.length ? Math.min(...monthly) : null;
+  // No is_popular column, so the flag is DERIVED from price rather than invented:
+  // the plan with the lowest cost per month, and only when there's a choice.
+  const bestId = (() => {
+    const priced = plans.map((p) => ({ id: p.id, m: perMonth(p) })).filter((x): x is { id: string; m: number } => x.m != null && x.m > 0);
+    if (priced.length < 2) return null;
+    return priced.reduce((a, b) => (b.m < a.m ? b : a)).id;
+  })();
 
-  // Jump links for the sticky bar — only sections that actually rendered.
-  const navSections: GymNavSection[] = [
-    plans.length > 0 ? { id: 'plans', label: 'Plans' } : null,
-    classes.length > 0 ? { id: 'classes', label: 'Classes' } : null,
-    coachList.length > 0 ? { id: 'coaches', label: 'Coaches' } : null,
-    gallery.length > 0 ? { id: 'gallery', label: 'Gallery' } : null,
-    openDays.length > 0 ? { id: 'hours', label: 'Hours' } : null,
-    (gym.address || gym.phone || gym.email) ? { id: 'visit', label: 'Visit' } : null,
-  ].filter(Boolean) as GymNavSection[];
+  // ── Live occupancy (§4). Hidden entirely for a gym with no capacity set or no
+  // check-in history — "0 of 120" is a worse signal than no signal. ──
+  const showOcc = gym.capacity != null && gym.capacity > 0 && inNow != null && traffic.length > 0;
+  const pct = showOcc ? Math.min(100, Math.round((inNow! / gym.capacity!) * 100)) : 0;
+  const occState = pct < 40 ? { label: 'Quiet · plenty of space', cls: '' }
+    : pct < 75 ? { label: 'Busy', cls: 'busy' }
+      : { label: 'Very busy · expect a wait', cls: 'packed' };
+  // Busiest/quietest from the 30-day aggregate, never from today.
+  const band = (h: number) => `${String(h).padStart(2, '0')}:00–${String((h + 2) % 24).padStart(2, '0')}:00`;
+  const busiest = traffic.length ? traffic.reduce((a, b) => (Number(b.visits) > Number(a.visits) ? b : a)) : null;
+  const quietest = traffic.length ? traffic.reduce((a, b) => (Number(b.visits) < Number(a.visits) ? b : a)) : null;
 
-  // Local-business structured data — the gym landing is the strongest rich-result
-  // target (real local business with address, hours, contact).
-  const canonical = `https://${gym.slug}.${ROOT_HOST}/`;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const mins = (t: string) => { const [h, m] = t.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  const nextSlot = slots.find((s) => mins(s.start_time) >= nowMin) ?? null;
+  const spotsFor = (s: Slot) => (s.capacity == null || s.booked == null ? null : Math.max(0, s.capacity - s.booked));
+
+  const zoneUrl = (p: string | null) =>
+    p ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/gym-assets/${p}` : null;
+
+  const canonical = `https://${gym.slug}.${ROOT_DOMAIN}/`;
+  const openDays = hours.filter((h) => !h.is_closed && h.open_time);
+  // ExerciseGym + real opening hours. No aggregateRating: this gym has no review
+  // data, and inventing one is exactly what §6 forbids.
   const gymLd = ldJson({
     '@context': 'https://schema.org',
-    '@type': 'HealthClub',
+    '@type': 'ExerciseGym',
     name: gym.name,
     url: canonical,
     image: gym.hero_image_url || gym.logo_url || undefined,
@@ -251,11 +257,9 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
     telephone: gym.phone || undefined,
     email: gym.email || undefined,
     address: (gym.address || gym.city)
-      ? { '@type': 'PostalAddress', streetAddress: gym.address || undefined, addressLocality: gym.city || undefined, addressCountry: 'NG' }
+      ? { '@type': 'PostalAddress', streetAddress: gym.address || undefined, addressLocality: gym.city || undefined, addressRegion: gym.state || undefined, addressCountry: 'NG' }
       : undefined,
-    // Price range from the real plans — Google shows it in local results, and
-    // it costs nothing now that the cheapest plan is already computed.
-    priceRange: fromPrice ? `${fmtNaira(Math.min(...monthlyPrices))}–${fmtNaira(Math.max(...monthlyPrices))}` : undefined,
+    priceRange: monthly.length ? `${fmtNaira(Math.round(Math.min(...monthly)))}–${fmtNaira(Math.round(Math.max(...monthly)))}` : undefined,
     openingHoursSpecification: openDays.map((h) => ({
       '@type': 'OpeningHoursSpecification',
       dayOfWeek: DAYS[h.day_of_week],
@@ -263,453 +267,409 @@ export default async function GymLanding({ params }: { params: Promise<{ slug: s
       closes: String(h.close_time ?? '').slice(0, 5),
     })),
   });
-  // gym.name / description are gym-owner-controlled and go into the document
-  // through dangerouslySetInnerHTML — ldJson() is what stops a literal
-  // </script> in either from breaking out of the tag (lib/ld-json.ts).
+
+  const NAV = [
+    plans.length > 0 ? ['#plans', 'Membership'] : null,
+    slots.length > 0 ? ['#classes', 'Classes'] : null,
+    zones.length > 0 ? ['#gym', 'The gym'] : null,
+    ['#app', 'App'],
+    ['#visit', 'Visit'],
+  ].filter(Boolean) as [string, string][];
 
   return (
-    <main id="main-content" className="gymland" style={style}>
+    <div className="gym-public" style={style}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: gymLd }} />
-      {/* decorative backdrop: drifting orbs, outline rings, dotted grid */}
-      <div className="gl-decor" aria-hidden>
-        <span className="gl-orb gl-orb-1" />
-        <span className="gl-orb gl-orb-2" />
-        <span className="gl-ring gl-ring-1" />
-        <span className="gl-ring gl-ring-2" />
-      </div>
 
-      <GymNav gymName={gym.name} logoUrl={gym.logo_url} joinHref={joinHref} signedIn={!!user} sections={navSections} />
-
-      {/* ── Hero ──
-          Order of what a visitor needs: who you are, whether you're open right
-          now, what it costs, and how to join.
-
-          Desktop is a two-column band — copy left, an at-a-glance card right —
-          rather than one centred column with the facts stacked underneath it.
-          Same content, roughly two-thirds the height, and it uses the width a
-          1440px viewport actually has. It collapses to the centred stack on
-          phones, where a side-by-side hero has nowhere to go. */}
-      <header className="gl-hero gl-hero-photo">
-        {/* Gym's own hero photo when set, else a bundled gym backdrop so the
-            page never looks empty. A dark scrim keeps the text legible.
-            This is the page's LCP element: `priority` preloads it and sets
-            fetchPriority/decoding for us. */}
-        <Image className="gl-hero-bg" src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" aria-hidden fill priority sizes="100vw" />
-        <div className="gl-hero-scrim" aria-hidden />
-        <div className="gl-hero-in">
-          <div className="gl-hero-copy">
-            <span className="gl-logo">
-              {gym.logo_url ? (
-                <Image src={gym.logo_url} alt="" width={84} height={84} />
-              ) : (
-                <Dumbbell strokeWidth={1.9} />
-              )}
+      {/* ── NAV ── */}
+      <nav className="nav">
+        <div className="wrap nav-in">
+          <a className="gym" href="#top">
+            <span className="sq">
+              {gym.logo_url ? <Image src={gym.logo_url} alt="" width={42} height={42} /> : initial(gym.name)}
             </span>
-
+            <span className="nm">
+              <strong>{gym.name}</strong>
+              {area && <small>{area}</small>}
+            </span>
+          </a>
+          <div className="nav-r">
+            <div className="nav-links">
+              {NAV.map(([href, label]) => <a key={href} href={href}>{label}</a>)}
+            </div>
             {status && (
-              <p className={`gl-status${status.open ? ' is-open' : ''}`}>
-                <span className="gl-status-dot" aria-hidden />
-                <b>{status.label}</b>
-                {status.detail && <span>· {status.detail}</span>}
-              </p>
+              <span className={`open${status.open ? '' : ' shut'}`}>
+                <span className="dot" />{status.label}{status.detail ? ` · ${status.detail}` : ''}
+              </span>
             )}
-
-            <h1 className="gl-name">{gym.name}</h1>
-            {(gym.city || gym.state) && <p className="gl-loc"><MapPin size={14} strokeWidth={2} /> {[gym.address, gym.city, gym.state].filter(Boolean).join(', ')}</p>}
-            <p className="gl-tag">{gym.tagline || 'Check in, book classes and manage your membership — all from your phone.'}</p>
-
-            {user ? (
-              <div className="gl-cta">
-                <Link href="/launch" className="gf-btn gf-btn-primary gf-btn-lg">Go to your dashboard <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} /></Link>
-                <span className="gl-cta-note">Signed in as {user.email}</span>
-              </div>
-            ) : (
-              // Join leads. Signing in is what returning members do — they know
-              // where it is; a first-time visitor is who this page is for.
-              <div className="gl-cta">
-                <Link href={joinHref} className="gf-btn gf-btn-primary gf-btn-lg"><UserPlus strokeWidth={2} style={{ width: 17, height: 17 }} /> Join {gym.name}</Link>
-                <Link href="/login" className="gf-btn gf-btn-secondary gf-btn-lg"><LogIn strokeWidth={2} style={{ width: 17, height: 17 }} /> Sign in</Link>
-              </div>
+            <ThemeToggle size={38} />
+            {waHref && (
+              <a href={waHref} className="b b-out b-sm" target="_blank" rel="noreferrer">
+                <MessageCircle strokeWidth={1.75} /> WhatsApp
+              </a>
             )}
-
-            {/* Reassurance strip — every item is a fact from this gym's own
-                settings, not stock copy, so it stays honest per tenant. */}
-            <ul className="gl-trust">
-              {cac && <li><ShieldCheck size={14} strokeWidth={2} /> Registered business · {cac}</li>}
-              {hasRollingMonthly && <li><CalendarDays size={14} strokeWidth={2} /> Rolling monthly plan</li>}
-              {freezeEnabled && <li><Snowflake size={14} strokeWidth={2} /> Freeze while you travel</li>}
-              <li><CreditCard size={14} strokeWidth={2} /> Card or bank transfer</li>
-            </ul>
+            <a href="#plans" className="b b-acc b-sm">Join now</a>
           </div>
+        </div>
+      </nav>
 
-          {/* At a glance: the questions asked before walking in. Priced items
-              link to the section that answers them in full. */}
-          <aside className="gl-glance" aria-label={`${gym.name} at a glance`}>
+      {/* ── HERO ── */}
+      <header className="hero" id="top">
+        <div className="hero-bg" aria-hidden>
+          <Image src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" fill priority sizes="100vw" />
+        </div>
+        <div className="wrap hero-in">
+          <h1>{gym.tagline || <>Train at <em>{gym.name}</em>.</>}</h1>
+          {gym.description && <p className="pitch">{gym.description}</p>}
+          <div className="hero-cta">
+            <a href="#plans" className="b b-acc"><ArrowRight strokeWidth={1.75} /> Join {gym.name}</a>
+            {slots.length > 0 && <a href="#classes" className="b b-out"><CalendarDays strokeWidth={1.75} /> See today&apos;s classes</a>}
+          </div>
+          <dl className="hero-facts">
             {fromPrice != null && (
-              <a className="gl-glance-head" href="#plans">
-                <span className="gl-fact-k">Membership from</span>
-                <b className="gl-glance-price">{fmtNaira(Math.round(fromPrice))}<small>/month</small></b>
-              </a>
+              <div className="fact"><dt>Membership from</dt><dd><span>{fmtNaira(Math.round(fromPrice))}</span><small> /mo</small></dd></div>
             )}
-            <dl className="gl-glance-list">
-              {todayHours && (
-                <div><dt><Clock size={14} strokeWidth={2} /> Today</dt><dd>{todayHours}</dd></div>
-              )}
-              {daysPerWeek > 0 && (
-                <div><dt><CalendarDays size={14} strokeWidth={2} /> Open</dt><dd>{daysPerWeek === 7 ? 'Every day' : `${daysPerWeek} days a week`}</dd></div>
-              )}
-              {dayPass?.price != null && (
-                <div><dt><Ticket size={14} strokeWidth={2} /> Day pass</dt><dd>{fmtNaira(Number(dayPass.price))}</dd></div>
-              )}
-              {classes.length > 0 && (
-                <div><dt><CalendarCheck size={14} strokeWidth={2} /> Classes</dt><dd>{classes.length === 1 ? '1 class' : `${classes.length}${classes.length === 24 ? '+' : ''} a week`}</dd></div>
-              )}
-              {coachList.length > 0 && (
-                <div><dt><Users size={14} strokeWidth={2} /> Coaches</dt><dd>{coachList.length} on the floor</dd></div>
-              )}
-              {ptFromPrice != null && (
-                <div><dt><Dumbbell size={14} strokeWidth={2} /> 1-to-1 from</dt><dd>{fmtNaira(ptFromPrice)}</dd></div>
-              )}
-            </dl>
-            {directionsHref && (
-              <a className="gl-glance-cta" href={directionsHref} target="_blank" rel="noreferrer">
-                <Navigation size={15} strokeWidth={2} /> Get directions
-              </a>
+            {gym.day_pass_price != null && (
+              <div className="fact"><dt>Day pass</dt><dd>{fmtNaira(Number(gym.day_pass_price))}</dd></div>
             )}
-          </aside>
+            {todayHours && <div className="fact"><dt>Today</dt><dd>{todayHours}</dd></div>}
+            {gym.joining_fee != null && (
+              <div className="fact"><dt>Joining fee</dt><dd>{Number(gym.joining_fee) === 0 ? 'None' : fmtNaira(Number(gym.joining_fee))}</dd></div>
+            )}
+          </dl>
         </div>
       </header>
 
-      {/* ── About · what's here · good to know ──
-          One band, three columns on desktop. These were three consecutive
-          full-width sections, each using a fraction of the row it occupied —
-          about 700px of scroll for a paragraph, a chip row and nothing else. */}
-      {(gym.description || amenities.length > 0) && (
-        <Reveal><section className="gl-section gl-about-band" aria-labelledby="about-h">
-          <div className="gl-about-main">
-            <h2 className="gl-h2" id="about-h">{gym.description ? `About ${gym.name}` : `What's at ${gym.name}`}</h2>
-            {gym.description && <p className="gl-about">{gym.description}</p>}
-            {/* Good to know: the membership terms a visitor asks at the desk.
-                Each line is conditional on the gym's own configuration. */}
-            <ul className="gl-know">
-              {freezeEnabled && <li><Snowflake size={15} strokeWidth={2} /><span><b>Freeze, don&apos;t forfeit.</b> Away for a while? Pause your membership from the app and pick it up when you&apos;re back.</span></li>}
-              {dayPass?.price != null && <li><Ticket size={15} strokeWidth={2} /><span><b>Try before you commit.</b> A day pass is {fmtNaira(Number(dayPass.price))} — full access, no membership needed.</span></li>}
-              {classes.length > 0 && <li><CalendarCheck size={15} strokeWidth={2} /><span><b>Classes are included.</b> Book a spot from your phone; we&apos;ll remind you before it starts.</span></li>}
-              <li><QrCode size={15} strokeWidth={2} /><span><b>No card to lose.</b> Check in with a code on your phone — or read out your member number at the desk.</span></li>
-              <li><CreditCard size={15} strokeWidth={2} /><span><b>Pay how you like.</b> Card, bank transfer or USSD, and every payment gets a receipt you can pull up any time.</span></li>
-            </ul>
-          </div>
-
-          {amenities.length > 0 && (
-            <div className="gl-about-side">
-              <h3 className="gl-h3">What&apos;s here</h3>
-              <div className="gl-amenities">
-                {amenities.map((a, i) => (
-                  <span className="gl-amenity" key={i}><Check size={15} strokeWidth={2.5} /> {a}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </section></Reveal>
-      )}
-
-      {/* ── Membership plans ──
-          Moved directly under the hero: this is the decision the page exists to
-          support. It used to sit sixth, below an Instagram embed. */}
-      {plans.length > 0 && (
-        <Reveal><section className="gl-section" id="plans" aria-labelledby="plans-h">
-          <h2 className="gl-h2" id="plans-h">Membership plans</h2>
-          <p className="gl-section-lede">Pick a plan when you join — you can change it any time from your dashboard.</p>
-          <div className="gl-plans">
-            {plans.map((p) => {
-              const feats = Array.isArray(p.features) ? (p.features as unknown[]).filter((f): f is string => typeof f === 'string').slice(0, 5) : [];
-              const perMonth = monthlyEquivalent(p);
-              const best = p.id === bestValueId;
-              return (
-                <Tilt className={`gl-plan${best ? ' is-best' : ''}`} key={p.id}>
-                  {best && <span className="gl-plan-flag">Best value</span>}
-                  <div className="gl-plan-name">{p.name}</div>
-                  <div className="gl-plan-price">{p.price != null ? fmtNaira(Number(p.price)) : '—'}<small>{planPeriod(p)}</small></div>
-                  {/* Only worth showing when it isn't just the price again. */}
-                  {perMonth != null && (p.duration_months ?? 0) > 1 && (
-                    <div className="gl-plan-permonth">≈ {fmtNaira(Math.round(perMonth))} a month</div>
-                  )}
-                  {p.description && <p className="gl-plan-desc">{p.description}</p>}
-                  {feats.length > 0 && (
-                    <ul className="gl-plan-feats">{feats.map((f, i) => <li key={i}><Check size={14} strokeWidth={2.5} /> {f}</li>)}</ul>
-                  )}
-                  {/* Carries the choice into the join flow — the old link dropped
-                      it, so "Choose Gold" and "Join" led to identical screens. */}
-                  <Link href={`${joinHref}?plan=${p.id}` as Route} className={`gf-btn ${best ? 'gf-btn-primary' : 'gf-btn-secondary'} gf-btn-sm gf-btn-full`} style={{ marginTop: 'auto' }}>
-                    Choose {p.name}
-                  </Link>
-                </Tilt>
-              );
-            })}
-          </div>
-        </section></Reveal>
-      )}
-
-      {/* ── Classes: a timetable when the gym has scheduled them, cards when not ── */}
-      {classes.length > 0 && (
-        <Reveal><section className="gl-section" id="classes" aria-labelledby="classes-h">
-          <h2 className="gl-h2" id="classes-h">Classes</h2>
-          {/* What kind of classes, and who they're pitched at — answerable from
-              the rows themselves, and the first thing someone scanning a
-              timetable wants to know. */}
-          {(categories.length > 0 || levels.length > 0) && (
-            <div className="gl-tags">
-              {categories.map((c) => <span className="gl-tag-chip" key={c}>{c}</span>)}
-              {levels.length > 0 && <span className="gl-tag-chip is-level">Levels: {levels.join(' · ')}</span>}
-            </div>
-          )}
-          {scheduled.length > 0 ? (
-            <>
-              <p className="gl-section-lede">Book any of these from the app once you&apos;re a member.</p>
-              <div className="gl-timetable">
-                {WEEK.map((d) => {
-                  const list = scheduled
-                    .filter((c) => c.day_of_week === d)
-                    .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
-                  if (list.length === 0) return null;
-                  return (
-                    <div className="gl-tt-day" key={d}>
-                      <div className="gl-tt-dayname">
-                        <b>{DAY_SHORT[d]}</b>
-                        <span>{DAYS[d]}</span>
-                      </div>
-                      <ul className="gl-tt-list">
-                        {list.map((c) => (
-                          <li className="gl-tt-item" key={c.id}>
-                            <time className="gl-tt-time">{fmt12Hr(String(c.start_time).slice(0, 5))}</time>
-                            <span className="gl-tt-name">{c.name}</span>
-                            <span className="gl-tt-meta">
-                              {[c.duration_minutes ? `${c.duration_minutes} min` : null, c.level && c.level !== 'all' ? c.level : null].filter(Boolean).join(' · ')}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Classes with no day/time still exist — list them so the page
-                  doesn't silently hide half the timetable. */}
-              {classes.length > scheduled.length && (
-                <div className="gl-classes" style={{ marginTop: 14 }}>
-                  {classes.filter((c) => c.day_of_week == null || !c.start_time).map((c) => (
-                    <div className="gl-class" key={c.id}>
-                      <strong>{c.name}</strong>
-                      <span>{[c.category, c.duration_minutes ? `${c.duration_minutes} min` : null].filter(Boolean).join(' · ') || 'Group class'}</span>
-                    </div>
-                  ))}
+      {/* ── LIVE STRIP — the one thing a Wix site can't render ── */}
+      {(showOcc || nextSlot || slots.length > 0) && (
+        <div className="live">
+          <div className="wrap live-in">
+            {showOcc && (
+              <div>
+                <div className="lab"><span className="pulse" />How busy it is right now</div>
+                <div className="occ">
+                  <div className="top">
+                    <span className="n">{inNow}</span>
+                    <span className={`st ${occState.cls}`}>{occState.label}</span>
+                  </div>
+                  <div className="bar"><i style={{ width: `${Math.max(pct, 2)}%` }} /></div>
+                  <div className="hint">
+                    {inNow} of {gym.capacity} checked in
+                    {busiest && ` · busiest ${band(busiest.hour_of_day)}`}
+                    {quietest && busiest && quietest.hour_of_day !== busiest.hour_of_day && ` · quietest ${band(quietest.hour_of_day)}`}
+                  </div>
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="gl-classes">
-              {classes.map((c) => (
-                <Tilt className="gl-class" key={c.id} max={9}>
-                  <strong>{c.name}</strong>
-                  <span>{[c.category, c.duration_minutes ? `${c.duration_minutes} min` : null, c.level && c.level !== 'all' ? c.level : null].filter(Boolean).join(' · ') || 'Group class'}</span>
-                </Tilt>
-              ))}
-            </div>
-          )}
-        </section></Reveal>
-      )}
-
-      {/* ── Coaches + personal training ──
-          Who you'd be trained by is a standard landing-page section this page
-          never had, and the data was already there (instructor staff links +
-          their profile bios). PT rates ride along rather than taking a band of
-          their own. */}
-      {(coachList.length > 0 || ptPlans.length > 0) && (
-        <Reveal><section className="gl-section" id="coaches" aria-labelledby="coaches-h">
-          <h2 className="gl-h2" id="coaches-h">{coachList.length > 0 ? 'Meet the coaches' : 'Personal training'}</h2>
-          {coachList.length > 0 && (
-            <>
-              <p className="gl-section-lede">Every class is coached, and any of them will walk you through the floor on your first visit.</p>
-              <div className="gl-coaches">
-                {coachList.map((c) => {
-                  const photo = c.photo_url || c.avatar_url;
-                  const initials = (c.full_name ?? '').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
-                  return (
-                    <div className="gl-coach" key={c.id}>
-                      <span className="gl-coach-face">
-                        {photo ? <Image src={photo} alt="" width={72} height={72} /> : <b aria-hidden>{initials || <Dumbbell strokeWidth={1.9} />}</b>}
-                      </span>
-                      <strong>{c.full_name}</strong>
-                      {c.specialisation && <span className="gl-coach-spec">{c.specialisation}</span>}
-                      {c.certifications && <span className="gl-coach-cert"><Award size={13} strokeWidth={2} /> {c.certifications}</span>}
-                      {c.bio && <p>{c.bio}</p>}
-                    </div>
-                  );
-                })}
               </div>
-            </>
-          )}
-
-          {ptPlans.length > 0 && (
-            <div className="gl-pt">
-              <div className="gl-pt-intro">
-                <h3 className="gl-h3">One-to-one training</h3>
-                <p>Want someone in your corner every session? Book personal training with any of the coaches once you&apos;re a member.</p>
-              </div>
-              <div className="gl-pt-plans">
-                {ptPlans.map((p) => {
-                  const feats = Array.isArray(p.features) ? (p.features as unknown[]).filter((f): f is string => typeof f === 'string').slice(0, 3) : [];
-                  const per = p.billing_period === 'session' ? '/ session' : p.billing_period === 'month' ? '/ month' : p.duration_days ? `/ ${p.duration_days} days` : '';
-                  return (
-                    <div className="gl-pt-plan" key={p.id}>
-                      <span className="gl-pt-name">{p.plan_name || 'Personal training'}</span>
-                      <b>{p.price != null ? fmtNaira(Number(p.price)) : '—'}<small>{per}</small></b>
-                      {feats.length > 0 && <ul>{feats.map((f, i) => <li key={i}><Check size={13} strokeWidth={2.5} /> {f}</li>)}</ul>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </section></Reveal>
-      )}
-
-      {/* ── Gallery ── */}
-      {gallery.length > 0 && (
-        <Reveal><section className="gl-section" id="gallery" aria-labelledby="gallery-h">
-          <h2 className="gl-h2" id="gallery-h">Inside {gym.name}</h2>
-          <div className="gl-gallery">
-            {gallery.map((url, i) => (
-              // `sizes` matters here: the grid is ~240px wide on a phone, and
-              // without it next/image serves a viewport-width source for every
-              // thumbnail — the single biggest byte cost on this page.
-              <Image
-                className="gl-gallery-img" src={url} alt={`${gym.name} photo ${i + 1}`} key={url}
-                width={800} height={600} sizes="(max-width: 700px) 45vw, 240px"
-              />
-            ))}
-          </div>
-        </section></Reveal>
-      )}
-
-      {/* ── Hours & location: the two things a visitor checks last, together ── */}
-      {(openDays.length > 0 || gym.address || gym.city || gym.phone || gym.email || gym.website) && (
-        <Reveal><section className="gl-section" id="hours" aria-labelledby="visit-h">
-          <h2 className="gl-h2" id="visit-h"><Clock size={17} strokeWidth={2} style={{ verticalAlign: '-3px', marginRight: 6 }} />{openDays.length > 0 ? 'Hours & location' : 'Find us'}</h2>
-          <div className="gl-visit">
-            {openDays.length > 0 && (() => {
-              // Group rows by day so a day with morning + evening sessions renders
-              // as one row with both ranges. Days with no rows are closed.
-              const byDay = new Map<number, typeof hours>();
-              for (const h of hours) {
-                const list = byDay.get(h.day_of_week) ?? [];
-                list.push(h);
-                byDay.set(h.day_of_week, list);
-              }
-              const todayIdx = now.getDay();
-              return (
-                <div className="gl-hours">
-                  {WEEK.map((d) => {
-                    const rows = (byDay.get(d) ?? []).filter((r) => !r.is_closed && r.open_time);
-                    return (
-                      <div className={`gl-hours-row${d === todayIdx ? ' is-today' : ''}`} key={d}>
-                        <span>{DAYS[d]}{d === todayIdx && <em> · today</em>}</span>
-                        <span>
-                          {rows.length === 0
-                            ? 'Closed'
-                            : rows.map((r) => `${fmt12Hr(String(r.open_time).slice(0, 5))} – ${fmt12Hr(String(r.close_time ?? '').slice(0, 5))}`).join(' · ')}
-                        </span>
-                      </div>
-                    );
-                  })}
+            )}
+            {nextSlot && (
+              <div>
+                <div className="lab"><Zap strokeWidth={1.75} style={{ width: 13, height: 13 }} /> Next class</div>
+                <div className="nx">
+                  <strong>{fmt12Hr(nextSlot.start_time.slice(0, 5))} · {nextSlot.name}</strong>
+                  <small>
+                    {[nextSlot.coach, spotsFor(nextSlot) === 0 ? 'waitlist only' : spotsFor(nextSlot) != null ? `${spotsFor(nextSlot)} spots left` : null]
+                      .filter(Boolean).join(' · ')}
+                  </small>
                 </div>
-              );
-            })()}
-
-            <div className="gl-contact" id="visit">
-              {(gym.address || gym.city) && <div className="gl-contact-row"><MapPin size={16} strokeWidth={1.9} /><span>{[gym.address, gym.city, gym.state].filter(Boolean).join(', ')}</span></div>}
-              {/* An address you can't navigate to is trivia. */}
-              {directionsHref && (
-                <a className="gl-contact-row gl-directions" href={directionsHref} target="_blank" rel="noreferrer">
-                  <Navigation size={16} strokeWidth={1.9} /><span>Get directions</span>
-                </a>
-              )}
-              {gym.phone && <a className="gl-contact-row" href={`tel:${gym.phone}`}><Phone size={16} strokeWidth={1.9} /><span>{gym.phone}</span></a>}
-              {gym.email && <a className="gl-contact-row" href={`mailto:${gym.email}`}><Mail size={16} strokeWidth={1.9} /><span>{gym.email}</span></a>}
-              {gym.website && <a className="gl-contact-row" href={gym.website} target="_blank" rel="noreferrer"><Globe size={16} strokeWidth={1.9} /><span>{gym.website.replace(/^https?:\/\//, '')}</span></a>}
-              {socials.length > 0 && (
-                <div className="gl-socials">
-                  {socials.map((s) => (
-                    <a key={s.key} className="gl-social" href={s.href(s.value)} target="_blank" rel="noreferrer" aria-label={s.label} title={s.label}>
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden><path d={s.path} /></svg>
-                    </a>
-                  ))}
+              </div>
+            )}
+            {slots.length > 0 && (
+              <div>
+                <div className="lab"><CalendarCheck strokeWidth={1.75} style={{ width: 13, height: 13 }} /> Classes today</div>
+                <div className="nx">
+                  <strong>{slots.length} session{slots.length === 1 ? '' : 's'}</strong>
+                  <small>{[...new Set(slots.map((s) => s.name))].slice(0, 4).join(' · ')}</small>
                 </div>
-              )}
-            </div>
-          </div>
-        </section></Reveal>
-      )}
-
-      {/* ── On Instagram (curated posts embedded via Instagram's official embed) ── */}
-      {igPosts.length > 0 && (
-        <Reveal><section className="gl-section" aria-labelledby="ig-h">
-          <div className="gl-ig-head">
-            <h2 className="gl-h2" id="ig-h" style={{ margin: 0 }}>On Instagram</h2>
-            {igHandle && (
-              <a className="gl-ig-follow" href={igHandle.startsWith('http') ? igHandle : `https://instagram.com/${igHandle.trim().replace(/^@+/, '')}`} target="_blank" rel="noreferrer">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden><path d={SOCIALS[0].path} /></svg>
-                Follow @{igHandle.trim().replace(/^@+/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/.*$/, '')}
-              </a>
+              </div>
             )}
           </div>
-          <InstagramEmbeds urls={igPosts} />
-        </section></Reveal>
+        </div>
       )}
 
-      {/* ── The membership experience + app install, as ONE section ──
-          These were two adjacent sections making the same pitch; the second
-          repeated the first with badges attached. */}
-      <Reveal><section className="gl-section" aria-labelledby="app-h">
-        <h2 className="gl-h2" id="app-h">Your membership, in your pocket</h2>
-        <div className="gl-features">
-          {[
-            { icon: QrCode, title: 'Tap to check in', body: `Scan or read out a code at the door — no cards, no queues. ${gym.name} sees you the moment you arrive.` },
-            { icon: CalendarCheck, title: 'Book classes', body: 'Reserve your spot in seconds and get a reminder before it starts, so you never miss a session.' },
-            { icon: Wallet, title: 'Manage your plan', body: 'Renew, view receipts and track your membership status — all self-service, all from your phone.' },
-          ].map((f) => { const Icon = f.icon; return (
-            <Tilt className="gl-feature" key={f.title} max={7}>
-              <span className="gl-feature-ic"><Icon strokeWidth={1.8} /></span>
-              <strong>{f.title}</strong>
-              <p>{f.body}</p>
-            </Tilt>
-          ); })}
-        </div>
-        {/* Install badges lead, copy explains underneath — the buttons are the
-            point of this panel, and burying them to the right of a paragraph
-            made them read as a footnote. DOM order matches visual order so the
-            reading and tab order lead with the action too. */}
-        <div className="gl-app-cta">
-          <AppInstall gymName={gym.name} />
-          <p>Install it free on your phone — it works offline and sits on your home screen like any other app.</p>
-        </div>
-      </section></Reveal>
-
-      {/* ── Footer CTA ── */}
-      {!user && (
-        <Reveal><section className="gl-final">
-          <h2>Ready to train with {gym.name}?</h2>
-          {status?.open && <p className="gl-final-note"><CalendarDays size={15} strokeWidth={2} /> Open right now — {status.detail}.</p>}
-          <div className="gl-cta">
-            <Link href={joinHref} className="gf-btn gf-btn-primary gf-btn-lg"><UserPlus strokeWidth={2} style={{ width: 17, height: 17 }} /> Join {gym.name}</Link>
-            <Link href="/login" className="gf-btn gf-btn-secondary gf-btn-lg">I already have an account</Link>
+      {/* ── MEMBER APP (install instructions, not store badges — §5) ── */}
+      <section className="sec alt" id="app">
+        <div className="wrap app-in">
+          <div className="app-vis">
+            <span className="app-ic">
+              {gym.logo_url ? <Image src={gym.logo_url} alt="" width={132} height={132} /> : initial(gym.name)}
+            </span>
+            <span className="nmx">
+              <strong>{gym.name}</strong>
+              <small>Your membership, on your home screen</small>
+            </span>
           </div>
-        </section></Reveal>
+          <div>
+            <span className="eb">Member app</span>
+            <h2 className="sech2">Install it on iPhone or Android.</h2>
+            <p className="secp">Works on both, straight from your browser — nothing to download from a store, and it updates itself.</p>
+            <InstallCards gymName={gym.name} />
+          </div>
+        </div>
+      </section>
+
+      {/* ── PLANS ── */}
+      {plans.length > 0 && (
+        <section className="sec" id="plans">
+          <div className="wrap">
+            <div className="sh">
+              <div>
+                <span className="eb">Membership</span>
+                <h2>Pick a plan. Train today.</h2>
+                <p>Pay with card or transfer and your access is live in minutes — no queue at the front desk.</p>
+              </div>
+              <span className="open"><span className="dot" />Instant activation</span>
+            </div>
+            <div className="plans">
+              {plans.map((p) => {
+                const feats = Array.isArray(p.features) ? (p.features as unknown[]).filter((f): f is string => typeof f === 'string').slice(0, 5) : [];
+                const pm = perMonth(p);
+                const best = p.id === bestId;
+                return (
+                  <div className={`plan${best ? ' pop' : ''}`} key={p.id}>
+                    {best && <span className="tag">Best value</span>}
+                    <div className="pn">{p.name}</div>
+                    <div className="amt">{p.price != null ? fmtNaira(Number(p.price)) : '—'}<small>{planPeriod(p)}</small></div>
+                    {pm != null && (p.duration_months ?? 0) > 1
+                      ? <div className="save">{fmtNaira(Math.round(pm))}/mo</div>
+                      : <div className="save plain">Rolling · cancel anytime</div>}
+                    {p.description && <p className="secp" style={{ margin: '10px 0 0', fontSize: '.88rem' }}>{p.description}</p>}
+                    {feats.length > 0 && (
+                      <ul>{feats.map((f, i) => <li key={i}><Check strokeWidth={1.75} /> {f}</li>)}</ul>
+                    )}
+                    {/* Carries the choice into the join + Paystack flow. */}
+                    <Link href={`${joinHref}?plan=${p.id}` as Route} className={`b ${best ? 'b-acc' : 'b-out'}`} style={{ marginTop: 'auto' }}>
+                      Choose {p.name}
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="paynote">
+              <ShieldCheck strokeWidth={1.75} /> Secured by Paystack — card or bank transfer, in Naira.
+              {gym.joining_fee != null && Number(gym.joining_fee) === 0 && <><span style={{ color: 'var(--gf-border-light)' }}>·</span> No joining fee</>}
+              <span style={{ color: 'var(--gf-border-light)' }}>·</span> Cancel anytime from your phone
+            </div>
+          </div>
+        </section>
       )}
 
-      <a className="gymland-by" href="https://gymflow.ng" target="_blank" rel="noreferrer">Powered by <strong>GymFlow</strong></a>
+      {/* ── TODAY'S CLASSES ── */}
+      {slots.length > 0 && (
+        <section className="sec alt" id="classes">
+          <div className="wrap">
+            <div className="sh">
+              <div>
+                <span className="eb">Today · {DAYS[now.getDay()]}</span>
+                <h2>Book a class in two taps.</h2>
+                <p>Straight from the timetable your coaches manage.</p>
+              </div>
+              <Link href="/classes" className="b b-out b-sm"><CalendarDays strokeWidth={1.75} /> See full week</Link>
+            </div>
+            <div className="tt">
+              {slots.map((s) => {
+                const left = spotsFor(s);
+                const full = left === 0;
+                const cls = left == null ? '' : full ? 'full' : left <= 5 ? 'low' : 'ok';
+                return (
+                  <div className="tt-row" key={s.id}>
+                    <span className="t">{fmt12Hr(s.start_time.slice(0, 5))}</span>
+                    <span className="cn">
+                      {s.name}
+                      <small>{[s.duration ? `${s.duration} min` : null, s.room || s.category].filter(Boolean).join(' · ')}</small>
+                    </span>
+                    <span className="co">
+                      {s.coach ? <><span className="av">{initial(s.coach)}</span>{s.coach}</> : null}
+                    </span>
+                    {left != null && <span className={`spots ${cls}`}>{full ? 'Full' : `${left} spots left`}</span>}
+                    {/* Anonymous visitors sign up first, with the class preserved
+                        so they land back on it. Capacity is enforced server-side
+                        in bookClass — never trusted from this render. */}
+                    <Link href={`${joinHref}?class=${s.id}` as Route} className={`b b-sm ${full ? 'b-out' : 'b-acc'}`}>
+                      {full ? 'Join waitlist' : 'Book'}
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
-      <LandingTrackers ga4={integ.ga4} metaPixel={integ.meta_pixel} chatProvider={integ.chat_provider} chatId={integ.chat_id} />
-    </main>
+      {/* ── THE GYM — the gym's own zones, never stock photography ── */}
+      {zones.length > 0 && (
+        <section className="sec" id="gym">
+          <div className="wrap">
+            <div className="sh">
+              <div>
+                <span className="eb">The floor</span>
+                <h2>{zones.length} zone{zones.length === 1 ? '' : 's'}.</h2>
+                <p>Every photo here is our actual floor — not a stock photo of someone else&apos;s gym.</p>
+              </div>
+            </div>
+            <div className="zones">
+              {zones.map((z) => {
+                const url = zoneUrl(z.photo_path);
+                return (
+                  <div className="zone" key={z.id}>
+                    {url && <Image src={url} alt={z.name} width={600} height={800} sizes="(max-width: 860px) 45vw, 280px" loading="lazy" />}
+                    <span className="cap">
+                      <strong>{z.name}</strong>
+                      {z.blurb && <small>{z.blurb}</small>}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── COACHES ── */}
+      {coaches.length > 0 && (
+        <section className="sec alt">
+          <div className="wrap">
+            <div className="sh">
+              <div>
+                <span className="eb">The team</span>
+                <h2>Coaches who know your name.</h2>
+              </div>
+            </div>
+            <div className="coaches">
+              {coaches.map((c) => {
+                const photo = c.photo_url || c.avatar_url;
+                return (
+                  <div className="coach" key={c.id}>
+                    <span className="av">
+                      {photo ? <Image src={photo} alt="" width={60} height={60} /> : initial(c.full_name ?? '')}
+                    </span>
+                    <div>
+                      <strong>{c.full_name}</strong>
+                      {c.specialisation && <small>{c.specialisation}</small>}
+                      {c.bio && <p>{c.bio}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── VISIT ── */}
+      {(gym.address || gym.phone || openDays.length > 0) && (
+        <section className="sec alt" id="visit">
+          <div className="wrap">
+            <div className="sh">
+              <div>
+                <span className="eb">Visit</span>
+                <h2>Come and look around.</h2>
+                <p>Walk in for a tour any time we&apos;re open — no appointment, no sales pitch.</p>
+              </div>
+            </div>
+            <div className="visit">
+              <div>
+                {(gym.address || gym.city) && (
+                  <div className="addr">
+                    <span className="ic"><MapPin strokeWidth={1.75} /></span>
+                    <div>
+                      <strong>{gym.address || gym.city}</strong>
+                      {(gym.address && area) && <small>{area}</small>}
+                    </div>
+                  </div>
+                )}
+                {gym.phone && (
+                  <div className="addr">
+                    <span className="ic"><Phone strokeWidth={1.75} /></span>
+                    <div>
+                      <strong><a href={`tel:${gym.phone}`}>{gym.phone}</a></strong>
+                      {todayHours && <small>Front desk · {todayHours} today</small>}
+                    </div>
+                  </div>
+                )}
+                {openDays.length > 0 && (() => {
+                  const byDay = new Map<number, Hours[]>();
+                  for (const h of hours) byDay.set(h.day_of_week, [...(byDay.get(h.day_of_week) ?? []), h]);
+                  return (
+                    <div className="hours">
+                      {WEEK.map((d) => {
+                        const rows = (byDay.get(d) ?? []).filter((r) => !r.is_closed && r.open_time);
+                        return (
+                          <div className={d === now.getDay() ? 'now' : undefined} key={d}>
+                            <span>{DAYS[d]}{d === now.getDay() ? ' · today' : ''}</span>
+                            <span>
+                              {rows.length === 0 ? 'Closed'
+                                : rows.map((r) => `${fmt12Hr(String(r.open_time).slice(0, 5))} – ${fmt12Hr(String(r.close_time ?? '').slice(0, 5))}`).join(' · ')}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+                <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+                  {waHref && <a href={waHref} className="b b-wa" target="_blank" rel="noreferrer"><MessageCircle strokeWidth={1.75} /> Chat on WhatsApp</a>}
+                  {directionsHref && <a href={directionsHref} className="b b-out" target="_blank" rel="noreferrer"><Navigation strokeWidth={1.75} /> Get directions</a>}
+                </div>
+              </div>
+              {directionsHref && (
+                <a className="map" href={directionsHref} target="_blank" rel="noreferrer" aria-label={`Directions to ${gym.name}`}>
+                  <Image src={gym.hero_image_url || '/images/gym-hero.jpg'} alt="" width={800} height={600} sizes="(max-width: 860px) 100vw, 480px" loading="lazy" />
+                  <span className="pin"><MapPin strokeWidth={1.75} /></span>
+                </a>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── CTA ── */}
+      <section className="cta">
+        <div className="wrap cta-in">
+          <h2>Your first session can be today.</h2>
+          <p>Join online in under two minutes, or walk in and we&apos;ll set you up at the desk.</p>
+          <div className="row">
+            <Link href={joinHref} className="b b-dark"><ArrowRight strokeWidth={1.75} /> Join {gym.name}</Link>
+            {waHref && <a href={waHref} className="b b-line" target="_blank" rel="noreferrer"><MessageCircle strokeWidth={1.75} /> Ask us a question</a>}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER — the only place GymFlow appears on a tenant page ── */}
+      <footer>
+        <div className="wrap">
+          <div className="f-top">
+            <div className="gym">
+              <span className="sq">
+                {gym.logo_url ? <Image src={gym.logo_url} alt="" width={42} height={42} /> : initial(gym.name)}
+              </span>
+              <span className="nm">
+                <strong>{gym.name}</strong>
+                {(gym.address || area) && <small>{[gym.address, area].filter(Boolean).join(', ')}</small>}
+              </span>
+            </div>
+            <div className="f-links">
+              {NAV.map(([href, label]) => <a key={href} href={href}>{label}</a>)}
+              <Link href="/login">Member sign-in</Link>
+            </div>
+          </div>
+          <div className="f-base">
+            <span>© {now.getFullYear()} {gym.name} · {gym.slug}.{ROOT_DOMAIN}</span>
+            <a className="pw" href="https://gymflow.ng" target="_blank" rel="noreferrer">
+              <LogoMark size={19} /> Powered by <b>GymFlow</b>
+            </a>
+          </div>
+        </div>
+      </footer>
+
+      {/* ── STICKY JOIN BAR (≤760px) ── */}
+      {fromPrice != null && (
+        <div className="joinbar">
+          <span className="pr">
+            <strong>From {fmtNaira(Math.round(fromPrice))}/mo</strong>
+            <small>{gym.joining_fee != null && Number(gym.joining_fee) === 0 ? 'No joining fee · ' : ''}cancel anytime</small>
+          </span>
+          <a href="#plans" className="b b-acc b-sm">Join now</a>
+        </div>
+      )}
+    </div>
   );
 }
