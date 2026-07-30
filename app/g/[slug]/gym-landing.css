@@ -76,7 +76,11 @@
 .gym-public .hero-bg { position: absolute; inset: 0; filter: grayscale(.2) contrast(1.05); }
 .gym-public .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
 .gym-public .hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, var(--gf-bg) 26%, color-mix(in srgb, var(--gf-bg) 86%, transparent) 52%, color-mix(in srgb, var(--gf-bg) 50%, transparent) 100%); }
-.gym-public .hero-in { position: relative; padding: clamp(44px,7vw,92px) 0 clamp(34px,4vw,54px); }
+/* padding-block, not the `padding: <top> 0 <bottom>` shorthand that was here:
+   the 0 in the middle also zeroed left/right, which overrode the horizontal
+   padding .gym-public .wrap sets. Below 1200px the wrap's auto margin is 0, so
+   the hero's text was sitting flush against the edge of the screen. */
+.gym-public .hero-in { position: relative; padding-block: clamp(44px,7vw,92px) clamp(34px,4vw,54px); }
 .gym-public .hero h1 { font-size: clamp(2.4rem,7vw,4.6rem); font-weight: 800; line-height: .98; margin: 18px 0 0; max-width: 15ch; }
 .gym-public .hero h1 em { font-style: normal; color: var(--accent); }
 .gym-public .hero .pitch { margin-top: 18px; color: var(--gf-text-secondary); font-size: clamp(1rem,1.6vw,1.16rem); line-height: 1.6; max-width: 44ch; }
@@ -86,6 +90,36 @@
 .gym-public .fact dd { font-family: var(--gf-font-display); font-weight: 800; font-size: 1.3rem; margin: 5px 0 0; letter-spacing: -.02em; }
 .gym-public .fact dd span { color: var(--accent); }
 .gym-public .fact dd small { font-family: var(--gf-font-body); font-weight: 500; font-size: .78rem; color: var(--gf-text-muted); }
+
+/* Sign-up QR, in the hero beside the copy.
+   Hidden by default and only switched on at desktop widths. The
+   background-image lives INSIDE the media query on purpose: a phone then never
+   requests the PNG at all, where an <img> would download it even under
+   display:none. Scanning a code on the screen you're already holding does
+   nothing, and the Join button plus the sticky bar already cover that case. */
+.gym-public .hero-qr { display: none; }
+@media (min-width: 900px) {
+  /* Hero becomes two columns so the code sits in the empty space the hero
+     image occupies, rather than pushing the fold down. */
+  .gym-public .hero-in { display: flex; align-items: center; gap: clamp(32px, 5vw, 76px); }
+  .gym-public .hero-copy { flex: 1; min-width: 0; }
+  .gym-public .hero-qr { display: flex; flex-direction: column; align-items: center; gap: 12px; flex: none; }
+  /* White tile, always — the code must stay black-on-white to scan whatever
+     accent the gym picked, and the hero background is a photo. */
+  .gym-public .hero-qr i {
+    width: 168px; height: 168px; border-radius: 18px; background-color: #fff;
+    background-image: var(--qr); background-size: 100% 100%; background-repeat: no-repeat;
+    box-shadow: 0 14px 38px -10px rgba(0,0,0,0.34); border: 1px solid rgba(0,0,0,0.06);
+  }
+  .gym-public .hero-qr span {
+    /* flex-start, not center: the label wraps to two lines at this width, and a
+       centred icon floats between them. */
+    display: inline-flex; align-items: flex-start; gap: 7px; max-width: 168px;
+    color: var(--gf-text-secondary);
+    font-weight: 600; font-size: 0.82rem; line-height: 1.35; text-align: left;
+  }
+  .gym-public .hero-qr span svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+}
 
 /* ── LIVE STRIP — only possible because GymFlow owns the check-in data ── */
 .gym-public .live { background: var(--gf-surface); border-bottom: 1px solid var(--gf-border); }
@@ -234,33 +268,6 @@
 .gym-public .cta .b-dark:hover { background: #000; transform: translateY(-2px); color: #fff; }
 .gym-public .cta .b-line { background: transparent; color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent-ink) 30%, transparent); }
 .gym-public .cta .b-line:hover { border-color: var(--accent-ink); color: var(--accent-ink); }
-.gym-public .cta-copy { display: flex; flex-direction: column; align-items: center; }
-
-/* Sign-up QR. Hidden by default and only switched on at desktop widths — the
-   background-image lives inside the media query, so a phone never requests the
-   PNG at all (an <img> would download it even under display:none). */
-.gym-public .cta-qr { display: none; }
-@media (min-width: 900px) {
-  .gym-public .cta-in { flex-direction: row; justify-content: center; align-items: center; gap: clamp(36px, 5vw, 72px); text-align: left; }
-  .gym-public .cta-copy { align-items: flex-start; }
-  .gym-public .cta .row { justify-content: flex-start; }
-  .gym-public .cta-qr { display: flex; flex-direction: column; align-items: center; gap: 12px; flex-shrink: 0; }
-  /* White tile, always — the code must stay black-on-white to scan reliably
-     whatever accent the gym has chosen behind it. */
-  .gym-public .cta-qr i {
-    width: 168px; height: 168px; border-radius: 18px; background-color: #fff;
-    background-image: var(--qr); background-size: 100% 100%; background-repeat: no-repeat;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.16);
-  }
-  .gym-public .cta-qr span {
-    /* flex-start, not center: the label wraps to two lines at this width, and a
-       centred icon floats between them. */
-    display: inline-flex; align-items: flex-start; gap: 7px; max-width: 168px;
-    color: color-mix(in srgb, var(--accent-ink) 76%, transparent);
-    font-weight: 600; font-size: 0.82rem; line-height: 1.35; text-align: left;
-  }
-  .gym-public .cta-qr span svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
-}
 
 /* ── FOOTER ── */
 .gym-public footer { border-top: 1px solid var(--gf-border); padding: 44px 0 40px; }
