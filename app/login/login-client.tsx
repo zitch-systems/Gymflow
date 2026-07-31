@@ -85,8 +85,19 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
 
   return (
     <>
-      <aside className="brandside" style={brandStyle}>
-        <div className="brandside-bg" aria-hidden />
+      <aside className={`brandside${memberMode ? '' : ' brandside--owner'}`} style={brandStyle}>
+        <div className={`brandside-bg${memberMode ? '' : ' brandside-bg--owner'}`} aria-hidden>
+          {!memberMode && (
+            <Image
+              className="brandside-photo"
+              src="/images/gym-owner-operations.svg"
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 860px) 0px, 51vw"
+            />
+          )}
+        </div>
         {memberMode ? (
           <>
             <span className="brand">
