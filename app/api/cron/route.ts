@@ -22,17 +22,14 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ha, hb);
 }
 
-// Authorized via CRON_SECRET — Vercel Cron sends it as a Bearer token. The
-// query-string form (?secret=) remains as a fallback for external schedulers
-// that can't set headers; prefer the header in production since query strings
-// land in access/proxy logs.
+// Authorized via CRON_SECRET — Vercel Cron sends it as a Bearer token.
+// Secrets in query strings leak into access/proxy logs and browser history, so
+// this endpoint deliberately has no ?secret= fallback.
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
   const auth = req.headers.get('authorization');
-  if (auth && safeEqual(auth, `Bearer ${secret}`)) return true;
-  const qs = new URL(req.url).searchParams.get('secret');
-  return qs != null && safeEqual(qs, secret);
+  return auth != null && safeEqual(auth, `Bearer ${secret}`);
 }
 
 /** The WAT calendar date `offset` days from now. Day boundaries are Lagos ones
