@@ -49,3 +49,19 @@ export function shouldApplyTransferEvent({
       return false;
   }
 }
+
+/**
+ * Match a settled amount to the checkout snapshot stamped into metadata.
+ *
+ * Missing expected_amount_kobo is accepted for transactions initialized before
+ * the field shipped. Once present, malformed or mismatched values fail closed.
+ */
+export function settledAmountMatches(receivedKobo: number, expectedAmountKobo: unknown): boolean {
+  if (expectedAmountKobo == null) return true;
+  const expected = Number(expectedAmountKobo);
+  return Number.isSafeInteger(receivedKobo) &&
+    receivedKobo > 0 &&
+    Number.isSafeInteger(expected) &&
+    expected > 0 &&
+    receivedKobo === expected;
+}
