@@ -21,6 +21,7 @@
 // import below is type-only and fully erased.
 
 import type { createAdminClient } from '@/lib/supabase/admin';
+import { confirmationHandoff } from '@/lib/auth/confirmation';
 import { gymBrand, platformBrand, siteUrl, type EmailBrand } from './brand';
 import { GYM_EMAIL_COLUMNS, type EmailGym } from './columns';
 import {
@@ -84,14 +85,7 @@ export function nextPath(redirectTo: string | undefined, actionType: AuthActionT
     // token_hash, so carrying the callback itself as `next` would create a
     // second /auth/confirm request with no credential. Unwrap its intended
     // hand-off instead: /launch for signup, /reset-password for recovery.
-    if (u.pathname === '/auth/confirm') {
-      const handoff = u.searchParams.get('next');
-      return handoff?.startsWith('/') && !handoff.startsWith('//') ? handoff : fallback;
-    }
-
-    const path = `${u.pathname}${u.search}`;
-    if (!path.startsWith('/') || path.startsWith('//')) return fallback;
-    return path;
+    return confirmationHandoff(`${u.pathname}${u.search}`, fallback);
   } catch {
     return fallback;
   }
