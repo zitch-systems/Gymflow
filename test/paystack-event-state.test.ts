@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldApplyTransferEvent } from '@/lib/paystack-event-state';
+import { settledAmountMatches, shouldApplyTransferEvent } from '@/lib/paystack-event-state';
 
 const guard = (
   event: string,
@@ -38,5 +38,21 @@ describe('shouldApplyTransferEvent', () => {
   it('rejects duplicate success and unknown event names', () => {
     expect(guard('transfer.success', 'paid')).toBe(false);
     expect(guard('transfer.pending', 'approved')).toBe(false);
+  });
+});
+
+describe('settledAmountMatches', () => {
+  it('accepts the exact checkout snapshot', () => {
+    expect(settledAmountMatches(500_000, 500_000)).toBe(true);
+  });
+
+  it('rejects underpayment, overpayment, and malformed snapshots', () => {
+    expect(settledAmountMatches(100, 500_000)).toBe(false);
+    expect(settledAmountMatches(600_000, 500_000)).toBe(false);
+    expect(settledAmountMatches(500_000, 'not-a-number')).toBe(false);
+  });
+
+  it('keeps pre-snapshot transactions backward compatible', () => {
+    expect(settledAmountMatches(500_000, undefined)).toBe(true);
   });
 });
