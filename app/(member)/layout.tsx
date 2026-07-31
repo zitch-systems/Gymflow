@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 import { MemberTabBar } from '@/components/member/tabbar';
 import { CameraPrime } from '@/components/member/camera-prime';
-import { requireMember } from '@/lib/auth/dal';
+import { WaiverWall } from '@/components/member/waiver-wall';
+import { requireMember, getProfile } from '@/lib/auth/dal';
 
 // See app/(admin)/layout.tsx — headroom for a resuming Supabase project.
 export const maxDuration = 60;
@@ -15,6 +16,7 @@ export const metadata = { robots: { index: false, follow: false } };
 // tokens across the member app.
 export default async function MemberLayout({ children }: { children: React.ReactNode }) {
   const { gym } = await requireMember();
+  const profile = await getProfile();
   const brand = (gym as { brand_color?: string | null }).brand_color;
   const style: CSSProperties | undefined = brand
     ? ({
@@ -24,6 +26,15 @@ export default async function MemberLayout({ children }: { children: React.React
         '--gf-brand-glow': `color-mix(in srgb, ${brand} 30%, transparent)`,
       } as CSSProperties)
     : undefined;
+
+  if (!profile?.waiver_signed_at) {
+    return (
+      <div className="ds-member" style={style}>
+        <main id="main-content"><WaiverWall gymName={gym.name} /></main>
+      </div>
+    );
+  }
+
   return (
     <div className="ds-member" style={style}>
       <main id="main-content">{children}</main>

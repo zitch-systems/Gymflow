@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Bell, CreditCard, ScanLine, CalendarDays, Wallet, QrCode, Flame, Check,
-  Activity, CalendarCheck, Timer, Gift, CalendarClock,
+  Activity, CalendarCheck, Timer, Gift, CalendarClock, Snowflake,
 } from 'lucide-react';
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
@@ -44,8 +44,8 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
     // Include past_due so the dunning banner renders when Paystack failed the
     // last auto-charge; downstream code treats past_due as "still has access"
     // until the invoice.payment_failed grace window closes.
-    supabase.from('member_subscriptions').select('status, start_date, end_date, plan_id')
-      .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due']).order('end_date', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('member_subscriptions').select('status, start_date, end_date, plan_id, pause_start, pause_end')
+      .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due', 'paused', 'pause_requested']).order('end_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
     supabase.from('check_ins').select('checked_in_at, checked_out_at, check_in_method')
       .eq('member_id', user.id).eq('gym_id', gym.id).gte('checked_in_at', since).order('checked_in_at', { ascending: false }),
@@ -102,7 +102,9 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
   const gymLogo = (gym as { logo_url?: string | null }).logo_url ?? null;
   const planName = plan?.name ?? 'Membership';
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
-  const isActive = remaining > 0;
+  const isFrozen = sub?.status === 'paused';
+  const isPauseRequested = sub?.status === 'pause_requested';
+  const isActive = !isFrozen && !isPauseRequested && remaining > 0;
   const isPastDue = sub?.status === 'past_due';
   const unreadCount = unread ?? 0;
   const recent = checkins.slice(0, 3);
@@ -171,12 +173,32 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
         </div>
       )}
 
+      {(isFrozen || isPauseRequested) && (
+        <div
+          role="status"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'var(--gf-info-soft)', color: 'var(--gf-info)',
+            border: '1px solid var(--gf-info)', borderRadius: 12,
+            padding: '10px 14px', margin: '0 0 12px', fontSize: '0.86rem',
+          }}
+        >
+          <Snowflake strokeWidth={2} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            {isFrozen
+              ? <><strong>Membership frozen.</strong> Your days are paused{sub?.pause_end ? ` until ${fmtDate(sub.pause_end)}` : ''}. Contact the gym to resume early.</>
+              : <><strong>Freeze request pending.</strong> Waiting for staff to approve your freeze.</>}
+          </div>
+          <Link href="/dashboard/profile" className="gf-btn gf-btn-secondary gf-btn-sm">Details</Link>
+        </div>
+      )}
+
       <div className="home-grid">
         <div className="col-a">
-          <div className="status">
-            <span className="tag"><span className="gf-dot" style={{ background: '#fff' }} /> {isActive ? 'Active' : sub ? 'Expired' : 'No plan'}</span>
+          <div className={`status${isFrozen || isPauseRequested ? ' frozen' : ''}`}>
+            <span className="tag"><span className="gf-dot" style={{ background: '#fff' }} /> {isFrozen ? 'Frozen' : isPauseRequested ? 'Freeze pending' : isActive ? 'Active' : sub ? 'Expired' : 'No plan'}</span>
             <div className="plan">{planName}</div>
-            <div className="meta">{isActive ? `Renews ${fmtDate(sub!.end_date)}` : sub ? 'Renew to keep training' : 'No active membership'}</div>
+            <div className="meta">{isFrozen ? `Frozen${sub?.pause_end ? ` until ${fmtDate(sub.pause_end)}` : ''}` : isPauseRequested ? 'Waiting for staff approval' : isActive ? `Renews ${fmtDate(sub!.end_date)}` : sub ? 'Renew to keep training' : 'No active membership'}</div>
             <div className="barwrap"><div className="bar" /></div>
             <div className="days"><span>{sub?.start_date ? fmtDate(sub.start_date) : '—'}</span><span>{remaining} days left</span></div>
             <Link href={isActive ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta"><CreditCard strokeWidth={2} /> {isActive ? 'Manage membership' : 'Renew membership'}</Link>
