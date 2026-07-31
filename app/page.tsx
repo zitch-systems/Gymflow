@@ -518,3 +518,44 @@ function Step({ n, title, body }: { n: string; title: string; body: string }) {
         <p>{body}</p>
       </div>
     </article>
+  );
+}
+
+function PricingTier({
+  name,
+  amount,
+  tagline,
+  features,
+  cta,
+  variant,
+  popular,
+}: {
+  name: string;
+  amount: string;
+  tagline: string;
+  features: string[];
+  cta: string;
+  variant: "primary" | "secondary";
+  popular?: boolean;
+}) {
+  return (
+    <article className={`price${popular ? " pop" : ""}`}>
+      <div className="pname">{name}</div>
+      <div className="amt">
+        {amount}
+        <small>/mo</small>
+      </div>
+      <p className="price-tagline">{tagline}</p>
+      <ul>
+        {features.map((feature) => (
+          <li key={feature}>
+            <Check strokeWidth={2.2} /> {feature}
+          </li>
+        ))}
+      </ul>
+      <Link href="/signup" className={`gf-btn gf-btn-${variant} gf-btn-full`}>
+        {cta}
+      </Link>
+    </article>
+  );
+}
