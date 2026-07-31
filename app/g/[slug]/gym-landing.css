@@ -376,7 +376,7 @@
 
 @media (max-width: 760px) {
   .gym-public .nav-in { height: 64px; }
-  .gym-public .gym { gap: 9px; }
+  .gym-public .gym { gap: 9px; min-height: 44px; }
   .gym-public .gym .sq { width: 38px; height: 38px; border-radius: 11px; }
   .gym-public .gym .nm strong { max-width: 32vw; font-size: .94rem; }
   .gym-public .gym .nm small { display: none; }
@@ -424,7 +424,7 @@
   .gym-public .tt-row .cn { font-size: .94rem; }
   .gym-public .tt-row .co { display: none; }
   .gym-public .tt-row .spots { justify-self: end; font-size: .68rem; padding: 5px 8px; }
-  .gym-public .tt-row .b { display: inline-flex; grid-column: 2 / -1; width: 100%; min-height: 42px; }
+  .gym-public .tt-row .b { display: inline-flex; grid-column: 2 / -1; width: 100%; min-height: 44px; }
 
   .gym-public .zones {
     display: grid;
