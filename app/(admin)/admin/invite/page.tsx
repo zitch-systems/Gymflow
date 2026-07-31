@@ -48,7 +48,7 @@ export default async function AdminInvite() {
                 <img src={pngs[i]} alt={`${c.label} QR for ${gym.name}`} width={200} height={200} />
               </div>
               <div className="qr-url">{c.url}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{ display: 'grid', gap: 8 }}>
                 <a className="gf-btn gf-btn-secondary gf-btn-sm gf-btn-full" href={pngs[i]} download={`gymflow-${gym.slug}-${c.key}-qr.png`} style={{ textDecoration: 'none' }}>
                   <Download strokeWidth={2} size={15} /> Download PNG
                 </a>
