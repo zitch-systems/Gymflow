@@ -771,11 +771,18 @@
     display: none;
   }
   .nav .links a.mobile-signin {
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     padding-inline: 8px;
     font-size: 0.78rem;
   }
+  .nav .links .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
   .nav .links .btnlink {
+    min-height: 44px;
     padding: 9px 12px;
     font-size: 0.78rem;
   }
