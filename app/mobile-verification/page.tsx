@@ -17,7 +17,12 @@ export default function MobilePreviewPage() {
     fetch(target, { credentials: "same-origin" })
       .then((response) => response.text())
       .then((document) => {
-        if (active) setHtml(document);
+        const staticDocument = document.replace(
+          /<script\b[^>]*>[\s\S]*?<\/script>/gi,
+          "",
+        );
+
+        if (active) setHtml(staticDocument);
       });
 
     return () => {
