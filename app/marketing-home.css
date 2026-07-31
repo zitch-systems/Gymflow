@@ -16,16 +16,35 @@
   padding: clamp(64px, 8vw, 108px) 0 clamp(58px, 7vw, 92px);
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--gf-border);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--gf-bg) 96%, transparent),
-    color-mix(in srgb, var(--gf-surface) 88%, transparent)
-  );
+  isolation: isolate;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #07110d;
+}
+
+.marketing-home .home-hero-photo {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.marketing-home .home-hero-photo img {
+  object-fit: cover;
+  object-position: 50% 50%;
+  filter: saturate(0.88) contrast(1.06);
+}
+.marketing-home .home-hero-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(3, 11, 8, 0.91) 0%, rgba(3, 11, 8, 0.8) 38%, rgba(3, 11, 8, 0.5) 68%, rgba(3, 11, 8, 0.7) 100%),
+    linear-gradient(180deg, rgba(3, 10, 8, 0.3) 0%, rgba(3, 10, 8, 0.58) 100%);
 }
 
 .marketing-home .home-hero-glow {
   position: absolute;
+  z-index: 1;
   width: min(820px, 70vw);
   aspect-ratio: 1;
   right: -18%;
@@ -42,6 +61,7 @@
 
 .marketing-home .home-hero-mesh {
   position: absolute;
+  z-index: 1;
   width: min(760px, 62vw);
   aspect-ratio: 1;
   right: -15%;
@@ -73,6 +93,8 @@
 }
 
 .marketing-home .home-hero-grid {
+  position: relative;
+  z-index: 2;
   width: 100%;
   max-width: 1280px;
   display: grid;
@@ -87,9 +109,15 @@
 }
 .marketing-home .home-hero-copy .eyebrow {
   margin: 0;
+  color: #6ff0bd;
+  background: rgba(4, 26, 18, 0.72);
+  border-color: rgba(82, 228, 173, 0.32);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .marketing-home .home-hero h1 {
   max-width: 11.5ch;
+  color: #fff;
   margin: 24px 0 0;
   font-size: clamp(3.15rem, 5.7vw, 5.75rem);
   line-height: 0.94;
@@ -101,6 +129,7 @@
 }
 .marketing-home .home-hero p.sub {
   max-width: 56ch;
+  color: rgba(255, 255, 255, 0.8);
   margin: 24px 0 0;
   font-size: clamp(1.04rem, 1.5vw, 1.2rem);
   line-height: 1.65;
@@ -111,6 +140,18 @@
 }
 .marketing-home .home-hero .hero-cta .gf-btn {
   min-height: 52px;
+}
+.marketing-home .home-hero .hero-cta .gf-btn-outline {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(5, 18, 13, 0.42);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.marketing-home .home-hero .hero-cta .gf-btn-outline:hover {
+  color: #fff;
+  border-color: rgba(111, 240, 189, 0.82);
+  background: rgba(17, 209, 139, 0.16);
 }
 .marketing-home .home-hero-proof {
   display: flex;
@@ -125,7 +166,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--gf-text-secondary);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.82rem;
   font-weight: 600;
 }
@@ -1216,6 +1257,14 @@
 @media (max-width: 760px) {
   .marketing-home .home-hero {
     padding: 48px 0 52px;
+  }
+  .marketing-home .home-hero-photo img {
+    object-position: 61% 50%;
+  }
+  .marketing-home .home-hero-photo::after {
+    background:
+      linear-gradient(180deg, rgba(3, 11, 8, 0.88) 0%, rgba(3, 11, 8, 0.72) 46%, rgba(3, 11, 8, 0.62) 100%),
+      linear-gradient(90deg, rgba(3, 11, 8, 0.7), rgba(3, 11, 8, 0.42));
   }
   .marketing-home .home-hero-grid {
     gap: 38px;
