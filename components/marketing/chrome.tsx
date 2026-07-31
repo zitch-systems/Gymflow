@@ -33,7 +33,7 @@ export function MarketingFooter() {
             <LogoMark size={30} className="mark-sm" />
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
-          <p>Modern gym management for Nigerian fitness businesses. 41 Ogudu Road, Lagos · hello@gymflow.ng</p>
+          <p>Modern gym management for Nigerian fitness businesses · hello@gymflow.ng</p>
         </div>
         <div>
           <h4>Product</h4>
