@@ -16,7 +16,7 @@ export function MarketingNav({ cur }: { cur?: 'features' | 'pricing' | 'about' |
         <Link href="/pricing" aria-current={cur === 'pricing' ? 'page' : undefined} className={cur === 'pricing' ? 'cur' : undefined}>Pricing</Link>
         <Link href="/about" aria-current={cur === 'about' ? 'page' : undefined} className={cur === 'about' ? 'cur' : undefined}>About</Link>
         <Link href="/contact" aria-current={cur === 'contact' ? 'page' : undefined} className={cur === 'contact' ? 'cur' : undefined}>Contact</Link>
-        <Link href="/login">Sign in</Link>
+        <Link href="/login" className="mobile-signin">Sign in</Link>
         <ThemeToggle size={38} />
         <Link href="/signup" className="gf-btn gf-btn-primary btnlink">Get started</Link>
       </div>

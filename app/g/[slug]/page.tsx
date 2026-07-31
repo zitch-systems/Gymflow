@@ -341,6 +341,11 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
               <div className="fact"><dt>Joining fee</dt><dd>{Number(gym.joining_fee) === 0 ? 'None' : fmtNaira(Number(gym.joining_fee))}</dd></div>
             )}
           </dl>
+          <ul className="hero-trust">
+            <li><Zap strokeWidth={1.8} /> Instant activation</li>
+            <li><ShieldCheck strokeWidth={1.8} /> Secure Paystack checkout</li>
+            <li><Check strokeWidth={2.2} /> Cancel from your phone</li>
+          </ul>
           </div>
           {/* Sign-up QR — the same code the gym prints from its console. Desktop
               only, and drawn as a background-image inside a media query so
@@ -398,27 +403,6 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
           </div>
         </div>
       )}
-
-      {/* ── MEMBER APP (install instructions, not store badges — §5) ── */}
-      <section className="sec alt" id="app">
-        <div className="wrap app-in">
-          <div className="app-vis">
-            <span className={gym.logo_url ? 'app-ic has-logo' : 'app-ic'}>
-              {gym.logo_url ? <Image src={gym.logo_url} alt="" width={132} height={132} /> : initial(gym.name)}
-            </span>
-            <span className="nmx">
-              <strong>{gym.name}</strong>
-              <small>Your membership, on your home screen</small>
-            </span>
-          </div>
-          <div>
-            <span className="eb">Member app</span>
-            <h2 className="sech2">Install it on iPhone or Android.</h2>
-            <p className="secp">Works on both, straight from your browser — nothing to download from a store, and it updates itself.</p>
-            <InstallCards gymName={gym.name} />
-          </div>
-        </div>
-      </section>
 
       {/* ── PLANS ── */}
       {plans.length > 0 && (
@@ -567,6 +551,28 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
           </div>
         </section>
       )}
+
+      {/* ── MEMBER APP (install instructions, not store badges — §5) ── */}
+      <section className="sec alt" id="app">
+        <div className="wrap app-in">
+          <div className="app-vis">
+            <span className={gym.logo_url ? 'app-ic has-logo' : 'app-ic'}>
+              {gym.logo_url ? <Image src={gym.logo_url} alt="" width={132} height={132} /> : initial(gym.name)}
+            </span>
+            <span className="nmx">
+              <strong>{gym.name}</strong>
+              <small>Your membership, on your home screen</small>
+            </span>
+          </div>
+          <div>
+            <span className="eb">Member app</span>
+            <h2 className="sech2">Install it on iPhone or Android.</h2>
+            <p className="secp">Works on both, straight from your browser — nothing to download from a store, and it updates itself.</p>
+            <InstallCards gymName={gym.name} />
+          </div>
+        </div>
+      </section>
+
 
       {/* ── VISIT ── */}
       {(gym.address || gym.phone || openDays.length > 0) && (
