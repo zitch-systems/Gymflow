@@ -817,20 +817,25 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
 
 /* The Flowbell sits close to its wordmark and turns like a horizontal coin.
    Keep the animation transform-only; reduced-motion users get a static mark. */
-.brand > svg {
-  transform-box: fill-box;
+.brand-mark-spin {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;
   transform-origin: center;
   backface-visibility: visible;
   animation: gf-flowbell-horizontal-spin 4.8s linear infinite;
   will-change: transform;
 }
-.brand:hover > svg { animation-duration: 1.65s; }
+.brand:hover .brand-mark-spin { animation-duration: 1.65s; }
 @keyframes gf-flowbell-horizontal-spin {
   from { transform: rotateY(0deg); }
   to { transform: rotateY(360deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .brand > svg { animation: none; }
+  .brand-mark-spin { animation: none; }
 }
 
 /* ── App shell (sidebar + main) ── */

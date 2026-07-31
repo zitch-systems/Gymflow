@@ -8,7 +8,7 @@ export function MarketingNav({ cur }: { cur?: 'features' | 'pricing' | 'about' |
   return (
     <nav className="nav">
       <Link href="/" className="brand" aria-label="GymFlow home">
-        <LogoMark size={30} className="mark-sm" />
+        <span className="brand-mark-spin"><LogoMark size={30} className="mark-sm" /></span>
         <span className="brand-tx">Gym<em>Flow</em></span>
       </Link>
       <div className="links">
@@ -30,7 +30,7 @@ export function MarketingFooter() {
       <div className="wrap foot">
         <div>
           <Link href="/" className="brand">
-            <LogoMark size={30} className="mark-sm" />
+            <span className="brand-mark-spin"><LogoMark size={30} className="mark-sm" /></span>
             <span className="brand-tx">Gym<em>Flow</em></span>
           </Link>
           <p>Modern gym management for Nigerian fitness businesses · hello@gymflow.ng</p>
