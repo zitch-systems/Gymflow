@@ -64,13 +64,13 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
     }
   }
 
-  const { error: payErr } = await admin.from('payments').insert({
+  const { data: payRow, error: payErr } = await admin.from('payments').insert({
     member_id: memberId, gym_id: gymId, plan_id: planId,
     amount: d.amountKobo / 100, currency: 'NGN',
     status: 'success', payment_status: 'successful',
     payment_method: d.channel ?? 'paystack', paystack_reference: d.reference,
     payment_date: new Date().toISOString(),
-  });
+  }).select('id').single();
   if (payErr) {
     // 23505 = unique_violation: a concurrent fulfiller recorded this reference
     // between our pre-check and insert. Idempotent no-op, not a failure — and
@@ -136,6 +136,7 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const { error: notifErr } = await admin.from('notifications').insert({
     gym_id: gymId, user_id: memberId, type: 'payment', channel: 'in_app',
     title: 'Payment received', body: `₦${(d.amountKobo / 100).toLocaleString('en-NG')} received — membership renewed.`,
+    metadata: payRow ? { payment_id: payRow.id } : undefined,
   });
   if (notifErr) console.warn(`[fulfill] receipt notification failed for ${d.reference}: ${notifErr.message}`); // non-critical
 

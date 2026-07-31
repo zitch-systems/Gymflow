@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, CheckCheck, Bell, CalendarCheck, Gift, Receipt, Sparkles } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Bell, CalendarCheck, Gift, Receipt, Sparkles, Download } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
@@ -41,7 +41,7 @@ export default async function InboxPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from('notifications')
-    .select('id, title, body, type, sent_at, is_read')
+    .select('id, title, body, type, sent_at, is_read, metadata')
     .eq('user_id', user.id)
     .order('sent_at', { ascending: false })
     .limit(50);
@@ -76,12 +76,19 @@ export default async function InboxPage() {
                 const bucket = (n.type && BUCKET[n.type]) || 'system';
                 const Icon = ICON[bucket];
                 const unread = !n.is_read;
+                const meta = n.metadata as Record<string, unknown> | null;
+                const paymentId = bucket === 'receipt' && meta?.payment_id ? String(meta.payment_id) : null;
                 return (
                   <div key={n.id} className={`notif${unread ? ' unread' : ''}`}>
                     <span className={`nic ${bucket}`}><Icon strokeWidth={1.9} /></span>
                     <div className="m">
                       <strong>{n.title}</strong>
                       {n.body && <p>{n.body}</p>}
+                      {paymentId && (
+                        <Link href={`/dashboard/wallet/${paymentId}`} className="notif-action">
+                          <Download strokeWidth={1.9} style={{ width: 14, height: 14 }} /> View receipt
+                        </Link>
+                      )}
                       <span className="nt">{timeLabel(n.sent_at, now)}</span>
                     </div>
                     {unread && <span className="udot" />}
