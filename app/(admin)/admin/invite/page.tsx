@@ -1,3 +1,5 @@
+import type { Route } from 'next';
+import Link from 'next/link';
 import QRCode from 'qrcode';
 import { UserPlus, LogIn, CreditCard, Download, Printer } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
@@ -46,9 +48,20 @@ export default async function AdminInvite() {
                 <img src={pngs[i]} alt={`${c.label} QR for ${gym.name}`} width={200} height={200} />
               </div>
               <div className="qr-url">{c.url}</div>
-              <a className="gf-btn gf-btn-secondary gf-btn-sm gf-btn-full" href={pngs[i]} download={`gymflow-${gym.slug}-${c.key}-qr.png`} style={{ textDecoration: 'none' }}>
-                <Download strokeWidth={2} size={15} /> Download
-              </a>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <a className="gf-btn gf-btn-secondary gf-btn-sm gf-btn-full" href={pngs[i]} download={`gymflow-${gym.slug}-${c.key}-qr.png`} style={{ textDecoration: 'none' }}>
+                  <Download strokeWidth={2} size={15} /> Download PNG
+                </a>
+                <Link
+                  className="gf-btn gf-btn-primary gf-btn-sm gf-btn-full"
+                  href={`/print-qr/${gym.slug}?type=${c.key}` as Route}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <Printer strokeWidth={2} size={15} /> Print A4
+                </Link>
+              </div>
             </div>
           );
         })}
