@@ -44,14 +44,18 @@ export async function isMemberSubEvent(event: Json): Promise<boolean> {
   const data = (event.data as Json) ?? {};
   const meta = (data.metadata as Json) ?? {};
 
-  // charge.success carries our metadata directly on the FIRST charge.
+  // Paystack can echo our metadata on the first charge AND on
+  // subscription.create. Classify it before code lookups so the create event
+  // is not accidentally acknowledged by the platform-subscription handler.
+  const kind = str(meta.kind);
+  if (kind === 'member_subscription') return true;
+
+  // Any OTHER explicit kind (membership_renewal, platform_subscription)
+  // belongs to a different flow. Without this, a member who also has an
+  // auto-renew customer code could have an unrelated event misrouted here.
+  if (kind) return false;
+
   if (name === 'charge.success') {
-    if (str(meta.kind) === 'member_subscription') return true;
-    // Any OTHER explicit kind (membership_renewal, platform_subscription)
-    // belongs to a different flow — without this, a one-off renewal from a
-    // member who ALSO has auto-renew would match the customer_code lookup
-    // below and get misrouted to the recurring handler.
-    if (str(meta.kind)) return false;
     // Metadata-less charge.success is only ours if it's a subscription cycle,
     // and Paystack always attaches the plan object to those.
     if (!str((data.plan as Json)?.plan_code)) return false;
@@ -79,22 +83,33 @@ export async function isMemberSubEvent(event: Json): Promise<boolean> {
 }
 
 async function findSub(admin: Admin, subCode: string | null, custCode: string | null, metaMemberId: string | null, metaGymId: string | null) {
+  // A subscription code identifies one mandate and is always the strongest key.
   if (subCode) {
     const { data } = await admin.from('member_subscriptions').select('*').eq('paystack_subscription_code', subCode).limit(1).maybeSingle();
     if (data) return data;
   }
-  if (custCode) {
-    const { data } = await admin.from('member_subscriptions').select('*').eq('paystack_customer_code', custCode).order('created_at', { ascending: false }).limit(1).maybeSingle();
-    if (data) return data;
-  }
+
+  // The first charge carries the member/gym metadata we stamped at
+  // initialization, while its new subscription code is not stored yet. Prefer
+  // that pair over customer_code: one Paystack customer can hold subscriptions
+  // for several gyms, so "latest row for this customer" can credit the wrong
+  // tenant.
   if (metaMemberId && metaGymId) {
-    // First-charge case: the subscription code hasn't been stored yet. Match
-    // the most recent sub for this member in this gym.
     const { data } = await admin
       .from('member_subscriptions').select('*')
       .eq('member_id', metaMemberId).eq('gym_id', metaGymId)
       .order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (data) return data;
+  }
+
+  if (custCode) {
+    // Customer code is only safe when it resolves to exactly one local row.
+    // Ambiguity is a retryable reconciliation problem, not permission to pick
+    // whichever subscription happened to be created last.
+    const { data } = await admin.from('member_subscriptions')
+      .select('*').eq('paystack_customer_code', custCode)
+      .order('created_at', { ascending: false }).limit(2);
+    if (data?.length === 1) return data[0];
   }
   return null;
 }
@@ -160,8 +175,9 @@ async function onSubscriptionCreate(admin: Admin, data: Json): Promise<Result> {
   const emailToken = str(data.email_token);
   const customer = (data.customer as Json) ?? {};
   const custCode = str(customer.customer_code);
+  const meta = (data.metadata as Json) ?? {};
 
-  const sub = await findSub(admin, subCode, custCode, null, null);
+  const sub = await findSub(admin, subCode, custCode, str(meta.member_id), str(meta.gym_id));
   if (!sub) return { ok: true, handled: true }; // The first charge.success will link them; ack.
 
   const patch: MemberSubUpdate = { updated_at: new Date().toISOString(), auto_debit_enabled: true };
@@ -218,7 +234,17 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   const custCode = str(customer.customer_code);
 
   const sub = await findSub(admin, subCode, custCode, str(meta.member_id), str(meta.gym_id));
-  if (!sub) return { ok: false, handled: true, error: 'could not resolve member subscription', permanent: true };
+  if (!sub) return { ok: false, handled: true, error: 'could not resolve member subscription' };
+
+  // Bind the codes on the first successful charge. subscription.create can
+  // arrive before the row is resolvable and used to be acknowledged without
+  // storing them; subsequent renewals then had no safe key and were lost.
+  // Run this before the payment fast-path so a replay can repair an older row.
+  const codePatch: MemberSubUpdate = { auto_debit_enabled: true, updated_at: new Date().toISOString() };
+  if (subCode) codePatch.paystack_subscription_code = subCode;
+  if (custCode) codePatch.paystack_customer_code = custCode;
+  const { error: codeErr } = await admin.from('member_subscriptions').update(codePatch).eq('id', sub.id);
+  if (codeErr) return { ok: false, handled: true, error: `subscription code bind failed: ${codeErr.message}` };
 
   // Idempotency: payments.paystack_reference is UNIQUE. Fast-path pre-check
   // then the 23505 catch is the real guard.
@@ -286,9 +312,10 @@ async function onPaymentFailed(admin: Admin, data: Json): Promise<Result> {
   if (!sub) return { ok: true, handled: true };
   if (isStaleFor(sub, subCode)) return { ok: true, handled: true };
 
-  await admin.from('member_subscriptions').update({
+  const { error: statusErr } = await admin.from('member_subscriptions').update({
     status: 'past_due', updated_at: new Date().toISOString(),
   }).eq('id', sub.id);
+  if (statusErr) return { ok: false, handled: true, error: statusErr.message };
 
   await admin.from('notifications').insert({
     gym_id: sub.gym_id, user_id: sub.member_id, type: 'warning', channel: 'in_app',
@@ -319,9 +346,10 @@ async function onSubscriptionEnd(admin: Admin, data: Json): Promise<Result> {
   const stillPaid = sub.end_date && new Date(sub.end_date) >= new Date();
   const newStatus = stillPaid ? 'active' : 'expired';
 
-  await admin.from('member_subscriptions').update({
+  const { error: statusErr } = await admin.from('member_subscriptions').update({
     status: newStatus, auto_debit_enabled: false, updated_at: new Date().toISOString(),
   }).eq('id', sub.id);
+  if (statusErr) return { ok: false, handled: true, error: statusErr.message };
 
   // The mandate is gone either way — whether access lapsed with it or still has
   // paid-for time on it. Silence here is how a member discovers the card stopped
