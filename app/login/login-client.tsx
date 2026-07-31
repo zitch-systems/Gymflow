@@ -4,16 +4,9 @@ import type { CSSProperties } from 'react';
 import { useState, useTransition, useActionState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, Mail, Lock, ArrowRight, Users, Shield, GraduationCap, Globe, AlertCircle, MailCheck, CheckCircle2, Dumbbell, CalendarCheck, QrCode, UserPlus } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Users, AlertCircle, MailCheck, CheckCircle2, Dumbbell, CalendarCheck, QrCode, UserPlus } from 'lucide-react';
 import { signIn, signUp, resendConfirmation, type AuthState } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
-
-const ROLES = [
-  { label: 'Member', href: '/dashboard', icon: Users },
-  { label: 'Gym admin', href: '/admin', icon: Shield },
-  { label: 'Instructor', href: '/coach', icon: GraduationCap },
-  { label: 'Platform', href: '/superadmin', icon: Globe },
-] as const;
 
 const initial: AuthState = { error: null };
 
@@ -38,9 +31,9 @@ const NOTICES: Record<NonNullable<LoginNotice>, { tone: 'info' | 'success' | 'er
 };
 
 // revamp/login.html: brand-split layout, email + password. On the apex it's the
-// platform login (Sign in / Create gym tabs + demo roles). On a gym subdomain
-// (gym prop set) it's that gym's member sign-in — no "Create gym", no demo
-// roles, gym logo + colour, and a "Join <gym>" link for new members.
+// platform login (Sign in / Create gym tabs). On a gym subdomain
+// (gym prop set) it's that gym's member sign-in — no "Create gym",
+// with the gym logo, colour, and a "Join <gym>" link for new members.
 export function LoginClient({ initialMode = 'in', notice = null, gym = null }: { initialMode?: 'in' | 'up'; notice?: LoginNotice; gym?: LoginGym | null }) {
   const memberMode = !!gym;
   const [mode, setMode] = useState<'in' | 'up'>(initialMode);
@@ -120,19 +113,12 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
               <span className="brand-tx lg">Gym<em>Flow</em></span>
             </Link>
             <div className="bs-quote">
-              <div className="stars" aria-hidden>
-                {Array.from({ length: 5 }, (_, i) => <Star key={i} strokeWidth={1.5} fill="currentColor" />)}
-              </div>
-              <p>&ldquo;Setup took an afternoon. Members add it to their home screen and it feels like our own app.&rdquo;</p>
-              <div className="by">
-                <span className="gf-avatar gf-avatar-md">K</span>
-                <span><strong>Kelechi Obi</strong><small>IronWorks Gym, Port Harcourt</small></span>
-              </div>
-              <dl className="bs-stats">
-                <div><dt>Active gyms</dt><dd>1,200+</dd></div>
-                <div><dt>Check-ins / mo</dt><dd>480K</dd></div>
-                <div><dt>Uptime</dt><dd>99.9%</dd></div>
-              </dl>
+              <p style={{ fontSize: '1.15rem' }}>One workspace for the day-to-day work of running a gym.</p>
+              <ul style={{ listStyle: 'none', margin: '22px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <li style={{ display: 'flex', alignItems: 'center', gap: 11 }}><Dumbbell strokeWidth={1.75} /> Manage memberships and renewals</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: 11 }}><CalendarCheck strokeWidth={1.75} /> Schedule classes and track attendance</li>
+                <li style={{ display: 'flex', alignItems: 'center', gap: 11 }}><Users strokeWidth={1.75} /> Give staff role-scoped access</li>
+              </ul>
             </div>
           </>
         )}
@@ -200,22 +186,22 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
           <form action={up ? upAction : inAction} aria-busy={pending} {...(!memberMode ? { id: 'auth-panel', role: 'tabpanel' as const, 'aria-labelledby': up ? 'auth-tab-up' : 'auth-tab-in' } : {})}>
             {up && (
               <div className="field gf-form-group">
-                <label className="gf-form-label">Gym name</label>
-                <input className="gf-input" name="gym" placeholder="e.g. Powerhouse Fitness" required aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
+                <label className="gf-form-label" htmlFor="auth-gym-name">Gym name</label>
+                <input className="gf-input" id="auth-gym-name" name="gym" placeholder="e.g. Powerhouse Fitness" required aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
               </div>
             )}
             <div className="field gf-form-group">
-              <label className="gf-form-label">Email</label>
+              <label className="gf-form-label" htmlFor="auth-email">Email</label>
               <div className="gf-input-group">
                 <Mail className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="email" name="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
+                <input className="gf-input" id="auth-email" type="email" name="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
               </div>
             </div>
             <div className="field gf-form-group">
-              <label className="gf-form-label">Password</label>
+              <label className="gf-form-label" htmlFor="auth-password">Password</label>
               <div className="gf-input-group">
                 <Lock className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" type="password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} value={up ? password : undefined} onChange={up ? (e) => setPassword(e.target.value) : undefined} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
+                <input className="gf-input" id="auth-password" type="password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} value={up ? password : undefined} onChange={up ? (e) => setPassword(e.target.value) : undefined} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
               </div>
             </div>
             {up && (
@@ -272,19 +258,6 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
               {pending ? (up ? 'Creating your gym…' : 'Signing in…') : up ? 'Launch your gym' : 'Sign in'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
             </button>
           </form>
-
-          {!memberMode && (
-            <>
-              <div className="divider">or try a demo as</div>
-              <div className="roles">
-                {ROLES.map(({ label, href, icon: Icon }) => (
-                  <Link key={label} href={href} className="role-btn">
-                    <Icon strokeWidth={1.75} /> {label}
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
 
           <p className="foot-note">
             {memberMode ? (
