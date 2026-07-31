@@ -4,10 +4,14 @@ import { MarketingNav, MarketingFooter } from "@/components/marketing/chrome";
 import {
   ArrowRight,
   BarChart3,
+  Bell,
+  Building2,
   CalendarDays,
   Check,
   CircleDollarSign,
+  Clock,
   CreditCard,
+  FileText,
   MapPin,
   MessageCircle,
   ScanLine,
@@ -16,7 +20,9 @@ import {
   Sparkles,
   TrendingUp,
   Users,
+  Wallet,
   Wifi,
+  Zap,
 } from "lucide-react";
 import "./marketing-home.css";
 
@@ -51,6 +57,11 @@ export default function MarketingHome() {
       <main id="main-content" className="marketing-home">
         <header className="hero home-hero">
           <div className="home-hero-glow" aria-hidden="true" />
+          <div className="home-hero-mesh" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </div>
           <div className="wrap hero-in home-hero-grid">
             <div className="home-hero-copy">
               <span className="eyebrow">
@@ -116,6 +127,13 @@ export default function MarketingHome() {
           </div>
         </section>
 
+        <section className="home-ops-ticker" aria-label="GymFlow operating tools">
+          <div className="home-ops-track">
+            <OpsTickerItems />
+            <span className="home-ops-copy" aria-hidden="true"><OpsTickerItems /></span>
+          </div>
+        </section>
+
         <section className="blk home-outcomes" id="features">
           <div className="wrap">
             <div className="sec-head home-sec-head">
@@ -160,6 +178,68 @@ export default function MarketingHome() {
                 metric="Five staff roles"
               />
             </div>
+          </div>
+        </section>
+
+        <section className="blk home-command">
+          <div className="wrap home-command-grid">
+            <div className="home-command-copy">
+              <span className="eyebrow">
+                <Zap strokeWidth={1.8} /> Owner command centre
+              </span>
+              <h2>Every moving part, visible at once.</h2>
+              <p>
+                Open one dashboard and move from today&apos;s front-desk activity to
+                renewals, payouts, team access and multi-location performance
+                without stitching reports together.
+              </p>
+              <div className="home-command-points">
+                <CommandPoint
+                  icon={<Bell strokeWidth={1.8} />}
+                  title="Renewal control"
+                  body="See expiring plans, failed payments and reminder status before revenue slips away."
+                />
+                <CommandPoint
+                  icon={<Building2 strokeWidth={1.8} />}
+                  title="Location oversight"
+                  body="Compare attendance, revenue and staff activity across branches from the same owner view."
+                />
+                <CommandPoint
+                  icon={<FileText strokeWidth={1.8} />}
+                  title="Clean audit trail"
+                  body="Keep payments, check-ins, plan changes and staff actions attached to the right record."
+                />
+              </div>
+            </div>
+
+            <OwnerControlStack />
+          </div>
+
+          <div className="wrap home-detail-grid">
+            <OwnerDetail
+              icon={<CircleDollarSign strokeWidth={1.8} />}
+              title="Billing that follows through"
+              body="Trials, active plans, grace periods and renewals stay in one clear membership state."
+              tags={["Paystack", "Receipts", "Dunning"]}
+            />
+            <OwnerDetail
+              icon={<MessageCircle strokeWidth={1.8} />}
+              title="Member communication"
+              body="Send the right reminder for expiring plans, class changes and payment follow-up."
+              tags={["WhatsApp", "Email", "Templates"]}
+            />
+            <OwnerDetail
+              icon={<ShieldCheck strokeWidth={1.8} />}
+              title="Permissioned operations"
+              body="Owners, managers, accountants, front desk and coaches get purpose-built access."
+              tags={["5 roles", "Audit logs", "Secure"]}
+            />
+            <OwnerDetail
+              icon={<Smartphone strokeWidth={1.8} />}
+              title="Your gym, online"
+              body="Publish a branded mobile landing page with plans, hours, classes and printable join QR posters."
+              tags={["Custom brand", "PWA", "QR posters"]}
+            />
           </div>
         </section>
 
@@ -342,6 +422,8 @@ function ProductPreview() {
       className="product-stage"
       aria-label="Illustrative GymFlow owner dashboard preview"
     >
+      <div className="product-orbit product-orbit-one" aria-hidden="true"><i /></div>
+      <div className="product-orbit product-orbit-two" aria-hidden="true"><i /></div>
       <div className="product-window">
         <div className="product-topbar">
           <div>
@@ -439,7 +521,115 @@ function ProductPreview() {
           <small>Growth subscription</small>
         </span>
       </div>
+      <div className="product-float product-float-renewal">
+        <Bell />
+        <span>
+          <strong>14 renewals queued</strong>
+          <small>Reminder run · 09:00</small>
+        </span>
+      </div>
     </div>
+  );
+}
+
+function OpsTickerItems() {
+  return (
+    <>
+      <span><ScanLine /> QR access</span><i />
+      <span><CreditCard /> Naira billing</span><i />
+      <span><CalendarDays /> Class capacity</span><i />
+      <span><Bell /> Renewal reminders</span><i />
+      <span><Building2 /> Multi-location view</span><i />
+      <span><BarChart3 /> Owner reports</span><i />
+      <span><Users /> Staff permissions</span><i />
+      <span><Smartphone /> Branded member app</span><i />
+    </>
+  );
+}
+
+function OwnerControlStack() {
+  return (
+    <div className="owner-control-stage" aria-label="Illustrative owner control panels">
+      <article className="owner-control-card owner-control-main">
+        <header>
+          <span><Wallet strokeWidth={1.9} /> Revenue control</span>
+          <small>JULY</small>
+        </header>
+        <div className="owner-revenue-row">
+          <div><small>Collected</small><strong>₦4.82m</strong><em>+18.2%</em></div>
+          <div><small>At risk</small><strong>₦186k</strong><em>23 plans</em></div>
+        </div>
+        <div className="owner-wave" aria-hidden="true">
+          <svg viewBox="0 0 420 118" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="owner-wave-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="currentColor" stopOpacity=".34" />
+                <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path className="owner-wave-fill" fill="url(#owner-wave-fill)" d="M0 96 C38 81 64 91 96 62 S152 83 188 48 S252 57 284 28 S350 45 420 10 L420 118 L0 118 Z" />
+            <path className="owner-wave-line" d="M0 96 C38 81 64 91 96 62 S152 83 188 48 S252 57 284 28 S350 45 420 10" />
+          </svg>
+        </div>
+        <div className="owner-card-foot"><span><i /> Settlements synced</span><strong>View report →</strong></div>
+      </article>
+
+      <article className="owner-control-card owner-control-side owner-control-attendance">
+        <header><span><ScanLine /> Live floor</span><b>128</b></header>
+        <div className="owner-capacity"><i style={{ width: "68%" }} /></div>
+        <small>68% of evening capacity</small>
+      </article>
+
+      <article className="owner-control-card owner-control-side owner-control-renewals">
+        <header><span><Clock /> Renewals</span><b>23</b></header>
+        <div className="owner-renewal-list">
+          <span><i className="done" /> 41 reminded</span>
+          <span><i /> 8 need attention</span>
+        </div>
+      </article>
+
+      <div className="owner-control-pulse" aria-hidden="true"><i /><i /><i /></div>
+    </div>
+  );
+}
+
+function CommandPoint({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <article className="home-command-point">
+      <span>{icon}</span>
+      <div><h3>{title}</h3><p>{body}</p></div>
+    </article>
+  );
+}
+
+function OwnerDetail({
+  icon,
+  title,
+  body,
+  tags,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  tags: string[];
+}) {
+  return (
+    <article className="home-detail-card">
+      <div className="home-detail-icon">{icon}</div>
+      <h3>{title}</h3>
+      <p>{body}</p>
+      <div className="home-detail-tags">
+        {tags.map((tag) => <span key={tag}>{tag}</span>)}
+      </div>
+    </article>
   );
 }
 

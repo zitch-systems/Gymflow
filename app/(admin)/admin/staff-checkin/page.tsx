@@ -1,5 +1,7 @@
+import type { Route } from 'next';
+import Link from 'next/link';
 import QRCode from 'qrcode';
-import { ScanLine, Clock, Users, Search, Download } from 'lucide-react';
+import { ScanLine, Clock, Users, Search, Download, Printer } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { ROOT_DOMAIN } from '@/lib/tenant';
 import { createClient } from '@/lib/supabase/server';
@@ -89,9 +91,20 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
           </div>
           <h2>Scan, code, or search</h2>
           <p>Members scan this QR at the entrance, read you a code from their check-in page, or you find them below. Redeeming toggles: it checks members out if they’re already in.</p>
-          <a className="gf-btn gf-btn-secondary gf-btn-sm" href={doorQr} download={`gymflow-${gym.slug}-checkin-qr.png`} style={{ textDecoration: 'none', marginBottom: 14 }}>
-            <Download strokeWidth={2} size={15} /> Download door QR
-          </a>
+          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+            <a className="gf-btn gf-btn-secondary gf-btn-sm" href={doorQr} download={`gymflow-${gym.slug}-checkin-qr.png`} style={{ textDecoration: 'none' }}>
+              <Download strokeWidth={2} size={15} /> Download PNG
+            </a>
+            <Link
+              className="gf-btn gf-btn-primary gf-btn-sm"
+              href={`/print-qr/${gym.slug}?type=checkin` as Route}
+              target="_blank"
+              rel="noreferrer"
+              style={{ textDecoration: 'none' }}
+            >
+              <Printer strokeWidth={2} size={15} /> Print A4 poster
+            </Link>
+          </div>
           <CodeRedeem />
           <form className="find" method="get" action="/admin/staff-checkin"><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Type a member name…" aria-label="Find member" /></form>
           {q && (
