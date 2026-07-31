@@ -698,3 +698,149 @@
     grid-template-columns: 1fr;
   }
   .marketing-home .product-activity {
+    display: none;
+  }
+  .marketing-home .product-float-payment {
+    display: none;
+  }
+  .marketing-home .product-float-checkin {
+    left: 12px;
+    bottom: 0;
+  }
+  .marketing-home .home-trust {
+    overflow: hidden;
+  }
+  .marketing-home .home-trust-in {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    min-height: 66px;
+    padding-right: 24px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  .marketing-home .home-trust-in::-webkit-scrollbar {
+    display: none;
+  }
+  .marketing-home .home-trust-in > span {
+    flex: none;
+    scroll-snap-align: start;
+  }
+  .marketing-home .home-trust-in .home-trust-label {
+    display: none;
+  }
+  .marketing-home section.blk {
+    padding: 66px 0;
+  }
+  .marketing-home .home-sec-head {
+    text-align: left;
+    margin: 0 0 34px;
+  }
+  .marketing-home .home-sec-head p {
+    margin-left: 0;
+  }
+  .marketing-home .outcome-grid {
+    grid-template-columns: 1fr;
+  }
+  .marketing-home .outcome,
+  .marketing-home .outcome-featured {
+    min-height: 300px;
+    padding: 24px;
+  }
+  .marketing-home .outcome-metric {
+    left: 24px;
+  }
+  .marketing-home .home-how-grid {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+}
+
+@media (max-width: 520px) {
+  .nav {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  .nav .brand-tx {
+    font-size: 1rem;
+  }
+  .nav .links {
+    gap: 2px;
+  }
+  .nav .links .th {
+    display: none;
+  }
+  .nav .links a.mobile-signin {
+    display: block;
+    padding-inline: 8px;
+    font-size: 0.78rem;
+  }
+  .nav .links .btnlink {
+    padding: 9px 12px;
+    font-size: 0.78rem;
+  }
+  .marketing-home .wrap {
+    padding-inline: 16px;
+  }
+  .marketing-home .home-hero {
+    padding-top: 38px;
+  }
+  .marketing-home .home-hero-copy .eyebrow {
+    font-size: 0.7rem;
+    padding: 6px 10px;
+  }
+  .marketing-home .home-hero h1 {
+    margin-top: 18px;
+    font-size: clamp(2.55rem, 13vw, 3.3rem);
+  }
+  .marketing-home .home-hero .hero-cta {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    margin-top: 26px;
+  }
+  .marketing-home .home-hero-proof {
+    gap: 9px 14px;
+  }
+  .marketing-home .home-hero-proof li {
+    font-size: 0.76rem;
+  }
+  .marketing-home .product-kpis {
+    gap: 7px;
+  }
+  .marketing-home .product-kpis > div {
+    padding: 11px 9px;
+  }
+  .marketing-home .product-kpis strong {
+    font-size: 1.03rem;
+  }
+  .marketing-home .product-float {
+    max-width: calc(100% - 24px);
+  }
+  .marketing-home .outcome h3 {
+    font-size: 1.65rem;
+  }
+  .marketing-home .home-feature-grid {
+    grid-template-columns: 1fr;
+  }
+  .marketing-home .home-steps .step {
+    grid-template-columns: 42px 1fr;
+    padding: 18px;
+  }
+  .marketing-home .home-final-card {
+    padding: 40px 20px;
+    border-radius: 20px;
+  }
+  .marketing-home .home-final-card .hero-cta {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .marketing-home .home-final-card .gf-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-home .product-window {
+    transform: none;
+  }
+}
