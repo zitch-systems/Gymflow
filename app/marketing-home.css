@@ -761,6 +761,9 @@
     padding: 12px 14px;
     gap: 8px;
   }
+  .nav .brand {
+    min-height: 44px;
+  }
   .nav .brand-tx {
     font-size: 1rem;
   }
