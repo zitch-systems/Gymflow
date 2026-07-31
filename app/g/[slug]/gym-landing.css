@@ -382,7 +382,8 @@
   .gym-public .gym .nm small { display: none; }
   .gym-public .nav-r { gap: 6px; }
   .gym-public .nav-r .th { display: none; }
-  .gym-public .nav-r .b-acc { min-height: 42px; padding: 10px 15px; }
+  .gym-public .nav-r .icon-btn { width: 44px; height: 44px; }
+  .gym-public .nav-r .b-acc { min-height: 44px; padding: 10px 15px; }
 
   .gym-public .hero-in { padding-block: 44px 34px; }
   .gym-public .hero h1 { margin-top: 0; font-size: clamp(2.55rem,12.5vw,4rem); max-width: 10.5ch; }
@@ -457,6 +458,7 @@
   .gym-public .cta .row .b { width: 100%; }
   .gym-public .f-links { gap: 10px 20px; }
   .gym-public .joinbar { padding: 10px 14px calc(10px + env(safe-area-inset-bottom,0px)); }
+  .gym-public .joinbar .b { min-height: 44px; }
   .gym-public { padding-bottom: calc(76px + env(safe-area-inset-bottom,0px)); }
 }
 
