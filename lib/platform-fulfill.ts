@@ -256,7 +256,8 @@ async function onSubscriptionCreate(admin: Admin, data: Json): Promise<PlatformR
   const patch: GymUpdate = { updated_at: new Date().toISOString() };
   if (subscriptionCode) patch.paystack_subscription_code = subscriptionCode;
   if (customerCode) patch.paystack_customer_code = customerCode;
-  await admin.from('gyms').update(patch).eq('id', gymId);
+  const { error } = await admin.from('gyms').update(patch).eq('id', gymId);
+  if (error) return { ok: false, handled: true, error: error.message };
   return { ok: true, handled: true };
 }
 
@@ -277,7 +278,10 @@ async function setStatusBySubscription(admin: Admin, data: Json, status: 'past_d
     if (current && current !== subscriptionCode) return { ok: true, handled: true };
   }
 
-  await admin.from('gyms').update({ subscription_status: status, updated_at: new Date().toISOString() }).eq('id', gymId);
+  const { error: statusErr } = await admin.from('gyms')
+    .update({ subscription_status: status, updated_at: new Date().toISOString() })
+    .eq('id', gymId);
+  if (statusErr) return { ok: false, handled: true, error: statusErr.message };
 
   // Both states lock the console at a date the owner has no other way of
   // learning — the console itself is what stops opening.
