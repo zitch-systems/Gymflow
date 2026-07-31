@@ -9,19 +9,27 @@ import { confirmationHandoff } from '@/lib/auth/confirmation';
 // We exchange the credential for a server-side session, then hand off to `next`.
 // `next` is validated to be a relative path so this cannot be used as an open
 // redirect to external URLs.
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
+// The types Supabase's verifyOtp accepts.
+type OtpType = 'recovery' | 'signup' | 'magiclink' | 'email' | 'email_change' | 'invite';
+
+// Map the URL's type param to a verifyOtp type. The email hook puts the full
+// AuthActionType (e.g. email_change_new) into the URL, but verifyOtp expects
+// the base 'email_change' for both the current- and new-address confirmations.
+function resolveOtpType(raw: string | null): OtpType | null {
+  const DIRECT: readonly string[] = ['recovery', 'signup', 'magiclink', 'email', 'email_change', 'invite'];
+  if (DIRECT.includes(raw ?? '')) return raw as OtpType;
+  if (raw === 'email_change_current' || raw === 'email_change_new') return 'email_change';
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get('code');
   const tokenHash = searchParams.get('token_hash');
-  // Narrow `type` against an allowlist rather than casting it: it is forwarded
-  // straight to verifyOtp, so an unchecked value lets a crafted link drive that
-  // call with an arbitrary string. Anything unrecognised is dropped to null,
-  // which falls through to the link-expired branch.
-  const rawType = searchParams.get('type');
-  const VERIFIABLE = ['recovery', 'signup', 'magiclink', 'email', 'email_change', 'invite'] as const;
-  const type = (VERIFIABLE as readonly string[]).includes(rawType ?? '')
-    ? (rawType as (typeof VERIFIABLE)[number])
-    : null;
+  const type = resolveOtpType(searchParams.get('type'));
   const rawNext = searchParams.get('next') ?? '/';
 
   // Only allow a same-origin path. Also unwrap the callback-inside-callback
@@ -29,14 +37,19 @@ export async function GET(request: NextRequest) {
   // link can still finish at /launch after this deployment.
   const next = confirmationHandoff(rawNext, '/');
 
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
-  } else if (tokenHash && type) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error) return NextResponse.redirect(`${origin}${next}`);
+    } else if (tokenHash && type) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+      if (!error) return NextResponse.redirect(`${origin}${next}`);
+    }
+  } catch {
+    // Network error or Supabase unreachable — fall through to the error redirect
+    // so the member sees a recoverable message instead of an infinite spinner.
   }
 
   // Exchange failed — redirect to login with an error hint so the user can

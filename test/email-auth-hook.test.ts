@@ -106,7 +106,7 @@ describe('buildActionUrl', () => {
 
 describe('parseActionType', () => {
   it('accepts known types', () => {
-    for (const tpe of ['signup', 'recovery', 'invite', 'magiclink', 'email_change', 'reauthentication']) {
+    for (const tpe of ['signup', 'recovery', 'invite', 'magiclink', 'email_change', 'email_change_current', 'email_change_new', 'reauthentication']) {
       expect(parseActionType(tpe)).toBe(tpe);
     }
   });
@@ -159,6 +159,16 @@ describe('renderAuthEmail', () => {
     const c = renderAuthEmail('email_change_new', payload({ token_hash: 'OLD', token_hash_new: 'NEW' }, { new_email: 'new@x.ng' }), ctx);
     expect(render(c).html).toContain('token_hash=NEW');
     expect(render(c).html).not.toContain('token_hash=OLD');
+  });
+
+  it('email_change URLs carry the specific subtype so /auth/confirm can map them', () => {
+    for (const subtype of ['email_change_current', 'email_change_new'] as const) {
+      const tokenKey = subtype === 'email_change_new' ? 'token_hash_new' : 'token_hash';
+      const c = renderAuthEmail(subtype, payload({ token_hash: 'TH', token_hash_new: 'THN' }, { new_email: 'new@x.ng' }), ctx);
+      const { html } = render(c);
+      expect(html).toContain(`type=${subtype}`);
+      expect(html).toContain('/auth/confirm');
+    }
   });
 
   it('never leaks an injected gym name into the rendered HTML body', () => {
