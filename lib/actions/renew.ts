@@ -35,6 +35,10 @@ export async function startRenewal(planId: string): Promise<RenewResult> {
     metadata: {
       member_id: user.id, gym_id: gym.id, plan_id: plan.id,
       duration_days: plan.duration_days, duration_months: plan.duration_months,
+      // Snapshot what THIS checkout was initialized to settle. Fulfillment
+      // compares the signed Paystack event to this value, so a later plan-price
+      // edit neither strands a valid charge nor permits an underpaid one.
+      expected_amount_kobo: Math.round(Number(plan.price) * 100),
       kind: 'membership_renewal',
     },
     callbackUrl: site ? `${site}/dashboard/renew/callback` : undefined,

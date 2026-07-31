@@ -8,6 +8,7 @@ import { validatePassword } from '@/lib/auth/password';
 import { GYM_EMAIL_COLUMNS, type EmailGym } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, welcome } from '@/lib/email/templates/member';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export type JoinState = { error: string | null };
 
@@ -108,6 +109,18 @@ export async function joinAsNew(_prev: JoinState, formData: FormData): Promise<J
   const pwErr = validatePassword(password);
   if (pwErr) return { error: pwErr };
 
+  // Public account creation must not bypass the anti-abuse controls on the
+  // owner signup flow. Run these before touching Auth so a blocked request
+  // creates neither a user nor a confirmation email.
+  const ip = await clientIp();
+  const [ipOk, emailOk] = await Promise.all([
+    rateLimit(`member-join:ip:${ip}`, 5, 3600),
+    rateLimit(`member-join:email:${email.toLowerCase()}`, 3, 3600),
+  ]);
+  if (!ipOk || !emailOk) {
+    return { error: 'Too many join attempts. Please wait an hour and try again.' };
+  }
+
   const gym = await gymBySlug(slug);
   if (!gym) return { error: 'This invite link isn’t valid — ask your gym for a fresh one.' };
 
@@ -116,7 +129,7 @@ export async function joinAsNew(_prev: JoinState, formData: FormData): Promise<J
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/login?confirmed=1`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/auth/confirm?next=/launch`,
       data: { full_name: fullName, phone, join_gym_slug: slug },
     },
   });
@@ -126,27 +139,25 @@ export async function joinAsNew(_prev: JoinState, formData: FormData): Promise<J
   }
   if (!data.user) return { error: 'Could not create the account. Please try again.' };
 
-  let session = data.session;
-  if (!session) {
-    try {
-      const admin = createAdminClient();
-      const { error: confirmErr } = await admin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
-      if (!confirmErr) {
-        const { data: signed, error: signErr } = await supabase.auth.signInWithPassword({ email, password });
-        if (!signErr) session = signed.session;
-      }
-    } catch { /* no service key — email-confirmation path */ }
-  }
+  // Never service-role-confirm a public signup. Without this boundary, anyone
+  // can create and immediately control an account for an email address they do
+  // not own. The confirmation callback establishes the session, and /launch
+  // provisions the member from the signed user_metadata breadcrumb above.
+  if (!data.session) redirect('/login?check-email=1');
 
+  // Confirmations can be disabled in local/preview environments. If Auth
+  // legitimately returned a session, preserve that supported path and link the
+  // member immediately.
   const prov = await provisionMember({ userId: data.user.id, email, gymId: gym.id, fullName, phone });
-  if (!prov.ok) console.error(`[join] provisioning failed for ${data.user.id}: ${prov.error}`); // /launch self-heals via join_gym_slug
+  if (!prov.ok) {
+    console.error(`[join] provisioning failed for ${data.user.id}: ${prov.error}`);
+    redirect('/launch'); // self-heals via join_gym_slug
+  }
 
   // Name and address both came off the form, so there's nothing to look up.
   // Must run before the redirect below — redirect() throws to unwind.
   if (prov.created) await sendJoinWelcome(gym, { email, fullName });
-
-  if (session) redirect('/dashboard');
-  redirect('/login?check-email=1');
+  redirect('/dashboard');
 }
 
 // Already signed in: link the current account to this gym as a member.

@@ -6,6 +6,7 @@ import type { EmailContent } from '@/lib/email';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
 import { getContact, type EmailContact } from '@/lib/email/recipients';
 import { payoutCompleted, payoutFailed } from '@/lib/email/templates/platform';
+import { shouldApplyTransferEvent } from '@/lib/paystack-event-state';
 
 // Paystack transfer webhook handling for instructor payouts. Completes the
 // async half of lib/actions/payouts.ts payPayout():
@@ -27,6 +28,7 @@ type PayoutRow = {
   instructor_id: string;
   amount: number;
   status: string;
+  paystack_transfer_code: string | null;
   bank_name: string | null;
   account_number: string | null;
   /** Embedded via instructor_payouts.gym_id → gyms. */
@@ -53,7 +55,7 @@ async function findPayout(
   transferCode: string | null,
   reference: string | null,
 ): Promise<PayoutRow | null> {
-  const columns = 'id, gym_id, instructor_id, amount, status, bank_name, account_number, gyms(name)';
+  const columns = 'id, gym_id, instructor_id, amount, status, paystack_transfer_code, bank_name, account_number, gyms(name)';
   if (transferCode) {
     const { data } = await admin.from('instructor_payouts')
       .select(columns).eq('paystack_transfer_code', transferCode).maybeSingle();
@@ -104,6 +106,20 @@ export async function handleTransferEvent(event: Json): Promise<TransferResult> 
     return { ok: true };
   }
 
+  // The reference fallback intentionally finds a row when recording the
+  // transfer code failed. Once a newer attempt has a DIFFERENT code, however,
+  // an old event must not mutate it. The same guard prevents a delayed failure
+  // from regressing a paid row to requested.
+  if (!shouldApplyTransferEvent({
+    event: name,
+    currentStatus: payout.status,
+    currentTransferCode: payout.paystack_transfer_code,
+    eventTransferCode: transferCode,
+  })) {
+    console.warn(`[transfer] ignored stale transition ${name} for payout ${payout.id}`);
+    return { ok: true };
+  }
+
   if (name === 'transfer.success') {
     // The transition IS the lock. Guarding on the prior status and asking for
     // the changed rows back means exactly one writer can move a payout to
@@ -116,7 +132,7 @@ export async function handleTransferEvent(event: Json): Promise<TransferResult> 
     const { data: moved, error } = await admin.from('instructor_payouts')
       .update({ status: 'paid', processed_at: new Date().toISOString(), notes: null })
       .eq('id', payout.id)
-      .neq('status', 'paid')
+      .in('status', ['approved', 'requested'])
       .select('id');
     if (error) return { ok: false, error: error.message };
     // Someone else already settled it — ack the webhook, send nothing.
@@ -142,10 +158,11 @@ export async function handleTransferEvent(event: Json): Promise<TransferResult> 
     // Same single-writer guard as the success branch: only the transition out
     // of the in-flight state notifies. A duplicate delivery finds the payout
     // already reopened and stays quiet.
+    const eligibleStatuses = name === 'transfer.reversed' ? ['approved', 'paid'] : ['approved'];
     const { data: moved, error } = await admin.from('instructor_payouts')
       .update({ status: 'requested', paystack_transfer_code: null, notes: why.slice(0, 300) })
       .eq('id', payout.id)
-      .neq('status', 'requested')
+      .in('status', eligibleStatuses)
       .select('id');
     if (error) return { ok: false, error: error.message };
     if (!moved || moved.length === 0) return { ok: true };
