@@ -7,6 +7,7 @@ import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
 import { getGymOwnerEmails } from '@/lib/email/recipients';
 import { subscriptionCancelled, subscriptionPastDue, subscriptionReceipt } from '@/lib/email/templates/platform';
 import type { Database } from '@/lib/database.types';
+import { settledAmountMatches } from '@/lib/paystack-event-state';
 
 type GymUpdate = Database['public']['Tables']['gyms']['Update'];
 
@@ -58,10 +59,11 @@ export function isPlatformEvent(event: Json): boolean {
 }
 
 async function gymIdByColumn(admin: Admin, column: 'paystack_subscription_code' | 'paystack_customer_code', value: string): Promise<string | null> {
-  // limit(1), not maybeSingle(): a customer_code can be shared across a multi-gym
-  // owner, and maybeSingle() would ERROR on >1 row (silently dropping the event).
-  const { data } = await admin.from('gyms').select('id').eq(column, value).limit(1);
-  return data && data[0] ? data[0].id : null;
+  // subscription_code should be unique. customer_code is explicitly NOT: a
+  // multi-gym owner may reuse one Paystack customer. Never choose the first row
+  // in an ambiguous set and apply money/state to the wrong tenant.
+  const { data } = await admin.from('gyms').select('id').eq(column, value).limit(2);
+  return data?.length === 1 ? data[0].id : null;
 }
 
 // Resolve the gym a Paystack event refers to: prefer the gym_id we stamped into
@@ -173,7 +175,15 @@ async function fulfillCharge(admin: Admin, data: Json): Promise<PlatformResult> 
   if (!gymId) return { ok: false, handled: true, error: 'could not resolve gym for charge', permanent: true };
 
   const tier = tierFromCharge(meta, plan);
+  if (!tier) {
+    return { ok: false, handled: true, error: 'unrecognized platform plan code' };
+  }
+
   const amountKobo = Number(data.amount ?? 0);
+  if (!settledAmountMatches(amountKobo, PLATFORM_PLANS[tier].amountKobo)) {
+    return { ok: false, handled: true, error: 'platform charge amount does not match plan', permanent: true };
+  }
+
   const paidAt = str(data.paid_at) ? new Date(String(data.paid_at)) : new Date();
   const periodEnd = addMonths(paidAt, 1);
 
