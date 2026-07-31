@@ -77,6 +77,18 @@ export function nextPath(redirectTo: string | undefined, actionType: AuthActionT
     // Resolve against an arbitrary base so a relative value parses; we then
     // keep only path + query, discarding any origin the caller tried to set.
     const u = new URL(redirectTo, 'https://placeholder.invalid');
+
+    // signUp/resetPasswordForEmail point redirect_to at our callback so the
+    // built-in Supabase mail path can exchange a PKCE code. This custom hook
+    // already creates that callback and redeems a browser-independent
+    // token_hash, so carrying the callback itself as `next` would create a
+    // second /auth/confirm request with no credential. Unwrap its intended
+    // hand-off instead: /launch for signup, /reset-password for recovery.
+    if (u.pathname === '/auth/confirm') {
+      const handoff = u.searchParams.get('next');
+      return handoff?.startsWith('/') && !handoff.startsWith('//') ? handoff : fallback;
+    }
+
     const path = `${u.pathname}${u.search}`;
     if (!path.startsWith('/') || path.startsWith('//')) return fallback;
     return path;
