@@ -48,7 +48,10 @@ export const config = {
     // Apex /g/<slug> → subdomain 308 (the rewrite path is internal, so this
     // only ever matches an external apex request, never the subdomain itself).
     '/g/:path*',
-    '/login', '/signup', '/forgot-password', '/reset-password', '/auth/confirm',
+    // /auth/confirm is intentionally excluded: it has no session until its
+    // route redeems the email token/code. A middleware getUser() first only
+    // adds a second auth-network round trip to the most latency-sensitive flow.
+    '/login', '/signup', '/forgot-password', '/reset-password',
     '/launch',
     '/dashboard/:path*',
     '/checkin', '/classes',
