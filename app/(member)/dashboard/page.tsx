@@ -201,7 +201,7 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
             <div className="meta">{isFrozen ? `Frozen${sub?.pause_end ? ` until ${fmtDate(sub.pause_end)}` : ''}` : isPauseRequested ? 'Waiting for staff approval' : isActive ? `Renews ${fmtDate(sub!.end_date)}` : sub ? 'Renew to keep training' : 'No active membership'}</div>
             <div className="barwrap"><div className="bar" /></div>
             <div className="days"><span>{sub?.start_date ? fmtDate(sub.start_date) : '—'}</span><span>{remaining} days left</span></div>
-            <Link href={isActive ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta"><CreditCard strokeWidth={2} /> {isActive ? 'Manage membership' : 'Renew membership'}</Link>
+            <Link href={isActive || isFrozen || isPauseRequested ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta"><CreditCard strokeWidth={2} /> {isActive || isFrozen || isPauseRequested ? 'Manage membership' : 'Renew membership'}</Link>
           </div>
 
           <div className="qa">

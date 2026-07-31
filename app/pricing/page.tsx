@@ -106,7 +106,7 @@ const FAQS = [
   },
   {
     q: 'Are there setup fees?',
-    a: 'None. You can create your gym, get your branded subdomain and start checking members in the same afternoon.',
+    a: 'None. You can create your gym, get a branded subdomain and configure member check-in without a setup charge.',
   },
   {
     q: 'Can I switch plans later?',
@@ -179,7 +179,7 @@ export default function PricingPage() {
         <div className="wrap">
           <div className="cta">
             <h2>Ready to run your gym the modern way?</h2>
-            <p>Launch your gym in an afternoon. From ₦13,999/mo · cancel anytime · no setup fees.</p>
+            <p>Choose a plan from ₦13,999/mo · cancel anytime · no setup fees.</p>
             <div className="hero-cta" style={{ marginTop: 0 }}>
               <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
               <Link href="/features" className="gf-btn gf-btn-outline gf-btn-lg">Explore features</Link>
