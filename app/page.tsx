@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { MarketingNav, MarketingFooter } from "@/components/marketing/chrome";
 import {
   ArrowRight,
@@ -56,6 +57,15 @@ export default function MarketingHome() {
 
       <main id="main-content" className="marketing-home">
         <header className="hero home-hero">
+          <div className="home-hero-photo" aria-hidden="true">
+            <Image
+              src="/images/gymflow-home-hero.svg"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+            />
+          </div>
           <div className="home-hero-glow" aria-hidden="true" />
           <div className="home-hero-mesh" aria-hidden="true">
             <i />
