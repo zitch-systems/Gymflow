@@ -1,10 +1,27 @@
-export default async function MobilePreviewPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ view?: string }>;
-}) {
-  const { view } = await searchParams;
-  const gymView = view === "gym";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+export default function MobilePreviewPage() {
+  const searchParams = useSearchParams();
+  const gymView = searchParams.get("view") === "gym";
+  const target = gymView ? "/g/ifitness" : "/";
+  const [html, setHtml] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    fetch(target, { credentials: "same-origin" })
+      .then((response) => response.text())
+      .then((document) => {
+        if (active) setHtml(document);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [target]);
 
   return (
     <main
@@ -18,7 +35,7 @@ export default async function MobilePreviewPage({
     >
       <iframe
         title={gymView ? "Gym landing mobile preview" : "GymFlow mobile preview"}
-        src={gymView ? "/g/ifitness" : "/"}
+        srcDoc={html}
         style={{
           width: 390,
           height: 844,
