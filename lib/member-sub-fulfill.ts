@@ -179,6 +179,14 @@ async function onSubscriptionCreate(admin: Admin, data: Json): Promise<Result> {
 
   const sub = await findSub(admin, subCode, custCode, str(meta.member_id), str(meta.gym_id));
   if (!sub) return { ok: true, handled: true }; // The first charge.success will link them; ack.
+  if (
+    subCode &&
+    sub.paystack_subscription_code &&
+    sub.paystack_subscription_code !== subCode &&
+    sub.auto_debit_enabled
+  ) {
+    return { ok: true, handled: true }; // delayed create for a superseded mandate
+  }
 
   const patch: MemberSubUpdate = { updated_at: new Date().toISOString(), auto_debit_enabled: true };
   if (subCode) patch.paystack_subscription_code = subCode;
@@ -235,6 +243,17 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
 
   const sub = await findSub(admin, subCode, custCode, str(meta.member_id), str(meta.gym_id));
   if (!sub) return { ok: false, handled: true, error: 'could not resolve member subscription' };
+  if (
+    subCode &&
+    sub.paystack_subscription_code &&
+    sub.paystack_subscription_code !== subCode &&
+    sub.auto_debit_enabled
+  ) {
+    return {
+      ok: false, handled: true, permanent: true,
+      error: 'subscription code conflicts with active mandate',
+    };
+  }
 
   // Bind the codes on the first successful charge. subscription.create can
   // arrive before the row is resolvable and used to be acknowledged without
