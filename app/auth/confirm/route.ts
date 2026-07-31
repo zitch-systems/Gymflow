@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { confirmationHandoff } from '@/lib/auth/confirmation';
 
 // Supabase password-reset (and email-confirmation) callback.
 // The reset email links here with either:
@@ -23,9 +24,10 @@ export async function GET(request: NextRequest) {
     : null;
   const rawNext = searchParams.get('next') ?? '/';
 
-  // Only allow relative paths — reject anything that looks like an absolute URL
-  // or a protocol-relative URL to prevent open redirect abuse.
-  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+  // Only allow a same-origin path. Also unwrap the callback-inside-callback
+  // shape from emails sent before the redirect fix, so an already-issued member
+  // link can still finish at /launch after this deployment.
+  const next = confirmationHandoff(rawNext, '/');
 
   const supabase = await createClient();
 

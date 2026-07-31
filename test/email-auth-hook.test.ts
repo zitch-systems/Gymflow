@@ -5,6 +5,7 @@ import {
 } from '@/lib/email/auth-hook';
 import { renderEmail, type EmailContent } from '@/lib/email/layout';
 import { gymBrand } from '@/lib/email/brand';
+import { confirmationHandoff } from '@/lib/auth/confirmation';
 
 // EmailContent.blocks are closures, so JSON.stringify hides their content
 // (functions serialise to null) and the subject is a plain-text header, not
@@ -33,6 +34,16 @@ describe('nextPath', () => {
     expect(nextPath('https://gymflow.ng/reset-password', 'recovery')).toBe('/reset-password');
   });
 
+  it('unwraps the post-confirmation hand-off instead of nesting the callback', () => {
+    expect(nextPath('https://gymflow.ng/auth/confirm?next=/launch', 'signup')).toBe('/launch');
+    expect(nextPath('/auth/confirm?next=%2Freset-password', 'recovery')).toBe('/reset-password');
+  });
+
+  it('rejects an unsafe nested callback destination', () => {
+    expect(nextPath('/auth/confirm?next=https://evil.example/steal', 'signup')).toBe('/login?confirmed=1');
+    expect(nextPath('/auth/confirm?next=//evil.example/steal', 'recovery')).toBe('/reset-password');
+  });
+
   it('keeps only the path of a foreign absolute URL, never its origin', () => {
     // The real contract is "never leave our origin". A foreign URL is reduced
     // to a same-origin path — the app's legitimate redirect_to values are
@@ -54,6 +65,17 @@ describe('nextPath', () => {
   it('falls back when redirect_to is missing', () => {
     expect(nextPath(undefined, 'recovery')).toBe('/reset-password');
     expect(nextPath(undefined, 'signup')).toBe('/login?confirmed=1');
+  });
+});
+
+describe('confirmationHandoff', () => {
+  it('repairs an already-sent nested member confirmation link at callback time', () => {
+    expect(confirmationHandoff('/auth/confirm?next=%2Flaunch', '/')).toBe('/launch');
+  });
+
+  it('keeps the callback boundary same-origin', () => {
+    expect(confirmationHandoff('https://evil.example/steal', '/')).toBe('/');
+    expect(confirmationHandoff('/auth/confirm?next=https://evil.example/steal', '/')).toBe('/');
   });
 });
 
@@ -99,20 +121,24 @@ describe('renderAuthEmail', () => {
   const ctx = { base: 'https://gymflow.ng', senderName: 'Iron Republic', isGymMember: true };
   const payload = (over: Partial<AuthHookPayload['email_data']> = {}, user: AuthHookPayload['user'] = {}): AuthHookPayload => ({
     user: { email: 'ada@example.com', ...user },
-    email_data: { token_hash: 'TH', token: '123456', redirect_to: '/login?confirmed=1', ...over },
+    email_data: { token_hash: 'TH', token: '123456', redirect_to: '/auth/confirm?next=/launch', ...over },
   });
 
-  it('builds a signup email whose CTA points at our confirm route', () => {
+  it('builds a signup email whose CTA confirms once, then launches the member', () => {
     const { html, subject } = render(renderAuthEmail('signup', payload(), ctx));
     expect(html).toContain('/auth/confirm');
     expect(html).toContain('token_hash=TH');
+    expect(html).toContain('next=%2Flaunch');
+    expect(html).not.toContain('next=%2Fauth%2Fconfirm');
     expect(subject.toLowerCase()).toContain('confirm');
   });
 
-  it('produces a recovery email with a one-hour expiry note', () => {
+  it('produces a recovery email that confirms once, then opens reset-password', () => {
     const { html, text } = render(renderAuthEmail('recovery', payload({ redirect_to: '/auth/confirm?next=/reset-password' }), ctx));
     expect(html).toContain('1 hour');
     expect(text).toContain('1 hour');
+    expect(html).toContain('next=%2Freset-password');
+    expect(html).not.toContain('next=%2Fauth%2Fconfirm');
   });
 
   it('renders reauthentication from the token, needing no link', () => {
