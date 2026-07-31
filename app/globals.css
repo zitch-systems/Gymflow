@@ -3076,7 +3076,7 @@ a.gl-fact:hover { border-color: var(--gf-brand-glow); transform: translateY(-2px
 
 /* Print: receipt-only (Download PDF on the wallet receipt page) */
 @media print {
-  body * { visibility: hidden; }
+  .ds-member * { visibility: hidden; }
   .ds-member .receipt, .ds-member .receipt * { visibility: visible; }
   .ds-member .receipt { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; }
   .no-print, .ds-member .tabbar, .ds-member .mhead { display: none !important; }
