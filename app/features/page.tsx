@@ -37,7 +37,7 @@ const CATS: Cat[] = [
     lede: 'QR check-in at the door, a live attendance feed, and a member list that surfaces who needs attention before they churn.',
     img: 'gym-floor',
     items: [
-      { icon: <ScanLine strokeWidth={1.75} />, title: 'QR self check-in', body: 'Members scan at the entrance — works offline, syncs when back online.' },
+      { icon: <ScanLine strokeWidth={1.75} />, title: 'QR self check-in', body: 'Members scan at the entrance and attendance updates in the live gym feed.' },
       { icon: <UserSearch strokeWidth={1.75} />, title: 'Smart member list', body: 'Filter by status, search instantly, open a full profile in one tap.' },
       { icon: <BellRing strokeWidth={1.75} />, title: 'Lapse alerts', body: 'See expiring memberships and nudge them on WhatsApp before they go.' },
     ],
@@ -122,7 +122,7 @@ export default function FeaturesPage() {
       <div className="wrap">
         <div className="cta">
           <h2>Ready to run your gym the modern way?</h2>
-          <p>Launch in an afternoon. From ₦13,999/mo · cancel anytime.</p>
+          <p>Explore plans from ₦13,999/mo · cancel anytime.</p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
             <Link href="/pricing" className="gf-btn gf-btn-outline gf-btn-lg">See pricing</Link>
