@@ -815,8 +815,9 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
 .brand-tx em { font-style: normal; color: var(--gf-brand); }
 .brand-tx.lg { font-size: 1.5rem; }
 
-/* The Flowbell sits close to its wordmark and turns like a horizontal coin.
-   Keep the animation transform-only; reduced-motion users get a static mark. */
+/* The Flowbell sits close to its wordmark and rotates around a horizontal
+   axis. Keep the animation transform-only; reduced-motion users get a static
+   mark and the GymFlow wordmark never moves. */
 .brand-mark-spin {
   width: 30px;
   height: 30px;
@@ -825,14 +826,15 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
   place-items: center;
   line-height: 0;
   transform-origin: center;
+  transform-style: preserve-3d;
   backface-visibility: visible;
   animation: gf-flowbell-horizontal-spin 4.8s linear infinite;
   will-change: transform;
 }
 .brand:hover .brand-mark-spin { animation-duration: 1.65s; }
 @keyframes gf-flowbell-horizontal-spin {
-  from { transform: rotateY(0deg); }
-  to { transform: rotateY(360deg); }
+  from { transform: perspective(320px) rotateX(0deg); }
+  to { transform: perspective(320px) rotateX(360deg); }
 }
 @media (prefers-reduced-motion: reduce) {
   .brand-mark-spin { animation: none; }
