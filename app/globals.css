@@ -234,7 +234,7 @@ body {
    emerald *itself* — the old mark was a white glyph on an emerald gradient tile,
    so the tile, its inner sheen and the `stroke: #fff` override are all gone. Any
    of them left in place would render the new mark invisible or muddy it. */
-.gf-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
+.gf-logo { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; flex-shrink: 0; }
 .gf-logo svg, .gf-logo-mark { color: var(--gf-brand); flex-shrink: 0; }
 .gf-logo-mark {
   width: 36px; height: 36px;
@@ -803,7 +803,7 @@ html, body { height: 100%; }
 body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--gf-text); }
 
 /* ── Brand v2 logo lockup (theme-adaptive text) ── */
-.brand { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; }
+.brand { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; }
 .brand img { display: block; }
 /* .brand holds the Flowbell mark (an inline svg) + the wordmark. The mark is
    emerald itself, so .brand sets the colour rather than painting a tile. */
@@ -814,6 +814,24 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
 .brand-tx { font-family: var(--gf-font-display); font-weight: 800; letter-spacing: -0.03em; color: var(--gf-text); font-size: 1.25rem; }
 .brand-tx em { font-style: normal; color: var(--gf-brand); }
 .brand-tx.lg { font-size: 1.5rem; }
+
+/* The Flowbell sits close to its wordmark and turns like a horizontal coin.
+   Keep the animation transform-only; reduced-motion users get a static mark. */
+.brand > svg {
+  transform-box: fill-box;
+  transform-origin: center;
+  backface-visibility: visible;
+  animation: gf-flowbell-horizontal-spin 4.8s linear infinite;
+  will-change: transform;
+}
+.brand:hover > svg { animation-duration: 1.65s; }
+@keyframes gf-flowbell-horizontal-spin {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand > svg { animation: none; }
+}
 
 /* ── App shell (sidebar + main) ── */
 .app { display: grid; grid-template-columns: var(--gf-sidebar-w) 1fr; min-height: 100vh; }
