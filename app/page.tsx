@@ -6,7 +6,7 @@ import { HeroBackground3D } from '@/components/marketing/hero-background-3d';
 import { LogoMark } from '@/components/ui/logo';
 import {
   MapPin, ScanLine, CreditCard, CalendarDays, Users, BarChart3, Smartphone,
-  Check, Star, ShieldCheck, Mail, MessageCircle, Sparkles,
+  Check, ShieldCheck, Mail, MessageCircle, Sparkles,
 } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -38,8 +38,8 @@ export const metadata: Metadata = {
 
 // Marketing landing — recreates revamp/marketing.html in Next.js.
 // Hero (photo-led), trust strip, features (6), how-it-works (3 steps),
-// gallery (4 photos), pricing (3 tiers — Most popular middle), testimonials,
-// CTA, footer. Photo assets live in /public/images.
+// gallery (4 photos), pricing (3 tiers — Most popular middle), CTA and footer.
+// Photo assets live in /public/images.
 export default function MarketingHome() {
   return (
     <>
@@ -57,7 +57,7 @@ export default function MarketingHome() {
         <div className="wrap hero-in">
           <LogoMark size={132} className="logo-hero" />
           <span className="eyebrow">
-            <MapPin strokeWidth={1.75} /> Built in Lagos · Made for Nigerian gyms
+            <MapPin strokeWidth={1.75} /> Made for Nigerian gyms
           </span>
           <h1>Run your gym the <span className="g">modern way</span>.</h1>
           <p className="sub">
@@ -71,7 +71,7 @@ export default function MarketingHome() {
           <dl className="hero-stats">
             <div className="s"><dt>Members</dt><dd><span className="u">Unlimited</span></dd></div>
             <div className="s"><dt>Locations</dt><dd>Multi-gym</dd></div>
-            <div className="s"><dt>Uptime</dt><dd>99.9%</dd></div>
+            <div className="s"><dt>Billing</dt><dd>Naira</dd></div>
           </dl>
         </div>
       </header>
@@ -84,7 +84,7 @@ export default function MarketingHome() {
           <span className="chip2"><MessageCircle strokeWidth={1.75} /> WhatsApp</span>
           <span className="chip2"><Mail strokeWidth={1.75} /> Email receipts</span>
           <span className="chip2"><Smartphone strokeWidth={1.75} /> Installable PWA</span>
-          <span className="chip2"><ShieldCheck strokeWidth={1.75} /> Bank-grade RLS</span>
+          <span className="chip2"><ShieldCheck strokeWidth={1.75} /> Tenant-scoped access</span>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export default function MarketingHome() {
             <h2>Run the front desk from your pocket</h2>
             <p>Members scan in at the door, book the 6 AM class, and renew with Paystack — while you watch attendance and revenue update live. No spreadsheets, no WhatsApp back-and-forth.</p>
             <ul className="show-list">
-              <li><Check strokeWidth={2.4} /> QR check-in that works offline</li>
+              <li><Check strokeWidth={2.4} /> Fast QR check-in at the door</li>
               <li><Check strokeWidth={2.4} /> Auto-renewing Naira subscriptions</li>
               <li><Check strokeWidth={2.4} /> Class booking with caps &amp; waitlists</li>
               <li><Check strokeWidth={2.4} /> Live revenue, churn &amp; attendance</li>
@@ -118,7 +118,7 @@ export default function MarketingHome() {
             <p>From the front desk to the back office, GymFlow covers the day-to-day.</p>
           </div>
           <div className="feat-grid">
-            <Feature icon={<ScanLine strokeWidth={1.75} />} title="QR check-in" body="Members scan a code; staff see attendance live. Works offline." />
+            <Feature icon={<ScanLine strokeWidth={1.75} />} title="QR check-in" body="Members scan a code and staff see attendance update live." />
             <Feature icon={<CreditCard strokeWidth={1.75} />} title="Paystack subscriptions" body="Auto-renew, dunning, and saved cards — in Naira, no FX." />
             <Feature icon={<CalendarDays strokeWidth={1.75} />} title="Class scheduling" body="Recurring classes, booking caps, waitlists, RSVP reminders." />
             <Feature icon={<Users strokeWidth={1.75} />} title="Staff & roles" body="Owner, manager, front desk, accountant, instructor — each sees what they need." />
@@ -140,7 +140,7 @@ export default function MarketingHome() {
       >
         <div className="wrap">
           <div className="sec-head">
-            <h2>Live in an afternoon</h2>
+            <h2>Get started in three steps</h2>
             <p>No installs, no hardware. Three steps from signup to your first check-in.</p>
           </div>
           <div className="steps">
@@ -216,42 +216,12 @@ export default function MarketingHome() {
         </div>
       </section>
 
-      {/* ── Testimonials ── */}
-      <section className="blk">
-        <div className="wrap">
-          <div className="sec-head">
-            <h2>Loved by gym owners</h2>
-            <p>Built with feedback from independent gyms across Nigeria.</p>
-          </div>
-          <div className="tg">
-            <Testimonial
-              quote="Auto-debit alone paid for itself in the first week. Renewals just happen now — I stopped sending manual reminders."
-              name="Tunde A."
-              gym="Powerhouse Fitness, Lagos"
-              initial="T"
-            />
-            <Testimonial
-              quote="My front desk loves the QR check-in, and I finally see real numbers — who's active, who's lapsing, what we made."
-              name="Ngozi E."
-              gym="FlexZone, Abuja"
-              initial="N"
-            />
-            <Testimonial
-              quote="Setup took an afternoon. Members add it to their home screen and it feels like our own app. No hardware to buy."
-              name="Kelechi O."
-              gym="IronWorks Gym, PH"
-              initial="K"
-            />
-          </div>
-        </div>
-      </section>
-
       {/* ── Final CTA ── */}
       <section className="blk">
         <div className="wrap">
           <div className="cta">
             <h2>Ready to run your gym the modern way?</h2>
-            <p>Launch your gym in an afternoon. From ₦13,999/mo · cancel anytime · no setup fees.</p>
+            <p>Start with clear monthly pricing. From ₦13,999/mo · cancel anytime · no setup fees.</p>
             <div className="hero-cta" style={{ marginTop: 0 }}>
               <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
               <Link href="#pricing" className="gf-btn gf-btn-outline gf-btn-lg">See pricing</Link>
@@ -305,21 +275,6 @@ function PricingTier({
       <Link href="/signup" className={`gf-btn gf-btn-${variant} gf-btn-full`} style={{ marginTop: 'auto' }}>
         {cta}
       </Link>
-    </div>
-  );
-}
-
-function Testimonial({ quote, name, gym, initial }: { quote: string; name: string; gym: string; initial: string }) {
-  return (
-    <div className="tcard">
-      <div className="stars" aria-label="5 stars">
-        {Array.from({ length: 5 }, (_, i) => <Star key={i} strokeWidth={1.5} fill="currentColor" />)}
-      </div>
-      <p>&ldquo;{quote}&rdquo;</p>
-      <div className="by">
-        <span className="gf-avatar gf-avatar-sm">{initial}</span>
-        <span><strong>{name}</strong><small>{gym}</small></span>
-      </div>
     </div>
   );
 }
