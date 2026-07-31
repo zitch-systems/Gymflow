@@ -4,6 +4,7 @@ import { logAudit } from '@/lib/audit';
 import { deliverReceipt, type NotifyGym } from '@/lib/notify';
 import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
 import { captureServerEvent } from '@/lib/server-error';
+import { settledAmountMatches } from '@/lib/paystack-event-state';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
 // `permanent` marks a failure that won't succeed on retry (e.g. unusable
@@ -23,6 +24,23 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const memberId = meta.member_id as string | undefined;
   const gymId = meta.gym_id as string | undefined;
   const planId = (meta.plan_id as string | undefined) ?? null;
+
+  // Only the server-initialized one-off renewal flow belongs here. The webhook
+  // signature proves Paystack sent the event; this stamp proves it is one of
+  // the transaction shapes this fulfiller understands.
+  if (meta.kind !== 'membership_renewal') {
+    return { ok: false, created: false, error: 'unexpected charge kind', permanent: true };
+  }
+  if (!d.reference || typeof d.reference !== 'string' || d.reference.length > 200) {
+    return { ok: false, created: false, error: 'missing/invalid reference', permanent: true };
+  }
+  if (!Number.isSafeInteger(d.amountKobo) || d.amountKobo <= 0) {
+    return { ok: false, created: false, error: 'missing/invalid settled amount', permanent: true };
+  }
+  if (!settledAmountMatches(d.amountKobo, meta.expected_amount_kobo)) {
+    return { ok: false, created: false, error: 'settled amount does not match checkout', permanent: true };
+  }
+
   // Clamp to a sane whole-month range. In the normal flow duration_months is
   // server-set at init (renew.ts) from the plan, but this helper is keyed only
   // on metadata — clamp so a tampered/garbage value can't extend a sub by years.
@@ -31,38 +49,46 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   // Daily/weekly plans carry duration_days (clamped) — it wins over months.
   const daysRaw = meta.duration_days != null ? Math.floor(Number(meta.duration_days)) : 0;
   const durationDays = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(daysRaw, 366) : null;
-  if (!memberId || !gymId) return { ok: false, created: false, error: 'missing member_id/gym_id in metadata', permanent: true };
+  if (!memberId || !gymId || !planId) {
+    return { ok: false, created: false, error: 'missing member_id/gym_id/plan_id in metadata', permanent: true };
+  }
 
   let admin: ReturnType<typeof createAdminClient>;
   try { admin = createAdminClient(); } catch (e) { return { ok: false, created: false, error: (e as Error).message }; }
+
+  // Do not let even a correctly signed but misclassified transaction attach a
+  // payment to an unrelated tenant. A real renewal is initialized only after
+  // requireMember() resolves this active link.
+  const { data: memberLink, error: memberLinkErr } = await admin.from('gym_member_links')
+    .select('id').eq('user_id', memberId).eq('gym_id', gymId).eq('is_active', true)
+    .limit(1).maybeSingle();
+  if (memberLinkErr) return { ok: false, created: false, error: memberLinkErr.message };
+  if (!memberLink) return { ok: false, created: false, error: 'member is not active in gym', permanent: true };
 
   // Fast path: already recorded (the common case when the webhook wins the race
   // before the callback runs, or vice versa).
   const { data: existing } = await admin.from('payments').select('id').eq('paystack_reference', d.reference).maybeSingle();
   if (existing) return { ok: true, created: false };
 
-  // SECURITY: the duration above is read from charge metadata, which a member
-  // who crafts their own Paystack transaction can set freely (e.g. pay ₦100 but
-  // claim duration_months=36). When the metadata names a real plan in this gym,
-  // the plan's OWN duration is authoritative — derive it from the DB so a
-  // tampered metadata duration can't over-extend. We do NOT reject on amount
-  // mismatch (a legitimate price change between checkout init and fulfilment
-  // would otherwise strand a real, paid charge); the duration is what matters.
+  // Metadata carries the checkout snapshot, but the plan row is still the
+  // authority for duration and tenant ownership. This prevents a malformed
+  // event from turning a short plan into years of access. Price may legitimately
+  // change after checkout; expected_amount_kobo above pins the settled amount
+  // to what the member actually authorized at initialization.
   let planMonths = months;
   let planDays = durationDays;
   let planPriceKobo: number | null = null;
-  if (planId) {
-    const { data: plan } = await admin.from('membership_plans')
-      .select('duration_days, duration_months, price').eq('id', planId).eq('gym_id', gymId).maybeSingle();
-    if (plan) {
-      const pm = Math.floor(Number(plan.duration_months ?? 0));
-      const pd = plan.duration_days != null ? Math.floor(Number(plan.duration_days)) : 0;
-      planDays = Number.isFinite(pd) && pd > 0 ? Math.min(pd, 366) : null;
-      planMonths = planDays ? 0 : (Number.isFinite(pm) && pm > 0 ? Math.min(pm, 36) : 1);
-      const pp = Number(plan.price ?? 0);
-      if (Number.isFinite(pp) && pp > 0) planPriceKobo = Math.round(pp * 100);
-    }
-  }
+  const { data: plan, error: planErr } = await admin.from('membership_plans')
+    .select('duration_days, duration_months, price').eq('id', planId).eq('gym_id', gymId).maybeSingle();
+  if (planErr) return { ok: false, created: false, error: planErr.message };
+  if (!plan) return { ok: false, created: false, error: 'plan does not belong to gym', permanent: true };
+
+  const pm = Math.floor(Number(plan.duration_months ?? 0));
+  const pd = plan.duration_days != null ? Math.floor(Number(plan.duration_days)) : 0;
+  planDays = Number.isFinite(pd) && pd > 0 ? Math.min(pd, 366) : null;
+  planMonths = planDays ? 0 : (Number.isFinite(pm) && pm > 0 ? Math.min(pm, 36) : 1);
+  const pp = Number(plan.price ?? 0);
+  if (Number.isFinite(pp) && pp > 0) planPriceKobo = Math.round(pp * 100);
 
   const { data: payRow, error: payErr } = await admin.from('payments').insert({
     member_id: memberId, gym_id: gymId, plan_id: planId,
@@ -101,11 +127,11 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
     return { ok: false, created: false, error: `subscription extend failed: ${subErr.message}` };
   }
 
-  // The fulfillment path deliberately does not REJECT on amount mismatch (see
-  // security note above) — but a mismatch is still worth surfacing. If the plan's
-  // priced amount differs from what the charge actually settled for, write an
-  // audit trail so an underpayment (or refund-window arbitrage) is at least
-  // observable in /superadmin/audit. Best-effort; never fails the fulfilment.
+  // The signed checkout snapshot already matched the settled charge. A
+  // difference from the plan's CURRENT price therefore normally means staff
+  // edited the price while checkout was open. Keep that drift observable
+  // without rejecting a charge the member authorized. Legacy transactions
+  // created before expected_amount_kobo shipped remain visible here too.
   if (planPriceKobo && planPriceKobo !== d.amountKobo) {
     void logAudit({
       action: 'payment_amount_mismatch',
@@ -119,11 +145,11 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
         delta_kobo: d.amountKobo - planPriceKobo,
       },
     });
-    // Underpayment is the one accepted-by-design fraud vector — an audit row
-    // alone is passive. Page it (inert without SENTRY_DSN) when the charge
-    // settled for LESS than the plan price, so a pattern gets noticed.
-    if (d.amountKobo < planPriceKobo) {
-      void captureServerEvent('underpayment accepted on member charge', {
+    // A legacy transaction has no checkout snapshot to distinguish a genuine
+    // price edit from underpayment. Page only that legacy case; new checkouts
+    // have already failed closed above on any mismatch.
+    if (meta.expected_amount_kobo == null && d.amountKobo < planPriceKobo) {
+      void captureServerEvent('legacy member charge below current plan price', {
         paystack_reference: d.reference,
         gym_id: gymId,
         plan_id: planId,
