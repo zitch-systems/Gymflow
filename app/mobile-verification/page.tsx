@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 export default function MobilePreviewPage() {
-  const searchParams = useSearchParams();
-  const gymView = searchParams.get("view") === "gym";
-  const target = gymView ? "/g/ifitness" : "/";
+  const [gymView, setGymView] = useState(false);
   const [html, setHtml] = useState("");
 
   useEffect(() => {
     let active = true;
+    const selectedGym =
+      new URLSearchParams(window.location.search).get("view") === "gym";
+    const target = selectedGym ? "/g/ifitness" : "/";
+
+    setGymView(selectedGym);
 
     fetch(target, { credentials: "same-origin" })
       .then((response) => response.text())
@@ -21,7 +23,7 @@ export default function MobilePreviewPage() {
     return () => {
       active = false;
     };
-  }, [target]);
+  }, []);
 
   return (
     <main
