@@ -1179,10 +1179,31 @@ body { position: relative; }
 body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; }
 
 /* Brand panel (left) */
-.brandside { position: relative; overflow: hidden; padding: 44px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--gf-border); }
-.brandside-bg { position: absolute; inset: 0; background: url(/images/gym-studio.jpg) center/cover; opacity: 0.28; }
+.brandside { position: relative; isolation: isolate; overflow: hidden; padding: 44px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--gf-border); }
+.brandside-bg { position: absolute; inset: 0; z-index: 0; background: url(/images/gym-studio.jpg) center/cover; opacity: 0.28; }
 .brandside-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, var(--gf-brand-soft), transparent 40%), linear-gradient(0deg, var(--gf-bg) 5%, transparent 60%); }
-.brandside > * { position: relative; }
+.brandside > * { position: relative; z-index: 1; }
+.brandside > .brandside-bg { position: absolute; z-index: 0; }
+
+/* Platform signup/sign-in: make the visual panel feel like a real gym in
+   operation. The generated owner photo is intentionally darkest where the
+   benefit copy sits, while the overlays keep the white lockup readable over
+   the daylight windows at the top. */
+.brandside--owner { background: #07110d; border-right: 0; color: #fff; }
+.brandside-bg--owner { background: #07110d; opacity: 1; }
+.brandside-bg--owner::after {
+  background:
+    linear-gradient(180deg, rgba(3, 12, 9, 0.25) 0%, rgba(3, 12, 9, 0.08) 42%, rgba(3, 11, 8, 0.74) 75%, rgba(3, 9, 7, 0.97) 100%),
+    linear-gradient(90deg, rgba(2, 10, 7, 0.68) 0%, rgba(2, 10, 7, 0.24) 54%, rgba(2, 10, 7, 0.08) 100%);
+}
+.brandside-photo { object-fit: cover; object-position: 50% 20%; filter: saturate(0.92) contrast(1.04); }
+.brandside--owner .brand-tx { color: #fff; }
+.brandside--owner .brand-tx em { color: #42e2a7; }
+.brandside--owner .bs-quote { text-shadow: 0 2px 18px rgba(0, 0, 0, 0.38); }
+.brandside--owner .bs-quote p { color: #fff; max-width: 390px; }
+.brandside--owner .bs-quote li { color: rgba(255, 255, 255, 0.88); }
+.brandside--owner .bs-quote li svg { color: #52e4ad; filter: drop-shadow(0 2px 8px rgba(17, 209, 139, 0.28)); }
+
 .bs-quote { max-width: 440px; }
 .bs-quote .stars { display: flex; gap: 3px; color: var(--gf-accent); margin-bottom: 16px; }
 .bs-quote .stars :is(i, svg) { width: 18px; height: 18px; fill: var(--gf-accent); }
