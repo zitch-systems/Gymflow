@@ -5,6 +5,7 @@ import {
 } from '@/lib/email/auth-hook';
 import { renderEmail, type EmailContent } from '@/lib/email/layout';
 import { gymBrand } from '@/lib/email/brand';
+import { confirmationHandoff } from '@/lib/auth/confirmation';
 
 // EmailContent.blocks are closures, so JSON.stringify hides their content
 // (functions serialise to null) and the subject is a plain-text header, not
@@ -64,6 +65,17 @@ describe('nextPath', () => {
   it('falls back when redirect_to is missing', () => {
     expect(nextPath(undefined, 'recovery')).toBe('/reset-password');
     expect(nextPath(undefined, 'signup')).toBe('/login?confirmed=1');
+  });
+});
+
+describe('confirmationHandoff', () => {
+  it('repairs an already-sent nested member confirmation link at callback time', () => {
+    expect(confirmationHandoff('/auth/confirm?next=%2Flaunch', '/')).toBe('/launch');
+  });
+
+  it('keeps the callback boundary same-origin', () => {
+    expect(confirmationHandoff('https://evil.example/steal', '/')).toBe('/');
+    expect(confirmationHandoff('/auth/confirm?next=https://evil.example/steal', '/')).toBe('/');
   });
 });
 
