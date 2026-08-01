@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { Plus, AlertCircle, Check } from 'lucide-react';
-import { logExpense, EXPENSE_CATEGORIES, type FState } from '@/lib/actions/facility';
+import { logExpense, type FState } from '@/lib/actions/facility';
+import { EXPENSE_CATEGORIES } from '@/lib/facility';
 
 const INIT: FState = { ok: false, error: null };
 
