@@ -133,7 +133,16 @@ templates and Resend instead.
    rather than erroring visibly.)
 4. Confirm the Supabase project **Site URL** is `https://gymflow.ng` and the
    redirect allow-list includes `https://gymflow.ng/**` and `https://*.gymflow.ng/**`
-   (gym subdomains) — the hook builds links against it.
+   (gym subdomains).
+
+   > **This field is load-bearing.** Supabase passes the Site URL to the hook as
+   > `site_url`. If it is left at the project's own `https://<ref>.supabase.co`
+   > URL (the default on a fresh project), the confirmation link is built as
+   > `https://<ref>.supabase.co/auth/confirm?…` — our route path on the Supabase
+   > API host, which answers `{"message":"No API key found in request"}` and
+   > strands every member. As a safety net `linkBase()` (`lib/email/auth-hook.ts`)
+   > now ignores a `*.supabase.co`/`*.supabase.in` Site URL and prefers our own
+   > `NEXT_PUBLIC_SITE_URL`, but the dashboard value should still be correct.
 
 Unset secret → the hook returns `501` and Supabase falls back to its own
 templates, so enabling this is safe and reversible. Unlike the rest of the
@@ -160,7 +169,8 @@ fixes their mailbox and asks to be re-enabled).
 
 ```
 lib/email/
-  index.ts        transport: sendEmail(), gymFromAddress(), platformAlertRecipients()
+  index.ts        transport: sendEmail(), platformAlertRecipients()
+  from.ts         From header + sender domain: gymFromAddress(), safe display-name/local-part (pure, test-importable)
   send.ts         choke point: sendGymEmail(), sendPlatformEmail() — gating + suppression + branding
   brand.ts        palette, EmailBrand, gymBrand()/platformBrand(), safeHex(), gymUrl()
   layout.ts       table-based shell + block vocabulary (p, h1, panel, button, callout, code…)
