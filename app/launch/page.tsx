@@ -16,14 +16,20 @@ export default async function Launch() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: pa }, { data: staff }, { data: member }] = await Promise.all([
+  const [{ data: pa }, { data: staffLinks }, { data: member }] = await Promise.all([
     supabase.from('platform_admins').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
-    supabase.from('gym_staff_links').select('role').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
+    // ALL active staff links, not .maybeSingle(): a multi-gym owner/manager has
+    // several rows, which made .maybeSingle() error (→ null) and drop them out of
+    // the staff branch entirely — landing them on the member portal, or all the
+    // way through to the "name your gym" onboarding form. Route to the admin
+    // console if ANY link is a non-instructor role; a pure instructor gets /coach.
+    supabase.from('gym_staff_links').select('role').eq('user_id', user.id).eq('is_active', true),
     supabase.from('gym_member_links').select('id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle(),
   ]);
 
   if (pa) redirect('/superadmin');
-  if (staff) redirect((staff as { role: string }).role === 'instructor' ? '/coach' : '/admin');
+  const staffRoles = ((staffLinks ?? []) as { role: string | null }[]).map((l) => l.role);
+  if (staffRoles.length > 0) redirect(staffRoles.some((r) => r && r !== 'instructor') ? '/admin' : '/coach');
   if (member) redirect('/dashboard');
 
   // No role anywhere: an account whose provisioning failed (or predates it).
