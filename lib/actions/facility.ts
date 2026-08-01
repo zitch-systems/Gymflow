@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { storagePathFromPublicUrl } from '@/lib/format';
+import { EXPENSE_CATEGORIES } from '@/lib/facility';
 
 export type FState = { ok: boolean; error: string | null };
 
@@ -22,8 +23,6 @@ function cleanDate(v: FormDataEntryValue | null): string | null {
 // equipment.status — constrained by equipment_status_check to these values;
 // the Facility page maps them to OK/Service/Down labels.
 const EQUIPMENT_STATUS = new Set(['active', 'maintenance', 'retired', 'lost']);
-// Matches the expense_category enum labels in the DB.
-export const EXPENSE_CATEGORIES = ['utilities', 'maintenance', 'supplies', 'salaries', 'rent', 'marketing', 'equipment', 'other'] as const;
 
 // Create or edit a piece of equipment (owner/manager/staff via the
 // equipment_staff_write RLS policy). Redirects back to the Facility page.
