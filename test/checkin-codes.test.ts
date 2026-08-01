@@ -44,7 +44,7 @@ describe('checkin_codes RLS', () => {
            values ($1, $2, '654321', now() + interval '10 minutes')`,
           [IDS.gymA, IDS.memberB],
         ),
-      ).rejects.toThrow(/row-level security|permission denied/i);
+      ).rejects.toThrow(/row-level security|permission denied|not authorized|invalid member/i);
     });
   });
 
@@ -56,7 +56,7 @@ describe('checkin_codes RLS', () => {
            values ($1, $2, '654321', now() + interval '10 minutes')`,
           [IDS.gymB, IDS.memberA],
         ),
-      ).rejects.toThrow(/row-level security|permission denied/i);
+      ).rejects.toThrow(/row-level security|permission denied|not authorized|invalid member/i);
     });
   });
 

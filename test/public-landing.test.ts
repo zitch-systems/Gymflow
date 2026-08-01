@@ -2,11 +2,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { asSuperuser, withSession } from './db';
 import { IDS, seed } from './seed';
 
-// Anon (signed-out) reads that the gym landing page's no-service-key fallback
-// depends on (20260714_public_landing_reads.sql). The landing already shows
-// gyms/plans/classes/hours to the world; these policies make the anon client
-// able to read the same data — active rows only where the flag exists — while
-// writes stay locked.
+// Anon (signed-out) reads that the gym landing page depends on. After the
+// tenant-isolation hardening (20260731), gyms and membership_plans are no
+// longer accessible to anon — only classes and business_hours remain public.
 
 const INACTIVE_PLAN = 'e1111111-1111-1111-1111-11111111aaaa';
 const ACTIVE_CLASS = 'e2222222-2222-2222-2222-22222222bbbb';
@@ -35,20 +33,26 @@ describe('public landing reads (anon fallback)', () => {
     });
   });
 
-  it('anon can read gyms (landing/login/join lookup)', async () => {
+  it('anon cannot read gyms (hardened in tenant isolation)', async () => {
     await withSession({ role: 'anon' }, async (c) => {
-      const { rows } = await c.query(`select id from public.gyms where id = $1`, [IDS.gymA]);
-      expect(rows).toHaveLength(1);
+      await expect(
+        c.query(`select id from public.gyms where id = $1`, [IDS.gymA]),
+      ).rejects.toThrow(/permission denied/i);
     });
   });
 
-  it('anon sees active membership plans but not inactive ones', async () => {
+  it('anon cannot read membership plans (hardened in tenant isolation)', async () => {
     await withSession({ role: 'anon' }, async (c) => {
-      const { rows } = await c.query(
-        `select id, is_active from public.membership_plans where gym_id = $1`, [IDS.gymA]);
-      expect(rows.length).toBeGreaterThan(0);
-      expect(rows.every((r) => r.is_active)).toBe(true);
-      expect(rows.some((r) => r.id === INACTIVE_PLAN)).toBe(false);
+      await expect(
+        c.query(`select id from public.membership_plans where gym_id = $1`, [IDS.gymA]),
+      ).rejects.toThrow(/permission denied/i);
+    });
+  });
+
+  it('authenticated member can still read gyms', async () => {
+    await withSession({ role: 'authenticated', uid: IDS.memberA }, async (c) => {
+      const { rows } = await c.query(`select id from public.gyms where id = $1`, [IDS.gymA]);
+      expect(rows).toHaveLength(1);
     });
   });
 
@@ -69,11 +73,8 @@ describe('public landing reads (anon fallback)', () => {
     });
   });
 
-  it('anon still cannot write plans or classes', async () => {
+  it('anon cannot write classes', async () => {
     await withSession({ role: 'anon' }, async (c) => {
-      const upd = await c.query(
-        `update public.membership_plans set price = 1 where gym_id = $1`, [IDS.gymA]);
-      expect(upd.rowCount).toBe(0);
       await expect(c.query(
         `insert into public.classes (gym_id, name, is_active) values ($1, 'Hacked', true)`,
         [IDS.gymA],

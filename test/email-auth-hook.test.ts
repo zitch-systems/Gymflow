@@ -163,7 +163,6 @@ describe('renderAuthEmail', () => {
 
   it('email_change URLs carry the specific subtype so /auth/confirm can map them', () => {
     for (const subtype of ['email_change_current', 'email_change_new'] as const) {
-      const tokenKey = subtype === 'email_change_new' ? 'token_hash_new' : 'token_hash';
       const c = renderAuthEmail(subtype, payload({ token_hash: 'TH', token_hash_new: 'THN' }, { new_email: 'new@x.ng' }), ctx);
       const { html } = render(c);
       expect(html).toContain(`type=${subtype}`);
