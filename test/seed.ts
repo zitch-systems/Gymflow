@@ -87,6 +87,18 @@ export async function seed() {
       );
     }
 
+    // Active subscriptions so check-in triggers (which require an active sub) pass.
+    for (const [gym, member, plan] of [
+      [IDS.gymA, IDS.memberA, IDS.planA],
+      [IDS.gymB, IDS.memberB, IDS.planB],
+    ] as const) {
+      await c.query(
+        `insert into public.member_subscriptions (gym_id, member_id, plan_id, status, start_date, end_date)
+         values ($1, $2, $3, 'active', now(), now() + interval '30 days')`,
+        [gym, member, plan],
+      );
+    }
+
     // One payment per member in their own gym. These become the "does the
     // other gym's staff see it?" fixture.
     for (const [gym, member] of [[IDS.gymA, IDS.memberA], [IDS.gymB, IDS.memberB]] as const) {

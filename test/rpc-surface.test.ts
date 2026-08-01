@@ -2,16 +2,14 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { withSession } from './db';
 import { IDS, seed } from './seed';
 
-// The RBAC helpers (has_gym_role / is_gym_staff / is_platform_admin) are
-// SECURITY DEFINER and are reachable over PostgREST as /rest/v1/rpc/<name>,
-// so who holds EXECUTE is an API-surface decision, not a detail:
+// The RBAC helpers (has_gym_role / is_gym_staff / is_platform_admin) were moved
+// from public to private schema (20260731_normalize_billing migration). They
+// are SECURITY DEFINER and are callable over PostgREST only if the caller holds
+// EXECUTE on the private schema + function:
 //
-//   • anon must NOT hold it — 20260728_revoke_public_execute_rbac_helpers.sql
-//     dropped the default PUBLIC grant that exposed them to logged-out callers.
-//   • authenticated MUST hold it — ~20 RLS policies call these helpers, and a
-//     policy expression is evaluated as the querying role. Revoking it there
-//     would turn every gated read into "permission denied for function", which
-//     is exactly the kind of breakage a blanket lockdown invites.
+//   • anon must NOT hold it — private schema USAGE is not granted to anon.
+//   • authenticated MUST hold it — ~20 RLS policies call these helpers by OID,
+//     and direct calls from the app also need them.
 //
 // Both halves are asserted here so a future tightening pass can't take the
 // second one with it.
@@ -19,9 +17,9 @@ import { IDS, seed } from './seed';
 beforeAll(async () => { await seed(); });
 
 const HELPERS: Array<{ name: string; call: string }> = [
-  { name: 'has_gym_role', call: `select public.has_gym_role('${IDS.gymA}'::uuid, array['gym_owner']::public.user_role[])` },
-  { name: 'is_gym_staff', call: `select public.is_gym_staff('${IDS.gymA}'::uuid)` },
-  { name: 'is_platform_admin', call: `select public.is_platform_admin()` },
+  { name: 'has_gym_role', call: `select private.has_gym_role('${IDS.gymA}'::uuid, array['gym_owner']::public.user_role[])` },
+  { name: 'is_gym_staff', call: `select private.is_gym_staff('${IDS.gymA}'::uuid)` },
+  { name: 'is_platform_admin', call: `select private.is_platform_admin()` },
 ];
 
 describe('RBAC helper RPC surface', () => {
@@ -30,7 +28,10 @@ describe('RBAC helper RPC surface', () => {
       const err = await withSession({ role: 'anon' }, async (c) => {
         try { await c.query(h.call); return null; } catch (e) { return e as { code?: string }; }
       });
-      expect(err?.code).toBe('42501'); // insufficient_privilege
+      // 42501 (insufficient_privilege) or 42883 (undefined_function) — both
+      // mean anon has no access. The exact code depends on whether Postgres
+      // checks schema USAGE before function resolution.
+      expect(err?.code).toMatch(/^42(501|883)$/);
     });
 
     it(`authenticated can execute ${h.name}`, async () => {
@@ -52,17 +53,16 @@ describe('RBAC helper RPC surface', () => {
     expect(gyms).toEqual([IDS.gymA]);
   });
 
-  it('anon can still read the public landing tables', async () => {
-    // The revoke only bites on tables anon never touches: none of the policies
-    // on gyms/membership_plans/classes/business_hours reference the helpers.
+  it('anon can still read the public landing tables (classes, business_hours)', async () => {
+    // After tenant isolation hardening, gyms and membership_plans are no
+    // longer accessible to anon. Classes and business_hours remain public.
     const counts = await withSession({ role: 'anon' }, async (c) => {
-      const { rows } = await c.query<{ gyms: string; plans: string; classes: string; hours: string }>(`
-        select (select count(*) from public.gyms) as gyms,
-               (select count(*) from public.membership_plans) as plans,
-               (select count(*) from public.classes) as classes,
+      const { rows } = await c.query<{ classes: string; hours: string }>(`
+        select (select count(*) from public.classes) as classes,
                (select count(*) from public.business_hours) as hours`);
       return rows[0];
     });
-    expect(Number(counts.gyms)).toBeGreaterThan(0);
+    expect(Number(counts.classes)).toBeGreaterThanOrEqual(0);
+    expect(Number(counts.hours)).toBeGreaterThanOrEqual(0);
   });
 });

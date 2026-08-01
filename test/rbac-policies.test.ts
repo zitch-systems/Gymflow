@@ -178,7 +178,7 @@ describe('is_platform_admin() honours is_active (rbac_access_view_fixes §2)', (
         [IDS.memberA],
       );
       await becomeUser(c, IDS.memberA);
-      const { rows } = await c.query<{ ok: boolean }>(`select public.is_platform_admin() as ok`);
+      const { rows } = await c.query<{ ok: boolean }>(`select private.is_platform_admin() as ok`);
       const { rows: pay } = await c.query<{ gym_id: string }>(`select distinct gym_id from public.payments`);
       return { isAdmin: rows[0].ok, gyms: pay.map((r) => r.gym_id) };
     });
@@ -195,7 +195,7 @@ describe('is_platform_admin() honours is_active (rbac_access_view_fixes §2)', (
         [IDS.memberA],
       );
       await becomeUser(c, IDS.memberA);
-      const { rows } = await c.query<{ ok: boolean }>(`select public.is_platform_admin() as ok`);
+      const { rows } = await c.query<{ ok: boolean }>(`select private.is_platform_admin() as ok`);
       const { rows: pay } = await c.query<{ gym_id: string }>(
         `select distinct gym_id from public.payments order by gym_id`,
       );
