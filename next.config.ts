@@ -6,7 +6,15 @@ const config: NextConfig = {
   // against the real route tree at build time. All linked routes now exist.
   typedRoutes: true,
   // Tree-shake lucide-react per-route so pages only ship the icons they use.
-  experimental: { optimizePackageImports: ['lucide-react'] },
+  // bodySizeLimit lifts the 1 MB default on Server Action payloads: equipment
+  // photos and gym logos are validated up to 2 MB before upload, but the action
+  // request itself was rejected at 1 MB ("Body exceeded 1 MB limit"), so a valid
+  // 1–2 MB photo failed to save. 3 MB covers a 2 MB file plus multipart/form
+  // overhead.
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+    serverActions: { bodySizeLimit: '3mb' },
+  },
 
   // Serve modern formats and allow optimizing the per-gym images hosted on
   // Supabase storage (gym logos / hero / equipment photos).
