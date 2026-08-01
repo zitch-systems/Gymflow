@@ -279,9 +279,20 @@ export async function updateMarketing(_prev: GymSaveState, formData: FormData): 
 export async function uploadGymPhotos(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
   const files = formData.getAll('photos').filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { ok: false, error: 'Choose at least one image to upload.' };
+  let totalBytes = 0;
   for (const f of files) {
     if (!f.type.startsWith('image/')) return { ok: false, error: 'Every file must be an image.' };
-    if (f.size > 3_000_000) return { ok: false, error: 'Each image must be under 3 MB.' };
+    if (f.size > 2_000_000) return { ok: false, error: 'Each image must be under 2 MB.' };
+    totalBytes += f.size;
+  }
+  // The WHOLE multipart request must fit under the Server Action body limit
+  // (next.config serverActions.bodySizeLimit) — the per-file cap alone doesn't
+  // bound a multi-select, so several photos at once used to blow the limit and
+  // Next rejected the request with a cryptic "Body exceeded N MB limit" 500
+  // before this action ran. Guard the aggregate so a big batch fails with a
+  // clear, actionable message instead; photos can be added in smaller batches.
+  if (totalBytes > 2_600_000) {
+    return { ok: false, error: 'That’s too much to upload at once — add a few photos per batch (about 2.5 MB total).' };
   }
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);

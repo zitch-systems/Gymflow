@@ -11,6 +11,9 @@ import { CodeRedeem } from '@/components/admin/code-redeem';
 
 export const metadata = { title: 'Check-In' };
 export const dynamic = 'force-dynamic';
+// Generates a 1024px door-QR data URL on render; give it headroom like the
+// other image-producing routes rather than the platform default.
+export const maxDuration = 60;
 
 export default async function AdminCheckin({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { gym } = await requireStaff();
