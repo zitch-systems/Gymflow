@@ -39,7 +39,11 @@ export function MarketingFooter() {
           <h4>Product</h4>
           <Link href="/features">Features</Link>
           <Link href="/pricing">Pricing</Link>
-          <Link href="/dashboard">Member app</Link>
+          {/* Sign-in entry, not a deep link into the gated app: /dashboard bounced
+              members to the apex owner-login and pushed signed-in owners into the
+              admin portal. /login is the member sign-in (member-branded on a gym
+              subdomain); /launch then routes to /dashboard. */}
+          <Link href="/login">Member sign-in</Link>
           <Link href="/admin">For owners</Link>
         </div>
         <div>
