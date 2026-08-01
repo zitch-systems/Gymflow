@@ -300,3 +300,44 @@ describe('can_see_profile() and suspended staff (can_see_profile_inactive_staff)
     expect(visible).toBe(false);
   });
 });
+
+describe('instructor_subscriptions writes are service-role only (20260801 payout-balance lockdown)', () => {
+  // amount_paid is summed into an instructor's withdrawable payout balance
+  // (lib/payout-balance.ts), so a self-served INSERT would be forging one's own
+  // money. The baseline let `authenticated` write with permissive self-policies;
+  // writes are now revoked — only the service-role fulfillment path creates rows.
+  const INSERT = `insert into public.instructor_subscriptions (gym_id, instructor_id, member_id, amount_paid, status, start_date)
+                  values ($1, $2, $3, 500000, 'active', now())`;
+
+  it('an instructor cannot insert a subscription row (which would inflate their payout balance)', async () => {
+    await inTx(async (c) => {
+      await makeOutsider(c);
+      await c.query(
+        `insert into public.gym_staff_links (gym_id, user_id, role, is_active) values ($1, $2, 'instructor', true)`,
+        [IDS.gymA, OUTSIDER],
+      );
+      await becomeUser(c, OUTSIDER);
+      await expect(c.query(INSERT, [IDS.gymA, OUTSIDER, OUTSIDER]))
+        .rejects.toThrow(/permission denied|row-level security/i);
+    });
+  });
+
+  it('a member cannot insert an instructor_subscriptions row (incl. cross-gym)', async () => {
+    await inTx(async (c) => {
+      await becomeUser(c, IDS.memberA);
+      await expect(c.query(INSERT, [IDS.gymB, IDS.memberA, IDS.memberA]))
+        .rejects.toThrow(/permission denied|row-level security/i);
+    });
+  });
+
+  it('gym staff can still READ the gym’s instructor_subscriptions (SELECT policy intact)', async () => {
+    const seen = await inTx(async (c) => {
+      // Seeded as superuser (stands in for the service-role fulfillment write).
+      await c.query(INSERT, [IDS.gymA, IDS.memberA, IDS.memberA]);
+      await becomeUser(c, IDS.ownerA);
+      const { rows } = await c.query(`select amount_paid from public.instructor_subscriptions where gym_id = $1`, [IDS.gymA]);
+      return rows.length;
+    });
+    expect(seen).toBe(1);
+  });
+});
