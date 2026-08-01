@@ -271,6 +271,15 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   if (existing) return { ok: true, handled: true };
 
   const amountKobo = Number(data.amount ?? 0);
+  // A recurring charge must carry a real, positive amount before it records a
+  // successful payment and extends access. The one-off and platform rails both
+  // fail closed on amount; this one did not, so an `amount: 0` (or NaN/negative)
+  // charge.success would grant a full billing period for free. Reject it as
+  // handled — a retry with the same bad amount would repeat, so don't ask
+  // Paystack to redeliver.
+  if (!Number.isSafeInteger(amountKobo) || amountKobo <= 0) {
+    return { ok: false, handled: true, error: `recurring charge has a non-positive amount (${data.amount})` };
+  }
 
   // Load the plan's duration to extend end_date correctly. We prefer the sub's
   // own plan_id (survives if the membership_plans row is later archived) and
