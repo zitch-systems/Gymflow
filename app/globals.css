@@ -815,10 +815,9 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
 .brand-tx em { font-style: normal; color: var(--gf-brand); }
 .brand-tx.lg { font-size: 1.5rem; }
 
-/* The Flowbell sits close to its wordmark and tumbles in real 3D. The
-   horizontal axis remains dominant, while a restrained yaw, roll and Z-depth
-   keep the mark dimensional instead of reading as a flat flip. The wordmark
-   never moves, and reduced-motion users get the crisp static mark. */
+/* The Flowbell stays close to its wordmark and spins slowly from left to
+   right. A fixed, restrained X-axis tilt plus perspective gives the Y-axis
+   rotation real depth without turning it into a top-to-bottom tumble. */
 .brand-mark-spin {
   width: 30px;
   height: 30px;
@@ -829,7 +828,7 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
   transform-origin: 50% 50%;
   transform-style: preserve-3d;
   backface-visibility: visible;
-  animation: gf-flowbell-3d-spin 5.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  animation: gf-flowbell-horizontal-3d-spin 8.5s linear infinite;
   will-change: transform;
 }
 .brand-mark-spin > svg {
@@ -842,30 +841,18 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
     drop-shadow(0 8px 10px rgb(0 0 0 / 18%));
   transition: filter 220ms ease;
 }
-.brand:hover .brand-mark-spin {
-  animation-duration: 2.15s;
-}
 .brand:hover .brand-mark-spin > svg {
   filter:
     drop-shadow(0 1px 0 color-mix(in srgb, var(--gf-brand) 64%, white))
     drop-shadow(0 7px 9px color-mix(in srgb, var(--gf-brand) 34%, transparent))
     drop-shadow(0 10px 14px rgb(0 0 0 / 22%));
 }
-@keyframes gf-flowbell-3d-spin {
-  0% {
-    transform: perspective(460px) translateZ(0) rotateX(0deg) rotateY(-10deg) rotateZ(0deg);
+@keyframes gf-flowbell-horizontal-3d-spin {
+  from {
+    transform: perspective(520px) rotateX(-4deg) rotateY(0deg);
   }
-  25% {
-    transform: perspective(460px) translateZ(12px) rotateX(90deg) rotateY(17deg) rotateZ(-3deg);
-  }
-  50% {
-    transform: perspective(460px) translateZ(-3px) rotateX(180deg) rotateY(10deg) rotateZ(0deg);
-  }
-  75% {
-    transform: perspective(460px) translateZ(12px) rotateX(270deg) rotateY(-17deg) rotateZ(3deg);
-  }
-  100% {
-    transform: perspective(460px) translateZ(0) rotateX(360deg) rotateY(-10deg) rotateZ(0deg);
+  to {
+    transform: perspective(520px) rotateX(-4deg) rotateY(360deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {
