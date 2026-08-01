@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { EMAIL_RE, platformFrom } from './from';
+
 // Transactional email via Resend (https://resend.com). Uses RESEND_API_KEY
 // (server-only). FAILS OPEN by design: if the key is absent (preview/dev) or
 // the API errors, sendEmail returns { ok:false } without throwing. Email here is
@@ -22,64 +24,11 @@ import 'server-only';
 
 export * from './brand';
 export * from './layout';
+// gymFromAddress moved to ./from (pure, test-importable); re-exported so callers
+// keep importing it from '@/lib/email'.
+export { gymFromAddress } from './from';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
-
-/** Root domain all platform mail is sent from. Must be verified in Resend. */
-function rootDomain(): string {
-  return (
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN
-    || process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-    || 'gymflow.ng'
-  ).toLowerCase();
-}
-
-/** Domain gym-branded mail is sent from. Defaults to the root domain; point it
- *  at a dedicated verified subdomain to isolate tenant sending reputation. */
-function tenantDomain(): string {
-  return (process.env.EMAIL_TENANT_DOMAIN || rootDomain()).toLowerCase();
-}
-
-// Verified platform sender. RESEND_FROM overrides; otherwise noreply@<root>.
-// (Deliverability needs that domain verified in Resend — a mismatch just makes
-// the API return an error, which we swallow, so it degrades to "no email sent".)
-function platformFrom(): string {
-  if (process.env.RESEND_FROM) return process.env.RESEND_FROM;
-  return `GymFlow <noreply@${rootDomain()}>`;
-}
-
-/**
- * Strip everything that could break — or forge — a From header.
- *
- * The display name is a gym-supplied string (`gyms.name`). A CR/LF in it is a
- * classic header-injection: the remainder of the name becomes a new header, so
- * `Iron Gym\r\nBcc: everyone@…` would silently add recipients. Quotes and
- * backslashes would break out of the quoted-string form. All are dropped
- * rather than escaped — there is no legitimate use for them in a gym name.
- */
-function safeDisplayName(name: string): string {
-  return name
-    .replace(/[\r\n\t]+/g, ' ')
-    .replace(/["\\<>]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 60);
-}
-
-/** `slug` is [a-z0-9-] by construction, but this is a header value, so verify
- *  rather than trust; anything unexpected falls back to the shared mailbox. */
-function safeLocalPart(slug: string | null | undefined): string {
-  const s = (slug ?? '').trim().toLowerCase();
-  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(s) ? s : 'noreply';
-}
-
-/** Build the From header for a gym-branded send. */
-export function gymFromAddress(gym: { name?: string | null; slug?: string | null }): string {
-  const name = safeDisplayName((gym.name ?? '').trim() || 'GymFlow');
-  return `${name} <${safeLocalPart(gym.slug)}@${tenantDomain()}>`;
-}
-
-const EMAIL_RE = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]{2,}$/;
 
 export type SendEmailResult = { ok: boolean; skipped?: boolean; id?: string; error?: string };
 

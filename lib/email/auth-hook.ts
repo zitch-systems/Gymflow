@@ -59,18 +59,25 @@ export type AuthHookPayload = {
   };
 };
 
-/** Absolute base for links. The payload's site_url is the Supabase project's
- *  configured Site URL and is normally our own origin — but that dashboard field
- *  is easy to leave at (or reset to) the project's own https://<ref>.supabase.co
- *  URL, and trusting it then mails a DEAD link. Our /auth/confirm route only
- *  exists on OUR deployment; pointed at the Supabase API host it 404s with
- *  {"message":"No API key found in request"} (the request never carries an
- *  apikey), stranding every member who clicks a confirmation link. So a
- *  Supabase-host site_url is rejected in favour of our own configured origin
- *  (NEXT_PUBLIC_SITE_URL, then the gymflow.ng default), which is where the route
- *  actually lives. A relative base is refused by the caller (the hook returns
- *  500) rather than mailing a link that resolves nowhere. */
+/** Absolute base for the action link.
+ *
+ *  Our own configured origin wins. /auth/confirm exists only on OUR deployment,
+ *  so the base has to be an origin we control — never whatever the Supabase
+ *  dashboard "Site URL" happens to be. That field is caller-owned and easy to
+ *  leave at (or reset to) a wrong value: the project's own
+ *  https://<ref>.supabase.co URL (the reported incident — the request carries no
+ *  apikey, so the Supabase API host answers /auth/confirm with
+ *  {"message":"No API key found in request"} and strands the member), a stale
+ *  *.vercel.app preview, or http://localhost. NEXT_PUBLIC_SITE_URL is our real
+ *  origin in every deployment (production: https://gymflow.ng) and is the same
+ *  value emailRedirectTo is built from, so the confirm link and its post-confirm
+ *  redirect agree. Only when we have no explicit origin of our own do we fall
+ *  back to the payload's site_url — and even then never a Supabase API host,
+ *  which cannot serve the route. A relative base is refused by the caller (the
+ *  hook returns 500) rather than mailing a link that resolves nowhere. */
 export function linkBase(payload: AuthHookPayload): string | null {
+  const explicit = normalizeBase(process.env.NEXT_PUBLIC_SITE_URL);
+  if (explicit) return explicit;
   const fromPayload = normalizeBase(payload.email_data.site_url);
   if (fromPayload && !isSupabaseApiHost(fromPayload)) return fromPayload;
   return normalizeBase(siteUrl());

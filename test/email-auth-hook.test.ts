@@ -80,12 +80,31 @@ describe('confirmationHandoff', () => {
 });
 
 describe('linkBase', () => {
-  it('prefers the payload site_url when absolute', () => {
+  it('falls back to the payload site_url when we have no explicit origin', () => {
+    // NEXT_PUBLIC_SITE_URL is unset in the test env, so the payload's site_url is
+    // the next candidate (a preview deploy where the dashboard Site URL is the
+    // one authoritative value we have).
     const p = { user: {}, email_data: { site_url: 'https://app.gymflow.ng/' } } as AuthHookPayload;
     expect(linkBase(p)).toBe('https://app.gymflow.ng');
   });
 
-  it('returns null when no absolute base is available', () => {
+  it('lets our own NEXT_PUBLIC_SITE_URL win over any dashboard Site URL', () => {
+    const prev = process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://gymflow.ng';
+    try {
+      // The reported misconfiguration — a Supabase-host Site URL — cannot win.
+      expect(linkBase({ user: {}, email_data: { site_url: 'https://kdbbrxqxqewbjoozmfhq.supabase.co' } } as AuthHookPayload))
+        .toBe('https://gymflow.ng');
+      // Neither can any other wrong-but-not-Supabase host (stale preview URL).
+      expect(linkBase({ user: {}, email_data: { site_url: 'https://stale-preview.vercel.app' } } as AuthHookPayload))
+        .toBe('https://gymflow.ng');
+    } finally {
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+      else process.env.NEXT_PUBLIC_SITE_URL = prev;
+    }
+  });
+
+  it('returns an absolute base even when neither our env nor the payload is usable', () => {
     const p = { user: {}, email_data: { site_url: '/relative' } } as AuthHookPayload;
     // With NEXT_PUBLIC_SITE_URL unset in the test env, siteUrl() falls back to
     // the gymflow.ng default, which IS absolute — so assert on the shape.
