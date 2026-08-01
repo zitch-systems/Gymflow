@@ -80,17 +80,72 @@ describe('confirmationHandoff', () => {
 });
 
 describe('linkBase', () => {
-  it('prefers the payload site_url when absolute', () => {
+  it('falls back to the payload site_url when we have no explicit origin', () => {
+    // NEXT_PUBLIC_SITE_URL is unset in the test env, so the payload's site_url is
+    // the next candidate (a preview deploy where the dashboard Site URL is the
+    // one authoritative value we have).
     const p = { user: {}, email_data: { site_url: 'https://app.gymflow.ng/' } } as AuthHookPayload;
     expect(linkBase(p)).toBe('https://app.gymflow.ng');
   });
 
-  it('returns null when no absolute base is available', () => {
+  it('lets our own NEXT_PUBLIC_SITE_URL win over any dashboard Site URL', () => {
+    const prev = process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://gymflow.ng';
+    try {
+      // The reported misconfiguration — a Supabase-host Site URL — cannot win.
+      expect(linkBase({ user: {}, email_data: { site_url: 'https://kdbbrxqxqewbjoozmfhq.supabase.co' } } as AuthHookPayload))
+        .toBe('https://gymflow.ng');
+      // Neither can any other wrong-but-not-Supabase host (stale preview URL).
+      expect(linkBase({ user: {}, email_data: { site_url: 'https://stale-preview.vercel.app' } } as AuthHookPayload))
+        .toBe('https://gymflow.ng');
+    } finally {
+      if (prev === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+      else process.env.NEXT_PUBLIC_SITE_URL = prev;
+    }
+  });
+
+  it('returns an absolute base even when neither our env nor the payload is usable', () => {
     const p = { user: {}, email_data: { site_url: '/relative' } } as AuthHookPayload;
     // With NEXT_PUBLIC_SITE_URL unset in the test env, siteUrl() falls back to
     // the gymflow.ng default, which IS absolute — so assert on the shape.
     const base = linkBase(p);
     expect(base === null || /^https?:\/\//.test(base)).toBe(true);
+  });
+
+  it('rejects a *.supabase.co Site URL and falls back to our own origin', () => {
+    // The exact production misconfiguration behind the "verification link just
+    // loads" report: the Supabase dashboard Site URL was left at the project's
+    // own URL, so the hook payload carries it. Building /auth/confirm on that
+    // host mails a dead link that 404s with "No API key found in request".
+    const p = { user: {}, email_data: { site_url: 'https://kdbbrxqxqewbjoozmfhq.supabase.co' } } as AuthHookPayload;
+    const base = linkBase(p);
+    expect(base).not.toContain('supabase.co');
+    expect(/^https?:\/\//.test(base ?? '')).toBe(true);
+  });
+
+  it('rejects the supabase.in host and a trailing-slash project URL too', () => {
+    for (const site of ['https://abcdef.supabase.in/', 'https://abcdef.supabase.co/']) {
+      const p = { user: {}, email_data: { site_url: site } } as AuthHookPayload;
+      expect(linkBase(p)).not.toContain('supabase.');
+    }
+  });
+
+  it('still honours a legitimate non-Supabase custom domain', () => {
+    const p = { user: {}, email_data: { site_url: 'https://app.ironrepublic.ng' } } as AuthHookPayload;
+    expect(linkBase(p)).toBe('https://app.ironrepublic.ng');
+  });
+
+  it('a Supabase-host Site URL never survives into a built confirmation link', () => {
+    // End-to-end guard: even with the bad Site URL in the payload, the CTA the
+    // member clicks must point at our origin, not the Supabase API host.
+    const base = linkBase({ user: {}, email_data: { site_url: 'https://kdbbrxqxqewbjoozmfhq.supabase.co' } } as AuthHookPayload)!;
+    const c = renderAuthEmail('signup', {
+      user: { email: 'ada@example.com' },
+      email_data: { token_hash: 'TH', redirect_to: '/auth/confirm?next=/launch' },
+    } as AuthHookPayload, { base, senderName: 'Iron Republic', isGymMember: true });
+    const { html } = render(c);
+    expect(html).toContain('/auth/confirm');
+    expect(html).not.toContain('supabase.co');
   });
 });
 

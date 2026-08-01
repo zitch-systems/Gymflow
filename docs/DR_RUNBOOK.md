@@ -132,9 +132,16 @@ Supabase dashboard:
 - **Authentication → Providers → Email**: enable **leaked-password protection**
   (HaveIBeenPwned check) and confirm the minimum password length matches
   `lib/auth/password.ts`.
-- **Authentication → URL Configuration**: redirect allow-list must include
-  `https://<root-domain>/**` *and* `https://*.<root-domain>/**`, or per-gym
-  subdomain sign-in links break.
+- **Authentication → URL Configuration**:
+  - **Site URL** must be `https://<site>` (e.g. `https://gymflow.ng`). A fresh
+    project defaults this to its own `https://<ref>.supabase.co` URL, which
+    Supabase passes to the Send-email hook as `site_url`; the confirmation link
+    is then built against it and every member's link dies with
+    `{"message":"No API key found in request"}`. The hook now refuses a
+    `*.supabase.co` base and prefers `NEXT_PUBLIC_SITE_URL` (see `docs/EMAIL.md`
+    §5), but set this field correctly regardless.
+  - **Redirect allow-list** must include `https://<root-domain>/**` *and*
+    `https://*.<root-domain>/**`, or per-gym subdomain sign-in links break.
 - **Authentication → Emails → Hooks → Send email**: point at
   `https://<site>/api/auth/email-hook` and paste the generated secret into
   `SUPABASE_AUTH_HOOK_SECRET` verbatim (`v1,whsec_…` prefix included) — see
