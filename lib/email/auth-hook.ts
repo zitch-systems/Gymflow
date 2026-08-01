@@ -60,12 +60,36 @@ export type AuthHookPayload = {
 };
 
 /** Absolute base for links. The payload's site_url is the Supabase project's
- *  configured Site URL and is the most reliable value; our own env is the
- *  fallback. A relative base is refused by the caller (the hook returns 500)
- *  rather than mailing a link that resolves nowhere. */
+ *  configured Site URL and is normally our own origin — but that dashboard field
+ *  is easy to leave at (or reset to) the project's own https://<ref>.supabase.co
+ *  URL, and trusting it then mails a DEAD link. Our /auth/confirm route only
+ *  exists on OUR deployment; pointed at the Supabase API host it 404s with
+ *  {"message":"No API key found in request"} (the request never carries an
+ *  apikey), stranding every member who clicks a confirmation link. So a
+ *  Supabase-host site_url is rejected in favour of our own configured origin
+ *  (NEXT_PUBLIC_SITE_URL, then the gymflow.ng default), which is where the route
+ *  actually lives. A relative base is refused by the caller (the hook returns
+ *  500) rather than mailing a link that resolves nowhere. */
 export function linkBase(payload: AuthHookPayload): string | null {
-  const candidate = (payload.email_data.site_url || siteUrl()).trim().replace(/\/+$/, '');
+  const fromPayload = normalizeBase(payload.email_data.site_url);
+  if (fromPayload && !isSupabaseApiHost(fromPayload)) return fromPayload;
+  return normalizeBase(siteUrl());
+}
+
+function normalizeBase(raw: string | undefined | null): string | null {
+  const candidate = (raw ?? '').trim().replace(/\/+$/, '');
   return /^https?:\/\/[^\s/]+/i.test(candidate) ? candidate : null;
+}
+
+/** True for a Supabase-managed API host (…supabase.co / .supabase.in). Our own
+ *  /auth/confirm route never lives there, so such a base is always the wrong
+ *  origin for an action link and must never be used to build one. */
+function isSupabaseApiHost(base: string): boolean {
+  try {
+    return /(^|\.)supabase\.(co|in)$/i.test(new URL(base).hostname);
+  } catch {
+    return false;
+  }
 }
 
 /** Reduce Supabase's redirect_to to a safe same-origin path to carry in `next`.
