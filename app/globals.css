@@ -815,9 +815,8 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
 .brand-tx em { font-style: normal; color: var(--gf-brand); }
 .brand-tx.lg { font-size: 1.5rem; }
 
-/* The Flowbell stays close to its wordmark and spins slowly from left to
-   right. A fixed, restrained X-axis tilt plus perspective gives the Y-axis
-   rotation real depth without turning it into a top-to-bottom tumble. */
+/* The Flowbell spins in place like a wheel: one stable centre point, one
+   screen-facing axis, and no tilt, perspective, depth shift or wobble. */
 .brand-mark-spin {
   width: 30px;
   height: 30px;
@@ -826,34 +825,17 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
   place-items: center;
   line-height: 0;
   transform-origin: 50% 50%;
-  transform-style: preserve-3d;
-  backface-visibility: visible;
-  animation: gf-flowbell-horizontal-3d-spin 8.5s linear infinite;
+  animation: gf-flowbell-wheel-spin 8.5s linear infinite;
   will-change: transform;
 }
 .brand-mark-spin > svg {
-  transform: translateZ(7px);
-  transform-style: preserve-3d;
-  backface-visibility: visible;
-  filter:
-    drop-shadow(0 1px 0 color-mix(in srgb, var(--gf-brand) 58%, white))
-    drop-shadow(0 5px 6px color-mix(in srgb, var(--gf-brand) 26%, transparent))
-    drop-shadow(0 8px 10px rgb(0 0 0 / 18%));
-  transition: filter 220ms ease;
+  display: block;
+  transform: none;
+  filter: none;
 }
-.brand:hover .brand-mark-spin > svg {
-  filter:
-    drop-shadow(0 1px 0 color-mix(in srgb, var(--gf-brand) 64%, white))
-    drop-shadow(0 7px 9px color-mix(in srgb, var(--gf-brand) 34%, transparent))
-    drop-shadow(0 10px 14px rgb(0 0 0 / 22%));
-}
-@keyframes gf-flowbell-horizontal-3d-spin {
-  from {
-    transform: perspective(520px) rotateX(-4deg) rotateY(0deg);
-  }
-  to {
-    transform: perspective(520px) rotateX(-4deg) rotateY(360deg);
-  }
+@keyframes gf-flowbell-wheel-spin {
+  from { transform: rotateZ(0deg); }
+  to { transform: rotateZ(360deg); }
 }
 @media (prefers-reduced-motion: reduce) {
   .brand-mark-spin { animation: none; transform: none; }
