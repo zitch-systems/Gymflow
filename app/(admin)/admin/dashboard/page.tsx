@@ -18,7 +18,6 @@ export default async function AdminDashboard() {
   const [{ gym }, profile] = await Promise.all([requireStaff(), getProfile()]);
   const supabase = await createClient();
 
-  const now = new Date();
   // Day boundaries follow WAT (UTC+1), not the server's UTC — otherwise "today"
   // gates (check-ins count, expiring window) and the per-day revenue buckets drift
   // for activity between 00:00–01:00 WAT. See lib/format.ts.
@@ -98,7 +97,10 @@ export default async function AdminDashboard() {
     { icon: Wallet, fg: '#a8d92e', bg: 'rgba(198,242,78,0.12)', val: fmtNaira(revTotal), lbl: 'Revenue · 7 days' },
   ];
 
-  const hour = now.getHours();
+  // Greet on the GYM's clock, not the server's. `new Date().getHours()` is UTC
+  // on Vercel, so a Lagos owner opening the console at 12:30 WAT (11:30 UTC) was
+  // told "Good morning" — the rest of this page already works in WAT.
+  const hour = watNow().getUTCHours();
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const ownerName = firstName(profile?.full_name ?? profile?.first_name, 'there');
   const fmtTime = (t: string | null) => (t ? String(t).slice(0, 5) : '—');

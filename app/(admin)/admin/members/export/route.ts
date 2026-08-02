@@ -1,6 +1,7 @@
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
+import { csvFilename, toCsv } from '@/lib/csv';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -8,13 +9,6 @@ export const maxDuration = 60;
 type Profile = { id: string; full_name: string | null; email: string | null; phone: string | null };
 type Sub = { member_id: string | null; plan_id: string | null; status: string | null; end_date: string | null };
 type Plan = { id: string; name: string | null };
-
-function csvCell(v: unknown): string {
-  const s = v == null ? '' : String(v);
-  // Prefix formula-injection characters so spreadsheet apps don't execute them.
-  const safe = /^[=+\-@\t\r]/.test(s) ? `\t${s}` : s;
-  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
 
 // GET /admin/members/export — CSV of the gym's members (staff only).
 export async function GET() {
@@ -53,9 +47,8 @@ export async function GET() {
     ];
   });
 
-  const csv = [header, ...body].map((r) => r.map(csvCell).join(',')).join('\n');
-  const slug = (gym.name ?? 'gym').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const filename = `members-${slug}-${new Date().toISOString().slice(0, 10)}.csv`;
+  const csv = toCsv(header, body);
+  const filename = csvFilename('members', gym.name);
 
   return new Response(csv, {
     headers: {

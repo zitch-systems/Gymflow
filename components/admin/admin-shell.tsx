@@ -133,13 +133,35 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
       <div className="main">
         <header className="top">
           <NavBurger open={nav.open} onClick={nav.toggle} />
-          <div className="search" style={{ flex: 1, maxWidth: 460 }}>
+          {/* A real form, not a decorative input: this box sat on every admin
+              page doing nothing at all. GET → /admin/search, which searches
+              members, classes and plans for the active gym. */}
+          <form className="search" action="/admin/search" style={{ flex: 1, maxWidth: 460 }}>
             <Search strokeWidth={1.75} />
-            <input placeholder="Search members, classes, payments…" aria-label="Search" />
-          </div>
+            <input name="q" placeholder="Search members, classes, plans…" aria-label="Search members, classes and plans" />
+          </form>
           <div className="top-spacer" />
           <ThemeToggle />
-          <Link href="/admin/members" className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></Link>
+          {/* Was a "Notifications" bell that just went to /admin/members. It now
+              points at the one thing that actually queues up for staff — freeze
+              requests — and shows how many are waiting. */}
+          <Link
+            href={'/admin/members?f=freeze' as Route}
+            className="icon-btn bell"
+            title={pendingFreezes > 0 ? `${pendingFreezes} freeze request${pendingFreezes === 1 ? '' : 's'} waiting` : 'No requests waiting'}
+            aria-label={pendingFreezes > 0 ? `${pendingFreezes} freeze requests waiting` : 'No requests waiting'}
+            style={{ position: 'relative' }}
+          >
+            <Bell strokeWidth={1.75} />
+            {pendingFreezes > 0 && (
+              <span
+                className="gf-badge gf-badge-warning"
+                style={{ position: 'absolute', top: -4, right: -4, minWidth: 17, padding: '1px 5px', fontSize: '0.62rem', lineHeight: 1.4, textAlign: 'center' }}
+              >
+                {pendingFreezes > 9 ? '9+' : pendingFreezes}
+              </span>
+            )}
+          </Link>
         </header>
         <main id="main-content" className="content">{children}</main>
       </div>
@@ -151,7 +173,14 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
         tabs={[
           { href: '/admin/dashboard', label: 'Home', icon: LayoutDashboard },
           { href: '/admin/members', label: 'Members', icon: Users, dot: pendingFreezes > 0 },
-          { href: '/admin/staff-checkin', label: 'Scan', icon: ScanLine, fab: true },
+          // Scan is the FRONT DESK's core task — standing at the door redeeming
+          // codes — not something an owner, manager or accountant does from
+          // their phone, so it is no longer their raised centre action; they get
+          // Classes in that slot. Check-in stays one tap away for everyone in
+          // the More drawer, which holds the full role-filtered nav.
+          roleKey === 'front_desk'
+            ? { href: '/admin/staff-checkin', label: 'Scan', icon: ScanLine, fab: true }
+            : { href: '/admin/classes', label: 'Classes', icon: CalendarDays },
           { href: '/admin/operations', label: 'Facility', icon: Wrench },
         ] satisfies ConsoleTab[]}
         moreOpen={nav.open}

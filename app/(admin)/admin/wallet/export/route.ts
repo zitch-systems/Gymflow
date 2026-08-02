@@ -1,6 +1,7 @@
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
+import { csvFilename, toCsv } from '@/lib/csv';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -15,13 +16,6 @@ type Payment = {
   payment_method: string | null; payment_date: string | null; created_at: string | null;
   payment_status: string | null; plan_id: string | null; member_id: string | null;
 };
-
-function csvCell(v: unknown): string {
-  const s = v == null ? '' : String(v);
-  // Prefix formula-injection characters so spreadsheet apps don't execute them.
-  const safe = /^[=+\-@\t\r]/.test(s) ? `\t${s}` : s;
-  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
 
 // GET /admin/wallet/export — accounting-ready CSV of the gym's payments (staff
 // only). Optional filters: ?status=successful and ?from=YYYY-MM-DD&to=YYYY-MM-DD.
@@ -83,9 +77,8 @@ export async function GET(req: Request) {
     ];
   });
 
-  const csv = [header, ...body].map((r) => r.map(csvCell).join(',')).join('\n');
-  const slug = (gym.name ?? 'gym').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const filename = `accounting-${slug}-${new Date().toISOString().slice(0, 10)}.csv`;
+  const csv = toCsv(header, body);
+  const filename = csvFilename('accounting', gym.name);
 
   return new Response(csv, {
     headers: {
