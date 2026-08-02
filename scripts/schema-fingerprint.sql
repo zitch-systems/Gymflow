@@ -51,10 +51,30 @@ select line from (
   where schemaname = 'public'
 ) s order by line collate "C";
 
+-- Functions cover `private` as well as `public`. The RBAC helpers
+-- (has_gym_role / is_gym_staff / is_platform_admin) moved to `private` in
+-- 20260731184722 and are called by ~20 RLS policies, so a redefined
+-- is_platform_admin() there would hand out platform-admin reach across every
+-- tenant while a public-only fingerprint reported no drift at all.
 select line from (
-  select 'FUNCTION ' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as line
+  select 'FUNCTION ' || n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as line
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public'
+  where n.nspname in ('public', 'private')
+) s order by line collate "C";
+
+-- Who may EXECUTE those functions. Several migrations exist purely to revoke
+-- anon's execute on SECURITY DEFINER helpers; a silently restored grant is a
+-- privilege escalation that changes no name and no body, so neither of the
+-- other layers would see it.
+select line from (
+  select 'FUNCTIONGRANT ' || n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ') ' ||
+         g.grantee || '=' || has_function_privilege(g.grantee, p.oid, 'EXECUTE') as line
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  cross join (values ('anon'), ('authenticated')) as g(grantee)
+  where n.nspname in ('public', 'private')
+    and p.prokind = 'f'
+    and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
 ) s order by line collate "C";
 
 select line from (
@@ -83,11 +103,11 @@ select line from (
 ) s order by line collate "C";
 
 select line from (
-  select 'FUNCTIONBODY ' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ') ' ||
+  select 'FUNCTIONBODY ' || n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ') ' ||
          md5(regexp_replace(replace(pg_get_functiondef(p.oid), E'\r', ''), '\s+', ' ', 'g')) as line
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'public'
+  where n.nspname in ('public', 'private')
     and p.prokind = 'f'
     and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
 ) s order by line collate "C";
