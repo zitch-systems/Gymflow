@@ -66,13 +66,20 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
           NEXT_PUBLIC_SITE_URL: https://gymflow.ng
 
-  # Schema-drift gate: the repo's migrations are supposed to BE the schema
-  # (DR depends on it). Build a shadow DB from them, fingerprint its structure,
-  # and diff against the live Supabase database. Requires the SUPABASE_DB_URL
-  # secret (the project's direct Postgres connection string); without it the
-  # job no-ops so forks and secret-less PRs stay green.
+  # Schema-drift gate (PULL REQUESTS): does the live database already match what
+  # this PR says the schema is? Build a shadow DB from the checked-in migrations,
+  # fingerprint its structure, and diff it against live. A PR that adds a
+  # migration is EXPECTED to differ here — that difference is what the migrate
+  # job below applies once the PR lands, so on PRs this is a signal, not a gate
+  # on merging.
+  #
+  # On pushes to main this job does not run: the `migrate` job applies the
+  # pending migrations and then runs the very same fingerprint diff to prove the
+  # apply worked. Running both would race — this job would fingerprint live
+  # while migrate was still writing to it.
   schema-drift:
     name: schema drift vs live
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -99,16 +106,9 @@ jobs:
         run: |
           echo "on=${{ secrets.SUPABASE_DB_URL != '' }}" >> "$GITHUB_OUTPUT"
           if [ "${{ secrets.SUPABASE_DB_URL != '' }}" = "true" ]; then exit 0; fi
-          # A silently-skipped drift gate reads exactly like a passing one in the
-          # checks list — which is how three security migrations once sat
-          # unapplied on the live project for two weeks without CI noticing. On
-          # PRs (including from forks, which never receive secrets) warn and
-          # skip; on main, where the whole point is to know the live database
-          # matches what shipped, an unverifiable schema is a failure.
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo '::error::SUPABASE_DB_URL is not set — the live schema cannot be verified against the checked-in migrations. Add the secret (the project'"'"'s direct Postgres connection string) in Settings → Secrets → Actions.'
-            exit 1
-          fi
+          # Forks never receive secrets, so a PR cannot hard-fail on this. The
+          # real enforcement lives on main, where the migrate job refuses to run
+          # without the secret.
           echo '::warning::SUPABASE_DB_URL is not set — the schema-drift gate did NOT run. Live schema is unverified against the checked-in migrations.'
 
       - uses: actions/setup-node@v4
@@ -135,7 +135,94 @@ jobs:
           psql "$SHADOW_URL" -X -q -f scripts/schema-fingerprint.sql > shadow.txt
           psql "$LIVE_URL" -X -q -f scripts/schema-fingerprint.sql > live.txt
           if ! diff -u shadow.txt live.txt; then
-            echo '::error::Live Supabase schema has drifted from the checked-in migrations (see diff above).'
-            exit 1
+            echo '::warning::Live schema differs from this branch'"'"'s migrations. If this PR adds a migration that is expected — the migrate job applies it on merge. Otherwise the live database has drifted.'
+            exit 0
           fi
           echo "No drift: live schema matches the migrations."
+
+  # Apply pending migrations to the live database, then PROVE it worked.
+  #
+  # This is the step whose absence let a merged security migration sit unapplied
+  # in production: migrations were reaching live by hand, and the only automated
+  # check (schema-drift) had no secret, so it warn-skipped on PRs and failed
+  # every push to main — leaving main permanently red, which is indistinguishable
+  # from a real failure.
+  #
+  # Runs only after the full verify job passes, so nothing reaches the live
+  # database that hasn't had lint, type-check, the RLS suite and a build run
+  # against it first.
+  migrate:
+    name: apply migrations to live
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    # One deploy at a time — two merges in quick succession must not apply DDL
+    # concurrently. (scripts/migrate.mjs also takes a Postgres advisory lock, so
+    # this is belt and braces.)
+    concurrency:
+      group: migrate-live
+      cancel-in-progress: false
+    services:
+      postgres:
+        # Only used to build the shadow DB for the post-apply verification.
+        # Matches the live project's major version (17) — pg_get_expr output
+        # differs between majors and would show as phantom drift.
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require the database secret
+        run: |
+          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
+            echo '::error::SUPABASE_DB_URL is not set, so migrations cannot be applied to production. Add the project'"'"'s direct Postgres connection string in Settings → Secrets → Actions → SUPABASE_DB_URL.'
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Show the plan
+        run: node scripts/migrate.mjs --dry-run
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      - name: Apply pending migrations
+        run: node scripts/migrate.mjs
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Applying without verifying would just move the blind spot. Rebuild the
+      # shadow from the migrations and diff it against live: if they match, the
+      # live database provably IS what the repo says it is.
+      - name: Build shadow DB from migrations
+        id: shadow
+        run: echo "url=$(node scripts/shadow-db.mjs | tail -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify live now matches the migrations
+        env:
+          SHADOW_URL: ${{ steps.shadow.outputs.url }}
+          LIVE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$SHADOW_URL" -X -q -f scripts/schema-fingerprint.sql > shadow.txt
+          psql "$LIVE_URL" -X -q -f scripts/schema-fingerprint.sql > live.txt
+          if ! diff -u shadow.txt live.txt; then
+            echo '::error::Migrations applied but the live schema still differs from the checked-in migrations (see diff above).'
+            exit 1
+          fi
+          echo "Live schema matches the migrations."

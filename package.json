@@ -9,7 +9,10 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:migrate:dry": "node scripts/migrate.mjs --dry-run",
+    "db:baseline": "node scripts/migrate.mjs --baseline"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

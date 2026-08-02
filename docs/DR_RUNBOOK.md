@@ -122,7 +122,40 @@ Repo-side (GitHub → Settings → Secrets → Actions), not Vercel:
 
 | Secret | Purpose | If unset |
 |---|---|---|
-| `SUPABASE_DB_URL` | the CI schema-drift gate's live-side connection | on a PR the gate **skips** with a warning annotation (forks never get secrets); on a push to `main` it **fails the build** — an unverifiable live schema is treated as drift, because a silently-skipped gate looks exactly like a passing one |
+| `SUPABASE_DB_URL` | applies migrations to live on merge to `main`, and the schema-drift gate's live-side connection | **migrations never reach production.** The `migrate` job fails on every push to `main`; on PRs the drift gate skips with a warning (forks never get secrets) |
+
+## 4a. How migrations reach production
+
+`main` is the deploy trigger. On every push to it, after `verify` (lint,
+type-check, the RLS suite and a build) passes, the **`migrate` job**:
+
+1. runs `node scripts/migrate.mjs --dry-run` so the plan is in the log,
+2. applies every pending migration — each in its own transaction, in filename
+   order, behind a Postgres advisory lock,
+3. rebuilds the shadow DB from the migrations and diffs its fingerprint against
+   live, so an apply that didn't achieve what the repo says fails the build.
+
+The ledger is `supabase_migrations.repo_migrations (filename, checksum,
+applied_at)`, **keyed on filename, not the numeric prefix**: 39 of this repo's
+migrations share 8-digit date prefixes (`20260713_*` alone is seven files), so a
+version-keyed ledger — which is what `supabase db push` uses — would record one
+file per date and silently treat its siblings as applied. The CLI's own
+`schema_migrations` table is left alone as the historical record.
+
+Locally / by hand:
+
+```
+npm run db:migrate:dry     # show the plan, change nothing
+npm run db:migrate         # apply pending migrations
+npm run db:baseline        # record every migration as applied WITHOUT running
+                           # it — only for a database already at head
+```
+
+All three read `SUPABASE_DB_URL` (or `DATABASE_URL`).
+
+**Migrations are immutable once applied.** The runner stores a checksum and
+refuses to run if an already-applied file's contents changed — correct a
+migration by adding a new one, never by editing history.
 
 ## 4b. Supabase project settings (not captured by migrations)
 
