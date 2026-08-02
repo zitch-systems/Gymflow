@@ -54,7 +54,10 @@ export const config = {
     '/login', '/signup', '/forgot-password', '/reset-password',
     '/launch',
     '/dashboard/:path*',
-    '/checkin', '/classes',
+    // :path* (not exact) so member deep links like /classes/<id> and /checkin/*
+    // still get their session refreshed — otherwise an idle token isn't renewed
+    // there and getUser() spuriously bounces the member to /login.
+    '/checkin/:path*', '/classes/:path*',
     '/join/:path*',
     '/billing/:path*',
     '/admin/:path*',

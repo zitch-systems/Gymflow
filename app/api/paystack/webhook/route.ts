@@ -107,7 +107,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
   }
 
-  const event = JSON.parse(raw) as Json;
+  let event: Json;
+  try {
+    event = JSON.parse(raw) as Json;
+  } catch {
+    // Signed but not JSON — a retry re-sends the same bytes, so 4xx to stop the
+    // loop rather than throw an unhandled 500 (matches the resend/auth webhooks).
+    return NextResponse.json({ error: 'malformed payload' }, { status: 400 });
+  }
 
   // Replay ledger. Charge events are internally replay-safe (UNIQUE
   // paystack_reference), but status-flip events (subscription.disable etc.)

@@ -232,11 +232,20 @@ export async function resendConfirmation(_prev: AuthState, formData: FormData): 
 }
 
 export async function signOut() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  // Drop any half-finished two-factor challenge too, so signing out mid-verify
-  // doesn't leave a live challenge cookie for the next person at this browser.
-  await clearPendingChallenge();
+  // Sign-out must always end at /login, even if revoking the Supabase session
+  // throws (a transient network/Supabase outage) — otherwise the redirect never
+  // runs and the user is stranded on the error boundary, still signed in. Best-
+  // effort the revoke + challenge cleanup, then redirect regardless. redirect()
+  // itself throws NEXT_REDIRECT by design, so it stays OUTSIDE the try/catch.
+  try {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+  } catch { /* revoke is best-effort; the cookie clear below still signs them out */ }
+  try {
+    // Drop any half-finished two-factor challenge too, so signing out mid-verify
+    // doesn't leave a live challenge cookie for the next person at this browser.
+    await clearPendingChallenge();
+  } catch { /* nothing to clear */ }
   revalidatePath('/', 'layout');
   redirect('/login');
 }
