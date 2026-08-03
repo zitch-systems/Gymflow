@@ -357,6 +357,16 @@ body {
 .gf-naira-input { position: relative; }
 .gf-naira-input::before { content: '₦'; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--gf-text-muted); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.9rem; pointer-events: none; z-index: 1; }
 .gf-naira-input .gf-input { padding-left: 30px; }
+.gf-pw-wrap { position: relative; display: block; }
+.gf-pw-toggle {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; margin: 0; border: 0; background: transparent;
+  color: var(--gf-text-muted); cursor: pointer; border-radius: var(--gf-radius-sm);
+  transition: color var(--gf-t-fast), background var(--gf-t-fast);
+}
+.gf-pw-toggle:hover { color: var(--gf-text); background: var(--gf-elevated); }
+.gf-pw-toggle:focus-visible { outline: 2px solid var(--gf-brand); outline-offset: 1px; }
 
 /* ── Avatar ── */
 .gf-avatar { border-radius: 50%; object-fit: cover; display: flex; align-items: center; justify-content: center; font-family: var(--gf-font-display); font-weight: 700; background: var(--gf-elevated); color: var(--gf-text-secondary); border: 2px solid var(--gf-border); flex-shrink: 0; overflow: hidden; }

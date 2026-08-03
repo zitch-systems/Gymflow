@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Mail, Lock, User, Phone, ArrowRight, AlertCircle, Dumbbell } from 'lucide-react';
 import { joinAsNew, joinAsCurrent, type JoinState } from '@/lib/actions/join';
 import { fmtNaira } from '@/lib/format';
+import { PasswordInput } from '@/components/ui/password-input';
 
 const initial: JoinState = { error: null };
 
@@ -84,7 +85,7 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }
                 <label className="gf-form-label">Password</label>
                 <div className="gf-input-group">
                   <Lock className="gf-input-icon" strokeWidth={1.75} />
-                  <input className="gf-input" type="password" name="password" placeholder="••••••••" required minLength={8} />
+                  <PasswordInput className="gf-input" name="password" placeholder="••••••••" required minLength={8} />
                 </div>
               </div>
               {newState.error && (

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { ArrowRight, Check, AlertCircle } from 'lucide-react';
 import { saveBankDetails, verifyInstructorBankAccount } from '@/lib/actions/instructor';
+import { PasswordInput } from '@/components/ui/password-input';
 
 type Bank = { bank_name: string; account_number: string; account_name: string; bank_code: string } | null;
 
@@ -89,7 +90,7 @@ export function BankCard({ bank, payoutsAvailable }: { bank: Bank; payoutsAvaila
             </div>
           )}
 
-          <input className="gf-input" type="password" name="password" placeholder="Confirm your password" autoComplete="current-password" required />
+          <PasswordInput className="gf-input" name="password" placeholder="Confirm your password" autoComplete="current-password" required />
 
           {error && <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--gf-danger)', fontSize: '0.82rem' }}><AlertCircle size={14} strokeWidth={2} /> {error}</span>}
           <div style={{ display: 'flex', gap: 8 }}>
