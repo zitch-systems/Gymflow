@@ -7,6 +7,7 @@ import {
 } from '@/lib/actions/payout-accounts';
 import { verifyBankAccount } from '@/lib/actions/gym';
 import type { Bank } from '@/lib/paystack';
+import { PasswordInput } from '@/components/ui/password-input';
 
 const INIT: PayoutState = { ok: false, error: null };
 const MAX_ACCOUNTS = 4;
@@ -105,8 +106,8 @@ function AccountRow({ account }: { account: PayoutAccount }) {
         ) : armed === 'active' ? (
           <form action={activeAction} onSubmit={disarm} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input type="hidden" name="account_id" value={account.id} />
-            <input
-              type="password" name="password" className="gf-input" placeholder="Your password" autoFocus required
+            <PasswordInput
+              name="password" className="gf-input" placeholder="Your password" autoFocus required
               value={pw} onChange={(e) => setPw(e.target.value)}
               style={{ width: 140, padding: '6px 10px', fontSize: '0.82rem' }}
             />
@@ -122,8 +123,8 @@ function AccountRow({ account }: { account: PayoutAccount }) {
         {armed === 'remove' ? (
           <form action={removeAction} onSubmit={disarm} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input type="hidden" name="account_id" value={account.id} />
-            <input
-              type="password" name="password" className="gf-input" placeholder="Your password" autoFocus required
+            <PasswordInput
+              name="password" className="gf-input" placeholder="Your password" autoFocus required
               value={pw} onChange={(e) => setPw(e.target.value)}
               style={{ width: 140, padding: '6px 10px', fontSize: '0.82rem' }}
             />
@@ -246,7 +247,7 @@ function AddAccountForm({ banks, hasBankList }: { banks: Bank[]; hasBankList: bo
 
       <div className="gf-form-group" style={{ marginTop: 4, maxWidth: 260 }}>
         <label className="gf-form-label">Confirm your password</label>
-        <input className="gf-input" type="password" name="password" placeholder="Your account password" autoComplete="current-password" required />
+        <PasswordInput className="gf-input" name="password" placeholder="Your account password" autoComplete="current-password" required />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>

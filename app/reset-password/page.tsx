@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Lock, Check, ArrowRight, AlertCircle } from 'lucide-react';
 import { updatePassword } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
+import { PasswordInput } from '@/components/ui/password-input';
 
 // revamp/reset-password.html — set-password with a live strength meter +
 // requirement checklist, then a "password updated" success state.
@@ -76,7 +77,7 @@ export default function ResetPasswordPage() {
                   <label className="gf-form-label">New password</label>
                   <div className="gf-input-group">
                     <Lock className="gf-input-icon" strokeWidth={1.75} />
-                    <input className="gf-input" type="password" name="password" placeholder="••••••••" value={pw} onChange={(e) => setPw(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={pwDescribedBy} />
+                    <PasswordInput className="gf-input" name="password" placeholder="••••••••" value={pw} onChange={(e) => setPw(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={pwDescribedBy} />
                   </div>
                 </div>
 
@@ -107,7 +108,7 @@ export default function ResetPasswordPage() {
                   <label className="gf-form-label">Confirm password</label>
                   <div className="gf-input-group">
                     <Lock className="gf-input-icon" strokeWidth={1.75} />
-                    <input className="gf-input" type="password" placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={confirmDescribedBy} />
+                    <PasswordInput className="gf-input" placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={confirmDescribedBy} />
                   </div>
                 </div>
                 {/* aria-live announces the match/mismatch verdict as it updates;

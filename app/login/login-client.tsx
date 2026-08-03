@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { Mail, Lock, ArrowRight, Users, AlertCircle, MailCheck, CheckCircle2, Dumbbell, CalendarCheck, QrCode, UserPlus } from 'lucide-react';
 import { signIn, signUp, resendConfirmation, type AuthState } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
+import { PasswordInput } from '@/components/ui/password-input';
 
 const initial: AuthState = { error: null };
 
@@ -212,7 +213,7 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
               <label className="gf-form-label" htmlFor="auth-password">Password</label>
               <div className="gf-input-group">
                 <Lock className="gf-input-icon" strokeWidth={1.75} />
-                <input className="gf-input" id="auth-password" type="password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} value={up ? password : undefined} onChange={up ? (e) => setPassword(e.target.value) : undefined} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
+                <PasswordInput className="gf-input" id="auth-password" name="password" placeholder="••••••••" required minLength={up ? 8 : undefined} value={up ? password : undefined} onChange={up ? (e) => setPassword(e.target.value) : undefined} aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? authErrorId : undefined} />
               </div>
             </div>
             {up && (
@@ -225,8 +226,8 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
                 <label className="gf-form-label" htmlFor="confirm-password">Confirm password</label>
                 <div className="gf-input-group">
                   <Lock className="gf-input-icon" strokeWidth={1.75} />
-                  <input
-                    className="gf-input" type="password" id="confirm-password" name="confirm_password"
+                  <PasswordInput
+                    className="gf-input" id="confirm-password" name="confirm_password"
                     placeholder="••••••••" required minLength={8}
                     value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
                     aria-invalid={mismatch ? true : undefined}
