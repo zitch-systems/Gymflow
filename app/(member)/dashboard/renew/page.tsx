@@ -13,7 +13,7 @@ export default async function RenewPage() {
 
   const [{ data: plans }, { data: sub }] = await Promise.all([
     supabase.from('membership_plans')
-      .select('id, name, price, duration_days, duration_months, description')
+      .select('id, name, price, duration_days, duration_months, description, trainer_addon_enabled, trainer_addon_price')
       .eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
     supabase.from('member_subscriptions')
       .select('end_date, plan_id, status, membership_plans(name)')

@@ -1201,6 +1201,7 @@ export type Database = {
           plan_id: string | null
           start_date: string
           status: string | null
+          trainer_addon: boolean
           updated_at: string | null
         }
         Insert: {
@@ -1221,6 +1222,7 @@ export type Database = {
           plan_id?: string | null
           start_date?: string
           status?: string | null
+          trainer_addon?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -1241,6 +1243,7 @@ export type Database = {
           plan_id?: string | null
           start_date?: string
           status?: string | null
+          trainer_addon?: boolean
           updated_at?: string | null
         }
         Relationships: [
@@ -1287,7 +1290,10 @@ export type Database = {
           is_active: boolean | null
           name: string
           paystack_plan_code: string | null
+          paystack_plan_code_trainer: string | null
           price: number
+          trainer_addon_enabled: boolean
+          trainer_addon_price: number
           updated_at: string | null
         }
         Insert: {
@@ -1302,7 +1308,10 @@ export type Database = {
           is_active?: boolean | null
           name: string
           paystack_plan_code?: string | null
+          paystack_plan_code_trainer?: string | null
           price: number
+          trainer_addon_enabled?: boolean
+          trainer_addon_price?: number
           updated_at?: string | null
         }
         Update: {
@@ -1317,7 +1326,10 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           paystack_plan_code?: string | null
+          paystack_plan_code_trainer?: string | null
           price?: number
+          trainer_addon_enabled?: boolean
+          trainer_addon_price?: number
           updated_at?: string | null
         }
         Relationships: [

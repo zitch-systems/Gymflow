@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import {
   ArrowRight, CalendarDays, CalendarCheck, MessageCircle, MapPin, Phone, Navigation,
-  Check, ShieldCheck, Zap, QrCode, Printer,
+  Check, ShieldCheck, Zap, QrCode, Printer, UserRoundCheck,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -14,6 +14,7 @@ import { openStateFor, todayHoursLabel } from '@/lib/opening-hours';
 import { ROOT_DOMAIN } from '@/lib/tenant';
 import { ldJson } from '@/lib/ld-json';
 import { accentVars } from '@/lib/accent';
+import { offersTrainer, trainerAddonPrice } from '@/lib/plan-addon';
 import { LogoMark } from '@/components/ui/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { InstallCards } from '@/components/gym/install-cards';
@@ -44,7 +45,7 @@ type Gym = {
   accent_color: string | null; accent_ink: string | null;
   capacity: number | null; day_pass_price: number | null; joining_fee: number | null;
 };
-type Plan = { id: string; name: string; price: number | null; duration_months: number | null; duration_days: number | null; description: string | null; features: unknown };
+type Plan = { id: string; name: string; price: number | null; duration_months: number | null; duration_days: number | null; description: string | null; features: unknown; trainer_addon_enabled: boolean | null; trainer_addon_price: number | null };
 type Hours = { day_of_week: number; open_time: string | null; close_time: string | null; is_closed: boolean | null };
 type Zone = { id: string; name: string; blurb: string | null; photo_path: string | null };
 type Coach = { id: string; full_name: string | null; photo_url: string | null; avatar_url: string | null; specialisation: string | null; bio: string | null };
@@ -102,7 +103,7 @@ async function loadGym(slug: string) {
   const todayDow = now.getDay();
 
   const [plansRes, hoursRes, zonesRes, schedRes, staffRes, occRes, trafficRes] = await Promise.all([
-    db.from('membership_plans').select('id, name, price, duration_months, duration_days, description, features')
+    db.from('membership_plans').select('id, name, price, duration_months, duration_days, description, features, trainer_addon_enabled, trainer_addon_price')
       .eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
     db.from('business_hours').select('day_of_week, open_time, close_time, is_closed')
       .eq('gym_id', gym.id).order('day_of_week', { ascending: true }).order('open_time', { ascending: true }),
@@ -440,6 +441,18 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
                     {p.description && <p className="secp" style={{ margin: '10px 0 0', fontSize: '.88rem' }}>{p.description}</p>}
                     {feats.length > 0 && (
                       <ul>{feats.map((f, i) => <li key={i}><Check strokeWidth={1.75} /> {f}</li>)}</ul>
+                    )}
+                    {offersTrainer(p) && (
+                      // Advertised here because it's a reason to pick this plan
+                      // over the one next to it — but priced as an extra, so
+                      // the headline figure above stays the truth about what
+                      // joining costs.
+                      <div className="plan-extra">
+                        <UserRoundCheck strokeWidth={1.75} />
+                        {trainerAddonPrice(p) > 0
+                          ? <span>Private trainer available <b>+{fmtNaira(trainerAddonPrice(p))}</b> — optional</span>
+                          : <span>Private trainer included — optional</span>}
+                      </div>
                     )}
                     {/* Carries the choice into the join + Paystack flow. */}
                     <Link href={`${joinHref}?plan=${p.id}` as Route} className={`b ${best ? 'b-acc' : 'b-out'}`} style={{ marginTop: 'auto' }}>

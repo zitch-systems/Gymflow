@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { Repeat, Users, CreditCard, Check, Pencil, PlusCircle } from 'lucide-react';
+import { Repeat, Users, CreditCard, Check, Pencil, PlusCircle, UserRoundCheck } from 'lucide-react';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { planPeriodLabel, planCadenceLabel, monthlyEquivalent } from '@/lib/plan-duration';
+import { offersTrainer, trainerAddonPrice } from '@/lib/plan-addon';
 
 export const metadata = { title: 'Pricing & plans' };
 
@@ -12,7 +13,7 @@ export default async function AdminPricing() {
   const supabase = await createClient();
 
   const [{ data: plans }, { data: activeSubs }] = await Promise.all([
-    supabase.from('membership_plans').select('id, name, price, duration_days, duration_months, description, is_active, features').eq('gym_id', gym.id).order('price', { ascending: true }),
+    supabase.from('membership_plans').select('id, name, price, duration_days, duration_months, description, is_active, features, trainer_addon_enabled, trainer_addon_price').eq('gym_id', gym.id).order('price', { ascending: true }),
     supabase.from('member_subscriptions').select('plan_id').eq('gym_id', gym.id).eq('status', 'active'),
   ]);
 
@@ -57,6 +58,18 @@ export default async function AdminPricing() {
                 </div>
                 <div className="amt">{fmtNaira(Number(p.price))}<small>{planPeriodLabel(p)}</small></div>
                 <div className="desc">{p.description ?? planCadenceLabel(p)}</div>
+                {offersTrainer(p) && (
+                  // What members are actually offered on top of the headline
+                  // price. Without it the card claims a price this plan can be
+                  // bought at, which stops being the whole story the moment the
+                  // add-on is switched on.
+                  <div className="plan-addon">
+                    <UserRoundCheck size={13} strokeWidth={2} />
+                    {trainerAddonPrice(p) > 0
+                      ? <>Private trainer <b>+{fmtNaira(trainerAddonPrice(p))}</b> — optional</>
+                      : <>Private trainer included — optional</>}
+                  </div>
+                )}
                 <div className="stat">
                   <div><div className="v">{p.members}</div><div className="l">Members</div></div>
                   <div><div className="v">{fmtNaira(Math.round(p.mrr))}</div><div className="l">MRR</div></div>

@@ -7,6 +7,7 @@ import { firstName, fmtDate } from '@/lib/format';
 import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, autoRenewEnabled, autoRenewEnded } from '@/lib/email/templates/member';
+import { resolveTrainerOptIn } from '@/lib/plan-addon';
 import type { Database } from '@/lib/database.types';
 
 // Fulfillment for the MEMBER auto-billing flow (member → gym recurring
@@ -138,6 +139,26 @@ async function emailMember(
   } catch { /* bonus channel */ }
 }
 
+// Did this mandate include the private-trainer add-on? Only the events that
+// carry our checkout metadata can answer — Paystack drops metadata after the
+// first cycle — so `null` means "no opinion, leave the stored flag alone"
+// rather than "no trainer". Later cycles need no opinion: the mandate is bound
+// to the with-trainer Paystack Plan, so the flag set on the first charge stays
+// true for as long as the subscription bills that amount.
+async function trainerOptInFromMeta(
+  admin: Admin,
+  gymId: string,
+  planId: string | null,
+  requested: unknown,
+): Promise<boolean | null> {
+  if (requested === undefined) return null;
+  if (!planId) return null;
+  const { data: plan } = await admin.from('membership_plans')
+    .select('trainer_addon_enabled, trainer_addon_price').eq('id', planId).eq('gym_id', gymId).maybeSingle();
+  if (!plan) return null;
+  return resolveTrainerOptIn(plan, requested);
+}
+
 // The plan name as the MEMBER knows it. Paystack's own plan object is named
 // "<plan> (auto-renew)" (see ensurePlanCode in lib/actions/member-billing.ts),
 // which is our plumbing showing through in a message they read.
@@ -192,6 +213,8 @@ async function onSubscriptionCreate(admin: Admin, data: Json): Promise<Result> {
   if (subCode) patch.paystack_subscription_code = subCode;
   if (emailToken) patch.paystack_email_token = emailToken;
   if (custCode) patch.paystack_customer_code = custCode;
+  const trainer = await trainerOptInFromMeta(admin, sub.gym_id, str(meta.plan_id) ?? sub.plan_id, meta.trainer_addon);
+  if (trainer !== null) patch.trainer_addon = trainer;
 
   const { error } = await admin.from('member_subscriptions').update(patch).eq('id', sub.id);
   if (error) return { ok: false, handled: true, error: error.message };
@@ -262,6 +285,8 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   const codePatch: MemberSubUpdate = { auto_debit_enabled: true, updated_at: new Date().toISOString() };
   if (subCode) codePatch.paystack_subscription_code = subCode;
   if (custCode) codePatch.paystack_customer_code = custCode;
+  const trainer = await trainerOptInFromMeta(admin, sub.gym_id, str(meta.plan_id) ?? sub.plan_id, meta.trainer_addon);
+  if (trainer !== null) codePatch.trainer_addon = trainer;
   const { error: codeErr } = await admin.from('member_subscriptions').update(codePatch).eq('id', sub.id);
   if (codeErr) return { ok: false, handled: true, error: `subscription code bind failed: ${codeErr.message}` };
 

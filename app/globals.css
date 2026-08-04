@@ -1527,6 +1527,20 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-member .rplan .info small { color:var(--gf-text-muted); font-size:0.76rem; display:block; margin-top:3px; }
 .ds-member .rplan .pr { font-family:var(--gf-font-display); font-weight:800; font-size:1.1rem; text-align:right; white-space:nowrap; }
 .ds-member .rplan .pr small { font-size:0.66rem; color:var(--gf-text-muted); font-weight:500; }
+/* Optional private-trainer add-on. Deliberately a lighter treatment than
+   .rplan — it's an extra on the chosen plan, not another plan to choose. */
+.ds-member .rtrainer { display:flex; align-items:center; gap:11px; padding:13px 15px; margin:2px 0 0; border:1.5px dashed var(--gf-border-light); border-radius:var(--gf-radius); cursor:pointer; transition:all var(--gf-t); }
+.ds-member .rtrainer:has(input:checked) { border-style:solid; border-color:var(--gf-brand); background:var(--gf-brand-soft); }
+.ds-member .rtrainer input { accent-color:var(--gf-brand); width:17px; height:17px; margin:0; flex-shrink:0; }
+.ds-member .rtrainer-tx { flex:1; min-width:0; }
+.ds-member .rtrainer-tx strong { font-family:var(--gf-font-display); font-size:0.9rem; display:block; }
+.ds-member .rtrainer-tx small { color:var(--gf-text-muted); font-size:0.75rem; display:block; margin-top:2px; }
+.ds-member .rtrainer-pr { font-family:var(--gf-font-display); font-weight:800; font-size:0.95rem; white-space:nowrap; }
+.ds-member .rtotal { display:flex; flex-direction:column; gap:5px; margin:14px 2px 4px; padding:12px 14px; border-radius:var(--gf-radius-sm); background:var(--gf-elevated); font-size:0.84rem; }
+.ds-member .rtotal span { display:flex; justify-content:space-between; gap:12px; color:var(--gf-text-secondary); }
+.ds-member .rtotal b { font-family:var(--gf-font-display); font-weight:700; color:var(--gf-text); }
+.ds-member .rtotal-sum { padding-top:7px; border-top:1px solid var(--gf-border); font-weight:600; color:var(--gf-text); }
+.ds-member .rtotal-sum b { font-size:1.05rem; color:var(--gf-brand); }
 .ds-member .paysafe { display:flex; align-items:center; justify-content:center; gap:6px; color:var(--gf-text-muted); font-size:0.76rem; margin-top:14px; }
 .ds-member .paysafe :is(i, svg) { width:13px; height:13px; }
 .ds-member .wcard { border-radius: var(--gf-radius-lg); padding: 20px; color: #fff; position: relative; overflow: hidden;
@@ -1831,6 +1845,7 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .plan .amt { font-family:var(--gf-font-display); font-size:2.4rem; font-weight:800; letter-spacing:-0.03em; margin:8px 0 0; }
 .ds-admin .plan .amt small { font-size:0.85rem; color:var(--gf-text-muted); font-weight:500; }
 .ds-admin .plan .desc { color:var(--gf-text-muted); font-size:0.84rem; margin:6px 0 0; }
+.ds-admin .plan-addon { display:flex; align-items:center; gap:6px; margin:10px 0 0; padding:6px 9px; border-radius:var(--gf-radius-sm); background:var(--gf-brand-soft); color:var(--gf-brand); font-size:0.78rem; font-weight:600; }
 .ds-admin .plan .stat { display:flex; gap:18px; margin:18px 0; padding:14px 0; border-top:1px solid var(--gf-border); border-bottom:1px solid var(--gf-border); }
 .ds-admin .plan .stat .v { font-family:var(--gf-font-display); font-weight:800; font-size:1.2rem; }
 .ds-admin .plan .stat .l { font-size:0.7rem; color:var(--gf-text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-top:2px; }
@@ -2438,6 +2453,13 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .af-check { flex-direction:row !important; align-items:center; gap:8px; font-weight:500; color:var(--gf-text-secondary); font-size:0.84rem; }
 .ds-admin .af-check input { accent-color:var(--gf-brand); width:16px; height:16px; }
 .ds-admin .act-form .gf-btn { align-self:flex-start; }
+/* Optional-extra block inside a form (e.g. the private-trainer add-on on a
+   plan): boxed off so the price inside it reads as an extra on top of the
+   plan price above, not another field of the plan itself. */
+.ds-admin .af-addon { margin:6px 0 2px; padding:12px 14px 14px; border:1px solid var(--gf-border); border-radius:var(--gf-radius-sm); background:var(--gf-elevated); }
+.ds-admin .af-addon legend { display:flex; align-items:center; gap:8px; padding:0; cursor:pointer; }
+.ds-admin .af-addon-body { margin-top:12px; max-width:260px; }
+.ds-admin .af-addon-body label { display:flex; flex-direction:column; gap:6px; font-size:0.78rem; font-weight:600; color:var(--gf-text-secondary); }
 .ds-admin .act-fb { display:flex; align-items:center; gap:7px; margin:14px 0 0; font-size:0.84rem; font-weight:600; }
 .ds-admin .act-fb.ok { color:var(--gf-success); }
 .ds-admin .act-fb.err { color:var(--gf-danger); }

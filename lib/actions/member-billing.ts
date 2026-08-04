@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requestOrigin } from '@/lib/request-origin';
 import { initSubscription, createPlan, planIntervalFor, getSubscription, disableSubscription } from '@/lib/paystack';
 import { logAudit } from '@/lib/audit';
+import { offersTrainer, planTotalKobo } from '@/lib/plan-addon';
 import { firstName, fmtDate } from '@/lib/format';
 import { getContact, getEmailGym } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
@@ -33,23 +34,37 @@ export type ActionState = { ok: boolean; error: string | null; message?: string 
 // Returns the amount alongside the code: initSubscription has to send one
 // (Paystack requires it even with a plan code), and the membership_plans row
 // read here is where the price already is.
-async function ensurePlanCode(planId: string, gymId: string): Promise<{ ok: true; code: string; amountKobo: number } | { ok: false; error: string }> {
+//
+// A Paystack Plan fixes ONE recurring amount, so plan-with-trainer needs its
+// own Plan object and its own cached code (paystack_plan_code_trainer).
+// Reusing the base code for a member who took the add-on would charge them the
+// plan price alone on every cycle after the first — the gym would hand out
+// trainer time it stopped being paid for, silently.
+async function ensurePlanCode(
+  planId: string,
+  gymId: string,
+  withTrainer: boolean,
+): Promise<{ ok: true; code: string; amountKobo: number; trainerAddon: boolean } | { ok: false; error: string }> {
   const admin = createAdminClient();
   const { data: plan, error } = await admin
     .from('membership_plans')
-    .select('id, gym_id, name, price, duration_days, duration_months, paystack_plan_code')
+    .select('id, gym_id, name, price, duration_days, duration_months, paystack_plan_code, paystack_plan_code_trainer, trainer_addon_enabled, trainer_addon_price')
     .eq('id', planId).eq('gym_id', gymId).eq('is_active', true)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!plan) return { ok: false, error: 'Plan not found.' };
-  const amountKobo = Math.round(Number(plan.price) * 100);
-  if (plan.paystack_plan_code) return { ok: true, code: plan.paystack_plan_code, amountKobo };
+
+  // The plan row, not the caller, decides whether the add-on applies.
+  const trainerAddon = withTrainer && offersTrainer(plan);
+  const amountKobo = planTotalKobo(plan, trainerAddon);
+  const cached = trainerAddon ? plan.paystack_plan_code_trainer : plan.paystack_plan_code;
+  if (cached) return { ok: true, code: cached, amountKobo, trainerAddon };
 
   const interval = planIntervalFor(plan.duration_days ?? null, plan.duration_months ?? null);
   if (!interval) return { ok: false, error: `Plan "${plan.name}" duration doesn't map to a Paystack billing interval.` };
 
   const res = await createPlan({
-    name: `${plan.name} (auto-renew)`,
+    name: trainerAddon ? `${plan.name} + private trainer (auto-renew)` : `${plan.name} (auto-renew)`,
     amountKobo,
     interval,
   });
@@ -58,20 +73,22 @@ async function ensurePlanCode(planId: string, gymId: string): Promise<{ ok: true
   // Cache. If two callers race, second write is a no-op (both share the same
   // eventual code) — Paystack will just have two Plan objects with the same
   // config, harmless.
-  await admin.from('membership_plans').update({ paystack_plan_code: res.planCode }).eq('id', plan.id);
-  return { ok: true, code: res.planCode, amountKobo };
+  await admin.from('membership_plans')
+    .update(trainerAddon ? { paystack_plan_code_trainer: res.planCode } : { paystack_plan_code: res.planCode })
+    .eq('id', plan.id);
+  return { ok: true, code: res.planCode, amountKobo, trainerAddon };
 }
 
 // Start an auto-renewing subscription for the signed-in member. Same shape as
 // startRenewal in renew.ts (returns the Paystack authorization URL to redirect
 // to), but wires Paystack Subscriptions so future charges recur automatically.
 // The webhook (lib/member-sub-fulfill.ts) records renewals and tracks state.
-export async function startAutoRenewal(planId: string): Promise<StartResult> {
+export async function startAutoRenewal(planId: string, withTrainer = false): Promise<StartResult> {
   if (!process.env.PAYSTACK_SECRET_KEY) {
     return { ok: false, error: 'Payments are not configured yet (missing PAYSTACK_SECRET_KEY).' };
   }
   const { user, gym } = await requireMember();
-  const codeResult = await ensurePlanCode(planId, gym.id);
+  const codeResult = await ensurePlanCode(planId, gym.id, withTrainer);
   if (!codeResult.ok) return { ok: false, error: codeResult.error };
 
   // Same host the member started on — see lib/request-origin.ts.
@@ -80,7 +97,14 @@ export async function startAutoRenewal(planId: string): Promise<StartResult> {
     email: user.email ?? '',
     planCode: codeResult.code,
     amountKobo: codeResult.amountKobo,
-    metadata: { kind: 'member_subscription', gym_id: gym.id, member_id: user.id, plan_id: planId },
+    metadata: {
+      kind: 'member_subscription', gym_id: gym.id, member_id: user.id, plan_id: planId,
+      // Recorded on the subscription by the fulfiller so the gym can see who is
+      // owed trainer time. Recurring cycles drop metadata, but the mandate is
+      // bound to the with-trainer Paystack Plan, so the flag stays true for the
+      // life of the subscription.
+      trainer_addon: codeResult.trainerAddon,
+    },
     callbackUrl: site ? `${site}/dashboard/renew/callback` : undefined,
   });
   return res.ok ? { ok: true, url: res.authorization_url } : { ok: false, error: res.error };
