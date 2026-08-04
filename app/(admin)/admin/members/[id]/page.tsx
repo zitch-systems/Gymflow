@@ -10,6 +10,7 @@ import { fmtNaira, fmtDate, daysLeft, watDateISO, watDayStartUtc } from '@/lib/f
 import { MemberActions } from '@/components/admin/member-actions';
 import { FreezeActions } from '@/components/admin/freeze-actions';
 import { AutoRenewAction } from '@/components/admin/auto-renew-action';
+import { TrainerAssign, type TrainerOption } from '@/components/admin/trainer-assign';
 
 export const metadata = { title: 'Member' };
 export const dynamic = 'force-dynamic';
@@ -64,7 +65,7 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
   const [{ data: subs }, { data: payments }, { data: checkIns }, { data: plans }, { count: visitCount }] = await Promise.all([
     // Narrowed from select('*') to the columns consumed below — including the
     // fields handed to FreezeActions/AutoRenewAction (subs) — see each render site.
-    supabase.from('member_subscriptions').select('id, status, start_date, end_date, plan_id, payment_method, auto_debit_enabled, paystack_subscription_code, paused_at, pause_reason, pause_start, pause_end').eq('gym_id', gym.id).eq('member_id', id).order('end_date', { ascending: false }),
+    supabase.from('member_subscriptions').select('id, status, start_date, end_date, plan_id, payment_method, auto_debit_enabled, paystack_subscription_code, paused_at, pause_reason, pause_start, pause_end, trainer_addon').eq('gym_id', gym.id).eq('member_id', id).order('end_date', { ascending: false }),
     supabase.from('payments').select('id, amount, status, payment_status, payment_date, created_at, paystack_reference, plan_id, payment_method').eq('gym_id', gym.id).eq('member_id', id).order('payment_date', { ascending: false }).limit(100),
     supabase.from('check_ins').select('id, status, checked_in_at, checked_out_at, check_in_method').eq('gym_id', gym.id).eq('member_id', id).order('checked_in_at', { ascending: false }).limit(60),
     supabase.from('membership_plans').select('id, name, price').eq('gym_id', gym.id),
@@ -90,6 +91,25 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
   const statusBadge: [string, string] = isActive
     ? (remaining <= 7 ? ['gf-badge-warning', `Expiring · ${remaining}d`] : ['gf-badge-success', 'Active'])
     : (activeSub ? ['gf-badge-danger', 'Expired'] : ['gf-badge', 'No plan']);
+
+  // Private-trainer add-on: only members who actually paid for one get the
+  // assign panel, so the roster read is skipped entirely for everyone else.
+  const paidForTrainer = Boolean(activeSub?.trainer_addon);
+  let trainerOptions: TrainerOption[] = [];
+  let assignedTrainerId: string | null = null;
+  if (paidForTrainer) {
+    const [{ data: coachLinks }, { data: assigned }] = await Promise.all([
+      supabase.from('gym_staff_links').select('user_id').eq('gym_id', gym.id).eq('role', 'instructor').eq('is_active', true),
+      supabase.from('instructor_subscriptions').select('instructor_id').eq('gym_id', gym.id).eq('member_id', id).eq('status', 'active').maybeSingle(),
+    ]);
+    assignedTrainerId = assigned?.instructor_id ?? null;
+    const coachIds = (coachLinks ?? []).map((c) => c.user_id).filter(Boolean) as string[];
+    const { data: coachProfiles } = coachIds.length
+      ? await supabase.from('profiles').select('id, full_name, email').in('id', coachIds)
+      : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
+    trainerOptions = (coachProfiles ?? []).map((c) => ({ id: c.id, name: c.full_name || c.email || 'Instructor' }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   const totalSpent = pays.filter((p) => PAID.has(String(p.status ?? p.payment_status ?? '').toLowerCase())).reduce((s, p) => s + Number(p.amount ?? 0), 0);
   const visits = visitCount ?? cins.length;
@@ -167,6 +187,10 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
         subId={activeSub?.id ?? null}
         on={Boolean(activeSub?.auto_debit_enabled && activeSub?.paystack_subscription_code)}
       />
+
+      {paidForTrainer && (
+        <TrainerAssign memberId={id} instructors={trainerOptions} currentId={assignedTrainerId} />
+      )}
 
       <div className="md-grid">
         <div className="md-col">

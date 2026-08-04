@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { splitName, normalizeNgPhone, firstName, fmtDate } from '@/lib/format';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
@@ -466,4 +467,84 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
     return { ok: false, error: (e as Error).message };
   }
   redirect(`/admin/members/${newId}`);
+}
+
+// Assign (or clear) the private trainer a member paid for.
+//
+// The add-on is sold at checkout without naming a person — the gym matches them
+// afterwards, which is this action. The pairing lands in instructor_subscriptions,
+// the table that already models member ↔ instructor and feeds the coach's client
+// list, earnings and payouts; nothing new is invented to hold it.
+//
+// Writes go through the service-role client because instructor_subscriptions is
+// deliberately service-role-only (20260801120000_lock_instructor_subscriptions_writes.sql):
+// an instructor who could INSERT their own row could inflate the earnings sum
+// that pays them. Staff authorization is enforced here instead, by ctx().
+export async function assignTrainer(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const memberId = String(formData.get('memberId') ?? '');
+  const instructorId = String(formData.get('instructorId') ?? '');
+  // Empty is a real choice: it un-assigns, for a member matched to the wrong
+  // coach or one whose coach has left.
+  const clearing = instructorId === '';
+  if (!clearing && !UUID_RE.test(instructorId)) return { ok: false, error: 'Choose a trainer.' };
+  try {
+    const { gymId, supabase, actorId } = await ctx(memberId);
+
+    // The subscription the trainer time was bought on. It carries the period the
+    // pairing should cover, and its trainer_addon flag is the receipt that the
+    // member paid for a trainer at all.
+    const { data: sub } = await supabase
+      .from('member_subscriptions')
+      .select('id, start_date, end_date, trainer_addon')
+      .eq('gym_id', gymId).eq('member_id', memberId)
+      .order('end_date', { ascending: false }).limit(1).maybeSingle();
+    if (!sub?.trainer_addon) {
+      return { ok: false, error: 'This member hasn’t paid for the private trainer add-on.' };
+    }
+
+    // Instructors only, active only. A member matched to a coach who no longer
+    // works here is worse than an unmatched one: it looks handled.
+    if (!clearing) {
+      const { data: staff } = await supabase.from('gym_staff_links')
+        .select('user_id').eq('gym_id', gymId).eq('user_id', instructorId)
+        .eq('role', 'instructor').eq('is_active', true).maybeSingle();
+      if (!staff) return { ok: false, error: 'That trainer isn’t an active instructor at this gym.' };
+    }
+
+    let admin: SupabaseClient;
+    try { admin = createAdminClient() as unknown as SupabaseClient; } catch {
+      return { ok: false, error: 'Trainer assignment needs the service-role key to be configured.' };
+    }
+
+    // One live pairing per member per gym. Retiring the old one before writing
+    // the new keeps a re-assignment from paying two coaches for one member.
+    const { error: clearErr } = await admin.from('instructor_subscriptions')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('gym_id', gymId).eq('member_id', memberId).eq('status', 'active');
+    if (clearErr) return { ok: false, error: clearErr.message };
+
+    if (!clearing) {
+      const { error: insErr } = await admin.from('instructor_subscriptions').insert({
+        gym_id: gymId, instructor_id: instructorId, member_id: memberId,
+        status: 'active', start_date: sub.start_date, end_date: sub.end_date,
+        // amount_paid drives the coach's payout balance, and this action moves
+        // no money — the member already paid the gym at checkout. Leave it at 0
+        // and let the gym settle with the coach through the payout queue.
+        amount_paid: 0,
+      });
+      if (insErr) return { ok: false, error: insErr.message };
+    }
+
+    logAudit({
+      action: clearing ? 'member_trainer_unassigned' : 'member_trainer_assigned',
+      table: 'instructor_subscriptions',
+      actorId, gymId, recordId: memberId,
+      values: { instructor_id: clearing ? null : instructorId, member_subscription_id: sub.id },
+    });
+
+    revalidatePath(`/admin/members/${memberId}`);
+    return { ok: true, error: null, message: clearing ? 'Trainer unassigned.' : 'Trainer assigned.' };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
 }

@@ -44,13 +44,13 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
   // way here, so every plan button led to an identical screen. Look it up and
   // show it back — scoped to THIS gym and to active plans, so a hand-edited id
   // can't surface another gym's pricing.
-  let plan: { name: string; price: number | null; duration_months: number | null } | null = null;
+  let plan: { name: string; price: number | null; duration_months: number | null; trainer_addon_enabled: boolean | null; trainer_addon_price: number | null } | null = null;
   if (planId && UUID_RE.test(planId)) {
     try {
       const admin = createAdminClient();
       const { data } = await admin
         .from('membership_plans')
-        .select('name, price, duration_months')
+        .select('name, price, duration_months, trainer_addon_enabled, trainer_addon_price')
         .eq('id', planId).eq('gym_id', gym.id).eq('is_active', true)
         .maybeSingle();
       plan = (data as typeof plan) ?? null;

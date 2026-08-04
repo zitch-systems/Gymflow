@@ -5,6 +5,7 @@ import { deliverReceipt, type NotifyGym } from '@/lib/notify';
 import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
 import { captureServerEvent } from '@/lib/server-error';
 import { settledAmountMatches } from '@/lib/paystack-event-state';
+import { planTotalKobo, resolveTrainerOptIn } from '@/lib/plan-addon';
 
 export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
 // `permanent` marks a failure that won't succeed on retry (e.g. unusable
@@ -79,7 +80,8 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   let planDays = durationDays;
   let planPriceKobo: number | null = null;
   const { data: plan, error: planErr } = await admin.from('membership_plans')
-    .select('duration_days, duration_months, price').eq('id', planId).eq('gym_id', gymId).maybeSingle();
+    .select('duration_days, duration_months, price, trainer_addon_enabled, trainer_addon_price')
+    .eq('id', planId).eq('gym_id', gymId).maybeSingle();
   if (planErr) return { ok: false, created: false, error: planErr.message };
   if (!plan) return { ok: false, created: false, error: 'plan does not belong to gym', permanent: true };
 
@@ -87,8 +89,14 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const pd = plan.duration_days != null ? Math.floor(Number(plan.duration_days)) : 0;
   planDays = Number.isFinite(pd) && pd > 0 ? Math.min(pd, 366) : null;
   planMonths = planDays ? 0 : (Number.isFinite(pm) && pm > 0 ? Math.min(pm, 36) : 1);
+  // The plan row is the authority on whether the add-on exists, so a metadata
+  // flag alone can't award trainer time on a plan that never offered it.
+  const trainerAddon = resolveTrainerOptIn(plan, meta.trainer_addon);
+  // What this checkout SHOULD have cost, re-derived rather than taken from
+  // metadata — the drift check below is only worth anything if the expectation
+  // comes from the database.
   const pp = Number(plan.price ?? 0);
-  if (Number.isFinite(pp) && pp > 0) planPriceKobo = Math.round(pp * 100);
+  if (Number.isFinite(pp) && pp > 0) planPriceKobo = planTotalKobo(plan, trainerAddon);
 
   const { data: payRow, error: payErr } = await admin.from('payments').insert({
     member_id: memberId, gym_id: gymId, plan_id: planId,
@@ -114,9 +122,13 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const base = renewalBase(sub?.end_date);
   const newEnd = extendDate(base, { duration_days: planDays, duration_months: planMonths });
   const endIso = newEnd.toISOString().slice(0, 10);
+  // trainer_addon tracks what the member paid for THIS period, so it's written
+  // on every renewal — including back to false when they renew without the
+  // trainer they took last time. Leaving a stale true would keep the gym owing
+  // trainer time nobody paid for.
   const { error: subErr } = sub
-    ? await admin.from('member_subscriptions').update({ end_date: endIso, plan_id: planId ?? undefined, updated_at: new Date().toISOString() }).eq('id', sub.id)
-    : await admin.from('member_subscriptions').insert({ member_id: memberId, gym_id: gymId, plan_id: planId, status: 'active', start_date: new Date().toISOString().slice(0, 10), end_date: endIso });
+    ? await admin.from('member_subscriptions').update({ end_date: endIso, plan_id: planId ?? undefined, trainer_addon: trainerAddon, updated_at: new Date().toISOString() }).eq('id', sub.id)
+    : await admin.from('member_subscriptions').insert({ member_id: memberId, gym_id: gymId, plan_id: planId, status: 'active', trainer_addon: trainerAddon, start_date: new Date().toISOString().slice(0, 10), end_date: endIso });
   if (subErr) {
     // The member paid but the extension failed. The payment row we just
     // inserted is the idempotency lock — if we left it, every retry would

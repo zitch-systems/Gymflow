@@ -3,16 +3,20 @@
 import { useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Mail, Lock, User, Phone, ArrowRight, AlertCircle, Dumbbell } from 'lucide-react';
+import { Mail, Lock, User, Phone, ArrowRight, AlertCircle, Dumbbell, UserRoundCheck } from 'lucide-react';
 import { joinAsNew, joinAsCurrent, type JoinState } from '@/lib/actions/join';
 import { fmtNaira } from '@/lib/format';
+import { offersTrainer, trainerAddonPrice } from '@/lib/plan-addon';
 import { PasswordInput } from '@/components/ui/password-input';
 
 const initial: JoinState = { error: null };
 
 // Gym invite landing — create a member account (or join with the signed-in
 // one) linked to this gym.
-export type JoinPlan = { name: string; price: number | null; duration_months: number | null };
+export type JoinPlan = {
+  name: string; price: number | null; duration_months: number | null;
+  trainer_addon_enabled?: boolean | null; trainer_addon_price?: number | null;
+};
 
 export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }: { slug: string; gymName: string; logoUrl: string | null; currentEmail: string | null; plan?: JoinPlan | null }) {
   const [newState, newAction, newPending] = useActionState(joinAsNew, initial);
@@ -40,6 +44,18 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }
             <p className="join-plan">
               <span>Chosen plan</span>
               <b>{plan.name}{plan.price != null && <> · {fmtNaira(Number(plan.price))}{plan.duration_months === 1 ? ' / month' : plan.duration_months ? ` / ${plan.duration_months} months` : ''}</>}</b>
+              {offersTrainer(plan) && (
+                // Flagged here, not just on the landing page, because the tick
+                // itself appears at checkout — this is the last screen before
+                // that, and a surprise line item is a worse first impression
+                // than a heads-up.
+                <small style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <UserRoundCheck size={13} strokeWidth={1.9} style={{ flexShrink: 0 }} />
+                  {trainerAddonPrice(plan) > 0
+                    ? <>Optional private trainer: +{fmtNaira(trainerAddonPrice(plan))} — you choose at checkout.</>
+                    : <>Includes an optional private trainer — you choose at checkout.</>}
+                </small>
+              )}
               <small>Create your account first — you can pay for this plan from your dashboard straight after.</small>
             </p>
           )}

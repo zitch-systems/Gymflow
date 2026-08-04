@@ -6,6 +6,7 @@ import { requireStaff, MANAGER_ROLES, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 import { INTERVAL_PRESETS } from '@/lib/plan-duration';
+import { TRAINER_ADDON_MAX } from '@/lib/plan-addon';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
 import { firstName, fmt12Hr, fmtDate, watDateISO } from '@/lib/format';
 import { inSlices } from '@/lib/notify';
@@ -59,21 +60,52 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
   const price = Number(formData.get('price') ?? 0);
   const { duration_days, duration_months } = durationFromForm(formData);
   const isActive = formData.get('is_active') === 'on';
+  // Optional private-trainer add-on. ₦0 is meaningful (trainer bundled into the
+  // plan price), so an empty box is 0 rather than "unset" — and the price is
+  // only stored when the add-on is actually switched on, so an abandoned number
+  // can't sit dormant and surprise members if it's re-enabled later.
+  const trainerEnabled = formData.get('trainer_addon_enabled') === 'on';
+  const trainerPriceRaw = Number(formData.get('trainer_addon_price') ?? 0);
+  const trainerPrice = trainerEnabled && Number.isFinite(trainerPriceRaw) && trainerPriceRaw > 0
+    ? trainerPriceRaw
+    : 0;
   if (!name) return { ok: false, error: 'Plan name is required.' };
   if (!price || price < 0) return { ok: false, error: 'Enter a valid price.' };
+  if (trainerEnabled && (!Number.isFinite(trainerPriceRaw) || trainerPriceRaw < 0)) {
+    return { ok: false, error: 'Enter a valid private trainer price (0 or more).' };
+  }
+  if (trainerPrice > TRAINER_ADDON_MAX) {
+    return { ok: false, error: `Private trainer price can't be more than ₦${TRAINER_ADDON_MAX.toLocaleString('en-NG')}.` };
+  }
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
+    const addon = { trainer_addon_enabled: trainerEnabled, trainer_addon_price: trainerPrice };
     if (id) {
+      // A Paystack Plan pins one amount, and paystack_plan_code_trainer was
+      // created for plan price + add-on price. Editing either number leaves the
+      // cached code billing auto-renewing members the OLD combined total
+      // forever, so drop it and let ensurePlanCode mint a fresh one at the new
+      // amount on the next opt-in.
+      const { data: before } = await supabase.from('membership_plans')
+        .select('price, trainer_addon_enabled, trainer_addon_price').eq('id', id).eq('gym_id', gym.id).maybeSingle();
+      const totalChanged = before != null && (
+        Number(before.price) !== price
+        || Boolean(before.trainer_addon_enabled) !== trainerEnabled
+        || Number(before.trainer_addon_price ?? 0) !== trainerPrice
+      );
       const { error } = await supabase.from('membership_plans')
-        .update({ name, price, duration_days, duration_months, is_active: isActive }).eq('id', id).eq('gym_id', gym.id);
+        .update({
+          name, price, duration_days, duration_months, is_active: isActive, ...addon,
+          ...(totalChanged ? { paystack_plan_code_trainer: null } : {}),
+        }).eq('id', id).eq('gym_id', gym.id);
       if (error) return { ok: false, error: error.message };
     } else {
       const { error } = await supabase.from('membership_plans')
-        .insert({ gym_id: gym.id, name, price, duration_days, duration_months, currency: 'NGN', is_active: isActive });
+        .insert({ gym_id: gym.id, name, price, duration_days, duration_months, currency: 'NGN', is_active: isActive, ...addon });
       if (error) return { ok: false, error: error.message };
     }
-    logAudit({ action: id ? 'plan_updated' : 'plan_created', table: 'membership_plans', actorId: user.id, gymId: gym.id, recordId: id, values: { name, price, duration_days, duration_months } });
+    logAudit({ action: id ? 'plan_updated' : 'plan_created', table: 'membership_plans', actorId: user.id, gymId: gym.id, recordId: id, values: { name, price, duration_days, duration_months, ...addon } });
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

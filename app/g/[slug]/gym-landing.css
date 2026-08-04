@@ -183,6 +183,12 @@
 .gym-public .plan ul { list-style: none; padding: 0; margin: 20px 0 24px; display: flex; flex-direction: column; gap: 11px; flex: 1; }
 .gym-public .plan li { display: flex; gap: 10px; font-size: .9rem; color: var(--gf-text-secondary); line-height: 1.45; }
 .gym-public .plan li svg { width: 16px; height: 16px; color: var(--accent); flex: none; margin-top: 2px; }
+/* Optional extra on a plan (private trainer). Sits below the feature list and
+   above the CTA, tinted so it reads as an add-on rather than another included
+   feature — the price above it is still what joining costs. */
+.gym-public .plan-extra { display: flex; align-items: center; gap: 9px; margin: 0 0 18px; padding: 9px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 11%, transparent); color: var(--gf-text-secondary); font-size: .84rem; line-height: 1.4; }
+.gym-public .plan-extra svg { width: 16px; height: 16px; color: var(--accent); flex: none; }
+.gym-public .plan-extra b { color: var(--gf-text); font-family: var(--gf-font-display); }
 .gym-public .paynote { display: flex; align-items: center; gap: 9px; margin-top: 22px; color: var(--gf-text-muted); font-size: .82rem; flex-wrap: wrap; }
 .gym-public .paynote svg { width: 15px; height: 15px; color: var(--gf-success); }
 @media (max-width: 900px) { .gym-public .plans { grid-template-columns: 1fr; } }
