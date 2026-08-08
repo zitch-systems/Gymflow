@@ -45,6 +45,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const notice: LoginNotice = sp['check-email'] ? 'check-email'
     : sp.confirmed ? 'confirmed'
     : sp.reset ? 'reset'
+    // requirePlatformAdmin sends a signed-in non-admin here rather than
+    // bouncing them to the marketing page — see lib/auth/dal.ts.
+    : sp.denied === 'platform' ? 'platform-denied'
     : sp.error === 'link_expired' ? 'link-expired'
     : null;
 

@@ -11,7 +11,7 @@ import { PasswordInput } from '@/components/ui/password-input';
 
 const initial: AuthState = { error: null };
 
-export type LoginNotice = 'check-email' | 'confirmed' | 'reset' | 'link-expired' | null;
+export type LoginNotice = 'check-email' | 'confirmed' | 'reset' | 'link-expired' | 'platform-denied' | null;
 
 // Branding for a gym subdomain sign-in (<slug>.gymflow.ng/login). When present,
 // the login screen is the gym's own member sign-in, not the platform login.
@@ -29,6 +29,11 @@ const NOTICES: Record<NonNullable<LoginNotice>, { tone: 'info' | 'success' | 'er
   // confirmation or reset link is stale or already used — say so, otherwise the
   // user lands on a normal login page with no idea why their link didn't work.
   'link-expired': { tone: 'error', text: 'That link has expired or was already used. Request a new one below.' },
+  // /superadmin reached while signed in on an account that isn't a platform
+  // admin. Names the reason rather than the rule: the usual cause is being
+  // signed in on a gym account, and "sign in with the platform account" is the
+  // one instruction that resolves it.
+  'platform-denied': { tone: 'error', text: 'The platform console needs a GymFlow platform admin account. Sign in with that account below — the one you use for your gym won’t open it.' },
 };
 
 // revamp/login.html: brand-split layout, email + password. On the apex it's the
