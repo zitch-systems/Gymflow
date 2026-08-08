@@ -432,8 +432,6 @@ function ProductPreview() {
       className="product-stage"
       aria-label="Illustrative GymFlow owner dashboard preview"
     >
-      <div className="product-orbit product-orbit-one" aria-hidden="true"><i /></div>
-      <div className="product-orbit product-orbit-two" aria-hidden="true"><i /></div>
       <div className="product-window">
         <div className="product-topbar">
           <div>
