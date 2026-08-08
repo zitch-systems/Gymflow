@@ -16,11 +16,14 @@ export type BackupRow = {
   rows: number;
 };
 
+// Cadence first, opt-out last. Backups are on by default, so "Off" is the
+// exception rather than the starting point, and leading with it would read as
+// the neutral choice it no longer is.
 const FREQUENCIES: [string, string, string][] = [
-  ['off', 'Off', 'No automatic backups'],
   ['daily', 'Daily', 'Every day, overnight'],
   ['weekly', 'Weekly', 'Once a week'],
   ['monthly', 'Monthly', 'Once a month'],
+  ['off', 'Off', 'No automatic backups'],
 ];
 
 function size(bytes: number | null): string {
@@ -71,7 +74,8 @@ export function BackupSettings({
         </div>
         <div className="panel-desc">
           A copy of your members, subscriptions, payments, check-ins and classes — one spreadsheet
-          per table, in a zip. Kept here for you to download, and emailed to you if you want it.
+          per table, in a zip. This runs automatically and is emailed to you; a copy is kept here
+          to download either way. Change the schedule or switch it off below.
         </div>
 
         <div className="bk-freq" role="radiogroup" aria-label="Backup schedule">

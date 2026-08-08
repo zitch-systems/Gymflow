@@ -125,7 +125,10 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
         gallery_urls: (gym as { gallery_urls?: string[] | null }).gallery_urls ?? null,
         instagram_posts: (gym as { instagram_posts?: string[] | null }).instagram_posts ?? null,
         integrations: (gym as { integrations?: Record<string, string> | null }).integrations ?? null,
-        backup_frequency: (gym as { backup_frequency?: string | null }).backup_frequency ?? 'off',
+        // 'weekly' rather than 'off' when the column is absent: it matches the
+        // database default, so a gym that has never touched the setting sees the
+        // schedule that is actually running for them.
+        backup_frequency: (gym as { backup_frequency?: string | null }).backup_frequency ?? 'weekly',
         backup_email: (gym as { backup_email?: boolean | null }).backup_email !== false,
         backup_last_run_at: (gym as { backup_last_run_at?: string | null }).backup_last_run_at ?? null,
         brand_color: (gym as { brand_color?: string | null }).brand_color ?? null,

@@ -153,3 +153,18 @@ describe('retention', () => {
     expect(KEEP_BACKUPS).toBeLessThanOrEqual(20);
   });
 });
+
+describe('the shipped default', () => {
+  it('backs up a gym that has never opened the setting', () => {
+    // The migration defaults backup_frequency to 'weekly' and backfills every
+    // existing row, so this is the state most gyms are actually in. If someone
+    // later flips that default back to 'off', this is the assertion that should
+    // make them think about it: a backup nobody switched on protects nobody.
+    expect(backupDue('weekly', null, NOW)).toBe(true);
+    expect(backupDue('weekly', hoursAgo(24 * 7), NOW)).toBe(true);
+  });
+
+  it('still honours a gym that deliberately switched it off', () => {
+    expect(backupDue('off', null, NOW)).toBe(false);
+  });
+});

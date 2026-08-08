@@ -454,7 +454,7 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
 
           {sec === 'backups' && (
             <BackupSettings
-              frequency={gym.backup_frequency ?? 'off'}
+              frequency={gym.backup_frequency ?? 'weekly'}
               emailOn={gym.backup_email !== false}
               lastRunAt={gym.backup_last_run_at ?? null}
               backups={backups}

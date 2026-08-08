@@ -9,17 +9,24 @@
 --   gym_backups            — one row per run: where the file is, how big, what
 --                            it contained, and whether it worked
 --
--- Default is 'off'. A backup that emails a database extract to an address we
--- were never asked to send to is a data-protection incident, not a feature —
--- so this only ever runs because a gym switched it on.
+-- Defaults to WEEKLY and emailing, on by design: a backup nobody switched on
+-- protects nobody, and the gyms most likely to lose their records are the least
+-- likely to go looking for a setting. Adding the column with a default also
+-- backfills every existing gym, so this turns on for the whole estate rather
+-- than only for gyms created after it ships.
 --
--- Retention lives in the app (lib/backup.ts), not here: pruning old rows needs
--- to delete the storage object too, which SQL can't do.
+-- Weekly rather than daily: the archive is emailed and stored, and a daily
+-- extract of every member and payment is a lot of mail, a lot of storage and a
+-- larger standing pile of personal data than the protection warrants. Owners
+-- who want daily can pick it; 'off' stays available for those who want none.
+--
+-- Retention lives in the app (lib/backup-plan.ts), not here: pruning old rows
+-- needs to delete the storage object too, which SQL can't do.
 --
 -- Additive + idempotent.
 
 alter table public.gyms
-  add column if not exists backup_frequency text not null default 'off',
+  add column if not exists backup_frequency text not null default 'weekly',
   add column if not exists backup_email boolean not null default true,
   add column if not exists backup_last_run_at timestamptz;
 
@@ -129,6 +136,6 @@ create policy "gym_backups_read" on storage.objects
 -- replace a backup with a file of their choosing.
 
 comment on table public.gym_backups is 'One row per backup run. Writes are service-role only — the cron and the manual Back up now action. A forged success row would stop someone noticing that backups had silently stopped.';
-comment on column public.gyms.backup_frequency is 'off | daily | weekly | monthly. Defaults to off: emailing a database extract to an address nobody asked us to send to is an incident, not a feature.';
+comment on column public.gyms.backup_frequency is 'off | daily | weekly | monthly. Defaults to weekly and applies to existing rows: a backup nobody switched on protects nobody, and the gyms most likely to lose their records are the least likely to go looking for the setting.';
 comment on column public.gyms.backup_email is 'Also email the archive to the gym owners when a backup completes. The stored copy is written either way.';
 comment on column public.gyms.backup_last_run_at is 'When the last backup completed. The scheduler compares this against backup_frequency to decide what is due, so a missed cron catches up rather than skipping a period.';
