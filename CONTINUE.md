@@ -24,9 +24,15 @@ the work that is deliberately still open.
 | Superadmin | 9 | `app/(superadmin)` · `.ds-admin` | `requirePlatformAdmin` |
 
 Role gates live in `lib/auth/dal.ts` (all `cache()`-wrapped); RLS is the
-authority on writes. Demo logins (password `Gymflow2026!`):
-member@ifitness.com → `/dashboard` · admin@ifitness.com → `/admin` ·
-instructor@ifitness.com → `/coach` · admin@gymflow.ng → `/superadmin`.
+authority on writes.
+
+Each role lands somewhere different after sign-in — `/launch` routes by role:
+platform admin → `/superadmin`, staff → `/admin` (instructor → `/coach`),
+member → `/dashboard`. Credentials for the accounts that exercise those paths
+are NOT kept here. A shared password written down in the repo is a password in
+git history forever, and the one that used to sit on this line opened the
+platform-admin account — which reads every tenant's members, payments and
+payout details. Ask whoever holds the credential store.
 
 ## Commands
 
