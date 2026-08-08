@@ -48,7 +48,18 @@ export type SendEmailParams = {
   tags?: Array<{ name: string; value: string }>;
   /** Makes a retry of the same logical email a no-op on Resend's side. */
   idempotencyKey?: string;
+  /** Files to attach. `content` is the raw bytes — base64 encoding happens
+   *  here, once, so no caller has to remember Resend wants it that way.
+   *  Resend caps a message at ~40MB including encoding overhead, and base64
+   *  inflates by a third; sendEmail refuses anything over ATTACHMENT_LIMIT
+   *  rather than letting the API reject the whole send. */
+  attachments?: Array<{ filename: string; content: Uint8Array }>;
 };
+
+/** Raw-bytes ceiling for attachments on one message. Resend's documented limit
+ *  is ~40MB on the encoded payload; base64 costs ~4/3, so this is the largest
+ *  input that reliably fits with room for the HTML body. */
+export const ATTACHMENT_LIMIT = 25 * 1024 * 1024;
 
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   const key = process.env.RESEND_API_KEY;
@@ -67,6 +78,15 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       .map((e) => e.trim()).filter((e) => EMAIL_RE.test(e))
     : [];
 
+  // Refuse an oversized attachment here rather than letting Resend reject the
+  // whole message: the caller (a backup run) needs to know its file was too
+  // big to mail, which is a different outcome from "the email failed".
+  const attachments = params.attachments ?? [];
+  const attachmentBytes = attachments.reduce((n, a) => n + a.content.byteLength, 0);
+  if (attachmentBytes > ATTACHMENT_LIMIT) {
+    return { ok: false, error: `attachments total ${attachmentBytes} bytes, over the ${ATTACHMENT_LIMIT} limit` };
+  }
+
   try {
     const res = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
@@ -84,6 +104,9 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
         ...(replyTo.length ? { reply_to: replyTo } : {}),
         ...(params.headers && Object.keys(params.headers).length ? { headers: params.headers } : {}),
         ...(params.tags?.length ? { tags: params.tags } : {}),
+        ...(attachments.length
+          ? { attachments: attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString('base64') })) }
+          : {}),
       }),
       cache: 'no-store',
     });

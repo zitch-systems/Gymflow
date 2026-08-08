@@ -144,6 +144,9 @@ export type PlatformSendOptions = {
   replyTo?: string;
   idempotencyKey?: string;
   template: string;
+  /** Files to attach — see SendEmailParams.attachments. Used by the backup
+   *  run, which mails the gym its own archive. */
+  attachments?: Array<{ filename: string; content: Uint8Array }>;
 };
 
 /**
@@ -185,6 +188,7 @@ export async function sendPlatformEmail(opts: PlatformSendOptions): Promise<Send
       { name: 'sender', value: 'platform' },
     ],
     idempotencyKey: opts.idempotencyKey,
+    ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
   });
 }
 
