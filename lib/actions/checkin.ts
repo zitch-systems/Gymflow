@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { isOfflineGym } from '@/lib/gym-status';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -38,6 +39,13 @@ export async function selfCheckIn(): Promise<CheckinResult> {
     ({ user, gym } = await requireMember());
   } catch {
     return { ok: false, error: 'Please sign in to check in.' };
+  }
+
+  // A gym GymFlow has switched off isn't open. Checked before the member's own
+  // membership state: whose fault it is doesn't change the answer at the door,
+  // and the member-facing wording shouldn't blame them for it.
+  if (isOfflineGym(gym)) {
+    return { ok: false, error: 'This gym is not open on GymFlow right now. Please see the front desk.' };
   }
 
   const supabase = await createClient();
@@ -132,6 +140,11 @@ export async function generateCheckinCode(): Promise<CodeResult> {
     ({ user, gym } = await requireMember());
   } catch {
     return { ok: false, error: 'Please sign in first.' };
+  }
+
+  // Same door, same answer — see selfCheckIn.
+  if (isOfflineGym(gym)) {
+    return { ok: false, error: 'This gym is not open on GymFlow right now. Please see the front desk.' };
   }
 
   const supabase = await createClient();

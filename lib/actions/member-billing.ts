@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireMember, requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
+import { isOfflineGym } from '@/lib/gym-status';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requestOrigin } from '@/lib/request-origin';
@@ -88,6 +89,12 @@ export async function startAutoRenewal(planId: string, withTrainer = false): Pro
     return { ok: false, error: 'Payments are not configured yet (missing PAYSTACK_SECRET_KEY).' };
   }
   const { user, gym } = await requireMember();
+  // See the same guard in renew.ts. This one matters more, not less: a
+  // subscription keeps charging on a schedule, so one that slips through
+  // outlives the checkout by months.
+  if (isOfflineGym(gym)) {
+    return { ok: false, error: 'This gym is not accepting payments right now. Please contact the gym.' };
+  }
   const codeResult = await ensurePlanCode(planId, gym.id, withTrainer);
   if (!codeResult.ok) return { ok: false, error: codeResult.error };
 

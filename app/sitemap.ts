@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { ROOT_DOMAIN } from '@/lib/tenant';
+import { OFFLINE_GYM_FILTER } from '@/lib/gym-status';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
 
@@ -35,6 +36,10 @@ async function gymEntries(): Promise<MetadataRoute.Sitemap> {
       .from('gyms')
       .select('slug, updated_at')
       .eq('landing_enabled', true)
+      // Suspending a gym does not clear landing_enabled, so without this the
+      // sitemap kept handing crawlers the URL of a tenant whose landing page
+      // now 404s — a soft 404 we generate for ourselves.
+      .not('status', 'in', OFFLINE_GYM_FILTER)
       .not('slug', 'is', null)
       .limit(5000);
     return (data ?? [])

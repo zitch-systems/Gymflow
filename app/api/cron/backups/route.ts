@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'crypto';
 import { adminOrNull } from '@/lib/email/recipients';
 import { backupDue } from '@/lib/backup-plan';
 import { runGymBackup } from '@/lib/backup-run';
+import { isOfflineGym } from '@/lib/gym-status';
 
 export const dynamic = 'force-dynamic';
 // Backups read a gym's whole operating record and zip it. That is far heavier
@@ -59,7 +60,7 @@ export async function GET(req: Request) {
     // A gym GymFlow has suspended keeps its data but stops being processed —
     // emailing an extract to an account we've taken offline is not our call to
     // make on their behalf.
-    .filter((g) => g.status !== 'suspended')
+    .filter((g) => !isOfflineGym(g))
     .filter((g) => backupDue(g.backup_frequency, g.backup_last_run_at, now));
 
   const batch = due.slice(0, MAX_PER_RUN);

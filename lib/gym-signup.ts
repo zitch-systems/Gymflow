@@ -3,6 +3,7 @@ import 'server-only';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { splitName } from '@/lib/format';
+import { OFFLINE_GYM_FILTER } from '@/lib/gym-status';
 import type { Database } from '@/lib/database.types';
 
 // Shared gym sign-up helpers used by both the web /join flow and the native
@@ -34,17 +35,31 @@ export function createApiAuthClient() {
   });
 }
 
+// Both resolvers exclude gyms the platform has switched off. These two
+// functions are the only way the mobile API turns a member code into a gym, so
+// this filter is what stops /api/app/signup minting a brand-new auto-confirmed
+// account into a suspended tenant — a path the older "hide the console" style
+// of suspension left wide open, and one that no password rotation can close
+// because the attacker never needs an existing account.
 export async function resolveGymByCode(code: string): Promise<PublicGym | null> {
   const normalized = normalizeMemberCode(code);
   if (!normalized) return null;
   const admin = createAdminClient();
-  const { data } = await admin.from('gyms').select(PUBLIC_GYM_COLS).eq('member_code', normalized).maybeSingle();
+  const { data } = await admin.from('gyms')
+    .select(PUBLIC_GYM_COLS)
+    .eq('member_code', normalized)
+    .not('status', 'in', OFFLINE_GYM_FILTER)
+    .maybeSingle();
   return (data as PublicGym | null) ?? null;
 }
 
 export async function resolveGymBySlug(slug: string): Promise<PublicGym | null> {
   const admin = createAdminClient();
-  const { data } = await admin.from('gyms').select(PUBLIC_GYM_COLS).eq('slug', slug).maybeSingle();
+  const { data } = await admin.from('gyms')
+    .select(PUBLIC_GYM_COLS)
+    .eq('slug', slug)
+    .not('status', 'in', OFFLINE_GYM_FILTER)
+    .maybeSingle();
   return (data as PublicGym | null) ?? null;
 }
 

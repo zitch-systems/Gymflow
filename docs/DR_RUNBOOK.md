@@ -14,10 +14,10 @@ backup cadence (daily on free/pro tiers; PITR if enabled) — see §5.
 | Asset | Restorable from repo? | Source |
 |---|---|---|
 | Database schema (35 tables, enums, functions, triggers, view) | ✅ | `supabase/migrations/00000000000000_baseline_schema.sql` |
-| RLS policies (~95) + role grants | ✅ | same baseline + incremental migrations |
+| RLS policies (95) + role grants | ✅ | same baseline + incremental migrations |
 | Incremental schema changes | ✅ | `supabase/migrations/2026*.sql`, sorted order |
 | App code + config | ✅ | this repo (`main`) |
-| **Data** (rows: gyms, members, payments…) | ❌ | Supabase backups only (§5) |
+| **Data** (rows: gyms, members, payments…) | ❌ | Supabase backups only (§5). Note the per-gym backup product (`gym_backups`, `/api/cron/backups`) is a tenant-facing export, not a DR asset — and it skips gyms whose status is `suspended`/`terminated`, so a switched-off tenant stops accumulating extracts from the moment it goes off. |
 | **Secrets** (service-role key, Paystack keys, CRON_SECRET) | ❌ | Vercel env + password manager (§4) |
 | Paystack objects (plans, subaccounts, subscriptions, recipients) | ❌ | live in Paystack; codes are cached in DB columns and recoverable from the Paystack dashboard |
 | `gym-assets` storage bucket contents | ❌ | Supabase storage backups |
@@ -204,8 +204,14 @@ Supabase dashboard:
 ## 6. Verification checklist (after any restore)
 
 - [ ] `select count(*) from pg_policies where schemaname='public'` ≥ 95
+      (the baseline's own count; live is higher — 99 as of 2026-08-08 — because
+      dated migrations add policies. This is a floor, not an equality check.)
 - [ ] RLS enabled on all public tables (§1.3 query returns 0 rows)
-- [ ] Sign in with a demo/staff account; member dashboard renders real data
+- [ ] Sign in as a member and as gym staff; member dashboard renders real data.
+      Get the accounts from the credential store — the repo used to name a demo
+      login and a shared password, and no longer does. If you reach for a gym
+      that is `suspended`/`terminated`, you will meet the wall rather than the
+      console (`lib/gym-status.ts`); pick a trading gym for this step.
 - [ ] `npm test` against a branch DB (or trust CI) — tenant isolation green
 - [ ] Paystack test-mode charge end-to-end: renew → checkout → webhook →
       `payments` row + `member_subscriptions.end_date` extended

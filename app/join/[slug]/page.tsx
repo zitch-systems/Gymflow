@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isOfflineGym } from '@/lib/gym-status';
 import { JoinClient } from './join-client';
 
 // Plan ids arrive from a query string — validate the shape before it reaches a
@@ -25,17 +26,22 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
 
   // gyms are publicly readable, but prefer the admin client so the page also
   // works if that RLS ever tightens.
-  let gym: { id: string; name: string; logo_url: string | null } | null = null;
+  // status comes back so a gym GymFlow has switched off 404s here rather than
+  // rendering a working signup form under its own name and logo. The action
+  // behind the form (lib/actions/join.ts) refuses independently — this is the
+  // half that stops the page being reachable at all.
+  let gym: { id: string; name: string; logo_url: string | null; status: string | null } | null = null;
+  const cols = 'id, name, logo_url, status';
   try {
     const admin = createAdminClient();
-    const { data } = await admin.from('gyms').select('id, name, logo_url').eq('slug', slug).maybeSingle();
+    const { data } = await admin.from('gyms').select(cols).eq('slug', slug).maybeSingle();
     gym = data ?? null;
   } catch {
     const supabase = await createClient();
-    const { data } = await supabase.from('gyms').select('id, name, logo_url').eq('slug', slug).maybeSingle();
+    const { data } = await supabase.from('gyms').select(cols).eq('slug', slug).maybeSingle();
     gym = data ?? null;
   }
-  if (!gym) notFound();
+  if (!gym || isOfflineGym(gym)) notFound();
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -18,6 +18,7 @@ import { offersTrainer, trainerAddonPrice } from '@/lib/plan-addon';
 import { LogoMark } from '@/components/ui/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { InstallCards } from '@/components/gym/install-cards';
+import { isOfflineGym } from '@/lib/gym-status';
 import './gym-landing.css';
 
 // ── The gym's own public page, at the root of its subdomain ──────────────────
@@ -95,9 +96,9 @@ async function loadGym(slug: string) {
   const { data: gymRow } = await db.from('gyms').select('*').eq('slug', slug).maybeSingle();
   if (!gymRow) return null;
   const gym = gymRow as unknown as Gym;
-  // A gym GymFlow has suspended has no public page — 404 rather than advertise
-  // memberships nobody can buy. Set from /superadmin/gyms/[id].
-  if (gym.status === 'suspended') return null;
+  // A gym GymFlow has switched off has no public page — 404 rather than
+  // advertise memberships nobody can buy. Set from /superadmin/gyms/[id].
+  if (isOfflineGym(gym)) return null;
 
   const now = watNow();
   const todayDow = now.getDay();

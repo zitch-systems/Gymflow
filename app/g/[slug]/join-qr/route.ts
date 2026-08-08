@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ROOT_DOMAIN } from '@/lib/tenant';
+import { isOfflineGym } from '@/lib/gym-status';
 
 export const maxDuration = 60;
 
@@ -42,7 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     const { data } = await supabase.from('gyms').select('status').eq('slug', slug).maybeSingle();
     gym = data ?? null;
   }
-  if (!gym || gym.status === 'suspended') return new Response('Not found', { status: 404 });
+  if (!gym || isOfflineGym(gym)) return new Response('Not found', { status: 404 });
 
   const png = await QRCode.toBuffer(`https://${slug}.${ROOT_DOMAIN}/join/${slug}`, {
     ...QR_OPTS,

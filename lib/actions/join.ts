@@ -9,6 +9,7 @@ import { GYM_EMAIL_COLUMNS, type EmailGym } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, welcome } from '@/lib/email/templates/member';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
+import { OFFLINE_GYM_FILTER } from '@/lib/gym-status';
 
 export type JoinState = { error: string | null };
 
@@ -57,15 +58,22 @@ async function provisionMember(params: { userId: string; email: string; gymId: s
 // doing anyway — a second round-trip on the join path buys nothing.
 const JOIN_GYM_COLUMNS = `${GYM_EMAIL_COLUMNS}, member_code`;
 
+// Resolving to null for an offline gym is what stops the join: every caller
+// (joinAsNew, joinAsCurrent, healJoin) already treats a missing gym as "no such
+// gym". Without the filter a suspended tenant kept acquiring members — a real
+// auth account, an active gym_member_links row and a gym-branded welcome email
+// pointing at a subdomain the platform had taken down.
 async function gymBySlug(slug: string): Promise<JoinGym | null> {
   try {
     const admin = createAdminClient();
-    const { data } = await admin.from('gyms').select(JOIN_GYM_COLUMNS).eq('slug', slug).maybeSingle();
+    const { data } = await admin.from('gyms').select(JOIN_GYM_COLUMNS).eq('slug', slug)
+      .not('status', 'in', OFFLINE_GYM_FILTER).maybeSingle();
     return (data as unknown as JoinGym | null) ?? null;
   } catch {
     // No service key (preview env) — gyms are publicly readable, fall back.
     const supabase = await createClient();
-    const { data } = await supabase.from('gyms').select(JOIN_GYM_COLUMNS).eq('slug', slug).maybeSingle();
+    const { data } = await supabase.from('gyms').select(JOIN_GYM_COLUMNS).eq('slug', slug)
+      .not('status', 'in', OFFLINE_GYM_FILTER).maybeSingle();
     return (data as unknown as JoinGym | null) ?? null;
   }
 }
