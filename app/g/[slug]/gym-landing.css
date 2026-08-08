@@ -68,8 +68,16 @@
 .gym-public .nav-links { display: flex; align-items: center; gap: 26px; margin-right: 8px; }
 .gym-public .nav-links a { color: var(--gf-text-secondary); font-size: .9rem; font-weight: 500; }
 .gym-public .nav-links a:hover { color: var(--gf-text); }
+/* Nav sign-in. A quiet text link beside the accent Join button so the two
+   paths read as different weights of action, not two competing buttons. Keeps
+   a 44px target and stays visible at every width — the status pill, WhatsApp
+   and the theme toggle all drop below 560px, but the way back into your own
+   account should not. */
+.gym-public .nav-signin { display: inline-flex; align-items: center; min-height: 44px; flex: none; padding-inline: 2px; color: var(--gf-text-secondary); font-size: .9rem; font-weight: 600; white-space: nowrap; transition: color var(--gf-t); }
+.gym-public .nav-signin:hover { color: var(--accent); }
 @media (max-width: 1000px) { .gym-public .nav-links { display: none; } }
 @media (max-width: 560px) { .gym-public .nav .open, .gym-public .nav .b-out { display: none; } }
+@media (max-width: 400px) { .gym-public .nav-signin { font-size: .84rem; } }
 
 /* ── HERO ── */
 .gym-public .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--gf-border); }

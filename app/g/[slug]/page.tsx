@@ -208,6 +208,13 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
   const status = openStateFor(hours, now);
   const todayHours = todayHoursLabel(hours, now);
   const joinHref = `/join/${gym.slug}` as Route;
+  // Where "Join" sends someone. Scrolling to #plans is the better journey — they
+  // pick a plan and it rides along into checkout — but that section only exists
+  // when the gym has published plans. Gyms that haven't (2 of 5 live ones) were
+  // left with Join buttons that scrolled to an anchor that isn't in the
+  // document, so nothing happened at all. Fall back to the join form, which
+  // needs no plan: it creates the account and the gym takes payment later.
+  const joinCta: string = plans.length > 0 ? '#plans' : joinHref;
 
   const whatsapp = (gym.social_links ?? {}).whatsapp?.replace(/\D/g, '') || null;
   const waHref = whatsapp
@@ -312,7 +319,15 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
                 <MessageCircle strokeWidth={1.75} /> WhatsApp
               </a>
             )}
-            <a href="#plans" className="b b-acc b-sm">Join now</a>
+            {/* Two doors, one each way: someone who already trains here signs
+                in, someone who doesn't joins. On a gym subdomain — which is
+                where this page always is in production, since the apex path
+                308s here — /login renders THIS gym's branded member sign-in,
+                so the bare path is right. Deliberately not .b-out: that class
+                is display:none below 560px, and sign-in has to survive on a
+                phone. */}
+            <Link href="/login" className="nav-signin">Sign in</Link>
+            <a href={joinCta} className="b b-acc b-sm">Join now</a>
           </div>
         </div>
       </nav>
@@ -327,7 +342,7 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
           <h1>{gym.tagline || <>Train at <em>{gym.name}</em>.</>}</h1>
           {gym.description && <p className="pitch">{gym.description}</p>}
           <div className="hero-cta">
-            <a href="#plans" className="b b-acc"><ArrowRight strokeWidth={1.75} /> Join {gym.name}</a>
+            <a href={joinCta} className="b b-acc"><ArrowRight strokeWidth={1.75} /> Join {gym.name}</a>
             {slots.length > 0 && <a href="#classes" className="b b-out"><CalendarDays strokeWidth={1.75} /> See today&apos;s classes</a>}
           </div>
           <dl className="hero-facts">
@@ -682,6 +697,7 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
             <div className="f-links">
               {NAV.map(([href, label]) => <a key={href} href={href}>{label}</a>)}
               <Link href="/login">Member sign-in</Link>
+              <Link href={joinHref}>Create an account</Link>
             </div>
           </div>
           <div className="f-base">
@@ -700,7 +716,7 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
             <strong>From {fmtNaira(Math.round(fromPrice))}/mo</strong>
             <small>{gym.joining_fee != null && Number(gym.joining_fee) === 0 ? 'No joining fee · ' : ''}cancel anytime</small>
           </span>
-          <a href="#plans" className="b b-acc b-sm">Join now</a>
+          <a href={joinCta} className="b b-acc b-sm">Join now</a>
         </div>
       )}
     </div>
