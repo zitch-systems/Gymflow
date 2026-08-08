@@ -4,11 +4,12 @@ import { useState, useActionState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Building2, Dumbbell, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Building2, Dumbbell, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, ShieldCheck, DatabaseBackup, type LucideIcon } from 'lucide-react';
 import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, updateSecurity, uploadCacCertificate, type GymSaveState } from '@/lib/actions/gym';
 import { formatCacNumber } from '@/lib/cac';
 import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
 import { GalleryManager } from '@/components/admin/gallery-manager';
+import { BackupSettings, type BackupRow } from '@/components/admin/backup-settings';
 import type { Bank } from '@/lib/paystack';
 import { fmt12Hr } from '@/lib/format';
 
@@ -22,6 +23,7 @@ const NAV = [
   { id: 'membership', label: 'Membership', icon: Snowflake },
   { id: 'payouts', label: 'Payouts', icon: Banknote },
   { id: 'notif', label: 'Notifications', icon: Bell },
+  { id: 'backups', label: 'Backups', icon: DatabaseBackup },
   { id: 'security', label: 'Security', icon: ShieldCheck },
   { id: 'integ', label: 'Integrations', icon: Plug },
   { id: 'team', label: 'Team', icon: Users },
@@ -152,11 +154,12 @@ export type GymProfile = {
   notif_membership_updates: boolean;
   two_factor_required: boolean;
   cac_number: string | null;
+  backup_frequency: string | null; backup_email: boolean; backup_last_run_at: string | null;
 };
 
 export type BusinessHour = { day_of_week: number; open_time: string; close_time: string; is_closed: boolean; session: 'all' | 'morning' | 'afternoon' | 'evening' };
 
-const VALID_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'security', 'integ', 'team']);
+const VALID_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'backups', 'security', 'integ', 'team']);
 
 // The gym's member code for the native mobile app — members type it into the
 // app to reach this gym, then sign in / up. Read-only, with a copy button.
@@ -179,7 +182,7 @@ function MemberCodeField({ code }: { code: string }) {
   );
 }
 
-export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, initialSection = 'profile', providers = { paystack: false, termii: false, resend: false }, cacUrl = null }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; payoutAccounts: PayoutAccount[]; initialSection?: string; providers?: ProviderStatus; cacUrl?: string | null }) {
+export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, backups = [], initialSection = 'profile', providers = { paystack: false, termii: false, resend: false }, cacUrl = null }: { gym: GymProfile; staffCount: number; banks: Bank[]; hours: BusinessHour[]; payoutAccounts: PayoutAccount[]; backups?: BackupRow[]; initialSection?: string; providers?: ProviderStatus; cacUrl?: string | null }) {
   const [sec, setSec] = useState<string>(initialSection);
   // Follow the ?onboarding=/?section= query on client-side navigation too.
   // Clicking an onboarding-banner link while ALREADY on /admin/settings changes
@@ -447,6 +450,15 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
                 </div>
               </form>
             </section>
+          )}
+
+          {sec === 'backups' && (
+            <BackupSettings
+              frequency={gym.backup_frequency ?? 'weekly'}
+              emailOn={gym.backup_email !== false}
+              lastRunAt={gym.backup_last_run_at ?? null}
+              backups={backups}
+            />
           )}
 
           {sec === 'security' && (

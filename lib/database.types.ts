@@ -768,6 +768,9 @@ export type Database = {
           account_name: string | null
           account_number: string | null
           address: string | null
+          backup_email: boolean
+          backup_frequency: string
+          backup_last_run_at: string | null
           bank_code: string | null
           bank_name: string | null
           city: string | null
@@ -807,6 +810,9 @@ export type Database = {
           account_name?: string | null
           account_number?: string | null
           address?: string | null
+          backup_email?: boolean
+          backup_frequency?: string
+          backup_last_run_at?: string | null
           bank_code?: string | null
           bank_name?: string | null
           city?: string | null
@@ -846,6 +852,9 @@ export type Database = {
           account_name?: string | null
           account_number?: string | null
           address?: string | null
+          backup_email?: boolean
+          backup_frequency?: string
+          backup_last_run_at?: string | null
           bank_code?: string | null
           bank_name?: string | null
           city?: string | null

@@ -1717,6 +1717,23 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .set-row .m { flex:1; min-width:0; }
 .ds-admin .set-row .m strong { font-family:var(--gf-font-display); font-size:0.92rem; font-weight:600; display:block; }
 .ds-admin .set-row .m small { color:var(--gf-text-muted); font-size:0.8rem; }
+/* ── Backups ── */
+/* Schedule picker. Cards rather than a <select> because the choice is the whole
+   point of the screen and the wording under each label ("Every day, overnight")
+   is what stops someone picking Daily and being surprised by the mail. */
+.ds-admin .bk-freq { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:14px 0 4px; }
+.ds-admin .bk-opt { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border:1.5px solid var(--gf-border); border-radius:var(--gf-radius-sm); cursor:pointer; transition:border-color var(--gf-t), background var(--gf-t); }
+.ds-admin .bk-opt.on { border-color:var(--gf-brand); background:var(--gf-brand-soft); }
+.ds-admin .bk-opt input { accent-color:var(--gf-brand); width:17px; height:17px; margin:1px 0 0; flex:none; cursor:pointer; }
+.ds-admin .bk-opt-tx strong { font-family:var(--gf-font-display); font-size:0.9rem; display:block; }
+.ds-admin .bk-opt-tx small { color:var(--gf-text-muted); font-size:0.76rem; display:block; margin-top:2px; }
+.ds-admin .bk-list { list-style:none; margin:14px 0 0; padding:0; display:flex; flex-direction:column; }
+.ds-admin .bk-list li { display:flex; align-items:center; gap:12px; justify-content:space-between; padding:12px 0; border-top:1px solid var(--gf-border); }
+.ds-admin .bk-list li:first-child { border-top:none; }
+.ds-admin .bk-list li.failed .bk-when strong { color:var(--gf-danger); }
+.ds-admin .bk-when { min-width:0; }
+.ds-admin .bk-when strong { font-family:var(--gf-font-display); font-size:0.88rem; font-weight:600; display:block; }
+.ds-admin .bk-when small { color:var(--gf-text-muted); font-size:0.78rem; display:block; margin-top:2px; }
 @media (max-width:1100px) {
 .ds-admin .kpis {grid-template-columns:1fr 1fr}
 }

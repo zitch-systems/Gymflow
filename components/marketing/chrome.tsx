@@ -45,6 +45,13 @@ export function MarketingFooter() {
               subdomain); /launch then routes to /dashboard. */}
           <Link href="/login">Member sign-in</Link>
           <Link href="/admin">For owners</Link>
+          {/* GymFlow's own console, not a gym's. Safe to name publicly:
+              requirePlatformAdmin() redirects anyone without an active
+              platform_admins row to /, so the link is a door only staff can
+              open. It lives here rather than on a gym's landing page — that
+              page belongs to the tenant, and platform internals have no
+              business being advertised to their members. */}
+          <Link href="/superadmin">Platform admin</Link>
         </div>
         <div>
           <h4>Company</h4>

@@ -20,7 +20,7 @@ async function safeListBanks(): Promise<Bank[]> {
 
 // The onboarding banner links here with ?onboarding=<section> — open that
 // settings tab directly instead of always landing on the profile tab.
-const SETTINGS_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'integ', 'team']);
+const SETTINGS_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'backups', 'integ', 'team']);
 
 export default async function AdminSettings({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
@@ -38,6 +38,28 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
       .select('id, bank_name, bank_code, account_number, account_name, verified, is_active')
       .eq('gym_id', gym.id).order('is_active', { ascending: false }).order('created_at', { ascending: true }),
   ]);
+
+  // Backup history. The list is the evidence the schedule is being kept, so a
+  // read failure shows an empty list rather than taking the settings page down
+  // with it — the same defensive posture as the bank list above.
+  const { data: backupRows } = await supabase
+    .from('gym_backups' as never)
+    .select('id, created_at, size_bytes, status, trigger, error, row_counts')
+    .eq('gym_id', gym.id)
+    .order('created_at', { ascending: false })
+    .limit(10);
+  const backups = ((backupRows as unknown as {
+    id: string; created_at: string; size_bytes: number | null; status: string;
+    trigger: string; error: string | null; row_counts: Record<string, number> | null;
+  }[]) ?? []).map((b) => ({
+    id: b.id,
+    created_at: b.created_at,
+    size_bytes: b.size_bytes,
+    status: b.status,
+    trigger: b.trigger,
+    error: b.error,
+    rows: Object.values(b.row_counts ?? {}).reduce((n, v) => n + (Number(v) || 0), 0),
+  }));
 
   // Signed per view (10 minutes) rather than stored: the URL IS the read
   // capability for a private document, so it should outlive this page by as
@@ -89,6 +111,7 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
       hours={hours}
       initialSection={initialSection}
       payoutAccounts={payoutAccounts}
+      backups={backups}
       gym={{
         name: gym.name, slug: gym.slug, phone: gym.phone, email: gym.email, address: gym.address,
         member_code: (gym as { member_code?: string | null }).member_code ?? null,
@@ -102,6 +125,12 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
         gallery_urls: (gym as { gallery_urls?: string[] | null }).gallery_urls ?? null,
         instagram_posts: (gym as { instagram_posts?: string[] | null }).instagram_posts ?? null,
         integrations: (gym as { integrations?: Record<string, string> | null }).integrations ?? null,
+        // 'weekly' rather than 'off' when the column is absent: it matches the
+        // database default, so a gym that has never touched the setting sees the
+        // schedule that is actually running for them.
+        backup_frequency: (gym as { backup_frequency?: string | null }).backup_frequency ?? 'weekly',
+        backup_email: (gym as { backup_email?: boolean | null }).backup_email !== false,
+        backup_last_run_at: (gym as { backup_last_run_at?: string | null }).backup_last_run_at ?? null,
         brand_color: (gym as { brand_color?: string | null }).brand_color ?? null,
         logo_url: (gym as { logo_url?: string | null }).logo_url ?? null,
         bank_name: gym.bank_name, bank_code: gym.bank_code, account_number: gym.account_number, account_name: gym.account_name,
