@@ -68,8 +68,16 @@
 .gym-public .nav-links { display: flex; align-items: center; gap: 26px; margin-right: 8px; }
 .gym-public .nav-links a { color: var(--gf-text-secondary); font-size: .9rem; font-weight: 500; }
 .gym-public .nav-links a:hover { color: var(--gf-text); }
+/* Nav sign-in. A quiet text link beside the accent Join button so the two
+   paths read as different weights of action, not two competing buttons. Keeps
+   a 44px target and stays visible at every width — the status pill, WhatsApp
+   and the theme toggle all drop below 560px, but the way back into your own
+   account should not. */
+.gym-public .nav-signin { display: inline-flex; align-items: center; min-height: 44px; flex: none; padding-inline: 2px; color: var(--gf-text-secondary); font-size: .9rem; font-weight: 600; white-space: nowrap; transition: color var(--gf-t); }
+.gym-public .nav-signin:hover { color: var(--accent); }
 @media (max-width: 1000px) { .gym-public .nav-links { display: none; } }
 @media (max-width: 560px) { .gym-public .nav .open, .gym-public .nav .b-out { display: none; } }
+@media (max-width: 400px) { .gym-public .nav-signin { font-size: .84rem; } }
 
 /* ── HERO ── */
 .gym-public .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--gf-border); }
@@ -119,25 +127,6 @@
     font-weight: 600; font-size: 0.82rem; line-height: 1.35; text-align: left;
   }
   .gym-public .hero-qr span svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
-  .gym-public .hero-qr-print {
-    width: 168px;
-    min-height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 9px 12px;
-    border: 1px solid rgba(255,255,255,.22);
-    border-radius: 999px;
-    color: #fff;
-    background: rgba(4,12,9,.38);
-    backdrop-filter: blur(10px);
-    font: 700 .74rem/1 var(--gf-font-body);
-    text-decoration: none;
-    transition: transform var(--gf-t), border-color var(--gf-t), background var(--gf-t);
-  }
-  .gym-public .hero-qr-print:hover { transform: translateY(-2px); border-color: var(--accent); background: rgba(4,12,9,.58); }
-  .gym-public .hero-qr-print svg { width: 15px; height: 15px; flex: none; }
 }
 
 /* ── LIVE STRIP — only possible because GymFlow owns the check-in data ── */
