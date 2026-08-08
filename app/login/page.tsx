@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { gymSlugFromHost } from '@/lib/tenant';
+import { OFFLINE_GYM_FILTER } from '@/lib/gym-status';
 import { LoginClient, type LoginNotice, type LoginGym } from './login-client';
 
 export const metadata = {
@@ -23,15 +24,24 @@ export const dynamic = 'force-dynamic';
 
 // Load the branding for a gym subdomain, so <slug>.gymflow.ng/login is the
 // gym's own sign-in — logo, colour, and a Join link — not the platform login.
+//
+// Offline gyms resolve to null, which falls back to the plain platform login.
+// middleware.ts only rewrites `/`, so every other path on a subdomain keeps
+// serving after a suspension; without the filter this page stayed a fully
+// branded shopfront for a gym the platform had taken down, complete with a live
+// "Join <gym>" link. Existing members can still sign in here — the wall they
+// meet is in the app shell, not at the sign-in form.
 async function loadGym(slug: string): Promise<LoginGym | null> {
   const cols = 'name, slug, logo_url, tagline, brand_color';
   try {
     const admin = createAdminClient();
-    const { data } = await admin.from('gyms').select(cols).eq('slug', slug).maybeSingle();
+    const { data } = await admin.from('gyms').select(cols).eq('slug', slug)
+      .not('status', 'in', OFFLINE_GYM_FILTER).maybeSingle();
     return (data as unknown as LoginGym) ?? null;
   } catch {
     const supabase = await createClient();
-    const { data } = await supabase.from('gyms').select(cols).eq('slug', slug).maybeSingle();
+    const { data } = await supabase.from('gyms').select(cols).eq('slug', slug)
+      .not('status', 'in', OFFLINE_GYM_FILTER).maybeSingle();
     return (data as unknown as LoginGym) ?? null;
   }
 }

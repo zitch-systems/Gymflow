@@ -68,7 +68,10 @@ Exhaustive search (`email ===`, `ADMIN_EMAIL`, `.endsWith('@…')`, allowlists) 
 authorization decisions keyed on email. Platform-admin is a database fact:
 `requirePlatformAdmin()` checks an active row in `platform_admins` by `user_id`
 (`lib/auth/dal.ts:175-187`), and every `/superadmin` page calls it. The `admin@gymflow.ng`
-strings in the repo are demo-login docs and mailto links. Emails appear in `inviteStaff` /
+strings in the repo are mailto links. (They were also demo-login docs, naming the
+account beside a shared password, until that line was removed from `CONTINUE.md` —
+the password remains in git history, so the account's credential must be treated as
+public and rotated.) Emails appear in `inviteStaff` /
 `provisionGym` only as account-lookup keys, guarded by the S1/S2 fixes. This is also the
 document contradicting itself: its own RULE section says "DO NOT delete."
 

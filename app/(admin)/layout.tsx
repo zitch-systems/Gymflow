@@ -6,6 +6,7 @@ import { requireAdminStaff, getProfile, getStaffGyms, ADMIN_ROLES } from '@/lib/
 import { gymBillingState, isBlocked, isPlanTier } from '@/lib/platform-plans';
 import { initialsOf, roleLabel } from '@/lib/format';
 import { createClient } from '@/lib/supabase/server';
+import { isOfflineGym } from '@/lib/gym-status';
 
 // The gate hits Supabase on every /admin/* request; allow headroom for a
 // resuming (auto-paused) free-tier project so it doesn't 504 the first load.
@@ -25,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Platform suspension comes first, and is checked before billing: a gym
   // GymFlow has taken offline must not be shown a checkout it can pay to get
   // back in. gyms.status is set only from /superadmin/gyms/[id].
-  if (gym.status === 'suspended') return <SuspendedWall gymName={gym.name} />;
+  if (isOfflineGym(gym)) return <SuspendedWall gymName={gym.name} />;
 
   // Platform-billing gate: a gym whose free trial has lapsed (or whose GymFlow
   // subscription was cancelled) sees the access wall instead of the console. The

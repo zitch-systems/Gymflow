@@ -5,6 +5,7 @@ import { requestOrigin } from '@/lib/request-origin';
 import { createClient } from '@/lib/supabase/server';
 import { initTransaction } from '@/lib/paystack';
 import { offersTrainer, planTotalKobo } from '@/lib/plan-addon';
+import { isOfflineGym } from '@/lib/gym-status';
 
 export type RenewResult = { ok: true; url: string } | { ok: false; error: string };
 
@@ -22,6 +23,14 @@ export async function startRenewal(planId: string, withTrainer = false): Promise
     return { ok: false, error: 'Payments are not configured yet (missing PAYSTACK_SECRET_KEY).' };
   }
   const { user, gym } = await requireMember();
+  // Never open a checkout for a gym the platform has switched off. `subaccount`
+  // below routes the split straight to the gym's own bank, so without this a
+  // suspended tenant kept taking real money — and GymFlow would owe the member
+  // either a membership it has disabled or a refund. Checked before the plan
+  // lookup: the answer doesn't depend on which plan was asked for.
+  if (isOfflineGym(gym)) {
+    return { ok: false, error: 'This gym is not accepting payments right now. Please contact the gym.' };
+  }
   const supabase = await createClient();
 
   const { data: plan } = await supabase

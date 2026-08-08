@@ -34,6 +34,24 @@ git history forever, and the one that used to sit on this line opened the
 platform-admin account — which reads every tenant's members, payments and
 payout details. Ask whoever holds the credential store.
 
+`gyms.status` is the platform's off switch for a tenant (`suspended` /
+`terminated`, set from `/superadmin/gyms/[id]`). One predicate — `lib/gym-status.ts`
+— and every gym resolver goes through it: the public landing and its QR routes,
+`/join`, the mobile `/api/app/*` endpoints, the branded subdomain login, the
+sitemap, member checkout and check-in, and the nightly cron's outbound mail. It
+used to be an inline `status === 'suspended'` in five render guards, which meant
+a suspended gym still took signups, still opened Paystack checkouts settling to
+its own subaccount, and still sent gym-branded email; `terminated` was checked
+nowhere at all. `test/gym-status.test.ts` locks the call-site list, because the
+bug was never the comparison — it was the resolvers that never made one.
+
+What this is *not*: a defence against the gym's own staff. Suspension hides the
+console (`SuspendedWall`) and blocks the public and the money, but staff Server
+Actions still run — layouts don't execute for Server Action invocations, and RLS
+does not model status. That is a deliberate line: suspension is a commercial
+lever against an account holder who already owns the data, not a containment
+boundary against them. If it ever needs to be one, it belongs in RLS.
+
 ## Commands
 
 ```
@@ -51,10 +69,13 @@ continuously — and the RLS tests run against the real policy engine.
 
 ## Database
 
-- **The migrations are the schema.** `00000000000000_baseline_schema.sql`
-  reconstructs the full live schema (44 tables, enums, functions, triggers, 105
-  RLS policies, grants); dated files layer on top. Live project:
-  `kdbbrxqxqewbjoozmfhq` (Postgres 17).
+- **The migrations are the schema.** `00000000000000_baseline_schema.sql` is a
+  snapshot — 35 tables, 95 RLS policies, plus enums, functions, triggers and
+  grants — and the dated files layer on top of it. It is not a picture of live
+  on its own: live currently holds 46 tables and 99 policies, and that gap is
+  the dated migrations, not drift. Don't hard-code either number into a check;
+  compare fingerprints (below). Live project: `kdbbrxqxqewbjoozmfhq`
+  (Postgres 17).
 - **Drift gate** (`.github/workflows/ci.yml` → `schema-drift`): builds a shadow
   DB from the migrations, fingerprints both it and the live database
   (`scripts/schema-fingerprint.sql`), and fails on any difference. The

@@ -8,6 +8,7 @@ import { memberAppUrl, platformAppUrl, sendGymEmail, sendPlatformEmail } from '@
 import { adminOrNull, getContacts, getGymOwnerEmails, GYM_EMAIL_COLUMNS, type EmailGym } from '@/lib/email/recipients';
 import { classesToday, freezeResumed, MEMBER_TEMPLATES, type ClassFacts } from '@/lib/email/templates/member';
 import { trialEnded, trialEnding } from '@/lib/email/templates/platform';
+import { OFFLINE_GYM_FILTER } from '@/lib/gym-status';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -47,7 +48,13 @@ const watDay = (offset: number): string => watDateISO(new Date(Date.now() + offs
  */
 async function emailTargets(admin: Admin, gymIds: string[], memberIds: string[]) {
   const [{ data: gyms }, contacts] = await Promise.all([
-    admin.from('gyms').select(GYM_EMAIL_COLUMNS).in('id', [...new Set(gymIds)]),
+    // Offline gyms drop out of the map here, and every fan-out below already
+    // skips a member whose gym is missing (`if (!gym ...) return`). That makes
+    // this one filter the choke point for the whole route: a gym GymFlow has
+    // switched off stops sending mail dressed in its own logo, colour and
+    // subdomain — a subdomain whose landing page now 404s.
+    admin.from('gyms').select(GYM_EMAIL_COLUMNS).in('id', [...new Set(gymIds)])
+      .not('status', 'in', OFFLINE_GYM_FILTER),
     getContacts(admin, memberIds),
   ]);
   return {
@@ -60,10 +67,16 @@ async function emailTargets(admin: Admin, gymIds: string[], memberIds: string[])
  *  at  ends today" is worse than a generic noun. */
 const gymNameOf = (gym: { name?: string | null }): string => (gym.name ?? '').trim() || 'Your gym';
 
-/** Gyms whose trial_ends_at falls inside a WAT calendar-day window. */
+/** Gyms whose trial_ends_at falls inside a WAT calendar-day window.
+ *
+ *  Switched-off gyms are excluded: this drives the "your trial ends tomorrow,
+ *  subscribe to keep going" notice, and a gym GymFlow has suspended cannot pay
+ *  its way back in — that is the whole difference between SuspendedWall and
+ *  BillingWall. Sending it the checkout nudge anyway is a false promise. */
 function trialsEndingBetween(admin: Admin, fromDay: string, toDay: string) {
   return admin.from('gyms')
     .select('id, name, trial_ends_at, subscription_status, subscription_current_period_end')
+    .not('status', 'in', OFFLINE_GYM_FILTER)
     .gte('trial_ends_at', watDayStartUtc(fromDay))
     .lt('trial_ends_at', watDayStartUtc(toDay));
 }
@@ -78,6 +91,8 @@ export async function GET(req: Request) {
 
   // Keep-warm: a cheap query so the (free-tier) Supabase project doesn't pause.
   const warm = admin ?? createSb(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
+  // gym-status: n/a — a head-only row count to stop the project auto-pausing.
+  // It resolves no gym and reads no column, so filtering it would mean nothing.
   await warm.from('gyms').select('id', { head: true, count: 'exact' });
 
   // Renewal reminders — needs service role (writes notifications across users).
@@ -125,7 +140,10 @@ export async function GET(req: Request) {
           const gymIds = [...new Set(fresh.map((s) => s.gym_id as string))];
           const [{ data: contacts }, { data: gyms }] = await Promise.all([
             admin.from('profiles').select('id, email, phone, full_name').in('id', fresh.map((s) => s.member_id as string)),
-            admin.from('gyms').select('id, name, subscription_plan, notif_renewal_nudges').in('id', gymIds),
+            // Own select (narrower columns) so it needs its own filter — see
+            // emailTargets. A missing gym already short-circuits below.
+            admin.from('gyms').select('id, name, subscription_plan, notif_renewal_nudges').in('id', gymIds)
+              .not('status', 'in', OFFLINE_GYM_FILTER),
           ]);
           const contactById = new Map((contacts ?? []).map((c) => [c.id, c]));
           const gymById = new Map(((gyms ?? []) as unknown as NotifyGym[]).map((g) => [g.id, g]));

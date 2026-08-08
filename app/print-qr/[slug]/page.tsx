@@ -11,6 +11,7 @@ import { accentVars } from '@/lib/accent';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { ROOT_DOMAIN } from '@/lib/tenant';
+import { isOfflineGym } from '@/lib/gym-status';
 import './print-qr.css';
 
 export const metadata: Metadata = {
@@ -59,7 +60,7 @@ async function loadGym(slug: string): Promise<PrintableGym | null> {
       .maybeSingle();
     gym = data as PrintableGym | null;
   }
-  return !gym || gym.status === 'suspended' ? null : gym;
+  return !gym || isOfflineGym(gym) ? null : gym;
 }
 
 function posterCopy(type: PrintType, gymName: string) {
