@@ -119,25 +119,6 @@
     font-weight: 600; font-size: 0.82rem; line-height: 1.35; text-align: left;
   }
   .gym-public .hero-qr span svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
-  .gym-public .hero-qr-print {
-    width: 168px;
-    min-height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 9px 12px;
-    border: 1px solid rgba(255,255,255,.22);
-    border-radius: 999px;
-    color: #fff;
-    background: rgba(4,12,9,.38);
-    backdrop-filter: blur(10px);
-    font: 700 .74rem/1 var(--gf-font-body);
-    text-decoration: none;
-    transition: transform var(--gf-t), border-color var(--gf-t), background var(--gf-t);
-  }
-  .gym-public .hero-qr-print:hover { transform: translateY(-2px); border-color: var(--accent); background: rgba(4,12,9,.58); }
-  .gym-public .hero-qr-print svg { width: 15px; height: 15px; flex: none; }
 }
 
 /* ── LIVE STRIP — only possible because GymFlow owns the check-in data ── */

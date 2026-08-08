@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import {
   ArrowRight, CalendarDays, CalendarCheck, MessageCircle, MapPin, Phone, Navigation,
-  Check, ShieldCheck, Zap, QrCode, Printer, UserRoundCheck,
+  Check, ShieldCheck, Zap, QrCode, UserRoundCheck,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -355,14 +355,6 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
           <div className="hero-qr" style={{ ['--qr' as string]: `url(/g/${gym.slug}/join-qr)` }}>
             <i aria-hidden="true" />
             <span><QrCode strokeWidth={1.75} /> Scan to join on your phone</span>
-            <Link
-              className="hero-qr-print"
-              href={`/print-qr/${gym.slug}?type=signup` as Route}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Printer strokeWidth={1.8} /> Print A4 poster
-            </Link>
           </div>
         </div>
       </header>
