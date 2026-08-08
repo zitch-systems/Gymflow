@@ -191,6 +191,11 @@ export const requirePlatformAdmin = cache(async () => {
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle();
-  if (!data) redirect('/');
+  // Signed in, but not on the platform-admin list. Sending them to `/` dropped
+  // them on the marketing landing page with no explanation — indistinguishable
+  // from a broken link, and the usual cause is simply being signed in on a gym
+  // account instead of the platform one. Send them somewhere they can act:
+  // the platform sign-in, with a notice saying which account they need.
+  if (!data) redirect('/login?denied=platform');
   return user;
 });
