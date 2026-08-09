@@ -1,6 +1,7 @@
 import { createApiAuthClient, resolveGymByCode, provisionMember } from '@/lib/gym-signup';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { json, corsPreflight, sessionPayload } from '@/lib/api-app';
+import { twoFactorRequiredForUser } from '@/lib/auth/two-factor';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -39,6 +40,30 @@ export async function POST(req: Request) {
     const auth = createApiAuthClient();
     const { data, error } = await auth.auth.signInWithPassword({ email, password });
     if (error || !data.session || !data.user) return json({ error: 'Wrong email or password.' }, 401);
+
+    // An account that owes a second factor does not get a session here.
+    //
+    // This endpoint returns a Supabase session straight from a password, and it
+    // is reachable by ANY account, not just members — so without this it was a
+    // blanket 2FA bypass: every gym in the database has two_factor_required set,
+    // and a staffer challenged on the web could skip the challenge entirely by
+    // signing in through the mobile door instead. Platform admins are covered by
+    // the same call (see lib/auth/two-factor.ts).
+    //
+    // The session we just minted is revoked with scope 'local', which kills this
+    // refresh token only — a legitimate staffer's web session survives.
+    //
+    // Known cost, taken deliberately: a gym owner or coach who also trains at
+    // their own gym can no longer sign in on the member app. The proper fix is a
+    // challenge/verify pair on this API so mobile can do 2FA like the web does,
+    // and that needs a matching app release — until then the choice is between
+    // this and leaving 2FA optional for anyone who knows a password.
+    if (await twoFactorRequiredForUser(data.user.id)) {
+      await auth.auth.signOut({ scope: 'local' });
+      return json({
+        error: 'This account uses two-step sign-in, which the app doesn’t support yet. Please sign in on the web.',
+      }, 403);
+    }
 
     // Ensure a membership at this gym (idempotent — no-op if already linked).
     const prov = await provisionMember({ userId: data.user.id, email, gymId: gym.id, onboardingMethod: 'mobile_app' });
