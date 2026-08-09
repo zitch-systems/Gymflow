@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { asSuperuser } from './db';
 import {
@@ -180,5 +182,38 @@ describe('schema (20260729_gym_two_factor)', () => {
       const { rows } = await c.query(`select 1 from public.trusted_devices where user_id = $1`, [user.id]);
       expect(rows).toHaveLength(0);
     });
+  });
+});
+
+// Who the second factor actually covers. Both assertions below are source-level
+// because `lib/auth/two-factor.ts` and the mobile route talk to PostgREST with
+// the service role, which the throwaway Postgres in these tests does not serve.
+// They are still worth having: each one pins a hole that was open in
+// production, and the failure mode in both cases is a line quietly going away.
+describe('two-factor coverage', () => {
+  const read = (p: string) => readFileSync(resolve(__dirname, '..', p), 'utf8');
+
+  it('requires a second factor for platform admins', () => {
+    // The requirement used to be derived only from gym_staff_links. A platform
+    // admin has none, so `[].some()` was false and the one account that reads
+    // every tenant's members, payments and payout details was the only account
+    // in the system that could not be covered by 2FA at all.
+    const src = read('lib/auth/two-factor.ts');
+    const fn = src.slice(src.indexOf('export async function twoFactorRequiredForUser'));
+    expect(fn).toContain("from('platform_admins')");
+    expect(fn).toMatch(/if \(platformAdmin\) return true;/);
+    // Ahead of the staff-links lookup, or a platform admin who is also staff
+    // somewhere would be answered by the gym's toggle instead.
+    expect(fn.indexOf("from('platform_admins')")).toBeLessThan(fn.indexOf("from('gym_staff_links')"));
+  });
+
+  it('does not let the mobile sign-in endpoint hand out a session that skips it', () => {
+    // POST /api/app/signin returns a Supabase session straight from a password
+    // and is reachable by any account, not just members — so with no check here
+    // it was a blanket bypass of every gym's two_factor_required.
+    const src = read('app/api/app/signin/route.ts');
+    expect(src).toContain('twoFactorRequiredForUser');
+    // The session minted a moment earlier has to be revoked, not just withheld.
+    expect(src).toMatch(/signOut\(\{ scope: 'local' \}\)/);
   });
 });

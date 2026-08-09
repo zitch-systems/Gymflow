@@ -68,6 +68,22 @@ export async function twoFactorRequiredForUser(userId: string): Promise<boolean>
   let admin: ReturnType<typeof createAdminClient>;
   try { admin = createAdminClient(); } catch { return false; }
 
+  // Platform admins always need a second factor, and this clause is the only
+  // thing that gives them one. The requirement used to be derived purely from
+  // gym_staff_links: a platform admin has none, `[].some()` is false, and so
+  // the single account that reads every tenant's members, payments and payout
+  // details was the one account in the system that could not be covered by 2FA
+  // at all. It is not a member of any gym, so no gym's policy could ever reach
+  // it. There is no per-gym toggle here on purpose — this one is not the
+  // tenants' setting to make.
+  const { data: platformAdmin } = await admin
+    .from('platform_admins')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (platformAdmin) return true;
+
   const { data: links } = await admin
     .from('gym_staff_links')
     .select('gym_id, gyms(two_factor_required)')
