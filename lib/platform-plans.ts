@@ -2,16 +2,16 @@
 // Pure module — safe to import from server or client. Amounts mirror the public
 // pricing page (app/pricing/page.tsx); keep them in sync.
 //
-// Two tiers × two billing cycles = four Paystack Plans. GymFlow does not bill
-// monthly: the shortest commitment is a quarter, which is what the Paystack
-// Plan interval is set to. Every price below MUST match the amount on the
-// Paystack Plan named by its planCodeEnv (see .env.example).
+// Two tiers × three billing cycles = six Paystack Plans. Monthly is the entry
+// cycle and the price everything else is discounted from; quarterly and annual
+// trade commitment for a lower per-month rate. Every price below MUST match the
+// amount on the Paystack Plan named by its planCodeEnv (see .env.example).
 
 export type PlanTier = 'starter' | 'growth';
 
 // Paystack Plan intervals we use. 'annually' is Paystack's own spelling — it is
 // sent to their API verbatim, so don't "fix" it to 'annual'.
-export type BillingCycle = 'quarterly' | 'annually';
+export type BillingCycle = 'monthly' | 'quarterly' | 'annually';
 
 export type PlanPrice = {
   cycle: BillingCycle;
@@ -34,16 +34,19 @@ export type PlatformPlan = {
 
 // How many months each cycle buys. Drives the paid-through date the webhook
 // writes, so this is billing-critical, not cosmetic.
-export const CYCLE_MONTHS: Record<BillingCycle, number> = { quarterly: 3, annually: 12 };
+export const CYCLE_MONTHS: Record<BillingCycle, number> = { monthly: 1, quarterly: 3, annually: 12 };
 
-export const CYCLE_LABEL: Record<BillingCycle, string> = { quarterly: 'Quarterly', annually: 'Annual' };
-export const CYCLE_SUFFIX: Record<BillingCycle, string> = { quarterly: '/quarter', annually: '/year' };
+export const CYCLE_LABEL: Record<BillingCycle, string> = { monthly: 'Monthly', quarterly: 'Quarterly', annually: 'Annual' };
+export const CYCLE_SUFFIX: Record<BillingCycle, string> = { monthly: '/mo', quarterly: '/quarter', annually: '/year' };
 
-export const BILLING_CYCLES: BillingCycle[] = ['quarterly', 'annually'];
+// Ascending commitment. Order matters: it drives the cycle toggle and the
+// pricing cards, where monthly reads as the entry point.
+export const BILLING_CYCLES: BillingCycle[] = ['monthly', 'quarterly', 'annually'];
 
-// What an owner gets by default, and what an unlabelled legacy row is assumed
-// to be (see normalizeCycle).
-export const DEFAULT_CYCLE: BillingCycle = 'quarterly';
+// The entry cycle: what an owner gets unless they choose to commit, the price
+// the other cycles advertise their saving against, and what a row with no cycle
+// recorded is (see normalizeCycle).
+export const DEFAULT_CYCLE: BillingCycle = 'monthly';
 
 export const PLATFORM_PLANS: Record<PlanTier, PlatformPlan> = {
   starter: {
@@ -51,6 +54,10 @@ export const PLATFORM_PLANS: Record<PlanTier, PlatformPlan> = {
     name: 'Starter',
     tagline: 'For single-location studios',
     prices: {
+      // PAYSTACK_PLAN_STARTER is the pre-existing ₦13,999 monthly Plan — the
+      // same one earlier subscribers are billed on, so they are ordinary
+      // monthly subscribers rather than a legacy case to special-case.
+      monthly: { cycle: 'monthly', amountKobo: 1_399_900, planCodeEnv: 'PAYSTACK_PLAN_STARTER' },
       quarterly: { cycle: 'quarterly', amountKobo: 3_799_900, planCodeEnv: 'PAYSTACK_PLAN_STARTER_QUARTERLY' },
       annually: { cycle: 'annually', amountKobo: 12_199_900, planCodeEnv: 'PAYSTACK_PLAN_STARTER_ANNUAL' },
     },
@@ -60,6 +67,7 @@ export const PLATFORM_PLANS: Record<PlanTier, PlatformPlan> = {
     name: 'Growth',
     tagline: 'For multi-location gyms & classes',
     prices: {
+      monthly: { cycle: 'monthly', amountKobo: 3_799_900, planCodeEnv: 'PAYSTACK_PLAN_GROWTH' },
       quarterly: { cycle: 'quarterly', amountKobo: 10_299_900, planCodeEnv: 'PAYSTACK_PLAN_GROWTH_QUARTERLY' },
       annually: { cycle: 'annually', amountKobo: 32_999_900, planCodeEnv: 'PAYSTACK_PLAN_GROWTH_ANNUAL' },
     },
@@ -73,15 +81,12 @@ export function isPlanTier(v: string): v is PlanTier {
 }
 
 export function isBillingCycle(v: string): v is BillingCycle {
-  return v === 'quarterly' || v === 'annually';
+  return v === 'monthly' || v === 'quarterly' || v === 'annually';
 }
 
-// Coerce a stored/echoed cycle to a real one. Gyms that subscribed before
-// cycles existed have NULL here and are still billing on their old monthly
-// Paystack plan until they resubscribe; treating them as quarterly keeps every
-// display and MRR figure finite rather than zero. It is an estimate, and the
-// only place it can be wrong is reporting — the money is whatever Paystack
-// actually charges.
+// Coerce a stored/echoed cycle to a real one. Gyms that subscribed before the
+// column existed have NULL here, and they are on the monthly Plan — so the
+// default is not an estimate for them, it is what they are actually billed.
 export function normalizeCycle(v: string | null | undefined): BillingCycle {
   const s = (v ?? '').trim();
   return isBillingCycle(s) ? s : DEFAULT_CYCLE;
@@ -105,9 +110,9 @@ export function monthlyEquivalentKobo(tier: PlanTier, cycle: BillingCycle): numb
   return Math.round(planAmountKobo(tier, cycle) / cycleMonths(cycle));
 }
 
-// How much cheaper a cycle is than the same tier's quarterly rate, per month,
-// as a whole percent. Drives the "save 20%" badge; 0 for the quarterly cycle
-// itself so callers can just hide the badge when it's falsy.
+// How much cheaper a cycle is than the same tier's monthly rate, per month, as
+// a whole percent. Drives the "save 27%" badge; 0 for monthly itself so callers
+// can just hide the badge when it's falsy.
 export function cycleSavingPct(tier: PlanTier, cycle: BillingCycle): number {
   const base = monthlyEquivalentKobo(tier, DEFAULT_CYCLE);
   if (cycle === DEFAULT_CYCLE || base <= 0) return 0;

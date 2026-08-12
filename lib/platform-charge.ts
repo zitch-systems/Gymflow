@@ -18,21 +18,21 @@ function str(v: unknown): string | null {
   return typeof v === 'string' && v.length ? v : null;
 }
 
-// Retired monthly plans. Absent from PLATFORM_PLANS because they can no longer
-// be bought — but a gym that subscribed before the two-tier switch keeps billing
-// on its old Paystack Plan every month until it resubscribes, and that recurring
-// charge.success still has to fulfil or the gym silently stops being extended.
-// Scale maps to Growth, which is where its features now live.
-export const LEGACY_MONTHLY_PLANS: { env: string; tier: PlanTier; amountKobo: number }[] = [
-  { env: 'PAYSTACK_PLAN_STARTER', tier: 'starter', amountKobo: 1_399_900 },
-  { env: 'PAYSTACK_PLAN_GROWTH', tier: 'growth', amountKobo: 3_799_900 },
-  { env: 'PAYSTACK_PLAN_SCALE', tier: 'growth', amountKobo: 11_999_900 },
+// Retired plans: sold once, absent from PLATFORM_PLANS, but still able to fire a
+// recurring charge.success that has to fulfil or the gym silently stops being
+// extended. Only Scale is here — the Starter and Growth monthly Plans are part
+// of the catalogue again, so their subscribers are ordinary monthly customers.
+//
+// Scale maps to Growth, which is where its features now live, and bills monthly
+// like the plan it was. Its price is NOT Growth's monthly price, which is why
+// the expected amount travels with the charge rather than being looked up.
+export const LEGACY_PLANS: { env: string; tier: PlanTier; cycle: BillingCycle; amountKobo: number }[] = [
+  { env: 'PAYSTACK_PLAN_SCALE', tier: 'growth', cycle: 'monthly', amountKobo: 11_999_900 },
 ];
 
 // Everything a charge needs to be applied: what it bought, what it should have
-// cost, and how far it moves the paid-through date. `cycle` is null only for a
-// legacy monthly charge, which has no cycle to record on the gym.
-export type ChargePlan = { tier: PlanTier; cycle: BillingCycle | null; months: number; expectedKobo: number };
+// cost, and how far it moves the paid-through date.
+export type ChargePlan = { tier: PlanTier; cycle: BillingCycle; months: number; expectedKobo: number };
 
 // The set of Paystack plan codes we recognise as current platform plans (from
 // env). One code per tier × cycle, so a code alone identifies the charge
@@ -65,9 +65,9 @@ export function planFromCharge(meta: Json, plan: Json): ChargePlan | null {
   if (code) {
     const found = platformPlanCodes().get(code);
     if (found) return fromCatalogue(found.tier, found.cycle);
-    for (const legacy of LEGACY_MONTHLY_PLANS) {
+    for (const legacy of LEGACY_PLANS) {
       if (process.env[legacy.env] === code) {
-        return { tier: legacy.tier, cycle: null, months: 1, expectedKobo: legacy.amountKobo };
+        return { tier: legacy.tier, cycle: legacy.cycle, months: cycleMonths(legacy.cycle), expectedKobo: legacy.amountKobo };
       }
     }
   }

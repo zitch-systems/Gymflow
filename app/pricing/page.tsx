@@ -79,21 +79,22 @@ const TIER_DISPLAY: Record<(typeof PLAN_TIERS)[number], { features: string[]; po
 
 const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
 
-// The card headlines the quarterly price (the shortest commitment GymFlow sells)
-// and names the annual one underneath, so both buyable cycles are on the page
-// without a client-side toggle.
-const ALT_CYCLE = BILLING_CYCLES.find((c) => c !== DEFAULT_CYCLE)!;
+// The card headlines the monthly price — the entry point, and what the longer
+// cycles quote their saving against — then lists each commitment cycle beneath
+// it, so all three buyable cycles are on the page without a client-side toggle.
+const COMMITMENT_CYCLES = BILLING_CYCLES.filter((c) => c !== DEFAULT_CYCLE);
 
 const TIERS = PLAN_TIERS.map((tier) => {
   const plan = PLATFORM_PLANS[tier];
   const d = TIER_DISPLAY[tier];
-  const save = cycleSavingPct(tier, ALT_CYCLE);
   return {
     name: plan.name,
     amount: naira(planPrice(tier, DEFAULT_CYCLE).amountKobo),
     period: CYCLE_SUFFIX[DEFAULT_CYCLE],
-    monthly: `≈${naira(monthlyEquivalentKobo(tier, DEFAULT_CYCLE))}/mo`,
-    alt: `or ${naira(planPrice(tier, ALT_CYCLE).amountKobo)}${CYCLE_SUFFIX[ALT_CYCLE]}${save > 0 ? ` — save ${save}%` : ''}`,
+    alts: COMMITMENT_CYCLES.map((cycle) => {
+      const save = cycleSavingPct(tier, cycle);
+      return `${naira(planPrice(tier, cycle).amountKobo)}${CYCLE_SUFFIX[cycle]} — ≈${naira(monthlyEquivalentKobo(tier, cycle))}/mo${save > 0 ? `, save ${save}%` : ''}`;
+    }),
     tagline: plan.tagline,
     features: d.features,
     popular: d.popular,
@@ -108,11 +109,11 @@ const TIERS = PLAN_TIERS.map((tier) => {
 const FAQS = [
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. Plans are billed quarterly or annually through Paystack with no long-term contract — cancel from Billing and your access runs to the end of the period you have already paid for.',
+    a: 'Yes. Plans are billed monthly, quarterly or annually through Paystack with no long-term contract — cancel from Billing and your access runs to the end of the period you have already paid for.',
   },
   {
-    q: 'What is the difference between quarterly and annual?',
-    a: 'Only the billing cycle and the price. Quarterly is the shortest commitment we sell and is charged every three months; annual is charged once a year and works out about 20% cheaper per month. Both include exactly the same features.',
+    q: 'What is the difference between the billing cycles?',
+    a: 'Only how often you are charged and what it costs. Monthly is the entry option with no commitment; quarterly is charged every three months and works out about 10% cheaper per month; annual is charged once a year and saves about 27%. All three include exactly the same features.',
   },
   {
     q: 'Do you charge per member?',
@@ -166,8 +167,10 @@ export default function PricingPage() {
               <div className={`price${t.popular ? ' pop' : ''}`} key={t.name}>
                 <div className="pname">{t.name}</div>
                 <div className="amt">{t.amount}<small>{t.period}</small></div>
-                <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.85rem' }}>{t.monthly} · {t.tagline}</div>
-                <div style={{ color: 'var(--gf-brand)', fontSize: '0.8rem', fontWeight: 600 }}>{t.alt}</div>
+                <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.85rem' }}>{t.tagline}</div>
+                <ul style={{ listStyle: 'none', padding: 0, margin: '6px 0 0', color: 'var(--gf-brand)', fontSize: '0.78rem', fontWeight: 600, lineHeight: 1.7 }}>
+                  {t.alts.map((a) => <li key={a}>or {a}</li>)}
+                </ul>
                 <ul>
                   {t.features.map((f) => (
                     <li key={f}><Check strokeWidth={2.2} /> {f}</li>
@@ -198,7 +201,7 @@ export default function PricingPage() {
         <div className="wrap">
           <div className="cta">
             <h2>Ready to run your gym the modern way?</h2>
-            <p>Two plans, billed quarterly or annually · cancel anytime · no setup fees.</p>
+            <p>Choose a plan from ₦13,999/mo · cancel anytime · no setup fees.</p>
             <div className="hero-cta" style={{ marginTop: 0 }}>
               <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
               <Link href="/features" className="gf-btn gf-btn-outline gf-btn-lg">Explore features</Link>

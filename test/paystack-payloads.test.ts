@@ -61,9 +61,12 @@ describe('isChargeableKobo', () => {
 });
 
 describe('platform plan catalogue', () => {
-  it('sells exactly two tiers on two billing cycles', () => {
+  it('sells exactly two tiers on three billing cycles', () => {
     expect(PLAN_TIERS).toEqual(['starter', 'growth']);
-    expect(BILLING_CYCLES).toEqual(['quarterly', 'annually']);
+    expect(BILLING_CYCLES).toEqual(['monthly', 'quarterly', 'annually']);
+    // Monthly is the entry cycle: the default, and the baseline every saving is
+    // quoted against.
+    expect(DEFAULT_CYCLE).toBe('monthly');
   });
 
   it('gives every tier × cycle a chargeable amount', () => {
@@ -94,25 +97,33 @@ describe('platform plan catalogue', () => {
     }
   });
 
-  it('makes a longer commitment cheaper per month, never dearer', () => {
+  it('makes each longer commitment strictly cheaper per month', () => {
     for (const tier of PLAN_TIERS) {
-      const base = monthlyEquivalentKobo(tier, DEFAULT_CYCLE);
-      for (const cycle of BILLING_CYCLES) {
-        expect(monthlyEquivalentKobo(tier, cycle)).toBeLessThanOrEqual(base);
+      const perMonth = BILLING_CYCLES.map((c) => monthlyEquivalentKobo(tier, c));
+      // Strictly descending: committing longer must always buy a better rate,
+      // or the toggle is offering a worse deal for more commitment.
+      for (let i = 1; i < perMonth.length; i++) {
+        expect(perMonth[i]).toBeLessThan(perMonth[i - 1]);
       }
-      // The annual saving is the headline on the pricing page; pin it so a price
-      // edit can't quietly turn "save 20%" into a lie.
-      expect(cycleSavingPct(tier, 'annually')).toBeGreaterThanOrEqual(15);
+      // Savings are quoted against monthly and shown as badges; pin them so a
+      // price edit can't quietly turn "save 27%" into a lie.
       expect(cycleSavingPct(tier, DEFAULT_CYCLE)).toBe(0);
+      expect(cycleSavingPct(tier, 'quarterly')).toBeGreaterThanOrEqual(5);
+      expect(cycleSavingPct(tier, 'annually')).toBeGreaterThanOrEqual(20);
     }
   });
 
   it('charges more per cycle for a longer cycle', () => {
     // Guards the paid-through maths: a year must cost more in one go than a
-    // quarter, even though it costs less per month.
+    // quarter, and a quarter more than a month, even though each costs less
+    // per month than the one before.
     for (const tier of PLAN_TIERS) {
-      expect(planAmountKobo(tier, 'annually')).toBeGreaterThan(planAmountKobo(tier, 'quarterly'));
+      const perCharge = BILLING_CYCLES.map((c) => planAmountKobo(tier, c));
+      for (let i = 1; i < perCharge.length; i++) {
+        expect(perCharge[i]).toBeGreaterThan(perCharge[i - 1]);
+      }
     }
+    expect(CYCLE_MONTHS.monthly).toBe(1);
     expect(CYCLE_MONTHS.quarterly).toBe(3);
     expect(CYCLE_MONTHS.annually).toBe(12);
   });
