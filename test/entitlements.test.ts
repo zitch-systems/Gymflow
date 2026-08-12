@@ -9,11 +9,16 @@ import {
 describe('tierOf', () => {
   it('reads a valid subscription_plan', () => {
     expect(tierOf({ subscription_plan: 'growth' })).toBe('growth');
-    expect(tierOf({ subscription_plan: 'scale' })).toBe('scale');
+    expect(tierOf({ subscription_plan: 'starter' })).toBe('starter');
   });
   it('falls back to starter for null / unknown (never strips a paying gym silently)', () => {
     expect(tierOf({ subscription_plan: null })).toBe('starter');
     expect(tierOf({ subscription_plan: 'enterprise' })).toBe('starter');
+  });
+  it('treats the retired Scale tier as unknown', () => {
+    // The migration rewrites 'scale' → 'growth'; a row that somehow still reads
+    // 'scale' is not a tier any more and must not be honoured as the top one.
+    expect(tierOf({ subscription_plan: 'scale' })).toBe('starter');
   });
 });
 
@@ -26,30 +31,22 @@ describe('tierHasFeature — pricing matrix', () => {
     expect(tierHasFeature('starter', 'analytics_exports')).toBe(false);
     expect(tierHasFeature('starter', 'instructor_payouts')).toBe(false);
   });
-  it('Growth: everything in Starter + scheduling, WhatsApp, analytics/exports', () => {
-    expect(tierHasFeature('growth', 'qr_checkin')).toBe(true);
+  it('Growth: everything — including what Scale used to gate', () => {
+    for (const f of featuresFor('growth')) expect(tierHasFeature('growth', f)).toBe(true);
     expect(tierHasFeature('growth', 'class_scheduling')).toBe(true);
     expect(tierHasFeature('growth', 'whatsapp_reminders')).toBe(true);
     expect(tierHasFeature('growth', 'analytics_exports')).toBe(true);
-    expect(tierHasFeature('growth', 'multi_gym')).toBe(false);
-    expect(tierHasFeature('growth', 'instructor_payouts')).toBe(false);
-  });
-  it('Scale: everything', () => {
-    for (const f of featuresFor('scale')) expect(tierHasFeature('scale', f)).toBe(true);
-    expect(tierHasFeature('scale', 'multi_gym')).toBe(true);
-    expect(tierHasFeature('scale', 'instructor_payouts')).toBe(true);
-    expect(tierHasFeature('scale', 'priority_support')).toBe(true);
+    expect(tierHasFeature('growth', 'multi_gym')).toBe(true);
+    expect(tierHasFeature('growth', 'instructor_payouts')).toBe(true);
+    expect(tierHasFeature('growth', 'priority_support')).toBe(true);
   });
 });
 
 describe('feature inclusion is monotonic up the tiers', () => {
-  it('every Starter feature is in Growth, every Growth feature is in Scale', () => {
+  it('every Starter feature is in Growth, and Growth adds more', () => {
     const s = new Set(featuresFor('starter'));
     const g = new Set(featuresFor('growth'));
-    const sc = new Set(featuresFor('scale'));
     for (const f of s) expect(g.has(f)).toBe(true);
-    for (const f of g) expect(sc.has(f)).toBe(true);
-    expect(featuresFor('scale').length).toBeGreaterThan(featuresFor('growth').length);
     expect(featuresFor('growth').length).toBeGreaterThan(featuresFor('starter').length);
   });
 });
@@ -61,7 +58,7 @@ describe('gymHasFeature + requiredTier', () => {
   });
   it('requiredTier names the upgrade target', () => {
     expect(requiredTier('analytics_exports')).toBe('growth');
-    expect(requiredTier('instructor_payouts')).toBe('scale');
+    expect(requiredTier('instructor_payouts')).toBe('growth');
     expect(requiredTier('qr_checkin')).toBe('starter');
   });
   it('every Feature has a required tier that actually unlocks it', () => {

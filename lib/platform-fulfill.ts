@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isPlanTier, PLATFORM_PLANS, type PlanTier } from '@/lib/platform-plans';
+import { isPlanTier, normalizeCycle, planAmountKobo, PLATFORM_PLANS } from '@/lib/platform-plans';
+import { planFromCharge, periodEndFor } from '@/lib/platform-charge';
 import { fmtDate } from '@/lib/format';
 import type { EmailContent } from '@/lib/email';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
@@ -30,15 +31,9 @@ function str(v: unknown): string | null {
   return typeof v === 'string' && v.length ? v : null;
 }
 
-// The set of Paystack plan codes we recognise as platform plans (from env).
-function platformPlanCodes(): Map<string, PlanTier> {
-  const m = new Map<string, PlanTier>();
-  for (const p of Object.values(PLATFORM_PLANS)) {
-    const code = process.env[p.planCodeEnv];
-    if (code) m.set(code, p.tier);
-  }
-  return m;
-}
+// Which tier and cycle a charge is for, and how far it moves the paid-through
+// date, live in lib/platform-charge.ts — pure, so the resolution and the period
+// arithmetic are unit-tested without a Paystack account.
 
 // Does this event belong to the platform flow? True for any subscription/invoice
 // lifecycle event, and for charge.success on a SUBSCRIPTION charge (vs a member
@@ -83,28 +78,12 @@ async function resolveGymId(admin: Admin, hints: { metaGymId?: string | null; su
   return null;
 }
 
-function tierFromCharge(meta: Json, plan: Json): PlanTier | null {
-  const metaPlan = str(meta.plan);
-  if (metaPlan && isPlanTier(metaPlan)) return metaPlan;
-  const code = str(plan.plan_code);
-  if (code) {
-    const found = platformPlanCodes().get(code);
-    if (found) return found;
-  }
-  return null;
-}
-
-function addMonths(base: Date, n: number): Date {
-  const d = new Date(base);
-  d.setMonth(d.getMonth() + n);
-  return d;
-}
-
 // ── Owner mail ───────────────────────────────────────────────────────────────
 
 type BillingGym = {
   name: string | null;
   subscription_plan: string | null;
+  subscription_billing_cycle: string | null;
   subscription_current_period_end: string | null;
 };
 
@@ -119,9 +98,9 @@ function planLabel(plan: string | null | undefined): string {
  *  back to the entry tier rather than zero: an owner who reads "₦0 was
  *  declined" concludes the email is broken and ignores the deadline it
  *  carries. */
-function planKobo(plan: string | null | undefined): number {
+function planKobo(plan: string | null | undefined, cycle: string | null | undefined): number {
   const p = (plan ?? '').trim();
-  return isPlanTier(p) ? PLATFORM_PLANS[p].amountKobo : PLATFORM_PLANS.starter.amountKobo;
+  return planAmountKobo(isPlanTier(p) ? p : 'starter', normalizeCycle(cycle));
 }
 
 /** The paid-through date is what makes both the dunning and the cancellation
@@ -150,7 +129,7 @@ async function mailOwners(
   if (!process.env.RESEND_API_KEY) return;
   try {
     const [{ data: gym }, owners] = await Promise.all([
-      admin.from('gyms').select('name, subscription_plan, subscription_current_period_end').eq('id', gymId).maybeSingle(),
+      admin.from('gyms').select('name, subscription_plan, subscription_billing_cycle, subscription_current_period_end').eq('id', gymId).maybeSingle(),
       getGymOwnerEmails(admin, gymId),
     ]);
     if (!gym || owners.length === 0) return;
@@ -174,18 +153,19 @@ async function fulfillCharge(admin: Admin, data: Json): Promise<PlatformResult> 
   const gymId = await resolveGymId(admin, { metaGymId: str(meta.gym_id), subscriptionCode, customerCode });
   if (!gymId) return { ok: false, handled: true, error: 'could not resolve gym for charge', permanent: true };
 
-  const tier = tierFromCharge(meta, plan);
-  if (!tier) {
+  const charged = planFromCharge(meta, plan);
+  if (!charged) {
     return { ok: false, handled: true, error: 'unrecognized platform plan code' };
   }
+  const tier = charged.tier;
 
   const amountKobo = Number(data.amount ?? 0);
-  if (!settledAmountMatches(amountKobo, PLATFORM_PLANS[tier].amountKobo)) {
+  if (!settledAmountMatches(amountKobo, charged.expectedKobo)) {
     return { ok: false, handled: true, error: 'platform charge amount does not match plan', permanent: true };
   }
 
   const paidAt = str(data.paid_at) ? new Date(String(data.paid_at)) : new Date();
-  const periodEnd = addMonths(paidAt, 1);
+  const periodEnd = periodEndFor(paidAt, charged.months);
 
   // Idempotency: fast-path pre-check, then the unique-index 23505 catch is the
   // real guard. Crucially, ONLY the writer that records the payment advances the
@@ -216,7 +196,10 @@ async function fulfillCharge(admin: Admin, data: Json): Promise<PlatformResult> 
     subscription_current_period_end: periodEnd.toISOString(),
     updated_at: new Date().toISOString(),
   };
-  if (tier) patch.subscription_plan = tier;
+  patch.subscription_plan = tier;
+  // Left untouched for a legacy monthly charge: there is no cycle in the
+  // catalogue that describes it, and writing a wrong one would misreport MRR.
+  if (charged.cycle) patch.subscription_billing_cycle = charged.cycle;
   if (customerCode) patch.paystack_customer_code = customerCode;
   if (subscriptionCode) patch.paystack_subscription_code = subscriptionCode;
   const { error: gymErr } = await admin.from('gyms').update(patch).eq('id', gymId);
@@ -233,7 +216,7 @@ async function fulfillCharge(admin: Admin, data: Json): Promise<PlatformResult> 
   await mailOwners(admin, gymId, (gym) => subscriptionReceipt({
     gymName: gym.name ?? 'your gym',
     amountNaira: amountKobo / 100,
-    tier: planLabel(tier ?? gym.subscription_plan),
+    tier: planLabel(tier),
     paidDate: fmtDate(paidAt.toISOString()),
     periodEnd: fmtDate(periodEnd.toISOString()),
     reference,
@@ -295,7 +278,7 @@ async function setStatusBySubscription(admin: Admin, data: Json, status: 'past_d
     const stamp = new Date().toISOString().slice(0, 10);
     await mailOwners(admin, gymId, (gym) => subscriptionPastDue({
       gymName: gym.name ?? 'your gym',
-      amountNaira: (amountKobo > 0 ? amountKobo : planKobo(gym.subscription_plan)) / 100,
+      amountNaira: (amountKobo > 0 ? amountKobo : planKobo(gym.subscription_plan, gym.subscription_billing_cycle)) / 100,
       tier: planLabel(gym.subscription_plan),
       attemptedDate: fmtDate(new Date().toISOString()),
       graceEndDate: accessUntil(gym.subscription_current_period_end),

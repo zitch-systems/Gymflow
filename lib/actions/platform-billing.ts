@@ -6,7 +6,7 @@ import { requireStaff } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requestOrigin } from '@/lib/request-origin';
 import { initSubscription, getSubscription, disableSubscription } from '@/lib/paystack';
-import { PLATFORM_PLANS, isPlanTier } from '@/lib/platform-plans';
+import { PLATFORM_PLANS, isPlanTier, isBillingCycle, planPrice, CYCLE_LABEL } from '@/lib/platform-plans';
 import { fmtDate } from '@/lib/format';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
 import { adminOrNull, getGymOwnerEmails } from '@/lib/email/recipients';
@@ -21,15 +21,17 @@ export type StartResult = { ok: true; url: string } | { ok: false; error: string
 // Begin a Paystack Subscription checkout for the gym's GymFlow plan. Returns the
 // authorization URL for the client to redirect to. Recurring billing + status
 // are then driven entirely by the webhook (lib/platform-fulfill.ts).
-export async function startPlatformSubscription(tier: string): Promise<StartResult> {
+export async function startPlatformSubscription(tier: string, cycle: string): Promise<StartResult> {
   if (!isPlanTier(tier)) return { ok: false, error: 'Unknown plan.' };
+  if (!isBillingCycle(cycle)) return { ok: false, error: 'Unknown billing cycle.' };
   if (!process.env.PAYSTACK_SECRET_KEY) {
     return { ok: false, error: 'Billing is not configured yet (missing PAYSTACK_SECRET_KEY).' };
   }
   const plan = PLATFORM_PLANS[tier];
-  const planCode = process.env[plan.planCodeEnv];
+  const price = planPrice(tier, cycle);
+  const planCode = process.env[price.planCodeEnv];
   if (!planCode) {
-    return { ok: false, error: `Plan "${plan.name}" isn’t set up in Paystack yet (${plan.planCodeEnv}).` };
+    return { ok: false, error: `The ${CYCLE_LABEL[cycle].toLowerCase()} "${plan.name}" plan isn’t set up in Paystack yet (${price.planCodeEnv}).` };
   }
 
   const { user, gym } = await requireStaff(OWNER_ROLES);
@@ -42,8 +44,10 @@ export async function startPlatformSubscription(tier: string): Promise<StartResu
     // Paystack requires an amount even alongside a plan code; the plan's own
     // price is still what recurs. Catalogue value, kept in sync with the
     // Paystack Plan (lib/platform-plans.ts).
-    amountKobo: plan.amountKobo,
-    metadata: { kind: 'platform_subscription', gym_id: gym.id, plan: tier },
+    amountKobo: price.amountKobo,
+    // `cycle` rides along so the first charge can be fulfilled even if the plan
+    // code isn't recognised on the way back (lib/platform-fulfill.ts).
+    metadata: { kind: 'platform_subscription', gym_id: gym.id, plan: tier, cycle },
     callbackUrl: site ? `${site}/billing/callback` : undefined,
   });
   return res.ok ? { ok: true, url: res.authorization_url } : { ok: false, error: res.error };

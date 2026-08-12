@@ -3,7 +3,7 @@ import { BillingWall } from '@/components/admin/billing-wall';
 import { SuspendedWall } from '@/components/admin/suspended-wall';
 import { OnboardingBanner } from '@/components/admin/onboarding-banner';
 import { requireAdminStaff, getProfile, getStaffGyms, ADMIN_ROLES } from '@/lib/auth/dal';
-import { gymBillingState, isBlocked, isPlanTier } from '@/lib/platform-plans';
+import { gymBillingState, isBlocked, isPlanTier, isBillingCycle, type PlanTier, type BillingCycle } from '@/lib/platform-plans';
 import { initialsOf, roleLabel } from '@/lib/format';
 import { createClient } from '@/lib/supabase/server';
 import { isOfflineGym } from '@/lib/gym-status';
@@ -34,8 +34,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // is not blocked (Paystack retries); the page-level banner warns instead.
   const state = gymBillingState(gym);
   if (isBlocked(state)) {
-    const tier = isPlanTier(gym.subscription_plan ?? '') ? (gym.subscription_plan as 'starter' | 'growth' | 'scale') : null;
-    return <BillingWall state={state} gymName={gym.name} currentTier={tier} />;
+    const tier = isPlanTier(gym.subscription_plan ?? '') ? gym.subscription_plan as PlanTier : null;
+    const cycle = isBillingCycle(gym.subscription_billing_cycle ?? '') ? gym.subscription_billing_cycle as BillingCycle : null;
+    return <BillingWall state={state} gymName={gym.name} currentTier={tier} currentCycle={cycle} />;
   }
 
   const supabase = await createClient();

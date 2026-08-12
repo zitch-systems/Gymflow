@@ -3,8 +3,17 @@
 import { useActionState } from 'react';
 import { UserPlus, Check, AlertCircle } from 'lucide-react';
 import { provisionGym, type OnboardState } from '@/lib/actions/onboard';
+import { PLATFORM_PLANS, PLAN_TIERS, DEFAULT_CYCLE, CYCLE_SUFFIX, planPrice } from '@/lib/platform-plans';
+import { fmtNaira } from '@/lib/format';
 
 const initial: OnboardState = { ok: false, error: null };
+
+// Built from the catalogue: a hardcoded tier that no longer exists would be
+// rejected by the gyms_subscription_plan_valid check constraint at insert time.
+const PLAN_OPTIONS = PLAN_TIERS.map((tier) => ({
+  tier,
+  label: `${PLATFORM_PLANS[tier].name} — ${fmtNaira(planPrice(tier, DEFAULT_CYCLE).amountKobo / 100)}${CYCLE_SUFFIX[DEFAULT_CYCLE]}`,
+}));
 
 export function OnboardForm() {
   const [state, action, pending] = useActionState(provisionGym, initial);
@@ -19,7 +28,7 @@ export function OnboardForm() {
       </div>
       <div className="frow">
         <div className="gf-form-group"><label className="gf-form-label">City</label><input className="gf-input" name="city" placeholder="Lagos" /></div>
-        <div className="gf-form-group"><label className="gf-form-label">Plan</label><select className="gf-select" name="plan"><option value="starter">Starter — ₦13,999/mo</option><option value="growth">Growth — ₦37,999/mo</option><option value="scale">Scale — ₦119,999/mo</option></select></div>
+        <div className="gf-form-group"><label className="gf-form-label">Plan</label><select className="gf-select" name="plan">{PLAN_OPTIONS.map((p) => <option key={p.tier} value={p.tier}>{p.label}</option>)}</select></div>
       </div>
       <div className="frow">
         <div className="gf-form-group"><label className="gf-form-label">Owner name</label><input className="gf-input" name="owner_name" placeholder="Owner full name" /></div>

@@ -797,6 +797,7 @@ export type Database = {
           slug: string
           state: string | null
           status: string | null
+          subscription_billing_cycle: string | null
           subscription_current_period_end: string | null
           subscription_plan: string | null
           subscription_status: string | null
@@ -839,6 +840,7 @@ export type Database = {
           slug: string
           state?: string | null
           status?: string | null
+          subscription_billing_cycle?: string | null
           subscription_current_period_end?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
@@ -881,6 +883,7 @@ export type Database = {
           slug?: string
           state?: string | null
           status?: string | null
+          subscription_billing_cycle?: string | null
           subscription_current_period_end?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null

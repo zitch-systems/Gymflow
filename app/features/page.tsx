@@ -122,7 +122,7 @@ export default function FeaturesPage() {
       <div className="wrap">
         <div className="cta">
           <h2>Ready to run your gym the modern way?</h2>
-          <p>Explore plans from ₦13,999/mo · cancel anytime.</p>
+          <p>Two plans, billed quarterly or annually · cancel anytime.</p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
             <Link href="/pricing" className="gf-btn gf-btn-outline gf-btn-lg">See pricing</Link>

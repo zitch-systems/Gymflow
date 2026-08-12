@@ -67,7 +67,7 @@ export default function GalleryPage() {
           <div className="wrap">
             <div className="cta">
               <h2>Bring your gym&apos;s workflows into one place.</h2>
-              <p>Plans start from ₦13,999/mo · cancel anytime · no setup fees.</p>
+              <p>Two plans, billed quarterly or annually · cancel anytime · no setup fees.</p>
               <div className="hero-cta" style={{ marginTop: 0 }}>
                 <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
               </div>

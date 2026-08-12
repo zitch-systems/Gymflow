@@ -1,14 +1,13 @@
 import { LogOut } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { PlanCards } from '@/components/admin/plan-cards';
-import type { BillingState } from '@/lib/platform-plans';
-import type { PlanTier } from '@/lib/platform-plans';
+import type { BillingState, BillingCycle, PlanTier } from '@/lib/platform-plans';
 
 // Full-screen access wall rendered by the admin layout when the gym's GymFlow
 // subscription is lapsed (trial_expired) or cancelled. Nothing else in /admin is
 // reachable until they subscribe — but the Paystack checkout it links to is what
 // reactivates them (handled by the webhook), so there's no lock-out loop.
-export function BillingWall({ state, gymName, currentTier }: { state: BillingState; gymName: string; currentTier?: PlanTier | null }) {
+export function BillingWall({ state, gymName, currentTier, currentCycle }: { state: BillingState; gymName: string; currentTier?: PlanTier | null; currentCycle?: BillingCycle | null }) {
   const heading =
     state === 'trial_expired' ? 'Your free trial has ended'
     : state === 'suspended' ? 'Your subscription is overdue'
@@ -24,7 +23,7 @@ export function BillingWall({ state, gymName, currentTier }: { state: BillingSta
             classes and data are all exactly where you left them.
           </p>
         </div>
-        <PlanCards currentTier={currentTier} />
+        <PlanCards currentTier={currentTier} currentCycle={currentCycle} />
         <div style={{ textAlign: 'center', marginTop: 20 }}>
           <form action={signOut}>
             <button type="submit" className="gf-btn gf-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
