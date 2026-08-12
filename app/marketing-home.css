@@ -1119,21 +1119,6 @@
   padding: 30px;
   border-radius: 22px;
 }
-.marketing-home .price-tagline {
-  min-height: 42px;
-  margin: 8px 0 0;
-  color: var(--gf-text-muted);
-  font-size: 0.84rem;
-  line-height: 1.5;
-}
-/* The other buyable billing cycle, named under the headline price. */
-.marketing-home .price-alt {
-  margin: 2px 0 0;
-  color: var(--gf-brand);
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.5;
-}
 .marketing-home .price .gf-btn {
   margin-top: auto;
   min-height: 48px;
