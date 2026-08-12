@@ -1,11 +1,9 @@
 import Link from 'next/link';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
-import { Check, Wallet } from 'lucide-react';
-import {
-  PLATFORM_PLANS, PLAN_TIERS, BILLING_CYCLES, CYCLE_LABEL, CYCLE_SUFFIX,
-  DEFAULT_CYCLE, planPrice, monthlyEquivalentKobo, cycleSavingPct,
-} from '@/lib/platform-plans';
+import { Wallet } from 'lucide-react';
+import { PLATFORM_PLANS, PLAN_TIERS, BILLING_CYCLES, CYCLE_LABEL, planPrice } from '@/lib/platform-plans';
 import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
+import { PricingCards } from '@/components/marketing/pricing-cards';
 
 export const metadata = {
   title: 'Pricing',
@@ -60,48 +58,10 @@ const PRICING_LD = JSON.stringify({
 // lib/platform-plans.ts — developer-authored, not user input — so there's no
 // "</script>"-breakout risk to defend against and no '<' escaping is needed.
 
-// Display-only per-tier extras (feature bullets, CTA emphasis). Name, price
-// and tagline come from PLATFORM_PLANS so the cards, the JSON-LD Offers and
-// the charged Paystack amount can never drift apart.
-const TIER_DISPLAY: Record<(typeof PLAN_TIERS)[number], { features: string[]; popular?: boolean; variant: 'primary' | 'secondary' }> = {
-  starter: {
-    features: ['Unlimited members', 'QR check-in', 'Paystack subscriptions', 'Email reminders'],
-    variant: 'secondary',
-  },
-  growth: {
-    features: [
-      'Everything in Starter', 'Class scheduling + waitlists', 'WhatsApp reminders',
-      'Live analytics + exports', 'Multi-gym & staff roles', 'Instructor payouts', 'Priority support',
-    ],
-    popular: true, variant: 'primary',
-  },
-};
-
-const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
-
-// The card headlines the monthly price — the entry point, and what the longer
-// cycles quote their saving against — then lists each commitment cycle beneath
-// it, so all three buyable cycles are on the page without a client-side toggle.
-const COMMITMENT_CYCLES = BILLING_CYCLES.filter((c) => c !== DEFAULT_CYCLE);
-
-const TIERS = PLAN_TIERS.map((tier) => {
-  const plan = PLATFORM_PLANS[tier];
-  const d = TIER_DISPLAY[tier];
-  return {
-    name: plan.name,
-    amount: naira(planPrice(tier, DEFAULT_CYCLE).amountKobo),
-    period: CYCLE_SUFFIX[DEFAULT_CYCLE],
-    alts: COMMITMENT_CYCLES.map((cycle) => {
-      const save = cycleSavingPct(tier, cycle);
-      return `${naira(planPrice(tier, cycle).amountKobo)}${CYCLE_SUFFIX[cycle]} — ≈${naira(monthlyEquivalentKobo(tier, cycle))}/mo${save > 0 ? `, save ${save}%` : ''}`;
-    }),
-    tagline: plan.tagline,
-    features: d.features,
-    popular: d.popular,
-    variant: d.variant,
-    cta: `Choose ${plan.name}`,
-  };
-});
+// The cards themselves live in components/marketing/pricing-cards.tsx — they
+// need client state for the billing-cycle toggle. This page stays a server
+// component so the JSON-LD above (which enumerates every tier × cycle Offer)
+// is rendered for crawlers regardless of the toggle's position.
 
 // Visible FAQ content + matching FAQPage JSON-LD (Google requires the Q&A to
 // be rendered on the page for FAQ rich results — both come from this one
@@ -162,26 +122,7 @@ export default function PricingPage() {
 
       <section className="blk">
         <div className="wrap">
-          <div className="price-grid">
-            {TIERS.map((t) => (
-              <div className={`price${t.popular ? ' pop' : ''}`} key={t.name}>
-                <div className="pname">{t.name}</div>
-                <div className="amt">{t.amount}<small>{t.period}</small></div>
-                <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.85rem' }}>{t.tagline}</div>
-                <ul style={{ listStyle: 'none', padding: 0, margin: '6px 0 0', color: 'var(--gf-brand)', fontSize: '0.78rem', fontWeight: 600, lineHeight: 1.7 }}>
-                  {t.alts.map((a) => <li key={a}>or {a}</li>)}
-                </ul>
-                <ul>
-                  {t.features.map((f) => (
-                    <li key={f}><Check strokeWidth={2.2} /> {f}</li>
-                  ))}
-                </ul>
-                <Link href="/signup" className={`gf-btn gf-btn-${t.variant} gf-btn-full`} style={{ marginTop: 'auto' }}>
-                  {t.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
+          <PricingCards />
         </div>
       </section>
 
