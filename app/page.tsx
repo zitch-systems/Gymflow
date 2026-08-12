@@ -2,16 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { MarketingNav, MarketingFooter } from "@/components/marketing/chrome";
-import {
-  PLATFORM_PLANS,
-  PLAN_TIERS,
-  BILLING_CYCLES,
-  CYCLE_SUFFIX,
-  DEFAULT_CYCLE,
-  planPrice,
-  cycleSavingPct,
-  type PlanTier,
-} from "@/lib/platform-plans";
+// Shared with /pricing: one set of cards, one billing-cycle toggle, one copy of
+// the feature bullets — so the home page can't quote a price or a plan the
+// pricing page doesn't.
+import { PricingCards } from "@/components/marketing/pricing-cards";
 import {
   ArrowRight,
   BarChart3,
@@ -59,49 +53,6 @@ export const metadata: Metadata = {
     images: ["/images/og.png"],
   },
 };
-
-// Home-page pricing cards. Name, price and tagline come from the plan catalogue
-// (lib/platform-plans.ts) — the same constant /pricing and the Paystack checkout
-// read — so this section can't drift from what a gym is actually charged. Only
-// the abbreviated feature bullets are local to the home page.
-const HOME_FEATURES: Record<PlanTier, string[]> = {
-  starter: [
-    "Unlimited members",
-    "QR check-in",
-    "Paystack subscriptions",
-    "Email reminders",
-  ],
-  growth: [
-    "Everything in Starter",
-    "Classes + waitlists",
-    "WhatsApp reminders",
-    "Analytics + exports",
-    "Multiple locations",
-    "Instructor payouts",
-  ],
-};
-
-const COMMITMENT_CYCLES = BILLING_CYCLES.filter((c) => c !== DEFAULT_CYCLE);
-const homeNaira = (kobo: number) => `₦${(kobo / 100).toLocaleString("en-NG")}`;
-
-const HOME_TIERS = PLAN_TIERS.map((tier) => {
-  const plan = PLATFORM_PLANS[tier];
-  return {
-    name: plan.name,
-    amount: homeNaira(planPrice(tier, DEFAULT_CYCLE).amountKobo),
-    period: CYCLE_SUFFIX[DEFAULT_CYCLE],
-    // One line naming the cheaper commitment cycles; the full breakdown lives
-    // on /pricing rather than crowding the home page.
-    note: `or ${COMMITMENT_CYCLES.map((c) => `${homeNaira(planPrice(tier, c).amountKobo)}${CYCLE_SUFFIX[c]}`).join(" · ")} — save up to ${Math.max(...COMMITMENT_CYCLES.map((c) => cycleSavingPct(tier, c)))}%`,
-    tagline: plan.tagline,
-    features: HOME_FEATURES[tier],
-    cta: `Choose ${plan.name}`,
-    variant: (tier === "growth" ? "primary" : "secondary") as
-      | "primary"
-      | "secondary",
-    popular: tier === "growth",
-  };
-});
 
 export default function MarketingHome() {
   return (
@@ -400,11 +351,7 @@ export default function MarketingHome() {
                 quarterly or annually — cancel anytime.
               </p>
             </div>
-            <div className="price-grid">
-              {HOME_TIERS.map((t) => (
-                <PricingTier key={t.name} {...t} />
-              ))}
-            </div>
+            <PricingCards />
           </div>
         </section>
 
@@ -736,46 +683,3 @@ function Step({ n, title, body }: { n: string; title: string; body: string }) {
   );
 }
 
-function PricingTier({
-  name,
-  amount,
-  period,
-  note,
-  tagline,
-  features,
-  cta,
-  variant,
-  popular,
-}: {
-  name: string;
-  amount: string;
-  period: string;
-  note: string;
-  tagline: string;
-  features: string[];
-  cta: string;
-  variant: "primary" | "secondary";
-  popular?: boolean;
-}) {
-  return (
-    <article className={`price${popular ? " pop" : ""}`}>
-      <div className="pname">{name}</div>
-      <div className="amt">
-        {amount}
-        <small>{period}</small>
-      </div>
-      <p className="price-tagline">{tagline}</p>
-      <p className="price-alt">{note}</p>
-      <ul>
-        {features.map((feature) => (
-          <li key={feature}>
-            <Check strokeWidth={2.2} /> {feature}
-          </li>
-        ))}
-      </ul>
-      <Link href="/signup" className={`gf-btn gf-btn-${variant} gf-btn-full`}>
-        {cta}
-      </Link>
-    </article>
-  );
-}
