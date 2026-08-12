@@ -619,7 +619,37 @@ section.blk { padding: 84px 0; }
 .galx figure:hover figcaption { opacity: 1; }
 
 /* ── pricing ── */
-.price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 980px; margin: 0 auto; }
+/* auto-fit rather than a fixed 3-up: the catalogue is two tiers now, and three
+   hard columns left each card a third of the container wide (text wrapping mid
+   phrase) with an empty column beside them. */
+.price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; max-width: 980px; margin: 0 auto; }
+/* Two cards would otherwise stretch to ~480px each. Narrow the container so the
+   pair stays centred and card-shaped. */
+.price-grid:not(:has(> :nth-child(3))) { max-width: 700px; }
+
+/* Billing-cycle toggle above the cards. */
+.price-cycle-wrap { display: flex; justify-content: center; margin-bottom: 26px; }
+.cycle-toggle { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--gf-border); border-radius: var(--gf-radius-pill); background: var(--gf-surface); }
+.cycle-toggle button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 18px; border: 0; border-radius: var(--gf-radius-pill); background: none; color: var(--gf-text-secondary); font-family: var(--gf-font-display); font-weight: 600; font-size: 0.86rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.cycle-toggle button:hover { color: var(--gf-text); }
+.cycle-toggle button.on { background: var(--gf-brand); color: #fff; }
+.cycle-save { font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: var(--gf-radius-pill); background: var(--gf-brand-soft); color: var(--gf-brand); }
+.cycle-toggle button.on .cycle-save { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* Three pill buttons plus two saving badges overflow a phone viewport at the
+   desktop sizing, clipping "Annual" off the right edge. Split the width evenly
+   and tighten instead. */
+@media (max-width: 560px) {
+  .price-cycle-wrap { display: block; }
+  .cycle-toggle { display: flex; width: 100%; }
+  .cycle-toggle button { flex: 1; justify-content: center; gap: 4px; padding: 9px 6px; font-size: 0.78rem; }
+  .cycle-save { font-size: 0.62rem; padding: 2px 5px; }
+}
+
+/* Per-month equivalent + saving. Height is reserved even when empty (the
+   monthly cycle has neither) so switching cycles doesn't jog the cards. */
+.price-permo { min-height: 20px; font-size: 0.82rem; font-weight: 600; color: var(--gf-brand); }
+.price-tag { margin: 8px 0 0; color: var(--gf-text-muted); font-size: 0.85rem; line-height: 1.5; min-height: 38px; }
 .price { background: var(--gf-surface); border: 1px solid var(--gf-border); border-radius: var(--gf-radius-lg); padding: 28px; display: flex; flex-direction: column; }
 .price.pop { border-color: var(--gf-brand); box-shadow: var(--gf-shadow-glow); position: relative; }
 .price.pop::before { content: 'Most popular'; position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, var(--gf-brand), var(--gf-brand-dark)); color: #fff; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 12px; border-radius: var(--gf-radius-pill); }

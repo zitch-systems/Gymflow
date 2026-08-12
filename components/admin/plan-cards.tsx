@@ -56,24 +56,23 @@ export function PlanCards({
         </div>
       )}
 
-      <div role="group" aria-label="Billing cycle" style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 18 }}>
-        {BILLING_CYCLES.map((c) => {
-          const on = c === cycle;
-          // Savings differ per tier only if the discount ever diverges; quote the
-          // top tier's so the badge reads as the best case, like the pricing page.
-          const save = cycleSavingPct('growth', c);
-          return (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCycle(c)}
-              aria-pressed={on}
-              className={`gf-btn gf-btn-${on ? 'primary' : 'ghost'} gf-btn-sm`}
-            >
-              {CYCLE_LABEL[c]}{save > 0 && <span style={{ marginLeft: 6, opacity: 0.85 }}>−{save}%</span>}
-            </button>
-          );
-        })}
+      {/* Same segmented control as the public pricing page, so an owner sees the
+          cycle choice presented the way it was when they were shopping. */}
+      <div className="price-cycle-wrap">
+        <div className="cycle-toggle" role="group" aria-label="Billing cycle">
+          {BILLING_CYCLES.map((c) => {
+            // Savings vary by a point between tiers; quote the best case here and
+            // let each card state its own exact figure.
+            const save = Math.max(...PLAN_TIERS.map((t) => cycleSavingPct(t, c)));
+            const on = c === cycle;
+            return (
+              <button key={c} type="button" onClick={() => setCycle(c)} aria-pressed={on} className={on ? 'on' : undefined}>
+                {CYCLE_LABEL[c]}
+                {save > 0 && <span className="cycle-save">−{save}%</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="price-grid">
@@ -89,9 +88,12 @@ export function PlanCards({
             <div className={`price${pop ? ' pop' : ''}`} key={tier}>
               <div className="pname">{p.name}{isCurrent && <span className="pill" style={{ marginLeft: 8 }}>Current</span>}</div>
               <div className="amt">{fmtNaira(price.amountKobo / 100)}<small>{CYCLE_SUFFIX[cycle]}</small></div>
-              <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.85rem' }}>
-                ≈{fmtNaira(monthlyEquivalentKobo(tier, cycle) / 100)}/mo · {p.tagline}
+              {/* Rounded to whole naira: monthlyEquivalentKobo splits a cycle
+                  price across its months, which otherwise shows "₦12,666.33". */}
+              <div className="price-permo">
+                {cycle !== DEFAULT_CYCLE && <>{fmtNaira(Math.round(monthlyEquivalentKobo(tier, cycle) / 100))}/mo · save {cycleSavingPct(tier, cycle)}%</>}
               </div>
+              <p className="price-tag">{p.tagline}</p>
               <ul>
                 {FEATURES[tier].map((f) => <li key={f}><Check strokeWidth={2.2} /> {f}</li>)}
               </ul>
