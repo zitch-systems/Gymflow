@@ -9,7 +9,6 @@ import {
   CYCLE_SUFFIX,
   DEFAULT_CYCLE,
   planPrice,
-  monthlyEquivalentKobo,
   cycleSavingPct,
   type PlanTier,
 } from "@/lib/platform-plans";
@@ -82,18 +81,19 @@ const HOME_FEATURES: Record<PlanTier, string[]> = {
   ],
 };
 
-const ALT_CYCLE = BILLING_CYCLES.find((c) => c !== DEFAULT_CYCLE)!;
+const COMMITMENT_CYCLES = BILLING_CYCLES.filter((c) => c !== DEFAULT_CYCLE);
 const homeNaira = (kobo: number) => `₦${(kobo / 100).toLocaleString("en-NG")}`;
 
 const HOME_TIERS = PLAN_TIERS.map((tier) => {
   const plan = PLATFORM_PLANS[tier];
-  const save = cycleSavingPct(tier, ALT_CYCLE);
   return {
     name: plan.name,
     amount: homeNaira(planPrice(tier, DEFAULT_CYCLE).amountKobo),
     period: CYCLE_SUFFIX[DEFAULT_CYCLE],
-    note: `or ${homeNaira(planPrice(tier, ALT_CYCLE).amountKobo)}${CYCLE_SUFFIX[ALT_CYCLE]}${save > 0 ? ` — save ${save}%` : ""}`,
-    tagline: `≈${homeNaira(monthlyEquivalentKobo(tier, DEFAULT_CYCLE))}/mo · ${plan.tagline}`,
+    // One line naming the cheaper commitment cycles; the full breakdown lives
+    // on /pricing rather than crowding the home page.
+    note: `or ${COMMITMENT_CYCLES.map((c) => `${homeNaira(planPrice(tier, c).amountKobo)}${CYCLE_SUFFIX[c]}`).join(" · ")} — save up to ${Math.max(...COMMITMENT_CYCLES.map((c) => cycleSavingPct(tier, c)))}%`,
+    tagline: plan.tagline,
     features: HOME_FEATURES[tier],
     cta: `Choose ${plan.name}`,
     variant: (tier === "growth" ? "primary" : "secondary") as
@@ -396,8 +396,8 @@ export default function MarketingHome() {
               </span>
               <h2>Start lean. Upgrade when you grow.</h2>
               <p>
-                No setup fees. Unlimited members on every plan. Billed quarterly
-                or annually — cancel anytime.
+                No setup fees. Unlimited members on every plan. Billed monthly,
+                quarterly or annually — cancel anytime.
               </p>
             </div>
             <div className="price-grid">

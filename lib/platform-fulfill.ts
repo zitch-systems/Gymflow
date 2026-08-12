@@ -197,9 +197,7 @@ async function fulfillCharge(admin: Admin, data: Json): Promise<PlatformResult> 
     updated_at: new Date().toISOString(),
   };
   patch.subscription_plan = tier;
-  // Left untouched for a legacy monthly charge: there is no cycle in the
-  // catalogue that describes it, and writing a wrong one would misreport MRR.
-  if (charged.cycle) patch.subscription_billing_cycle = charged.cycle;
+  patch.subscription_billing_cycle = charged.cycle;
   if (customerCode) patch.paystack_customer_code = customerCode;
   if (subscriptionCode) patch.paystack_subscription_code = subscriptionCode;
   const { error: gymErr } = await admin.from('gyms').update(patch).eq('id', gymId);
