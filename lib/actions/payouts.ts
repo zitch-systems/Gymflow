@@ -56,9 +56,9 @@ export async function requestPayout(_prev: ActionState, formData: FormData): Pro
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: 'Enter an amount greater than zero.' };
   try {
     const { user, gym } = await requireInstructor();
-    // Tier gate: in-app payout runs are a Scale feature. Lower tiers still see
+    // Tier gate: in-app payout runs are a Growth feature. Starter gyms still see
     // earnings; the gym settles instructors outside the app.
-    if (!gymHasFeature(gym, 'instructor_payouts')) return { ok: false, error: 'In-app payouts are part of your gym\'s Scale plan. Ask the gym to upgrade, or settle directly with them.' };
+    if (!gymHasFeature(gym, 'instructor_payouts')) return { ok: false, error: 'In-app payouts are part of your gym\'s Growth plan. Ask the gym to upgrade, or settle directly with them.' };
     const supabase = await createClient();
 
     const [{ data: bank }, { data: open }] = await Promise.all([

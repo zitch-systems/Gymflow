@@ -3,6 +3,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { MarketingNav, MarketingFooter } from "@/components/marketing/chrome";
 import {
+  PLATFORM_PLANS,
+  PLAN_TIERS,
+  BILLING_CYCLES,
+  CYCLE_SUFFIX,
+  DEFAULT_CYCLE,
+  planPrice,
+  monthlyEquivalentKobo,
+  cycleSavingPct,
+  type PlanTier,
+} from "@/lib/platform-plans";
+import {
   ArrowRight,
   BarChart3,
   Bell,
@@ -49,6 +60,48 @@ export const metadata: Metadata = {
     images: ["/images/og.png"],
   },
 };
+
+// Home-page pricing cards. Name, price and tagline come from the plan catalogue
+// (lib/platform-plans.ts) — the same constant /pricing and the Paystack checkout
+// read — so this section can't drift from what a gym is actually charged. Only
+// the abbreviated feature bullets are local to the home page.
+const HOME_FEATURES: Record<PlanTier, string[]> = {
+  starter: [
+    "Unlimited members",
+    "QR check-in",
+    "Paystack subscriptions",
+    "Email reminders",
+  ],
+  growth: [
+    "Everything in Starter",
+    "Classes + waitlists",
+    "WhatsApp reminders",
+    "Analytics + exports",
+    "Multiple locations",
+    "Instructor payouts",
+  ],
+};
+
+const ALT_CYCLE = BILLING_CYCLES.find((c) => c !== DEFAULT_CYCLE)!;
+const homeNaira = (kobo: number) => `₦${(kobo / 100).toLocaleString("en-NG")}`;
+
+const HOME_TIERS = PLAN_TIERS.map((tier) => {
+  const plan = PLATFORM_PLANS[tier];
+  const save = cycleSavingPct(tier, ALT_CYCLE);
+  return {
+    name: plan.name,
+    amount: homeNaira(planPrice(tier, DEFAULT_CYCLE).amountKobo),
+    period: CYCLE_SUFFIX[DEFAULT_CYCLE],
+    note: `or ${homeNaira(planPrice(tier, ALT_CYCLE).amountKobo)}${CYCLE_SUFFIX[ALT_CYCLE]}${save > 0 ? ` — save ${save}%` : ""}`,
+    tagline: `≈${homeNaira(monthlyEquivalentKobo(tier, DEFAULT_CYCLE))}/mo · ${plan.tagline}`,
+    features: HOME_FEATURES[tier],
+    cta: `Choose ${plan.name}`,
+    variant: (tier === "growth" ? "primary" : "secondary") as
+      | "primary"
+      | "secondary",
+    popular: tier === "growth",
+  };
+});
 
 export default function MarketingHome() {
   return (
@@ -343,50 +396,14 @@ export default function MarketingHome() {
               </span>
               <h2>Start lean. Upgrade when you grow.</h2>
               <p>
-                No setup fees. Unlimited members on every plan. Cancel anytime.
+                No setup fees. Unlimited members on every plan. Billed quarterly
+                or annually — cancel anytime.
               </p>
             </div>
             <div className="price-grid">
-              <PricingTier
-                name="Starter"
-                amount="₦13,999"
-                tagline="For single-location studios"
-                features={[
-                  "Unlimited members",
-                  "QR check-in",
-                  "Paystack subscriptions",
-                  "Email reminders",
-                ]}
-                cta="Start with Starter"
-                variant="secondary"
-              />
-              <PricingTier
-                name="Growth"
-                amount="₦37,999"
-                tagline="For gyms running classes"
-                features={[
-                  "Everything in Starter",
-                  "Classes + waitlists",
-                  "WhatsApp reminders",
-                  "Analytics + exports",
-                ]}
-                cta="Choose Growth"
-                variant="primary"
-                popular
-              />
-              <PricingTier
-                name="Scale"
-                amount="₦119,999"
-                tagline="For multi-location operators"
-                features={[
-                  "Everything in Growth",
-                  "Multiple locations",
-                  "Instructor payouts",
-                  "Priority support",
-                ]}
-                cta="Choose Scale"
-                variant="secondary"
-              />
+              {HOME_TIERS.map((t) => (
+                <PricingTier key={t.name} {...t} />
+              ))}
             </div>
           </div>
         </section>
@@ -722,6 +739,8 @@ function Step({ n, title, body }: { n: string; title: string; body: string }) {
 function PricingTier({
   name,
   amount,
+  period,
+  note,
   tagline,
   features,
   cta,
@@ -730,6 +749,8 @@ function PricingTier({
 }: {
   name: string;
   amount: string;
+  period: string;
+  note: string;
   tagline: string;
   features: string[];
   cta: string;
@@ -741,9 +762,10 @@ function PricingTier({
       <div className="pname">{name}</div>
       <div className="amt">
         {amount}
-        <small>/mo</small>
+        <small>{period}</small>
       </div>
       <p className="price-tagline">{tagline}</p>
+      <p className="price-alt">{note}</p>
       <ul>
         {features.map((feature) => (
           <li key={feature}>

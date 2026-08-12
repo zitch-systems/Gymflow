@@ -23,8 +23,8 @@ export type Feature =
   | 'priority_support';
 
 // Ascending capability order — a tier includes every feature at or below its
-// rank ("Everything in Starter/Growth" on the pricing page).
-const TIER_RANK: Record<PlanTier, number> = { starter: 0, growth: 1, scale: 2 };
+// rank ("Everything in Starter" on the pricing page).
+const TIER_RANK: Record<PlanTier, number> = { starter: 0, growth: 1 };
 
 // The minimum tier that unlocks each feature (from the pricing matrix).
 const FEATURE_MIN_TIER: Record<Feature, PlanTier> = {
@@ -32,14 +32,15 @@ const FEATURE_MIN_TIER: Record<Feature, PlanTier> = {
   qr_checkin: 'starter',
   paystack_subscriptions: 'starter',
   email_reminders: 'starter',
-  // Growth and up — "Everything in Starter" + these
+  // Growth only — "Everything in Starter" + these. Growth is the top tier, so
+  // it carries what the retired Scale tier used to gate (multi-gym, payouts,
+  // priority support); gyms migrated off Scale keep every feature they had.
   class_scheduling: 'growth',
   whatsapp_reminders: 'growth',
   analytics_exports: 'growth',
-  // Scale only — "Everything in Growth" + these
-  multi_gym: 'scale',
-  instructor_payouts: 'scale',
-  priority_support: 'scale',
+  multi_gym: 'growth',
+  instructor_payouts: 'growth',
+  priority_support: 'growth',
 };
 
 // A gym's effective tier. subscription_plan is the tier string; anything

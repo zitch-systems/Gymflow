@@ -7,6 +7,7 @@ import { splitName } from '@/lib/format';
 import { validatePassword } from '@/lib/auth/password';
 import { logAudit } from '@/lib/audit';
 import { DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
+import { isPlanTier } from '@/lib/platform-plans';
 import { gymUrl } from '@/lib/email/brand';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
 import { ownerGymProvisioned } from '@/lib/email/templates/platform';
@@ -42,7 +43,10 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
   const name = String(formData.get('name') ?? '').trim();
   const slug = String(formData.get('slug') ?? '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
   const city = String(formData.get('city') ?? '').trim() || null;
+  // Checked here rather than left to the gyms_subscription_plan_valid check
+  // constraint, which would surface as a raw Postgres error to the operator.
   const plan = String(formData.get('plan') ?? 'starter').trim();
+  if (!isPlanTier(plan)) return { ok: false, error: 'Unknown plan.' };
   const ownerEmail = String(formData.get('owner_email') ?? '').trim();
   const ownerName = String(formData.get('owner_name') ?? '').trim();
   if (!name || !slug) return { ok: false, error: 'Gym name and subdomain are required.' };

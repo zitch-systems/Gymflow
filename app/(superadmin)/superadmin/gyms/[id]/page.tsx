@@ -9,7 +9,10 @@ import {
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, fmtDateTime, initialsOf, roleLabel } from '@/lib/format';
-import { gymBillingState, PLATFORM_PLANS, isPlanTier, type BillingState } from '@/lib/platform-plans';
+import {
+  gymBillingState, PLATFORM_PLANS, isPlanTier, normalizeCycle, planAmountKobo,
+  monthlyEquivalentKobo, CYCLE_SUFFIX, type BillingState, type PlanTier,
+} from '@/lib/platform-plans';
 import { ROOT_DOMAIN } from '@/lib/tenant';
 import { CommissionEditor } from '@/components/superadmin/commission-editor';
 import { GymControls } from '@/components/superadmin/gym-controls';
@@ -171,9 +174,12 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
   const state = gymBillingState(gym);
   const billing = BILLING_BADGE[state];
   const suspended = gym.status === 'suspended';
-  const tier = isPlanTier(gym.subscription_plan ?? '') ? (gym.subscription_plan as 'starter' | 'growth' | 'scale') : null;
+  const tier = isPlanTier(gym.subscription_plan ?? '') ? (gym.subscription_plan as PlanTier) : null;
+  const cycle = normalizeCycle(gym.subscription_billing_cycle);
   const planName = tier ? PLATFORM_PLANS[tier].name : null;
-  const platformMrr = state === 'active' && tier ? PLATFORM_PLANS[tier].amountKobo / 100 : 0;
+  // Normalised to a month so this gym is comparable with the platform-wide MRR
+  // on /superadmin/revenue, which does the same.
+  const platformMrr = state === 'active' && tier ? monthlyEquivalentKobo(tier, cycle) / 100 : 0;
   const host = `${gym.slug}.${ROOT_DOMAIN}`;
 
   const KPIS = [
@@ -269,7 +275,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
           <div className="panel">
             <div className="panel-h"><div><h3>GymFlow subscription</h3><div className="sub">What this gym pays the platform</div></div></div>
             <div className="md-sub-top">
-              <div><strong>{planName ?? 'No plan'}</strong><small>{planName ? `${fmtNaira(PLATFORM_PLANS[tier!].amountKobo / 100)} / month` : 'Not subscribed'}</small></div>
+              <div><strong>{planName ?? 'No plan'}</strong><small>{planName ? `${fmtNaira(planAmountKobo(tier!, cycle) / 100)} ${CYCLE_SUFFIX[cycle]}` : 'Not subscribed'}</small></div>
               <span className={`gf-badge ${billing[0]}`}>{billing[1]}</span>
             </div>
             <div className="md-sub-rows">

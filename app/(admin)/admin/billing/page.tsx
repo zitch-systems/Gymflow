@@ -2,7 +2,10 @@ import { Check, Lock } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
-import { gymBillingState, PLATFORM_PLANS, isPlanTier, type PlanTier } from '@/lib/platform-plans';
+import {
+  gymBillingState, PLATFORM_PLANS, isPlanTier, isBillingCycle, planPrice,
+  CYCLE_LABEL, CYCLE_SUFFIX, type PlanTier, type BillingCycle,
+} from '@/lib/platform-plans';
 import { tierOf, tierHasFeature, requiredTier, type Feature } from '@/lib/entitlements';
 import { PlanCards } from '@/components/admin/plan-cards';
 import { CancelSubscription } from './cancel-subscription';
@@ -55,7 +58,12 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
   const state = gymBillingState(gym);
   const isOwner = OWNER_ROLES.has(role);
   const currentTier: PlanTier | null = isPlanTier(gym.subscription_plan ?? '') ? (gym.subscription_plan as PlanTier) : null;
+  // NULL for a gym that subscribed before cycles existed (still billing monthly
+  // at Paystack). Left null rather than defaulted so the card shows "—" instead
+  // of quoting a quarterly price the gym isn't actually paying.
+  const currentCycle: BillingCycle | null = isBillingCycle(gym.subscription_billing_cycle ?? '') ? (gym.subscription_billing_cycle as BillingCycle) : null;
   const plan = currentTier ? PLATFORM_PLANS[currentTier] : null;
+  const price = currentTier && currentCycle ? planPrice(currentTier, currentCycle) : null;
 
   const { data: history } = await supabase
     .from('platform_payments')
@@ -101,7 +109,8 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, padding: '4px 2px' }}>
           <div><div style={{ fontSize: '0.72rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Plan</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{plan?.name ?? '—'}</div></div>
           <div><div style={{ fontSize: '0.72rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Status</div><div style={{ fontSize: '1.25rem', fontWeight: 700, color: badge.color }}>{badge.text}</div></div>
-          <div><div style={{ fontSize: '0.72rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Monthly</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{plan ? fmtNaira(plan.amountKobo / 100) : '—'}</div></div>
+          <div><div style={{ fontSize: '0.72rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Billing</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{currentCycle ? CYCLE_LABEL[currentCycle] : '—'}</div></div>
+          <div><div style={{ fontSize: '0.72rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Price</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{price && currentCycle ? <>{fmtNaira(price.amountKobo / 100)}<small style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--gf-text-muted)' }}>{CYCLE_SUFFIX[currentCycle]}</small></> : '—'}</div></div>
           <div><div style={{ fontSize: '0.72rem', color: 'var(--gf-text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{renewLabel}</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{fmtDate(renewDate)}</div></div>
         </div>
         {isOwner && state === 'active' && <CancelSubscription />}
@@ -132,7 +141,7 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
       {isOwner && (
         <section style={{ marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 12px' }}>{state === 'active' ? 'Change plan' : 'Choose a plan'}</h3>
-          <PlanCards currentTier={currentTier} />
+          <PlanCards currentTier={currentTier} currentCycle={currentCycle} />
         </section>
       )}
 

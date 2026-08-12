@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { isChargeableKobo, subscriptionInitBody } from '@/lib/paystack-payloads';
-import { PLATFORM_PLANS, PLAN_TIERS } from '@/lib/platform-plans';
+import {
+  PLATFORM_PLANS, PLAN_TIERS, BILLING_CYCLES, CYCLE_MONTHS, DEFAULT_CYCLE,
+  planPrice, planAmountKobo, monthlyEquivalentKobo, cycleSavingPct,
+} from '@/lib/platform-plans';
 
 // Plan checkout — platform (gym → GymFlow) and member auto-renew — failed with
 // Paystack's "Invalid Amount Sent" because the subscription init body carried a
@@ -58,15 +61,63 @@ describe('isChargeableKobo', () => {
 });
 
 describe('platform plan catalogue', () => {
-  it('gives every tier a chargeable amount', () => {
-    // A tier with no price would reach Paystack as "Invalid Amount Sent" again.
+  it('sells exactly two tiers on two billing cycles', () => {
+    expect(PLAN_TIERS).toEqual(['starter', 'growth']);
+    expect(BILLING_CYCLES).toEqual(['quarterly', 'annually']);
+  });
+
+  it('gives every tier × cycle a chargeable amount', () => {
+    // A plan with no price would reach Paystack as "Invalid Amount Sent" again.
     for (const tier of PLAN_TIERS) {
-      expect(isChargeableKobo(PLATFORM_PLANS[tier].amountKobo)).toBe(true);
+      for (const cycle of BILLING_CYCLES) {
+        expect(isChargeableKobo(planAmountKobo(tier, cycle))).toBe(true);
+      }
     }
   });
 
-  it('keeps the tiers priced in ascending order', () => {
-    const amounts = PLAN_TIERS.map((t) => PLATFORM_PLANS[t].amountKobo);
-    expect([...amounts].sort((a, b) => a - b)).toEqual(amounts);
+  it('points every tier × cycle at its own Paystack plan code env var', () => {
+    // One code per plan is what lets a recurring charge — which carries none of
+    // our metadata — be resolved back to a tier AND a cycle.
+    const envs = PLAN_TIERS.flatMap((t) => BILLING_CYCLES.map((c) => planPrice(t, c).planCodeEnv));
+    expect(new Set(envs).size).toBe(envs.length);
+    for (const tier of PLAN_TIERS) {
+      for (const cycle of BILLING_CYCLES) {
+        expect(planPrice(tier, cycle).cycle).toBe(cycle);
+      }
+    }
+  });
+
+  it('keeps the tiers priced in ascending order on every cycle', () => {
+    for (const cycle of BILLING_CYCLES) {
+      const amounts = PLAN_TIERS.map((t) => planAmountKobo(t, cycle));
+      expect([...amounts].sort((a, b) => a - b)).toEqual(amounts);
+    }
+  });
+
+  it('makes a longer commitment cheaper per month, never dearer', () => {
+    for (const tier of PLAN_TIERS) {
+      const base = monthlyEquivalentKobo(tier, DEFAULT_CYCLE);
+      for (const cycle of BILLING_CYCLES) {
+        expect(monthlyEquivalentKobo(tier, cycle)).toBeLessThanOrEqual(base);
+      }
+      // The annual saving is the headline on the pricing page; pin it so a price
+      // edit can't quietly turn "save 20%" into a lie.
+      expect(cycleSavingPct(tier, 'annually')).toBeGreaterThanOrEqual(15);
+      expect(cycleSavingPct(tier, DEFAULT_CYCLE)).toBe(0);
+    }
+  });
+
+  it('charges more per cycle for a longer cycle', () => {
+    // Guards the paid-through maths: a year must cost more in one go than a
+    // quarter, even though it costs less per month.
+    for (const tier of PLAN_TIERS) {
+      expect(planAmountKobo(tier, 'annually')).toBeGreaterThan(planAmountKobo(tier, 'quarterly'));
+    }
+    expect(CYCLE_MONTHS.quarterly).toBe(3);
+    expect(CYCLE_MONTHS.annually).toBe(12);
+  });
+
+  it('names every tier', () => {
+    for (const tier of PLAN_TIERS) expect(PLATFORM_PLANS[tier].name.length).toBeGreaterThan(0);
   });
 });

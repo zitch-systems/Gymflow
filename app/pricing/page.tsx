@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { MarketingNav, MarketingFooter } from '@/components/marketing/chrome';
 import { Check, Wallet } from 'lucide-react';
-import { PLATFORM_PLANS, PLAN_TIERS } from '@/lib/platform-plans';
+import {
+  PLATFORM_PLANS, PLAN_TIERS, BILLING_CYCLES, CYCLE_LABEL, CYCLE_SUFFIX,
+  DEFAULT_CYCLE, planPrice, monthlyEquivalentKobo, cycleSavingPct,
+} from '@/lib/platform-plans';
 import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 
 export const metadata = {
@@ -37,17 +40,19 @@ const PRICING_LD = JSON.stringify({
   image: `${SITE_URL}/images/og.png`,
   url: `${SITE_URL}/pricing`,
   brand: { '@type': 'Brand', name: 'GymFlow' },
-  offers: PLAN_TIERS.map((tier) => {
+  // One Offer per tier × billing cycle — the same four Paystack Plans that can
+  // actually be bought.
+  offers: PLAN_TIERS.flatMap((tier) => {
     const plan = PLATFORM_PLANS[tier];
-    return {
+    return BILLING_CYCLES.map((cycle) => ({
       '@type': 'Offer',
-      name: plan.name,
-      price: plan.amountKobo / 100,
+      name: `${plan.name} · ${CYCLE_LABEL[cycle]}`,
+      price: planPrice(tier, cycle).amountKobo / 100,
       priceCurrency: 'NGN',
-      description: `${plan.tagline}. Billed monthly in Naira, cancel anytime.`,
+      description: `${plan.tagline}. Billed ${cycle} in Naira, cancel anytime.`,
       url: `${SITE_URL}/pricing`,
       availability: 'https://schema.org/InStock',
-    };
+    }));
   }),
 });
 // Note: unlike app/g/[slug]/page.tsx's gymLd (built from gym-owner-submitted
@@ -64,22 +69,31 @@ const TIER_DISPLAY: Record<(typeof PLAN_TIERS)[number], { features: string[]; po
     variant: 'secondary',
   },
   growth: {
-    features: ['Everything in Starter', 'Class scheduling + waitlists', 'WhatsApp reminders', 'Live analytics + exports'],
+    features: [
+      'Everything in Starter', 'Class scheduling + waitlists', 'WhatsApp reminders',
+      'Live analytics + exports', 'Multi-gym & staff roles', 'Instructor payouts', 'Priority support',
+    ],
     popular: true, variant: 'primary',
   },
-  scale: {
-    features: ['Everything in Growth', 'Multi-gym & staff roles', 'Instructor payouts', 'Priority support'],
-    variant: 'secondary',
-  },
 };
+
+const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`;
+
+// The card headlines the quarterly price (the shortest commitment GymFlow sells)
+// and names the annual one underneath, so both buyable cycles are on the page
+// without a client-side toggle.
+const ALT_CYCLE = BILLING_CYCLES.find((c) => c !== DEFAULT_CYCLE)!;
 
 const TIERS = PLAN_TIERS.map((tier) => {
   const plan = PLATFORM_PLANS[tier];
   const d = TIER_DISPLAY[tier];
+  const save = cycleSavingPct(tier, ALT_CYCLE);
   return {
     name: plan.name,
-    amount: `₦${(plan.amountKobo / 100).toLocaleString('en-NG')}`,
-    period: '/mo',
+    amount: naira(planPrice(tier, DEFAULT_CYCLE).amountKobo),
+    period: CYCLE_SUFFIX[DEFAULT_CYCLE],
+    monthly: `≈${naira(monthlyEquivalentKobo(tier, DEFAULT_CYCLE))}/mo`,
+    alt: `or ${naira(planPrice(tier, ALT_CYCLE).amountKobo)}${CYCLE_SUFFIX[ALT_CYCLE]}${save > 0 ? ` — save ${save}%` : ''}`,
     tagline: plan.tagline,
     features: d.features,
     popular: d.popular,
@@ -94,7 +108,11 @@ const TIERS = PLAN_TIERS.map((tier) => {
 const FAQS = [
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes. Plans are billed monthly through Paystack with no long-term contract — cancel from Billing and your access runs to the end of the paid period.',
+    a: 'Yes. Plans are billed quarterly or annually through Paystack with no long-term contract — cancel from Billing and your access runs to the end of the period you have already paid for.',
+  },
+  {
+    q: 'What is the difference between quarterly and annual?',
+    a: 'Only the billing cycle and the price. Quarterly is the shortest commitment we sell and is charged every three months; annual is charged once a year and works out about 20% cheaper per month. Both include exactly the same features.',
   },
   {
     q: 'Do you charge per member?',
@@ -110,7 +128,7 @@ const FAQS = [
   },
   {
     q: 'Can I switch plans later?',
-    a: 'Yes — upgrade or downgrade from Billing at any time; the new tier applies from your next billing cycle.',
+    a: 'Yes — change tier or billing cycle from Billing at any time; the new plan applies from your next billing cycle.',
   },
 ];
 
@@ -148,7 +166,8 @@ export default function PricingPage() {
               <div className={`price${t.popular ? ' pop' : ''}`} key={t.name}>
                 <div className="pname">{t.name}</div>
                 <div className="amt">{t.amount}<small>{t.period}</small></div>
-                <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.85rem' }}>{t.tagline}</div>
+                <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.85rem' }}>{t.monthly} · {t.tagline}</div>
+                <div style={{ color: 'var(--gf-brand)', fontSize: '0.8rem', fontWeight: 600 }}>{t.alt}</div>
                 <ul>
                   {t.features.map((f) => (
                     <li key={f}><Check strokeWidth={2.2} /> {f}</li>
@@ -179,7 +198,7 @@ export default function PricingPage() {
         <div className="wrap">
           <div className="cta">
             <h2>Ready to run your gym the modern way?</h2>
-            <p>Choose a plan from ₦13,999/mo · cancel anytime · no setup fees.</p>
+            <p>Two plans, billed quarterly or annually · cancel anytime · no setup fees.</p>
             <div className="hero-cta" style={{ marginTop: 0 }}>
               <Link href="/signup" className="gf-btn gf-btn-primary gf-btn-lg">Launch your gym</Link>
               <Link href="/features" className="gf-btn gf-btn-outline gf-btn-lg">Explore features</Link>

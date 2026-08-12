@@ -2,7 +2,7 @@ import { Repeat, Banknote, CreditCard, Building2 } from 'lucide-react';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
-import { PLATFORM_PLANS, isPlanTier, PLAN_TIERS } from '@/lib/platform-plans';
+import { PLATFORM_PLANS, isPlanTier, PLAN_TIERS, normalizeCycle, monthlyEquivalentKobo, type PlanTier } from '@/lib/platform-plans';
 
 export const metadata = { title: 'Revenue' };
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ export default async function SuperRevenue() {
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
   const [{ data: gyms }, { data: platPay }, { data: memberPay }] = await Promise.all([
-    supabase.from('gyms').select('subscription_plan, subscription_status'),
+    supabase.from('gyms').select('subscription_plan, subscription_status, subscription_billing_cycle'),
     supabase.from('platform_payments').select('amount, plan, created_at, billing_period_start').eq('payment_status', 'successful'),
     supabase.from('payments').select('amount').eq('payment_status', 'successful'),
   ]);
@@ -29,10 +29,13 @@ export default async function SuperRevenue() {
   const trialing = allGyms.filter((g) => (g.subscription_status ?? 'trial') === 'trial').length;
   const pastDue = allGyms.filter((g) => g.subscription_status === 'past_due').length;
 
-  // MRR = sum of active gyms' plan prices.
+  // MRR = sum of active gyms' plan prices, normalised to a month. Nobody is
+  // billed monthly any more — a quarterly plan contributes a third of its charge
+  // and an annual one a twelfth, so the figure stays comparable month to month
+  // instead of spiking whenever a gym renews.
   const mrr = activeGyms.reduce((s, g) => {
-    const tier = isPlanTier(g.subscription_plan ?? '') ? (g.subscription_plan as 'starter' | 'growth' | 'scale') : null;
-    return s + (tier ? PLATFORM_PLANS[tier].amountKobo / 100 : 0);
+    const tier = isPlanTier(g.subscription_plan ?? '') ? (g.subscription_plan as PlanTier) : null;
+    return s + (tier ? monthlyEquivalentKobo(tier, normalizeCycle(g.subscription_billing_cycle)) / 100 : 0);
   }, 0);
 
   const plat = platPay ?? [];
