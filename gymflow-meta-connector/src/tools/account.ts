@@ -11,6 +11,8 @@ import { graphGet } from '../metaClient.js';
 import type {
   BusinessProfileInput,
   ConversationAnalyticsInput,
+  GetMessageAnalyticsInput,
+  GetPhoneNumberThroughputInput,
   ListPhoneNumbersInput,
   WabaDetailsInput,
 } from '../schemas.js';
@@ -184,5 +186,75 @@ export async function getConversationAnalytics(
       'Aggregate conversation counts and billing only, grouped by category. No recipients, ' +
       'no message content, no per-customer detail — Meta does not expose those on this edge ' +
       'and this connector would not surface them if it did.',
+  };
+}
+
+// ------------------------------------------------------- message analytics
+interface MessageDataPoint {
+  start?: number;
+  end?: number;
+  sent?: number;
+  delivered?: number;
+  read?: number;
+}
+
+export interface MessageAnalyticsResult {
+  phoneNumberId: string;
+  windowHours: number;
+  granularity: string;
+  totals: { sent: number; delivered: number; read: number };
+  dataPoints: MessageDataPoint[];
+}
+
+export async function getMessageAnalytics(
+  config: Config,
+  input: GetMessageAnalyticsInput,
+): Promise<MessageAnalyticsResult> {
+  const phoneNumberId = input.phoneNumberId ?? config.metaPhoneNumberId;
+  const windowHours = input.lookbackHours ?? 24;
+  const granularity = input.granularity ?? 'HALF_HOUR';
+  const end = Math.floor(Date.now() / 1000);
+  const start = end - windowHours * 3600;
+
+  const raw = (await graphGet(config, phoneNumberId, {
+    fields: `analytics.start(${start}).end(${end}).granularity(${granularity})`,
+  })) as { analytics?: { data_points?: MessageDataPoint[] } };
+
+  const points = raw.analytics?.data_points ?? [];
+  let sent = 0;
+  let delivered = 0;
+  let read = 0;
+  for (const p of points) {
+    sent += p.sent ?? 0;
+    delivered += p.delivered ?? 0;
+    read += p.read ?? 0;
+  }
+
+  return {
+    phoneNumberId,
+    windowHours,
+    granularity,
+    totals: { sent, delivered, read },
+    dataPoints: points,
+  };
+}
+
+// -------------------------------------------------- phone number throughput
+export interface PhoneNumberThroughputResult {
+  phoneNumberId: string;
+  throughputLevel: string | undefined;
+}
+
+export async function getPhoneNumberThroughput(
+  config: Config,
+  input: GetPhoneNumberThroughputInput,
+): Promise<PhoneNumberThroughputResult> {
+  const phoneNumberId = input.phoneNumberId ?? config.metaPhoneNumberId;
+  const raw = (await graphGet(config, phoneNumberId, {
+    fields: 'throughput',
+  })) as { throughput?: { level?: string } };
+  return {
+    phoneNumberId,
+    throughputLevel: raw.throughput?.level,
   };
 }

@@ -259,3 +259,180 @@ export type ListMessageTemplatesInput = z.infer<typeof listMessageTemplatesSchem
 export type InspectFailedDeliveriesInput = z.infer<typeof inspectFailedDeliveriesSchema>;
 export type InspectWebhookEventsInput = z.infer<typeof inspectWebhookEventsSchema>;
 export type VerifyMetaCredentialsInput = z.infer<typeof verifyMetaCredentialsSchema>;
+
+// ── New read schemas ─────────────────────────────────────────────────────────
+
+export const getMessageTemplateSchema = z
+  .object({
+    wabaId: metaId.optional().describe('WhatsApp Business Account ID. Defaults to META_WABA_ID.'),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(512)
+      .describe('Template name to look up. Returns all language versions of that template.'),
+  })
+  .strict();
+
+export const getMessageAnalyticsSchema = z
+  .object({
+    phoneNumberId: metaId
+      .optional()
+      .describe('Phone number ID to fetch analytics for. Defaults to META_PHONE_NUMBER_ID.'),
+    lookbackHours: z
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 30)
+      .optional()
+      .describe('How far back to look, in hours (1-720). Defaults to 24.'),
+    granularity: z
+      .enum(['HALF_HOUR', 'DAY', 'MONTH'])
+      .optional()
+      .describe('Time bucket size. Defaults to HALF_HOUR.'),
+  })
+  .strict();
+
+export const getPhoneNumberThroughputSchema = z
+  .object({
+    phoneNumberId: metaId
+      .optional()
+      .describe('Phone number ID to inspect. Defaults to META_PHONE_NUMBER_ID.'),
+  })
+  .strict();
+
+export const getMediaUrlSchema = z
+  .object({
+    mediaId: metaId.describe(
+      'Media ID returned by upload_media or extracted from an incoming webhook message.',
+    ),
+  })
+  .strict();
+
+// ── New write schemas ────────────────────────────────────────────────────────
+
+const e164Phone = z
+  .string()
+  .trim()
+  .min(7)
+  .max(20)
+  .regex(/^\+?[0-9]+$/, 'must be a phone number in E.164 format, e.g. +2349123456789');
+
+export const sendTextMessageSchema = z
+  .object({
+    phoneNumberId: metaId
+      .optional()
+      .describe('Sender phone number ID. Defaults to META_PHONE_NUMBER_ID.'),
+    to: e164Phone.describe('Recipient phone number in E.164 format, e.g. +2349123456789.'),
+    body: z.string().min(1).max(4096).describe('Text body to send (max 4096 chars).'),
+    previewUrl: z
+      .boolean()
+      .optional()
+      .describe('Enable URL link preview in the message. Defaults to false.'),
+    confirm: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('Safety interlock: must exactly equal the recipient `to` number.'),
+  })
+  .strict();
+
+export const sendTemplateMessageSchema = z
+  .object({
+    phoneNumberId: metaId
+      .optional()
+      .describe('Sender phone number ID. Defaults to META_PHONE_NUMBER_ID.'),
+    to: e164Phone.describe('Recipient phone number in E.164 format.'),
+    templateName: z
+      .string()
+      .trim()
+      .min(1)
+      .max(512)
+      .regex(/^[a-z0-9_]+$/, 'Meta template names are lowercase letters, digits and underscores')
+      .describe('Name of the approved template to send.'),
+    languageCode: z
+      .string()
+      .trim()
+      .min(2)
+      .max(10)
+      .describe('Template language code, e.g. en_US or en.'),
+    components: z
+      .array(z.record(z.string(), z.unknown()))
+      .optional()
+      .describe(
+        'Template variable components array (HEADER/BODY/BUTTONS with parameter substitutions). ' +
+          'Omit for templates with no variables.',
+      ),
+    confirm: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('Safety interlock: must exactly equal the recipient `to` number.'),
+  })
+  .strict();
+
+export const uploadMediaSchema = z
+  .object({
+    phoneNumberId: metaId
+      .optional()
+      .describe('Phone number ID to upload media under. Defaults to META_PHONE_NUMBER_ID.'),
+    mediaUrl: z
+      .string()
+      .url()
+      .describe('Publicly accessible HTTPS URL of the media file to upload to WhatsApp.'),
+    mimeType: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .describe(
+        'MIME type of the file, e.g. image/jpeg, image/png, audio/mpeg, video/mp4, ' +
+          'application/pdf. Must match the actual file content.',
+      ),
+    confirm: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('Safety interlock: must exactly equal the `mimeType` being uploaded.'),
+  })
+  .strict();
+
+export const deleteMediaSchema = z
+  .object({
+    mediaId: metaId.describe('Media ID to permanently delete.'),
+    confirm: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('Safety interlock: must exactly equal the `mediaId` being deleted.'),
+  })
+  .strict();
+
+export const updatePhoneNumberNameSchema = z
+  .object({
+    phoneNumberId: metaId
+      .optional()
+      .describe('Phone number ID whose display name to change. Defaults to META_PHONE_NUMBER_ID.'),
+    verifiedName: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .describe('New display name to request. Subject to Meta review before it goes live.'),
+    confirm: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('Safety interlock: must exactly equal the requested `verifiedName`.'),
+  })
+  .strict();
+
+export type GetMessageTemplateInput = z.infer<typeof getMessageTemplateSchema>;
+export type GetMessageAnalyticsInput = z.infer<typeof getMessageAnalyticsSchema>;
+export type GetPhoneNumberThroughputInput = z.infer<typeof getPhoneNumberThroughputSchema>;
+export type GetMediaUrlInput = z.infer<typeof getMediaUrlSchema>;
+export type SendTextMessageInput = z.infer<typeof sendTextMessageSchema>;
+export type SendTemplateMessageInput = z.infer<typeof sendTemplateMessageSchema>;
+export type UploadMediaInput = z.infer<typeof uploadMediaSchema>;
+export type DeleteMediaInput = z.infer<typeof deleteMediaSchema>;
+export type UpdatePhoneNumberNameInput = z.infer<typeof updatePhoneNumberNameSchema>;
