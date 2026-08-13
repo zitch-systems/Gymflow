@@ -38,6 +38,7 @@
   "exclude": [
     "node_modules",
     "design",
-    "test"
+    "test",
+    "gymflow-meta-connector"
   ]
 }

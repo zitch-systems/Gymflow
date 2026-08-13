@@ -52,8 +52,8 @@ export interface ToolDefinition {
   name: string;
   title: string;
   description: string;
-  schema: z.ZodObject<any>;
-  handler: (config: Config, input: any) => Promise<unknown>;
+  schema: z.ZodObject<z.ZodRawShape>;
+  handler(config: Config, input: Record<string, unknown>): Promise<unknown>;
   write?: boolean;
 }
 
