@@ -4,7 +4,7 @@ import nextTypescript from 'eslint-config-next/typescript';
 // Flat config (`next lint` was removed in Next 16; `npm run lint` calls eslint
 // directly). design/ holds the static HTML prototypes — not lintable app code.
 const config = [
-  { ignores: ['.next/**', 'node_modules/**', 'design/**', 'public/**', 'next-env.d.ts'] },
+  { ignores: ['.next/**', 'node_modules/**', 'design/**', 'public/**', 'next-env.d.ts', 'gymflow-meta-connector/**'] },
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
