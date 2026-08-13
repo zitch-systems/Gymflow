@@ -6,6 +6,7 @@ import { isMemberSubEvent, handleMemberSubEvent } from '@/lib/member-sub-fulfill
 import { isTransferEvent, handleTransferEvent } from '@/lib/transfer-fulfill';
 import { verifyPaystackSignature, webhookBodyHash } from '@/lib/webhook-verify';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { confirmWhatsAppPayment } from '@/lib/whatsapp/notify';
 import { captureServerEvent } from '@/lib/server-error';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,25 @@ async function dispatch(event: Json): Promise<NextResponse> {
     // retry, so ack to stop the resends.
     if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
   }
+
+  // Confirm in the WhatsApp thread the member paid from. Gated on `created` so
+  // the webhook and the post-checkout callback — which Paystack fires almost
+  // simultaneously for the same transaction — cannot both message them. A
+  // no-op for payments that did not start in WhatsApp, and awaited but never
+  // fatal: the money is already settled and a failed courtesy message must not
+  // turn that into a retry.
+  if (result.ok && result.created) {
+    try {
+      const admin = createAdminClient();
+      await confirmWhatsAppPayment(admin, {
+        reference: d.reference as string,
+        amountKobo: Number(d.amount ?? 0),
+      });
+    } catch (e) {
+      console.error('[paystack/webhook] whatsapp confirmation failed:', (e as Error).message);
+    }
+  }
+
   return NextResponse.json({ received: true });
 }
 

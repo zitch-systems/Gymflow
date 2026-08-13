@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 import { CheckInButton } from '@/components/admin/checkin-button';
 import { CodeRedeem } from '@/components/admin/code-redeem';
+import { qrDeepLink } from '@/lib/whatsapp/checkin';
 
 export const metadata = { title: 'Check-In' };
 export const dynamic = 'force-dynamic';
@@ -32,8 +33,19 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   // QR render + the two independent check-in queries in parallel (previously
   // three sequential awaits).
-  const [doorQr, { data: feed }, { data: openRows }] = await Promise.all([
+  // A second door QR that opens WhatsApp with the check-in message pre-filled,
+  // for members who use the WhatsApp channel rather than the app. It encodes a
+  // wa.me link, so a phone's ordinary camera opens it — no app, no sign-in at
+  // the door. Null when the platform number or signing secret isn't configured,
+  // and the panel simply doesn't render.
+  const waNumber = process.env.WHATSAPP_BUSINESS_NUMBER || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || null;
+  const waLink = waNumber ? qrDeepLink(gym, waNumber) : null;
+
+  const [doorQr, waQr, { data: feed }, { data: openRows }] = await Promise.all([
     QRCode.toDataURL(checkinUrl, { margin: 2, width: 1024, errorCorrectionLevel: 'M', color: { dark: '#0a0b0e', light: '#ffffff' } }),
+    waLink
+      ? QRCode.toDataURL(waLink, { margin: 2, width: 1024, errorCorrectionLevel: 'M', color: { dark: '#0a0b0e', light: '#ffffff' } })
+      : Promise.resolve(null),
     supabase
       .from('check_ins')
       .select('id, checked_in_at, checked_out_at, check_in_method, member_id')
@@ -108,6 +120,30 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
               <Printer strokeWidth={2} size={15} /> Print A4 poster
             </Link>
           </div>
+
+          {waQr && (
+            <div style={{ borderTop: '1px solid var(--gf-border)', paddingTop: 14, marginBottom: 14 }}>
+              <div className="door-qr" style={{ marginBottom: 8 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- generated data-URL QR */}
+                <img src={waQr} alt={`WhatsApp check-in QR for ${gym.name}`} width={132} height={132} />
+              </div>
+              <p style={{ margin: 0 }}>
+                <strong>WhatsApp check-in.</strong> Members point their camera at this one — WhatsApp opens with the
+                message ready, they hit send, and they’re in. It writes the same visit record as the QR above, so your
+                numbers and history stay in one place.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+                <a
+                  className="gf-btn gf-btn-secondary gf-btn-sm"
+                  href={waQr}
+                  download={`gymflow-${gym.slug}-whatsapp-qr.png`}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <Download strokeWidth={2} size={15} /> Download PNG
+                </a>
+              </div>
+            </div>
+          )}
           <CodeRedeem />
           <form className="find" method="get" action="/admin/staff-checkin"><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Type a member name…" aria-label="Find member" /></form>
           {q && (

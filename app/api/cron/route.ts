@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'crypto';
 import { createClient as createSb } from '@supabase/supabase-js';
 import { runReconciliation, type ReconcileSummary } from '@/lib/reconcile';
 import { deliverRenewalReminder, inSlices, type NotifyGym } from '@/lib/notify';
+import { expireStaleIntents } from '@/lib/whatsapp/payments';
 import { firstName, fmt12Hr, fmtDate, watDateISO, watDayStartUtc } from '@/lib/format';
 import { gymBillingState } from '@/lib/platform-plans';
 import { memberAppUrl, platformAppUrl, sendGymEmail, sendPlatformEmail } from '@/lib/email/send';
@@ -152,7 +153,14 @@ export async function GET(req: Request) {
             const g = gymById.get(s.gym_id as string);
             if (!c || !g) return;
             const days = Math.max(0, Math.ceil((new Date(s.end_date as string).getTime() - Date.now()) / 86_400_000));
-            await deliverRenewalReminder(g, { email: c.email, phone: c.phone, fullName: c.full_name }, { days, endDate: s.end_date });
+            await deliverRenewalReminder(
+              g,
+              // memberId is what lets the reminder go out over the WhatsApp
+              // Cloud API into the member's existing thread rather than the
+              // plain Termii fallback.
+              { email: c.email, phone: c.phone, fullName: c.full_name, memberId: c.id },
+              { days, endDate: s.end_date },
+            );
           });
         }
       }
@@ -416,9 +424,28 @@ export async function GET(req: Request) {
     } catch { /* housekeeping never fails the run */ }
   }
 
+  // WhatsApp housekeeping. Checkouts that were started and never finished are
+  // marked abandoned so the gym's WhatsApp tab shows the truth rather than an
+  // ever-growing list of things that look in-flight; expired Flow sessions and
+  // spent email codes are deleted outright — a resumable half-open signup is
+  // exactly what should not survive the hour it was issued in.
+  let intentsExpired = 0;
+  if (admin) {
+    try {
+      intentsExpired = await expireStaleIntents(admin);
+      const now = new Date().toISOString();
+      await admin.from('whatsapp_flow_sessions').delete().lt('expires_at', now);
+      await admin.from('whatsapp_email_otps').delete().lt('expires_at', now);
+      // The message log is a support tool, not an archive. 180 days keeps a
+      // full season of context without holding members' conversations forever.
+      const msgStale = new Date(Date.now() - 180 * 86_400_000).toISOString();
+      await admin.from('whatsapp_messages').delete().lt('created_at', msgStale);
+    } catch { /* housekeeping never fails the run */ }
+  }
+
   return Response.json({
     ok: true, warmed: true, serviceRole: Boolean(admin),
     remindersCreated, trialNoticesSent, classDigestsSent, freezesResumed, freezeNoticesSent, staleVisitsClosed,
-    reconciliation,
+    intentsExpired, reconciliation,
   });
 }
