@@ -181,6 +181,78 @@ export function graphDelete(
   return graphMutate(config, 'DELETE', path, undefined, query);
 }
 
+export async function graphPostMultipart(
+  config: Config,
+  path: string,
+  fields: Record<string, string>,
+  fileField: string,
+  fileBlob: Blob,
+  fileName: string,
+): Promise<unknown> {
+  if (config.readOnly) {
+    throw new MetaApiError(
+      'This connector is in read-only mode; write calls are refused.',
+      undefined,
+      undefined,
+      'read_only',
+    );
+  }
+  const url = new URL(`${config.graphApiBaseUrl}/${config.graphApiVersion}/${path}`);
+  const form = new FormData();
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  form.append(fileField, fileBlob, fileName);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), config.graphTimeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${config.metaAccessToken}`, Accept: 'application/json' },
+      body: form,
+      signal: controller.signal,
+    });
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch {
+      throw new MetaApiError(
+        `Meta API returned a non-JSON response (HTTP ${response.status}).`,
+        response.status,
+        undefined,
+        undefined,
+      );
+    }
+    if (!response.ok) {
+      const errBody = parsed as GraphErrorBody;
+      throw new MetaApiError(
+        errBody.error?.message ?? `Meta API request failed (HTTP ${response.status}).`,
+        response.status,
+        errBody.error?.code,
+        errBody.error?.type,
+      );
+    }
+    return parsed;
+  } catch (err) {
+    if (err instanceof MetaApiError) throw err;
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new MetaApiError(
+        `Meta API did not respond within ${config.graphTimeoutMs}ms.`,
+        undefined,
+        undefined,
+        'timeout',
+      );
+    }
+    throw new MetaApiError(
+      `Could not reach Meta API: ${err instanceof Error ? err.message : String(err)}`,
+      undefined,
+      undefined,
+      'network_error',
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const ASSET_HOST_SUFFIXES = ['.fbcdn.net', '.fbsbx.com', '.facebook.com', '.whatsapp.net'] as const;
 
 export function isAllowedAssetUrl(raw: string): boolean {

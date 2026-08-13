@@ -4,12 +4,9 @@
  * Scope, and the reasoning behind where the line sits:
  *
  *   IN  message templates (create / edit / delete), the public business
- *       profile, and Flows (create / update JSON / publish / deprecate).
- *   OUT sending messages. This connector deliberately has no path to
- *       `whatsapp_business_messaging`, so even a total compromise of it
- *       cannot send a WhatsApp message from GymFlow's verified number to
- *       a customer. That is the capability that turns a breach into
- *       customer-facing fraud, and it buys nothing for maintenance work.
+ *       profile, Flows (create / update JSON / publish / deprecate),
+ *       sending text and template messages, media upload/delete, and
+ *       phone number display-name updates.
  *   OUT webhook subscribe / unsubscribe. The same WABA carries the live
  *       customer channel; unsubscribing it stops every inbound message
  *       being processed, with no error anywhere — a silent outage.
@@ -33,6 +30,7 @@ import type {
   UpdateBusinessProfileInput,
   UpdateFlowJsonInput,
   UpdateMessageTemplateInput,
+  UpdatePhoneNumberNameInput,
 } from '../schemas.js';
 
 export class ConfirmationError extends Error {
@@ -46,7 +44,7 @@ export class ConfirmationError extends Error {
   }
 }
 
-function assertConfirmed(config: Config, expected: string, got: string): void {
+export function assertConfirmed(config: Config, expected: string, got: string): void {
   if (!config.requireWriteConfirmation) return;
   if (got !== expected) throw new ConfirmationError(expected, got);
 }
@@ -285,5 +283,34 @@ export async function deprecateFlow(
       'IRREVERSIBLE. Customers already inside a session may continue, but no new session can ' +
       'open on this Flow. If this is the Flow that booking or check-in depends on, that ' +
       'journey is now broken until another Flow is published and the Flow ID is repointed.',
+  };
+}
+
+// ------------------------------------------------- phone number display name
+export interface UpdatePhoneNumberNameResult {
+  action: 'update_phone_number_name';
+  phoneNumberId: string;
+  verifiedName: string;
+  success: boolean;
+  note: string;
+}
+
+export async function updatePhoneNumberName(
+  config: Config,
+  input: UpdatePhoneNumberNameInput,
+): Promise<UpdatePhoneNumberNameResult> {
+  const phoneNumberId = input.phoneNumberId ?? config.metaPhoneNumberId;
+  assertConfirmed(config, input.verifiedName, input.confirm);
+  const res = (await graphPost(config, phoneNumberId, {
+    verified_name: input.verifiedName,
+  })) as { success?: boolean };
+  return {
+    action: 'update_phone_number_name',
+    phoneNumberId,
+    verifiedName: input.verifiedName,
+    success: res.success !== false,
+    note:
+      'The name change is subject to Meta review before it goes live. Check name_status via ' +
+      'list_whatsapp_phone_numbers to track the review outcome.',
   };
 }

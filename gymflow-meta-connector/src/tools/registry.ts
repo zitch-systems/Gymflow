@@ -8,8 +8,13 @@ import {
   conversationAnalyticsSchema,
   createFlowSchema,
   createMessageTemplateSchema,
+  deleteMediaSchema,
   deleteMessageTemplateSchema,
   deprecateFlowSchema,
+  getMediaUrlSchema,
+  getMessageAnalyticsSchema,
+  getMessageTemplateSchema,
+  getPhoneNumberThroughputSchema,
   inspectFailedDeliveriesSchema,
   inspectFlowSchema,
   inspectWebhookEventsSchema,
@@ -18,9 +23,13 @@ import {
   listPhoneNumbersSchema,
   publishFlowSchema,
   publishedFlowScreensSchema,
+  sendTemplateMessageSchema,
+  sendTextMessageSchema,
   updateBusinessProfileSchema,
   updateFlowJsonSchema,
   updateMessageTemplateSchema,
+  updatePhoneNumberNameSchema,
+  uploadMediaSchema,
   verifyMetaCredentialsSchema,
   wabaDetailsSchema,
 } from '../schemas.js';
@@ -33,10 +42,11 @@ import {
   updateBusinessProfile,
   updateFlowJson,
   updateMessageTemplate,
+  updatePhoneNumberName,
 } from './writes.js';
 import { checkWebhookStatus } from './webhookStatus.js';
 import { checkPhoneNumberConfig } from './phoneNumberConfig.js';
-import { listMessageTemplates } from './messageTemplates.js';
+import { getMessageTemplate, listMessageTemplates } from './messageTemplates.js';
 import { inspectFailedDeliveries } from './failedDeliveries.js';
 import { inspectWebhookEvents } from './webhookEvents.js';
 import { verifyMetaCredentials } from './verifyCredentials.js';
@@ -44,9 +54,13 @@ import { getPublishedFlowScreens, inspectFlow, listFlows } from './flows.js';
 import {
   getBusinessProfile,
   getConversationAnalytics,
+  getMessageAnalytics,
+  getPhoneNumberThroughput,
   getWabaDetails,
   listPhoneNumbers,
 } from './account.js';
+import { sendTemplateMessage, sendTextMessage } from './messaging.js';
+import { deleteMedia, getMediaUrl, uploadMedia } from './media.js';
 
 export interface ToolDefinition {
   name: string;
@@ -168,6 +182,42 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
     schema: conversationAnalyticsSchema,
     handler: getConversationAnalytics,
   },
+  {
+    name: 'get_whatsapp_message_template',
+    title: 'Get a WhatsApp message template by name',
+    description:
+      'Fetches all language versions of a named template including its full component definitions ' +
+      '(HEADER, BODY, FOOTER, BUTTONS). Useful to inspect a template before sending or editing it.',
+    schema: getMessageTemplateSchema,
+    handler: getMessageTemplate,
+  },
+  {
+    name: 'get_message_analytics',
+    title: 'Get sent/delivered/read message counts',
+    description:
+      'Returns aggregate sent, delivered, and read message counts for a phone number over a ' +
+      'bounded window at the requested granularity (HALF_HOUR / DAY / MONTH).',
+    schema: getMessageAnalyticsSchema,
+    handler: getMessageAnalytics,
+  },
+  {
+    name: 'get_phone_number_throughput',
+    title: 'Get phone number throughput tier',
+    description:
+      "Returns the phone number's current messaging throughput level " +
+      '(STANDARD, HIGH, NOT_APPLICABLE).',
+    schema: getPhoneNumberThroughputSchema,
+    handler: getPhoneNumberThroughput,
+  },
+  {
+    name: 'get_whatsapp_media_url',
+    title: 'Get a media download URL by media ID',
+    description:
+      'Returns the temporary pre-signed download URL and metadata (MIME type, file size, SHA-256) ' +
+      'for a media object. The URL is valid for approximately 5 minutes.',
+    schema: getMediaUrlSchema,
+    handler: getMediaUrl,
+  },
 
   // WRITE tools
   {
@@ -243,6 +293,56 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
     handler: deprecateFlow,
     write: true,
   },
+  {
+    name: 'send_whatsapp_text_message',
+    title: 'Send a WhatsApp text message',
+    description:
+      'Sends a free-form text message to a recipient phone number. ' +
+      'Requires `confirm` to equal the recipient `to` number.',
+    schema: sendTextMessageSchema,
+    handler: sendTextMessage,
+    write: true,
+  },
+  {
+    name: 'send_whatsapp_template_message',
+    title: 'Send a WhatsApp template message',
+    description:
+      'Sends an approved message template to a recipient. Supply variable components if the ' +
+      'template has placeholders. Requires `confirm` to equal the recipient `to` number.',
+    schema: sendTemplateMessageSchema,
+    handler: sendTemplateMessage,
+    write: true,
+  },
+  {
+    name: 'upload_whatsapp_media',
+    title: 'Upload media to WhatsApp',
+    description:
+      'Downloads a file from a public URL and uploads it to the WhatsApp media store, returning ' +
+      'a mediaId for use in message sends. Requires `confirm` to equal the `mimeType`.',
+    schema: uploadMediaSchema,
+    handler: uploadMedia,
+    write: true,
+  },
+  {
+    name: 'delete_whatsapp_media',
+    title: 'Delete a WhatsApp media object',
+    description:
+      'Permanently deletes an uploaded media object by its ID. ' +
+      'Requires `confirm` to equal the `mediaId`.',
+    schema: deleteMediaSchema,
+    handler: deleteMedia,
+    write: true,
+  },
+  {
+    name: 'update_phone_number_name',
+    title: 'Request a WhatsApp display-name change',
+    description:
+      'Submits a new display name for a phone number, subject to Meta review. ' +
+      'Requires `confirm` to equal the requested `verifiedName`.',
+    schema: updatePhoneNumberNameSchema,
+    handler: updatePhoneNumberName,
+    write: true,
+  },
 ];
 
 export function toolsFor(config: Config): readonly ToolDefinition[] {
@@ -250,7 +350,7 @@ export function toolsFor(config: Config): readonly ToolDefinition[] {
 }
 
 export function targetOf(input: Record<string, unknown>): string | undefined {
-  for (const key of ['flowId', 'templateId', 'name', 'phoneNumberId', 'wabaId']) {
+  for (const key of ['flowId', 'templateId', 'mediaId', 'name', 'to', 'verifiedName', 'phoneNumberId', 'wabaId']) {
     const value = input[key];
     if (typeof value === 'string' && value) return `${key}=${value.slice(0, 120)}`;
   }

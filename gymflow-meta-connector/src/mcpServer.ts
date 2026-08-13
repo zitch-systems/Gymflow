@@ -20,18 +20,18 @@ export function buildMcpServer(config: Config, requestMeta: RequestMeta): McpSer
     {
       capabilities: { tools: {} },
       instructions:
-        'Maintenance and configuration tools for the GymFlow WhatsApp Cloud API and Meta ' +
-        'Business API. No customer data (PINs, biometrics, balances, transactions, personal ' +
-        "data) is ever reachable through this server — it only talks to Meta's Graph API. " +
-        'Messages can never be sent from here, webhook subscriptions can never be changed, ' +
-        'and no token-rotation or payment tools exist. ' +
+        'Configuration, messaging, and analytics tools for the GymFlow WhatsApp Cloud API and ' +
+        'Meta Business API. No customer data (PINs, biometrics, balances, transactions, ' +
+        "personal data) is ever reachable through this server — it only talks to Meta's Graph " +
+        'API. Webhook subscriptions can never be changed, and no token-rotation or payment ' +
+        'tools exist. ' +
         (config.readOnly
           ? 'This instance is READ-ONLY: every tool below only reads.'
-          : 'This instance has CONFIG WRITES enabled: tools named create_/update_/delete_/' +
-            'publish_/deprecate_ change live Meta configuration for a production WhatsApp ' +
-            'channel. Each requires a `confirm` argument restating the exact resource being ' +
-            'changed. Never guess that value — if the user has not named the resource ' +
-            'unambiguously, ask before calling.'),
+          : 'This instance has WRITES enabled: tools named create_/update_/delete_/publish_/' +
+            'deprecate_/send_/upload_ change or send via live Meta configuration for a ' +
+            'production WhatsApp channel. Each requires a `confirm` argument restating the ' +
+            'exact resource or recipient being changed. Never guess that value — if the user ' +
+            'has not named the resource unambiguously, ask before calling.'),
     },
   );
 
