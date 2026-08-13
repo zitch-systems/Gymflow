@@ -3,6 +3,9 @@ import 'server-only';
 import { gymHasFeature } from '@/lib/entitlements';
 import { firstName, fmtDate, watDateISO } from '@/lib/format';
 import { sendMessage } from '@/lib/sms';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { whatsappConfigured } from '@/lib/whatsapp/cloud-api';
+import { sendRenewalReminder } from '@/lib/whatsapp/notify';
 import type { EmailContent } from '@/lib/email/layout';
 import { memberAppUrl, sendGymEmail, type EmailCategory } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, paymentFailed, receipt, renewalReminder } from '@/lib/email/templates/member';
@@ -67,6 +70,13 @@ export type NotifyRecipient = {
   email?: string | null;
   phone?: string | null;
   fullName?: string | null;
+  /**
+   * The member's profile id. Optional only so existing call sites keep
+   * compiling; supplying it is what lets a reminder go out over the WhatsApp
+   * Cloud API (with Renew/My membership buttons, into their existing thread)
+   * instead of the plain Termii SMS-style fallback.
+   */
+  memberId?: string | null;
 };
 
 export type DeliveryOutcome = { email: boolean; whatsapp: boolean };
@@ -128,12 +138,41 @@ export async function deliverRenewalReminder(
   }
 
   if (to.phone && gymHasFeature({ subscription_plan: gym.subscription_plan ?? null }, 'whatsapp_reminders')) {
-    const r = await sendMessage({
-      to: to.phone,
-      body: `${gymName}: your membership ends ${when}. Renew from the app to keep training.`,
-      channel: 'whatsapp',
-    });
-    out.whatsapp = r.ok;
+    // Prefer the WhatsApp Cloud API: it reaches the member in the same thread
+    // they check in and pay from, carries Renew / My membership buttons that
+    // lead straight back into the flow, and honours their opt-out. Termii
+    // remains the fallback for members who have never messaged the business
+    // number, where there is no thread and no contact row to send into.
+    let delivered = false;
+    if (to.memberId && whatsappConfigured()) {
+      try {
+        const admin = createAdminClient();
+        const res = await sendRenewalReminder(admin, {
+          memberId: to.memberId,
+          memberPhone: to.phone,
+          memberFirstName: firstName(to.fullName),
+          gymId: gym.id,
+          endDate: opts.endDate ?? watDateISO(new Date(Date.now() + Math.max(0, opts.days) * 86_400_000)),
+          daysLeft: opts.days,
+        });
+        delivered = res.sent;
+        // 'opted out' is a decision, not a delivery failure — falling through to
+        // Termii would route around the member's own "stop".
+        if (!res.sent && res.skipped === 'opted out') return out;
+      } catch (e) {
+        console.error('[notify] whatsapp cloud reminder failed:', (e as Error).message);
+      }
+    }
+
+    if (!delivered) {
+      const r = await sendMessage({
+        to: to.phone,
+        body: `${gymName}: your membership ends ${when}. Renew from the app to keep training.`,
+        channel: 'whatsapp',
+      });
+      delivered = r.ok;
+    }
+    out.whatsapp = delivered;
   }
 
   return out;

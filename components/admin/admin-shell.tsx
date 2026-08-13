@@ -11,7 +11,7 @@ import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
   LayoutDashboard, Users, ScanLine, BarChart3, CalendarDays,
-  GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode,
+  GraduationCap, Tag, Bell, Wrench, Wallet, Settings, LogOut, Search, CreditCard, QrCode, MessageCircle,
 } from 'lucide-react';
 import { LogoMark } from '@/components/ui/logo';
 
@@ -47,6 +47,7 @@ const NAV: Item[] = [
   { href: '/admin/operations', label: 'Facility', icon: Wrench, section: 'Admin' },
   { href: '/admin/wallet', label: 'Wallet', icon: Wallet, section: 'Admin' },
   { href: '/admin/billing', label: 'Billing', icon: CreditCard, section: 'Admin', roles: FINANCE },
+  { href: '/admin/whatsapp', label: 'WhatsApp', icon: MessageCircle, section: 'Admin', roles: MANAGER },
   { href: '/admin/settings', label: 'Settings', icon: Settings, section: 'Admin', roles: MANAGER },
 ];
 

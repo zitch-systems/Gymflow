@@ -156,6 +156,7 @@ export type Database = {
           gym_id: string
           id: string
           member_id: string
+          source: string
           used_at: string | null
         }
         Insert: {
@@ -165,6 +166,7 @@ export type Database = {
           gym_id: string
           id?: string
           member_id: string
+          source?: string
           used_at?: string | null
         }
         Update: {
@@ -174,6 +176,7 @@ export type Database = {
           gym_id?: string
           id?: string
           member_id?: string
+          source?: string
           used_at?: string | null
         }
         Relationships: [
@@ -2189,6 +2192,420 @@ export type Database = {
             foreignKeyName: "waivers_gym_id_fkey"
             columns: ["gym_id"]
             isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_whatsapp_settings: {
+        Row: {
+          ai_enabled: boolean
+          app_home_url: string | null
+          created_at: string
+          enabled: boolean
+          gym_id: string
+          qr_checkin_enabled: boolean
+          support_phone: string | null
+          updated_at: string
+          welcome_message: string | null
+        }
+        Insert: {
+          ai_enabled?: boolean
+          app_home_url?: string | null
+          created_at?: string
+          enabled?: boolean
+          gym_id: string
+          qr_checkin_enabled?: boolean
+          support_phone?: string | null
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Update: {
+          ai_enabled?: boolean
+          app_home_url?: string | null
+          created_at?: string
+          enabled?: boolean
+          gym_id?: string
+          qr_checkin_enabled?: boolean
+          support_phone?: string | null
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_whatsapp_settings_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: true
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_contacts: {
+        Row: {
+          active_gym_id: string | null
+          blocked: boolean
+          created_at: string
+          display_name: string | null
+          id: string
+          last_inbound_at: string | null
+          last_outbound_at: string | null
+          opted_in: boolean
+          opted_out_at: string | null
+          profile_id: string | null
+          state: Json
+          updated_at: string
+          wa_id: string
+        }
+        Insert: {
+          active_gym_id?: string | null
+          blocked?: boolean
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          opted_in?: boolean
+          opted_out_at?: string | null
+          profile_id?: string | null
+          state?: Json
+          updated_at?: string
+          wa_id: string
+        }
+        Update: {
+          active_gym_id?: string | null
+          blocked?: boolean
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          opted_in?: boolean
+          opted_out_at?: string | null
+          profile_id?: string | null
+          state?: Json
+          updated_at?: string
+          wa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_contacts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_contacts_active_gym_id_fkey"
+            columns: ["active_gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          authored_by: string | null
+          body: string | null
+          contact_id: string
+          created_at: string
+          direction: string
+          error: string | null
+          gym_id: string | null
+          id: string
+          kind: string
+          payload: Json | null
+          status: string | null
+          wa_message_id: string | null
+        }
+        Insert: {
+          authored_by?: string | null
+          body?: string | null
+          contact_id: string
+          created_at?: string
+          direction: string
+          error?: string | null
+          gym_id?: string | null
+          id?: string
+          kind?: string
+          payload?: Json | null
+          status?: string | null
+          wa_message_id?: string | null
+        }
+        Update: {
+          authored_by?: string | null
+          body?: string | null
+          contact_id?: string
+          created_at?: string
+          direction?: string
+          error?: string | null
+          gym_id?: string | null
+          id?: string
+          kind?: string
+          payload?: Json | null
+          status?: string | null
+          wa_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_flow_sessions: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          data: Json
+          expires_at: string
+          flow_token: string
+          gym_id: string | null
+          kind: string
+          wa_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          data?: Json
+          expires_at: string
+          flow_token: string
+          gym_id?: string | null
+          kind: string
+          wa_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          data?: Json
+          expires_at?: string
+          flow_token?: string
+          gym_id?: string | null
+          kind?: string
+          wa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_flow_sessions_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_email_otps: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          gym_id: string | null
+          id: string
+          purpose: string
+          user_id: string | null
+          wa_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          gym_id?: string | null
+          id?: string
+          purpose?: string
+          user_id?: string | null
+          wa_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          gym_id?: string | null
+          id?: string
+          purpose?: string
+          user_id?: string | null
+          wa_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_payment_intents: {
+        Row: {
+          amount_kobo: number
+          authorization_url: string | null
+          completed_at: string | null
+          contact_id: string
+          created_at: string
+          gym_id: string
+          id: string
+          member_id: string
+          plan_id: string | null
+          reference: string
+          status: string
+          with_trainer: boolean
+        }
+        Insert: {
+          amount_kobo: number
+          authorization_url?: string | null
+          completed_at?: string | null
+          contact_id: string
+          created_at?: string
+          gym_id: string
+          id?: string
+          member_id: string
+          plan_id?: string | null
+          reference: string
+          status?: string
+          with_trainer?: boolean
+        }
+        Update: {
+          amount_kobo?: number
+          authorization_url?: string | null
+          completed_at?: string | null
+          contact_id?: string
+          created_at?: string
+          gym_id?: string
+          id?: string
+          member_id?: string
+          plan_id?: string | null
+          reference?: string
+          status?: string
+          with_trainer?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_payment_intents_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_payment_intents_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_providers: {
+        Row: {
+          api_key_encrypted: string | null
+          base_url: string | null
+          created_at: string
+          default_model: string | null
+          docs_url: string | null
+          enabled: boolean
+          id: string
+          models: Json
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          base_url?: string | null
+          created_at?: string
+          default_model?: string | null
+          docs_url?: string | null
+          enabled?: boolean
+          id?: string
+          models?: Json
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          base_url?: string | null
+          created_at?: string
+          default_model?: string | null
+          docs_url?: string | null
+          enabled?: boolean
+          id?: string
+          models?: Json
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gym_ai_settings: {
+        Row: {
+          api_key_encrypted: string | null
+          created_at: string
+          enabled: boolean
+          gym_id: string
+          handoff_keywords: string[]
+          max_tokens: number
+          model: string | null
+          monthly_token_cap: number
+          provider_slug: string | null
+          system_prompt: string | null
+          temperature: number
+          tokens_used_this_month: number
+          updated_at: string
+          usage_period_start: string
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          created_at?: string
+          enabled?: boolean
+          gym_id: string
+          handoff_keywords?: string[]
+          max_tokens?: number
+          model?: string | null
+          monthly_token_cap?: number
+          provider_slug?: string | null
+          system_prompt?: string | null
+          temperature?: number
+          tokens_used_this_month?: number
+          updated_at?: string
+          usage_period_start?: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          created_at?: string
+          enabled?: boolean
+          gym_id?: string
+          handoff_keywords?: string[]
+          max_tokens?: number
+          model?: string | null
+          monthly_token_cap?: number
+          provider_slug?: string | null
+          system_prompt?: string | null
+          temperature?: number
+          tokens_used_this_month?: number
+          updated_at?: string
+          usage_period_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_ai_settings_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: true
             referencedRelation: "gyms"
             referencedColumns: ["id"]
           },
