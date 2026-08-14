@@ -1357,7 +1357,9 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-member .status .plan { font-family: var(--gf-font-display); font-size: 1.6rem; font-weight: 800; margin: 16px 0 3px; letter-spacing: -0.03em; }
 .ds-member .status .meta { font-size: 0.84rem; opacity: 0.94; }
 .ds-member .status .barwrap { height: 8px; background: rgba(255,255,255,0.28); border-radius: 99px; margin: 18px 0 9px; overflow: hidden; }
-.ds-member .status .bar { height: 100%; width: 62%; background: var(--gf-accent); border-radius: 99px; }
+/* Width is set inline from the member's real remaining term — the 62% this
+   carried from the prototype showed an identical bar to every member. */
+.ds-member .status .bar { height: 100%; width: 0; background: var(--gf-accent); border-radius: 99px; transition: width 0.5s var(--gf-ease-out); }
 .ds-member .status .days { font-size: 0.78rem; opacity: 0.94; display: flex; justify-content: space-between; }
 .ds-member .status .status-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; background: rgba(255,255,255,0.95); color: var(--gf-brand-dark); border: none; cursor: pointer; font-family: var(--gf-font-display); font-weight: 700; font-size: 0.8rem; padding: 9px 16px; border-radius: var(--gf-radius-pill); }
 .ds-member .status .status-cta :is(i, svg) { width: 15px; height: 15px; }

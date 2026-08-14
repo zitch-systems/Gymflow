@@ -198,6 +198,22 @@ async function route(ctx: Ctx): Promise<void> {
     }
   }
 
+  // Signing in does not need a gym first. Handled ahead of resolveGym because
+  // the no-gym welcome offers this button: routing it through resolveGym would
+  // fail to match "Sign in" as a gym code and re-send that same welcome forever.
+  // signinWithPassword resolves the gym from the account once identity is known.
+  if (!ctx.contact.profile_id && !ctx.contact.active_gym_id
+      && (msg.actionId === 'auth:signin' || SIGNIN_WORDS.has(word))) {
+    return ctx.flow(SCREEN.signIn, 'Sign in', 'Sign in to GymFlow.', 'signin', {
+      gym_name: 'GymFlow', gym_code: '', error: '',
+    });
+  }
+  // Creating an account does need one — the new member has to be attached to a
+  // gym, and only they know which.
+  if (!ctx.contact.active_gym_id && (msg.actionId === 'auth:signup' || SIGNUP_WORDS.has(word))) {
+    return ctx.say('Which gym are you joining? Reply with your gym’s code — it’s on your invite, or ask the front desk for it.');
+  }
+
   // Which gym are we talking about?
   const gym = await resolveGym(ctx, raw);
   if (!gym) return; // resolveGym already replied.
@@ -274,8 +290,26 @@ async function resolveGym(ctx: Ctx, raw: string): Promise<WhatsAppGym | null> {
     }
   }
 
-  await ctx.say(
-    'Welcome to GymFlow. Reply with your gym’s code to get started — it’s on your invite, or ask the front desk for it.',
+  // Already linked to an account but belonging to no gym: a gym code is the only
+  // thing that helps, and offering "Sign in" to someone already signed in would
+  // bounce them straight back here.
+  if (contact.profile_id) {
+    await ctx.say('You’re signed in, but you’re not a member of any gym yet. Reply with your gym’s code — it’s on your invite, or ask the front desk for it.');
+    return null;
+  }
+
+  // Nobody we recognise, and no gym named yet. Signing in is offered here and
+  // not only after a gym is known: signinWithPassword falls back to the member's
+  // own gym when no code is given, so an existing member messaging from a number
+  // the gym doesn't have on file can identify themselves without first hunting
+  // for their gym code.
+  await ctx.buttons(
+    'Welcome to GymFlow.\n\nIf you already have an account, sign in — the same email and password you use in the GymFlow app work here. Otherwise reply with your gym’s code (it’s on your invite, or ask the front desk) to create one.',
+    [
+      { id: 'auth:signin', title: 'Sign in' },
+      { id: 'auth:signup', title: 'Create account' },
+    ],
+    { header: 'GymFlow' },
   );
   return null;
 }

@@ -100,12 +100,25 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
   const name = firstName(profile?.full_name ?? profile?.first_name);
   const initial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
   const gymLogo = (gym as { logo_url?: string | null }).logo_url ?? null;
-  const planName = plan?.name ?? 'Membership';
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
   const isFrozen = sub?.status === 'paused';
   const isPauseRequested = sub?.status === 'pause_requested';
   const isActive = !isFrozen && !isPauseRequested && remaining > 0;
   const isPastDue = sub?.status === 'past_due';
+  // A member who has never subscribed has no plan to name — "Membership" read
+  // as though they had one.
+  const planName = plan?.name ?? (sub ? 'Membership' : 'No membership');
+
+  // The status bar used to be a hardcoded `width: 62%` in globals.css, left over
+  // from the design prototype: it showed the same fill to a member with 2 days
+  // left and one with 200. Fill it from the real term instead — the fraction of
+  // the paid period still remaining — so the bar agrees with the number under it.
+  const termDays = sub?.start_date && sub?.end_date
+    ? Math.max(1, Math.round((Date.parse(sub.end_date) - Date.parse(sub.start_date)) / 86_400_000))
+    : 0;
+  const progressPct = termDays > 0
+    ? Math.min(100, Math.max(0, Math.round((remaining / termDays) * 100)))
+    : 0;
   const unreadCount = unread ?? 0;
   const recent = checkins.slice(0, 3);
 
@@ -199,9 +212,12 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
             <span className="tag"><span className="gf-dot" style={{ background: '#fff' }} /> {isFrozen ? 'Frozen' : isPauseRequested ? 'Freeze pending' : isActive ? 'Active' : sub ? 'Expired' : 'No plan'}</span>
             <div className="plan">{planName}</div>
             <div className="meta">{isFrozen ? `Frozen${sub?.pause_end ? ` until ${fmtDate(sub.pause_end)}` : ''}` : isPauseRequested ? 'Waiting for staff approval' : isActive ? `Renews ${fmtDate(sub!.end_date)}` : sub ? 'Renew to keep training' : 'No active membership'}</div>
-            <div className="barwrap"><div className="bar" /></div>
-            <div className="days"><span>{sub?.start_date ? fmtDate(sub.start_date) : '—'}</span><span>{remaining} days left</span></div>
-            <Link href={isActive || isFrozen || isPauseRequested ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta"><CreditCard strokeWidth={2} /> {isActive || isFrozen || isPauseRequested ? 'Manage membership' : 'Renew membership'}</Link>
+            <div className="barwrap"><div className="bar" style={{ width: `${progressPct}%` }} /></div>
+            <div className="days"><span>{sub?.start_date ? fmtDate(sub.start_date) : '—'}</span><span>{sub ? `${remaining} day${remaining === 1 ? '' : 's'} left` : 'Not subscribed'}</span></div>
+            {/* A member who has never subscribed is starting a membership, not
+                renewing one — "Renew" told first-time members to redo something
+                they had never done. */}
+            <Link href={isActive || isFrozen || isPauseRequested ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta"><CreditCard strokeWidth={2} /> {isActive || isFrozen || isPauseRequested ? 'Manage membership' : sub ? 'Renew membership' : 'Create membership'}</Link>
           </div>
 
           <div className="qa">
