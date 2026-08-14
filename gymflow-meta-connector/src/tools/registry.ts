@@ -5,6 +5,7 @@ import {
   businessProfileSchema,
   checkPhoneNumberConfigSchema,
   checkWebhookStatusSchema,
+  getBusinessEncryptionSchema,
   conversationAnalyticsSchema,
   createFlowSchema,
   createMessageTemplateSchema,
@@ -25,6 +26,7 @@ import {
   publishedFlowScreensSchema,
   sendTemplateMessageSchema,
   sendTextMessageSchema,
+  setBusinessEncryptionSchema,
   updateBusinessProfileSchema,
   updateFlowJsonSchema,
   updateMessageTemplateSchema,
@@ -33,6 +35,7 @@ import {
   verifyMetaCredentialsSchema,
   wabaDetailsSchema,
 } from '../schemas.js';
+import { getBusinessEncryption, setBusinessEncryption } from './businessEncryption.js';
 import {
   createFlow,
   createMessageTemplate,
@@ -341,6 +344,29 @@ export const TOOL_REGISTRY: readonly ToolDefinition[] = [
       'Requires `confirm` to equal the requested `verifiedName`.',
     schema: updatePhoneNumberNameSchema,
     handler: updatePhoneNumberName,
+    write: true,
+  },
+  {
+    name: 'get_whatsapp_business_encryption',
+    title: 'Read the Flow endpoint public key Meta holds',
+    description:
+      'Returns the RSA public key currently registered against a phone number and its signature ' +
+      'status. A Flow with a data_api_version cannot be published until a key is registered AND ' +
+      'signed, so check this first when a publish is refused.',
+    schema: getBusinessEncryptionSchema,
+    handler: getBusinessEncryption,
+  },
+  {
+    name: 'set_whatsapp_business_encryption',
+    title: 'Register the Flow endpoint public key with Meta',
+    description:
+      'Uploads the RSA-2048 PUBLIC key whose private half the Flow data-exchange endpoint holds, ' +
+      'and signs it against the phone number. This is the step the Flow Builder demands as ' +
+      '"upload and sign a public key" and which it offers no UI for. Only the public half is ' +
+      'accepted — a PEM containing a private key is refused. Requires `confirm` to equal the ' +
+      '`phoneNumberId`.',
+    schema: setBusinessEncryptionSchema,
+    handler: setBusinessEncryption,
     write: true,
   },
 ];
