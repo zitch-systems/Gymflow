@@ -427,6 +427,46 @@ export const updatePhoneNumberNameSchema = z
   })
   .strict();
 
+export const getBusinessEncryptionSchema = z
+  .object({
+    phoneNumberId: metaId
+      .optional()
+      .describe('Phone number ID whose encryption status to read. Defaults to META_PHONE_NUMBER_ID.'),
+  })
+  .strict();
+
+export const setBusinessEncryptionSchema = z
+  .object({
+    phoneNumberId: metaId
+      .optional()
+      .describe('Phone number ID to register the key against. Defaults to META_PHONE_NUMBER_ID.'),
+    businessPublicKey: z
+      .string()
+      .trim()
+      .min(1)
+      .max(8192)
+      .refine(
+        (v) => v.includes('-----BEGIN PUBLIC KEY-----') && v.includes('-----END PUBLIC KEY-----'),
+        'Must be an RSA public key in PEM form, including the BEGIN/END PUBLIC KEY lines.',
+      )
+      .refine(
+        (v) => !v.includes('PRIVATE KEY'),
+        'That is a PRIVATE key. Only the public half is ever uploaded to Meta.',
+      )
+      .describe(
+        'RSA-2048 public key in PEM form. This is the public half of the keypair whose private ' +
+          'key the Flow endpoint holds — never the private key itself.',
+      ),
+    confirm: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('Safety interlock: must exactly equal the `phoneNumberId` being changed.'),
+  })
+  .strict();
+
+export type GetBusinessEncryptionInput = z.infer<typeof getBusinessEncryptionSchema>;
+export type SetBusinessEncryptionInput = z.infer<typeof setBusinessEncryptionSchema>;
 export type GetMessageTemplateInput = z.infer<typeof getMessageTemplateSchema>;
 export type GetMessageAnalyticsInput = z.infer<typeof getMessageAnalyticsSchema>;
 export type GetPhoneNumberThroughputInput = z.infer<typeof getPhoneNumberThroughputSchema>;

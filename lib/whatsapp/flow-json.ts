@@ -19,13 +19,15 @@
 //   VERIFY_EMAIL  the six-digit code emailed on sign-up
 //   DONE          terminal
 //
-// Every screen carries an `error` string it renders when non-empty. Meta's
-// inline `error_messages` mechanism only attaches to a named form field, and
-// most of what can go wrong here is about the submission as a whole ("that gym
-// code doesn't exist", "that email is already registered"), so a single visible
-// line is both simpler and clearer.
+// Every screen carries an `error` string, bound to a TextBody the endpoint
+// fills. Meta's inline `error_messages` mechanism only attaches to a named form
+// field, and most of what can go wrong here is about the submission as a whole
+// ("that gym code doesn't exist", "that email is already registered"), so one
+// line for the whole screen is both simpler and clearer. The endpoint sends ''
+// when there is nothing to report, which renders as blank — no `visible`
+// condition, because Meta's validator rejected the comparison expression.
 
-export const FLOW_NAME = 'GymFlow Member Access';
+export const FLOW_NAME = 'GymFlow Member Portal';
 
 export const FLOW_CATEGORIES = ['SIGN_UP', 'SIGN_IN'] as const;
 
@@ -41,9 +43,14 @@ export const flowJson = {
   // Must match FLOW_DATA_API_VERSION in flow-crypto.ts — this is what makes the
   // Flow talk to our endpoint instead of running entirely on-device.
   data_api_version: '3.0',
+  // Meta's validator rejects a route that reverses one already declared: with
+  // SIGN_IN -> SIGN_UP present, SIGN_UP -> SIGN_IN is a "backward route" and is
+  // refused. Only forward edges may be listed. Getting from sign-up back to
+  // sign-in is therefore the WhatsApp back arrow's job, not a link of ours —
+  // which is also why SIGN_UP carries no "already have an account?" link.
   routing_model: {
     [SCREEN.signIn]: [SCREEN.signUp, SCREEN.verifyEmail, SCREEN.done],
-    [SCREEN.signUp]: [SCREEN.signIn, SCREEN.verifyEmail],
+    [SCREEN.signUp]: [SCREEN.verifyEmail],
     [SCREEN.verifyEmail]: [SCREEN.done],
     [SCREEN.done]: [],
   },
@@ -69,7 +76,6 @@ export const flowJson = {
           {
             type: 'TextBody',
             text: '${data.error}',
-            visible: '${data.error != ""}',
           },
           {
             type: 'Form',
@@ -136,7 +142,6 @@ export const flowJson = {
           {
             type: 'TextBody',
             text: '${data.error}',
-            visible: '${data.error != ""}',
           },
           {
             type: 'Form',
@@ -147,9 +152,10 @@ export const flowJson = {
                 name: 'gym_code',
                 label: 'Gym code',
                 'helper-text': 'Ask your gym, or check your invite',
+                // No `init-value`: Meta's schema rejects it on TextInput, so a
+                // gym code carried in from the deep link cannot be prefilled.
                 'input-type': 'text',
                 required: true,
-                'init-value': '${data.gym_code}',
               },
               {
                 type: 'TextInput',
@@ -180,15 +186,6 @@ export const flowJson = {
                 label: 'Confirm password',
                 'input-type': 'password',
                 required: true,
-              },
-              {
-                type: 'EmbeddedLink',
-                text: 'Already have an account? Sign in',
-                'on-click-action': {
-                  name: 'navigate',
-                  next: { type: 'screen', name: SCREEN.signIn },
-                  payload: {},
-                },
               },
               {
                 type: 'Footer',
@@ -232,12 +229,10 @@ export const flowJson = {
           {
             type: 'TextBody',
             text: '${data.notice}',
-            visible: '${data.notice != ""}',
           },
           {
             type: 'TextBody',
             text: '${data.error}',
-            visible: '${data.error != ""}',
           },
           {
             type: 'Form',
@@ -277,7 +272,7 @@ export const flowJson = {
       terminal: true,
       success: true,
       data: {
-        headline: { type: 'string', __example__: "You're in" },
+        headline: { type: 'string', __example__: 'You are in' },
         detail: { type: 'string', __example__: 'Your membership is active.' },
       },
       layout: {
