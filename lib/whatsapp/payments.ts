@@ -4,6 +4,7 @@ import { initTransaction } from '@/lib/paystack';
 import { planTotalKobo, offersTrainer } from '@/lib/plan-addon';
 import { isOfflineGym } from '@/lib/gym-status';
 import { gymHomeUrl, type WhatsAppGym } from '@/lib/whatsapp/settings';
+import { captureServerEvent } from '@/lib/server-error';
 import type { Database } from '@/lib/database.types';
 
 type Admin = SupabaseClient<Database>;
@@ -95,7 +96,24 @@ export async function startWhatsAppCheckout(
     subaccount: params.gym.paystack_subaccount_code,
   });
 
-  if (!res.ok) return { ok: false, error: 'We couldn’t start the payment. Please try again shortly.' };
+  if (!res.ok) {
+    // Paystack's own message is the only thing that says WHY, and every cause
+    // looks identical from the member's side: a key from the wrong environment,
+    // a subaccount that belongs to a different Paystack account, an amount
+    // below the minimum. Discarding it — as this did — makes the one failure a
+    // member can actually hit the one failure nobody can diagnose. They still
+    // see a generic line, because Paystack's internals are not theirs to read.
+    console.error('[whatsapp/payments] paystack init failed:', res.error);
+    void captureServerEvent('whatsapp checkout init failed', {
+      reason: res.error,
+      gymId: params.gym.id,
+      planId: plan.id,
+      amountKobo,
+      // Whether a subaccount was sent at all is half the answer on its own.
+      subaccount: params.gym.paystack_subaccount_code ?? null,
+    });
+    return { ok: false, error: 'We couldn’t start the payment. Please try again shortly.' };
+  }
 
   // Best-effort: the checkout is already live, so a bookkeeping failure here
   // must not deny the member the link they are waiting for. Losing the row
