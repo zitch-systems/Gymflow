@@ -48,7 +48,7 @@ export default async function MemberLayout({ children }: { children: React.React
   return (
     <div className="ds-member" style={style}>
       <main id="main-content">{children}</main>
-      <MemberTabBar />
+      <MemberTabBar whatsappUrl={gym.phone ? `https://wa.me/${gym.phone.replace(/\D/g, '')}` : null} />
       <CameraPrime />
     </div>
   );
