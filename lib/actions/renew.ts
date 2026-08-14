@@ -47,23 +47,25 @@ export async function startRenewal(planId: string, withTrainer = false): Promise
   // callback to gymflow.ng from a member browsing <gym>.gymflow.ng arrives
   // signed out and bounces them to the login page after they've paid.
   const site = await requestOrigin();
-  const res = await initTransaction({
+  const txParams = {
     email: user.email ?? '',
     amountKobo,
     metadata: {
       member_id: user.id, gym_id: gym.id, plan_id: plan.id,
       duration_days: plan.duration_days, duration_months: plan.duration_months,
-      // What the member chose to buy, so fulfillment can credit the add-on it
-      // was actually paid for rather than inferring it from the amount.
       trainer_addon: trainerAddon,
-      // Snapshot what THIS checkout was initialized to settle. Fulfillment
-      // compares the signed Paystack event to this value, so a later plan-price
-      // edit neither strands a valid charge nor permits an underpaid one.
       expected_amount_kobo: amountKobo,
       kind: 'membership_renewal',
     },
     callbackUrl: site ? `${site}/dashboard/renew/callback` : undefined,
-    subaccount: gym.paystack_subaccount_code, // settle to the gym's bank when connected
-  });
+    subaccount: (gym.paystack_subaccount_code ?? '').trim() || null,
+  };
+  let res = await initTransaction(txParams);
+  // If the stored subaccount code is stale/invalid at Paystack, retry without
+  // it so the member can still pay (funds land in the platform account and the
+  // gym owner is notified to reconnect payouts).
+  if (!res.ok && txParams.subaccount && /invalid.*subaccount/i.test(res.error)) {
+    res = await initTransaction({ ...txParams, subaccount: null });
+  }
   return res.ok ? { ok: true, url: res.authorization_url } : { ok: false, error: res.error };
 }
