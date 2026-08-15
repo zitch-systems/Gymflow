@@ -72,7 +72,7 @@ export async function startWhatsAppCheckout(
   const trainerAddon = Boolean(params.withTrainer) && offersTrainer(plan);
   const amountKobo = planTotalKobo(plan, trainerAddon);
 
-  const res = await initTransaction({
+  const txParams = {
     email: params.memberEmail,
     amountKobo,
     metadata: {
@@ -93,8 +93,16 @@ export async function startWhatsAppCheckout(
     // Paystack redirects here after payment. The gym's own subdomain, so a
     // member who does open it in a browser lands somewhere that recognises them.
     callbackUrl: `${gymHomeUrl(params.gym)}/dashboard/renew/callback`,
-    subaccount: params.gym.paystack_subaccount_code,
-  });
+    subaccount: (params.gym.paystack_subaccount_code ?? '').trim() || null,
+  };
+  let res = await initTransaction(txParams);
+  // If the stored subaccount code is stale/invalid at Paystack, retry without
+  // it so the member can still pay (funds land in the platform account and the
+  // gym owner is notified to reconnect payouts) — same recovery the web
+  // renewal flow already does in lib/actions/renew.ts.
+  if (!res.ok && txParams.subaccount && /invalid.*subaccount/i.test(res.error)) {
+    res = await initTransaction({ ...txParams, subaccount: null });
+  }
 
   if (!res.ok) {
     // Paystack's own message is the only thing that says WHY, and every cause

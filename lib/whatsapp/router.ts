@@ -304,7 +304,7 @@ async function resolveGym(ctx: Ctx, raw: string): Promise<WhatsAppGym | null> {
   // the gym doesn't have on file can identify themselves without first hunting
   // for their gym code.
   await ctx.buttons(
-    'Welcome to GymFlow.\n\nIf you already have an account, sign in — the same email and password you use in the GymFlow app work here. Otherwise reply with your gym’s code (it’s on your invite, or ask the front desk) to create one.',
+    'I’m GymFlow’s AI-powered WhatsApp assistant — I can check you in, show your membership status, help you renew and more.\n\nIf you already have an account, sign in — the same email and password you use in the GymFlow app work here. Otherwise reply with your gym’s code (it’s on your invite, or ask the front desk) to create one.',
     [
       { id: 'auth:signin', title: 'Sign in' },
       { id: 'auth:signup', title: 'Create account' },
@@ -332,7 +332,7 @@ async function unauthenticated(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGym
   if (action === 'menu:support' || SUPPORT_WORDS.has(word)) return supportReply(ctx, gym, settings);
 
   await ctx.buttons(
-    `Welcome to ${gym.name} on GymFlow.\n\nSign in to check in, see your remaining days and renew — or create an account if you're new. The same email and password work in the GymFlow app.`,
+    `I’m ${gym.name}’s AI-powered WhatsApp assistant on GymFlow — I can check you in, show your membership status, help you renew and more.\n\nSign in if you already train here, or create an account if you’re new. The same email and password work in the GymFlow app.`,
     [
       { id: 'auth:signin', title: 'Sign in' },
       { id: 'auth:signup', title: 'Create account' },
@@ -353,7 +353,7 @@ async function mainMenu(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSetting
       : 'You don’t have an active membership yet.';
 
   await ctx.list(
-    `${gym.name}\n\n${summary}\n\nWhat would you like to do?`,
+    `I’m your AI-powered GymFlow assistant — check in, renew and check your membership details right here.\n\n${summary}\n\nWhat would you like to do?`,
     [
       { id: 'menu:checkin', title: state.insideNow ? 'Check out' : 'Check in', description: state.insideNow ? 'You’re currently checked in' : 'Log your visit' },
       { id: 'menu:code', title: 'Front desk code', description: 'A 6-digit code to read out' },
@@ -363,7 +363,7 @@ async function mainMenu(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSetting
       { id: 'menu:support', title: 'Contact the gym', description: settings.supportPhone ?? 'Speak to the front desk' },
     ],
     'Open menu',
-    { header: 'GymFlow', footer: 'Reply “menu” any time' },
+    { header: gym.name.slice(0, 60), footer: 'Reply “menu” any time' },
   );
 }
 
