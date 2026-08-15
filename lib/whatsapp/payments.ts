@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { initTransaction } from '@/lib/paystack';
 import { planTotalKobo, offersTrainer } from '@/lib/plan-addon';
 import { isOfflineGym } from '@/lib/gym-status';
-import { gymHomeUrl, type WhatsAppGym } from '@/lib/whatsapp/settings';
+import type { WhatsAppGym } from '@/lib/whatsapp/settings';
 import { captureServerEvent } from '@/lib/server-error';
 import type { Database } from '@/lib/database.types';
 
@@ -90,9 +90,11 @@ export async function startWhatsAppCheckout(
       source: 'whatsapp',
       whatsapp_contact_id: params.contactId,
     },
-    // Paystack redirects here after payment. The gym's own subdomain, so a
-    // member who does open it in a browser lands somewhere that recognises them.
-    callbackUrl: `${gymHomeUrl(params.gym)}/dashboard/renew/callback`,
+    // A member paying from WhatsApp has no web session on this device — the
+    // ordinary /dashboard/renew/callback requires one and would bounce them to
+    // /login instead of back to the chat. This callback is session-free and
+    // sends them back to WhatsApp once the charge is recorded.
+    callbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng'}/pay/whatsapp/callback`,
     subaccount: (params.gym.paystack_subaccount_code ?? '').trim() || null,
   };
   let res = await initTransaction(txParams);
