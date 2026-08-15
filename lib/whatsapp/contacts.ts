@@ -15,10 +15,14 @@ export type WhatsAppContact = {
   opted_in: boolean;
   blocked: boolean;
   last_inbound_at: string | null;
+  /** Set only after a Flow sign-in/sign-up (see linkContact). Null for a
+   *  contact that was merely auto-linked by phone-number match — that proves
+   *  read access to membership state, not the right to spend on it. */
+  verified_at: string | null;
 };
 
 const CONTACT_COLS =
-  'id, wa_id, profile_id, active_gym_id, display_name, state, opted_in, blocked, last_inbound_at';
+  'id, wa_id, profile_id, active_gym_id, display_name, state, opted_in, blocked, last_inbound_at, verified_at';
 
 /**
  * Find or create the contact row for an inbound WhatsApp message.
@@ -131,17 +135,24 @@ export async function activeGymIds(admin: Admin, profileId: string): Promise<str
 }
 
 /** Attach a contact to a profile + gym after a successful Flow sign-in/up. */
+/**
+ * Bind a contact to the account it just proved itself as, through the Flow.
+ * This is the ONLY writer of verified_at — everything that gates a
+ * money-moving action on being verified relies on that being true.
+ */
 export async function linkContact(
   admin: Admin,
   contactId: string,
   params: { profileId: string; gymId: string },
 ): Promise<void> {
+  const now = new Date().toISOString();
   await admin
     .from('whatsapp_contacts')
     .update({
       profile_id: params.profileId,
       active_gym_id: params.gymId,
-      updated_at: new Date().toISOString(),
+      verified_at: now,
+      updated_at: now,
     })
     .eq('id', contactId);
 }

@@ -202,10 +202,19 @@ async function route(ctx: Ctx): Promise<void> {
   // the no-gym welcome offers this button: routing it through resolveGym would
   // fail to match "Sign in" as a gym code and re-send that same welcome forever.
   // signinWithPassword resolves the gym from the account once identity is known.
-  if (!ctx.contact.profile_id && !ctx.contact.active_gym_id
-      && (msg.actionId === 'auth:signin' || SIGNIN_WORDS.has(word))) {
-    return ctx.flow(SCREEN.signIn, 'Sign in', 'Sign in to GymFlow.', 'signin', {
-      gym_name: 'GymFlow', gym_code: '', error: '',
+  //
+  // An explicit tap always opens the Flow, even for a contact that already has
+  // a profile/gym via phone-number auto-link (see contacts.ts): that link
+  // proves nothing by itself, so a member routed here by checkoutReply's
+  // verification gate needs this to work, not be swallowed as a no-op because
+  // they "already" look linked. Typed "sign in" stays restricted to a
+  // genuinely unlinked contact, so it doesn't hijack an ordinary message from
+  // someone already verified.
+  if (msg.actionId === 'auth:signin'
+      || (!ctx.contact.profile_id && !ctx.contact.active_gym_id && SIGNIN_WORDS.has(word))) {
+    const activeGym = ctx.contact.active_gym_id ? await gymById(admin, ctx.contact.active_gym_id) : null;
+    return ctx.flow(SCREEN.signIn, 'Sign in', `Sign in to ${activeGym?.name ?? 'GymFlow'}.`, 'signin', {
+      gym_name: activeGym?.name ?? 'GymFlow', gym_code: activeGym?.member_code ?? '', error: '',
     });
   }
   // Creating an account does need one — the new member has to be attached to a
@@ -458,6 +467,18 @@ async function plansReply(ctx: Ctx, gym: WhatsAppGym, memberId: string): Promise
 }
 
 async function checkoutReply(ctx: Ctx, gym: WhatsAppGym, memberId: string, planId: string): Promise<void> {
+  // memberId alone only proves this number is on file for a profile — that's
+  // enough to read membership status, not enough to spend on it (see
+  // contacts.ts). A contact only clears this once it's come through the Flow
+  // sign-in/sign-up (linkContact sets verified_at); a phone-number auto-match
+  // has to prove itself here before Paystack gets involved.
+  if (!ctx.contact.verified_at) {
+    return ctx.buttons(
+      'For your security, please sign in before paying — the same email and password you use in the GymFlow app.',
+      [{ id: 'auth:signin', title: 'Sign in' }, { id: 'menu:support', title: 'Contact gym' }],
+    );
+  }
+
   const { data: profile } = await ctx.admin.from('profiles').select('email').eq('id', memberId).maybeSingle();
   const email = (profile as { email: string | null } | null)?.email;
   if (!email) {

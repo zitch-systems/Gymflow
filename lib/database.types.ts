@@ -2255,6 +2255,7 @@ export type Database = {
           profile_id: string | null
           state: Json
           updated_at: string
+          verified_at: string | null
           wa_id: string
         }
         Insert: {
@@ -2270,6 +2271,7 @@ export type Database = {
           profile_id?: string | null
           state?: Json
           updated_at?: string
+          verified_at?: string | null
           wa_id: string
         }
         Update: {
@@ -2285,6 +2287,7 @@ export type Database = {
           profile_id?: string | null
           state?: Json
           updated_at?: string
+          verified_at?: string | null
           wa_id?: string
         }
         Relationships: [
