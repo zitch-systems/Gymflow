@@ -22,10 +22,9 @@ describe('verifyMetaSignature', () => {
   it('rejects a signature of the right shape but the wrong length', () => {
     expect(verifyMetaSignature('{}', 'sha256=aabb', SECRET)).toBe(false);
   });
-  // Documented fail-open, matching how the codebase treats every unconfigured
-  // integration. .env.example flags this one as required in production.
-  it('passes through when no app secret is configured', () => {
-    expect(verifyMetaSignature('{}', null, undefined)).toBe(true);
+  it('rejects every request when no app secret is configured', () => {
+    expect(verifyMetaSignature('{}', null, undefined)).toBe(false);
+    expect(verifyMetaSignature('{}', 'sha256=aabb', undefined)).toBe(false);
   });
 });
 
