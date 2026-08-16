@@ -34,13 +34,13 @@ export type DeliveryStatus = {
 /**
  * Verify Meta's X-Hub-Signature-256.
  *
- * Returns true when no app secret is configured, matching how the rest of this
- * codebase treats unconfigured integrations — but note this one is a security
- * boundary, so META_APP_SECRET should always be set in production. It is
+ * Fails closed when the app secret is missing. Webhook authentication is a
+ * security boundary: a deployment without META_APP_SECRET must reject every
+ * POST rather than trusting an unsigned request. It is
  * documented as required in .env.example for that reason.
  */
 export function verifyMetaSignature(raw: string, header: string | null, appSecret: string | undefined): boolean {
-  if (!appSecret) return true;
+  if (!appSecret) return false;
   if (!header?.startsWith('sha256=')) return false;
   const expected = createHmac('sha256', appSecret).update(raw).digest('hex');
   const a = Buffer.from(header.slice('sha256='.length), 'hex');
