@@ -90,7 +90,21 @@ export async function twoFactorRequiredForUser(userId: string): Promise<boolean>
     .eq('is_active', true)
     .maybeSingle();
   if (platformAdmin) {
-    if (!platformAdminTwoFactorDisabled(process.env.PLATFORM_ADMIN_2FA)) return true;
+    const raw = process.env.PLATFORM_ADMIN_2FA;
+    if (!platformAdminTwoFactorDisabled(raw)) {
+      // Says WHY the challenge is happening, with the value actually visible to
+      // the running deployment. "It still asks for a code" is otherwise
+      // indistinguishable between: never set, set on the wrong environment, set
+      // but never redeployed (a running deployment keeps the env it was built
+      // with), and set to something that doesn't parse as off — e.g. quotes
+      // included, which fail-secure turns into ON. The variable is not a secret,
+      // so logging it costs nothing and answers the question in one line.
+      console.warn(
+        `[two-factor] challenging platform admin — PLATFORM_ADMIN_2FA=${raw === undefined ? '(unset)' : JSON.stringify(raw)}. ` +
+        'Set it to exactly `off` (no quotes) for this environment and REDEPLOY to suspend the second factor.',
+      );
+      return true;
+    }
     console.warn('[two-factor] PLATFORM_ADMIN_2FA is off — platform-admin sign-in is password-only. Unset it to restore the second factor.');
   }
 
