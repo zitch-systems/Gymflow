@@ -22,3 +22,18 @@ export function orphanedLedgerEntries(
   files: readonly MigrationFile[],
   applied: Record<string, string>,
 ): string[];
+
+export type ConnectionReport =
+  | { ok: false; reason: string }
+  | {
+      ok: true;
+      host: string;
+      port: string;
+      user: string;
+      database: string;
+      /** Length only — the password itself is never returned. */
+      passwordLength: number;
+      notes: string[];
+    };
+
+export function describeConnection(raw: unknown): ConnectionReport;

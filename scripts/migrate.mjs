@@ -34,7 +34,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { checksum, planMigrations, orphanedLedgerEntries } from './migrate-plan.mjs';
+import { checksum, planMigrations, orphanedLedgerEntries, describeConnection } from './migrate-plan.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MIGRATIONS = join(ROOT, 'supabase', 'migrations');
@@ -63,7 +63,32 @@ function readMigrations() {
 }
 
 const client = new pg.Client({ connectionString: url });
-await client.connect();
+// A failed connect is the single most common way this script is met, and pg's
+// bare error ("password authentication failed for user \"postgres\"") is the same
+// whatever is actually wrong with the URL. Print what we were dialling — never
+// the password, only its length — so the failure says which half to go and fix.
+try {
+  await client.connect();
+} catch (e) {
+  const info = describeConnection(url);
+  console.error(`\nCould not connect: ${e.message}\n`);
+  if (!info.ok) {
+    console.error(`SUPABASE_DB_URL is ${info.reason}.`);
+  } else {
+    console.error('Dialled (password never shown):');
+    console.error(`  host      ${info.host}`);
+    console.error(`  port      ${info.port}`);
+    console.error(`  user      ${info.user}`);
+    console.error(`  database  ${info.database}`);
+    console.error(`  password  ${info.passwordLength} character(s)`);
+    for (const note of info.notes) console.error(`  ! ${note}`);
+    if (info.notes.length === 0) {
+      console.error('\nThe URL is well formed, so the credential itself is being rejected —');
+      console.error('reset the database password in Supabase and update the secret.');
+    }
+  }
+  process.exit(1);
+}
 
 try {
   await client.query(`
