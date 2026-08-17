@@ -81,3 +81,88 @@ export function orphanedLedgerEntries(files, applied) {
   const known = new Set(files.map((f) => f.filename));
   return Object.keys(applied).filter((f) => !known.has(f)).sort();
 }
+
+// ── Connection diagnostics ─────────────────────────────────────────────────
+//
+// A wrong SUPABASE_DB_URL fails as a bare pg stack trace — `password
+// authentication failed for user "postgres"` and nothing else. That message is
+// the same whether the URL points at the direct host or the pooler, whether the
+// password is empty, still the literal [YOUR-PASSWORD] placeholder, or simply
+// wrong. GitHub masks the secret in logs, so an operator staring at the failure
+// cannot tell which of those they are looking at, and the only way to find out
+// is to guess and re-run.
+//
+// This describes the connection WITHOUT ever revealing the password: host, port,
+// user, database, and the password's LENGTH. That is enough to separate "the
+// value in the secret is the wrong shape" from "the shape is right and the
+// password is wrong", which are fixed in completely different places.
+
+/** decodeURIComponent throws on a lone '%'; a malformed escape is itself worth
+ *  reporting, so fall back to the raw form rather than blowing up the report. */
+function safeDecode(value) {
+  try { return decodeURIComponent(value); } catch { return value; }
+}
+
+/** Common ways a Supabase connection string arrives broken. */
+function connectionNotes({ raw, host, port, user, password }) {
+  const notes = [];
+
+  if (raw !== raw.trim()) notes.push('value has leading/trailing whitespace (a trailing newline is the usual cause) — it becomes part of the password');
+  if (password === '') notes.push('no password in the URL — nothing between the ":" and the "@"');
+  else if (/[[\]]/.test(password) || /your.?password/i.test(password)) notes.push('password still looks like the [YOUR-PASSWORD] placeholder');
+
+  if (port === '6543') notes.push('port 6543 is the TRANSACTION pooler — the runner takes a session-scoped advisory lock, so it needs the SESSION pooler on 5432');
+  if (host.endsWith('.pooler.supabase.com') && !user.includes('.')) {
+    notes.push(`pooler host with user "${user}" — the pooler expects the tenant-qualified form, e.g. postgres.<project-ref>`);
+  }
+  if (/^db\..*\.supabase\.co$/.test(host)) {
+    notes.push('direct connection host — resolves over IPv6 only unless the IPv4 add-on is enabled, which GitHub-hosted runners cannot reach');
+  }
+
+  return notes;
+}
+
+/**
+ * A redacted, human-readable description of a Postgres connection string.
+ *
+ * Returns `{ ok: false, reason }` when the value is not a parseable URL at all —
+ * itself a useful answer, and the one an operator gets when a stray character
+ * makes it into the secret.
+ */
+export function describeConnection(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') return { ok: false, reason: 'empty' };
+
+  // Checked before parsing, because a leading quote breaks the scheme and would
+  // otherwise surface as the generic "not a parseable URL" — true, but it hides
+  // the actual mistake, which is invisible in a secrets UI.
+  if (/^["'].*["']$/s.test(raw.trim())) {
+    return { ok: false, reason: 'wrapped in quotes — a secret store keeps them literally, so they become part of the URL' };
+  }
+
+  let u;
+  try {
+    u = new URL(raw.trim());
+  } catch {
+    return { ok: false, reason: 'not a parseable URL — check for spaces, quotes or a missing postgresql:// prefix' };
+  }
+  if (!/^postgres(ql)?:$/.test(u.protocol)) {
+    return { ok: false, reason: `unexpected scheme "${u.protocol.replace(':', '')}" — expected postgresql://` };
+  }
+
+  // WHATWG URL hands these back still percent-ENCODED, so decode before
+  // measuring: the length that matters is the password the server actually
+  // receives, which is exactly the number that exposes an unencoded special
+  // character (the encoded form is longer than what was typed).
+  const password = safeDecode(u.password);
+  const user = safeDecode(u.username);
+
+  return {
+    ok: true,
+    host: u.hostname,
+    port: u.port || '5432',
+    user,
+    database: u.pathname.replace(/^\//, '') || '(none)',
+    passwordLength: password.length,
+    notes: connectionNotes({ raw, host: u.hostname, port: u.port || '5432', user, password }),
+  };
+}

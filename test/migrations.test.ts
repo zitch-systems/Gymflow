@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  checksum, orderMigrations, orphanedLedgerEntries, parseMigrationFilename, planMigrations,
+  checksum, describeConnection, orderMigrations, orphanedLedgerEntries, parseMigrationFilename, planMigrations,
 } from '../scripts/migrate-plan.mjs';
 
 // Planning logic for the migration runner. Getting this wrong has exactly two
@@ -135,5 +135,84 @@ describe('the repo migrations directory', () => {
     // silently vanish from the plan rather than fail loudly.
     expect(plan.pending).toHaveLength(filenames.length);
     expect(plan.changed).toEqual([]);
+  });
+});
+
+// ── Connection diagnostics ─────────────────────────────────────────────────
+//
+// A wrong SUPABASE_DB_URL used to surface as a bare pg stack trace, identical
+// whether the URL pointed at the pooler or the direct host, whether the password
+// was empty, still the [YOUR-PASSWORD] placeholder, or simply wrong. Four
+// consecutive CI runs produced a byte-identical error while the actual fault
+// stayed invisible — the secret is masked in logs, so nobody could see which of
+// those they had. describeConnection is what makes the failure say so.
+//
+// The property that must never regress: it reports the password's LENGTH and
+// never the password.
+
+describe('describeConnection', () => {
+  const POOLER = 'postgresql://postgres.abc123:s3cret-pass@aws-0-eu-west-1.pooler.supabase.com:5432/postgres';
+
+  it('never returns the password itself', () => {
+    const report = describeConnection(POOLER);
+    expect(JSON.stringify(report)).not.toContain('s3cret-pass');
+    expect(report).toMatchObject({ ok: true, passwordLength: 11 });
+  });
+
+  it('reports the decoded length, so an unencoded special character is visible', () => {
+    // p%40ss is "p@ss" — 4 characters, not the 6 the raw URL shows. Quoting the
+    // encoded length would hide exactly the mistake this is meant to catch.
+    const report = describeConnection('postgresql://u:p%40ss@host:5432/db');
+    expect(report).toMatchObject({ ok: true, passwordLength: 4 });
+  });
+
+  it('names the host, port, user and database', () => {
+    expect(describeConnection(POOLER)).toMatchObject({
+      ok: true,
+      host: 'aws-0-eu-west-1.pooler.supabase.com',
+      port: '5432',
+      user: 'postgres.abc123',
+      database: 'postgres',
+    });
+  });
+
+  it('flags a well-formed pooler URL as having nothing wrong with its shape', () => {
+    // The point of this case: no notes means "the shape is right, so the
+    // credential is what's being rejected" — a different place to go and fix.
+    const report = describeConnection(POOLER);
+    expect(report.ok && report.notes).toEqual([]);
+  });
+
+  it('catches the placeholder, the transaction pooler, and a bare pooler user', () => {
+    const placeholder = describeConnection('postgresql://postgres.abc:[YOUR-PASSWORD]@aws-0-eu-west-1.pooler.supabase.com:5432/postgres');
+    expect(placeholder.ok && placeholder.notes.join(' ')).toMatch(/placeholder/);
+
+    const txn = describeConnection('postgresql://postgres.abc:pw@aws-0-eu-west-1.pooler.supabase.com:6543/postgres');
+    expect(txn.ok && txn.notes.join(' ')).toMatch(/TRANSACTION pooler/);
+
+    const bareUser = describeConnection('postgresql://postgres:pw@aws-0-eu-west-1.pooler.supabase.com:5432/postgres');
+    expect(bareUser.ok && bareUser.notes.join(' ')).toMatch(/tenant-qualified/);
+  });
+
+  it('catches a trailing newline and surrounding quotes', () => {
+    // Both are invisible in a secrets UI and both end up inside the password.
+    const newline = describeConnection(`${POOLER}\n`);
+    expect(newline.ok && newline.notes.join(' ')).toMatch(/whitespace/);
+
+    // A quoted value can't parse at all, so it's rejected up front by name
+    // rather than as a generic "not a parseable URL".
+    const quoted = describeConnection(`"${POOLER}"`);
+    expect(quoted).toMatchObject({ ok: false, reason: expect.stringContaining('quotes') });
+  });
+
+  it('warns that the direct host is unreachable from GitHub-hosted runners', () => {
+    const direct = describeConnection('postgresql://postgres:pw@db.abc123.supabase.co:5432/postgres');
+    expect(direct.ok && direct.notes.join(' ')).toMatch(/IPv6/);
+  });
+
+  it('refuses garbage rather than guessing', () => {
+    expect(describeConnection('')).toMatchObject({ ok: false });
+    expect(describeConnection(undefined)).toMatchObject({ ok: false });
+    expect(describeConnection('mysql://u:p@h:3306/d')).toMatchObject({ ok: false, reason: expect.stringContaining('scheme') });
   });
 });
