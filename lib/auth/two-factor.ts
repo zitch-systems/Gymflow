@@ -9,7 +9,7 @@ import { clientIp, rateLimit } from '@/lib/rate-limit';
 import {
   CODE_TTL_SECONDS, MAX_ATTEMPTS, TRUST_DAYS,
   type ChallengeRow, deviceLabel, generateCode, generateDeviceToken,
-  hashCode, hashDeviceToken, judgeChallenge, verdictMessage,
+  hashCode, hashDeviceToken, judgeChallenge, platformAdminTwoFactorDisabled, verdictMessage,
 } from '@/lib/two-factor';
 
 // Server half of email two-factor for gym staff. The rules live in
@@ -68,21 +68,31 @@ export async function twoFactorRequiredForUser(userId: string): Promise<boolean>
   let admin: ReturnType<typeof createAdminClient>;
   try { admin = createAdminClient(); } catch { return false; }
 
-  // Platform admins always need a second factor, and this clause is the only
-  // thing that gives them one. The requirement used to be derived purely from
+  // Platform admins need a second factor, and this clause is the only thing
+  // that gives them one. The requirement used to be derived purely from
   // gym_staff_links: a platform admin has none, `[].some()` is false, and so
   // the single account that reads every tenant's members, payments and payout
   // details was the one account in the system that could not be covered by 2FA
   // at all. It is not a member of any gym, so no gym's policy could ever reach
   // it. There is no per-gym toggle here on purpose — this one is not the
   // tenants' setting to make.
+  //
+  // PLATFORM_ADMIN_2FA=off suspends it. That is a real downgrade — it leaves a
+  // password as the only thing in front of every tenant's data — so it is
+  // deliberately awkward: an env var, changed by a deploy, logged loudly on
+  // every check, and unreachable from inside the product. Note the fall-THROUGH
+  // rather than an early false: a platform admin who is also gym staff still
+  // answers to their gym's policy, which is stricter than nothing.
   const { data: platformAdmin } = await admin
     .from('platform_admins')
     .select('id')
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle();
-  if (platformAdmin) return true;
+  if (platformAdmin) {
+    if (!platformAdminTwoFactorDisabled(process.env.PLATFORM_ADMIN_2FA)) return true;
+    console.warn('[two-factor] PLATFORM_ADMIN_2FA is off — platform-admin sign-in is password-only. Unset it to restore the second factor.');
+  }
 
   const { data: links } = await admin
     .from('gym_staff_links')

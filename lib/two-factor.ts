@@ -136,3 +136,21 @@ export function deviceLabel(userAgent: string | null | undefined): string {
     : 'device';
   return `${browser} on ${os}`;
 }
+
+// ── Platform-admin second factor: the temporary off switch ────────────────
+//
+// Platform admins are otherwise unconditionally challenged (see
+// twoFactorRequiredForUser). This is the one way out, and it is an env var
+// rather than a column or a UI toggle on purpose: it should take a deploy to
+// change, leave a trace in the deployment log, and be impossible to flip from
+// inside the product — including by whoever holds the console account.
+//
+// Fail-secure. Only an explicit, unambiguous "off" disables the requirement;
+// unset, empty, or anything unrecognised reads as ON. A typo in this variable
+// must not silently strip the second factor from the account that reads every
+// tenant's members, payments and payout details.
+const TWO_FACTOR_OFF_VALUES = new Set(['off', 'false', '0', 'no', 'disabled']);
+
+export function platformAdminTwoFactorDisabled(raw: string | null | undefined): boolean {
+  return TWO_FACTOR_OFF_VALUES.has((raw ?? '').trim().toLowerCase());
+}
