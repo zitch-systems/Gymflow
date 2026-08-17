@@ -13,31 +13,39 @@ import {
 } from 'lucide-react';
 import { LogoMark } from '@/components/ui/logo';
 
-const NAV: { href: Route; label: string; icon: LucideIcon; section: 'Platform' | 'Operations' }[] = [
-  { href: '/superadmin', label: 'Overview', icon: LayoutDashboard, section: 'Platform' },
-  { href: '/superadmin/gyms', label: 'Gyms', icon: Building2, section: 'Platform' },
-  { href: '/superadmin/members', label: 'Members', icon: Users, section: 'Platform' },
-  { href: '/superadmin/revenue', label: 'Revenue', icon: TrendingUp, section: 'Platform' },
-  { href: '/superadmin/onboard', label: 'Onboard', icon: UserPlus, section: 'Operations' },
-  { href: '/superadmin/payout-approvals' as Route, label: 'Payout approvals', icon: Banknote, section: 'Operations' },
-  { href: '/superadmin/audit', label: 'Audit log', icon: ScrollText, section: 'Operations' },
-  { href: '/superadmin/support', label: 'Support', icon: LifeBuoy, section: 'Operations' },
-  { href: '/superadmin/settings', label: 'Settings', icon: Settings, section: 'Operations' },
+// Sub-paths, not absolute hrefs: the console's public base is configured per
+// deployment (SUPERADMIN_PATH — see lib/superadmin-path.ts) and arrives as the
+// `base` prop, because a Client Component can't read server env. Hard-coding
+// '/superadmin/...' here would navigate the admin to the blocked path and 404
+// them out of their own console.
+const NAV: { sub: string; label: string; icon: LucideIcon; section: 'Platform' | 'Operations' }[] = [
+  { sub: '', label: 'Overview', icon: LayoutDashboard, section: 'Platform' },
+  { sub: '/gyms', label: 'Gyms', icon: Building2, section: 'Platform' },
+  { sub: '/members', label: 'Members', icon: Users, section: 'Platform' },
+  { sub: '/revenue', label: 'Revenue', icon: TrendingUp, section: 'Platform' },
+  { sub: '/onboard', label: 'Onboard', icon: UserPlus, section: 'Operations' },
+  { sub: '/payout-approvals', label: 'Payout approvals', icon: Banknote, section: 'Operations' },
+  { sub: '/audit', label: 'Audit log', icon: ScrollText, section: 'Operations' },
+  { sub: '/support', label: 'Support', icon: LifeBuoy, section: 'Operations' },
+  { sub: '/settings', label: 'Settings', icon: Settings, section: 'Operations' },
 ];
 
-export function SuperShell({ children, userName, userEmail, userInitial }: {
-  children: React.ReactNode; userName: string; userEmail: string; userInitial: string;
+export function SuperShell({ children, base, userName, userEmail, userInitial }: {
+  children: React.ReactNode; base: string; userName: string; userEmail: string; userInitial: string;
 }) {
+  // usePathname() returns what the browser shows — the secret path — not the
+  // internal route the middleware rewrote to, so it lines up with `base`.
   const pathname = usePathname() ?? '';
   const nav = useMobileNav(pathname);
-  const isActive = (href: string) => (href === '/superadmin' ? pathname === '/superadmin' : pathname.startsWith(href));
+  const href = (sub: string) => `${base}${sub}` as Route;
+  const isActive = (sub: string) => (sub === '' ? pathname === base : pathname.startsWith(`${base}${sub}`));
   const platform = NAV.filter((n) => n.section === 'Platform');
   const ops = NAV.filter((n) => n.section === 'Operations');
 
   const link = (n: typeof NAV[number]) => {
     const Icon = n.icon;
     return (
-      <Link key={n.href} href={n.href} className={`gf-nav-item${isActive(n.href) ? ' active' : ''}`}>
+      <Link key={n.sub} href={href(n.sub)} className={`gf-nav-item${isActive(n.sub) ? ' active' : ''}`}>
         <Icon size={17} strokeWidth={1.75} /><span>{n.label}</span>
       </Link>
     );
@@ -98,10 +106,10 @@ export function SuperShell({ children, userName, userEmail, userInitial }: {
           Gyms · Revenue · Activity · More). */}
       <ConsoleTabBar
         tabs={[
-          { href: '/superadmin', label: 'Home', icon: LayoutDashboard, match: (p) => p === '/superadmin' },
-          { href: '/superadmin/gyms', label: 'Gyms', icon: Building2 },
-          { href: '/superadmin/revenue', label: 'Revenue', icon: TrendingUp },
-          { href: '/superadmin/audit', label: 'Activity', icon: ScrollText },
+          { href: href(''), label: 'Home', icon: LayoutDashboard, match: (p) => p === base },
+          { href: href('/gyms'), label: 'Gyms', icon: Building2 },
+          { href: href('/revenue'), label: 'Revenue', icon: TrendingUp },
+          { href: href('/audit'), label: 'Activity', icon: ScrollText },
         ] satisfies ConsoleTab[]}
         moreOpen={nav.open}
         onMore={nav.toggle}

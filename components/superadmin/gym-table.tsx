@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { CommissionEditor } from '@/components/superadmin/commission-editor';
+import { sa } from '@/lib/superadmin-path';
 
 const GRADS = [
   'linear-gradient(135deg,#11d18b,#07a86c)', 'linear-gradient(135deg,#4080ff,#2a5cc0)',
@@ -62,7 +63,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
             return (
               <tr key={g.id} className="rowlink">
                 <td>
-                  <Link href={`/superadmin/gyms/${g.id}`} className="gname">
+                  <Link href={sa(`/gyms/${g.id}`)} className="gname">
                     <span className="sq" style={{ background: GRADS[i % GRADS.length] }}>{g.name.charAt(0).toUpperCase()}</span>
                     <div><strong>{g.name}</strong><small>{g.slug}.gymflow.ng{g.city ? ` · ${g.city}` : ''}</small></div>
                   </Link>
@@ -73,7 +74,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
                 <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
                 <td className="naira" style={{ textAlign: 'right' }}><a href={`/g/${g.slug}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title="Open public page">{g.slug} ↗</a></td>
                 <td style={{ textAlign: 'right', width: 36 }}>
-                  <Link href={`/superadmin/gyms/${g.id}`} className="row-chev" aria-label={`Open ${g.name}`}><ChevronRight strokeWidth={2} size={16} /></Link>
+                  <Link href={sa(`/gyms/${g.id}`)} className="row-chev" aria-label={`Open ${g.name}`}><ChevronRight strokeWidth={2} size={16} /></Link>
                 </td>
               </tr>
             );

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { provisionOwner } from '@/lib/provision';
 import { healJoin } from '@/lib/actions/join';
+import { sa } from '@/lib/superadmin-path';
 import { FinishSetup } from './finish-setup';
 
 // Post-login role router. signIn redirects here after a successful sign-in.
@@ -27,7 +28,9 @@ export default async function Launch() {
     supabase.from('gym_member_links').select('id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle(),
   ]);
 
-  if (pa) redirect('/superadmin');
+  // The console's URL is configured per deployment, so this is the one place a
+  // platform admin learns it — and only after they've proved they are one.
+  if (pa) redirect(sa());
   const staffRoles = ((staffLinks ?? []) as { role: string | null }[]).map((l) => l.role);
   if (staffRoles.length > 0) redirect(staffRoles.some((r) => r && r !== 'instructor') ? '/admin' : '/coach');
   if (member) redirect('/dashboard');
