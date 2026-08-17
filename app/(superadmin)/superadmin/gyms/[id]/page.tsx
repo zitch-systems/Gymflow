@@ -16,6 +16,7 @@ import {
 import { ROOT_DOMAIN } from '@/lib/tenant';
 import { CommissionEditor } from '@/components/superadmin/commission-editor';
 import { GymControls } from '@/components/superadmin/gym-controls';
+import { sa } from '@/lib/superadmin-path';
 
 export const metadata = { title: 'Gym' };
 export const dynamic = 'force-dynamic';
@@ -224,7 +225,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <Link href="/superadmin/gyms" className="back-link"><ArrowLeft strokeWidth={2} size={16} /> Back to gyms</Link>
+      <Link href={sa('/gyms')} className="back-link"><ArrowLeft strokeWidth={2} size={16} /> Back to gyms</Link>
 
       <div className="mdh">
         <span className="gf-avatar gf-avatar-xl" style={gym.logo_url ? { overflow: 'hidden', padding: 0 } : undefined}>
@@ -456,7 +457,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
             <div className="panel-h">
               <div><h3>Instructor payouts</h3><div className="sub">{pendingPayouts.length ? `${pendingPayouts.length} awaiting approval` : 'Nothing pending'}</div></div>
               {pendingPayouts.length > 0 && (
-                <Link href="/superadmin/payout-approvals" className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}>Review</Link>
+                <Link href={sa('/payout-approvals')} className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}>Review</Link>
               )}
             </div>
             {payouts?.length ? (
@@ -486,7 +487,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
           <div className="panel">
             <div className="panel-h">
               <div><h3>Support</h3><div className="sub">{openTickets ? `${openTickets} open` : 'No open tickets'}</div></div>
-              <Link href="/superadmin/support" className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}>Inbox</Link>
+              <Link href={sa('/support')} className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}>Inbox</Link>
             </div>
             {tickets?.length ? (
               <div className="infolist">
@@ -509,7 +510,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
           <div className="panel">
             <div className="panel-h">
               <div><h3>Audit trail</h3><div className="sub">Most recent activity on this gym</div></div>
-              <Link href="/superadmin/audit" className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}>Full log</Link>
+              <Link href={sa('/audit')} className="gf-btn gf-btn-secondary gf-btn-sm" style={{ textDecoration: 'none' }}>Full log</Link>
             </div>
             {audit?.length ? (
               <div className="infolist">

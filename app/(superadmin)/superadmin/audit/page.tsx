@@ -3,6 +3,7 @@ import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDateTime } from '@/lib/format';
 import { Pagination } from '@/components/pagination';
+import { sa } from '@/lib/superadmin-path';
 
 export const metadata = { title: 'Audit log' };
 
@@ -35,7 +36,7 @@ export default async function SuperAudit({ searchParams }: { searchParams: Promi
     <>
       <div className="hdr"><div><span className="pill-plat">Operations</span><h1>Audit log</h1><p>Every privileged action across the platform</p></div></div>
       <div className="panel">
-        <div className="toolbar"><form className="search" action="/superadmin/audit" style={{ display: 'flex' }}><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Filter by table or action…" aria-label="Search audit log" /></form><div style={{ flex: 1 }} /></div>
+        <div className="toolbar"><form className="search" action={sa('/audit')} style={{ display: 'flex' }}><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Filter by table or action…" aria-label="Search audit log" /></form><div style={{ flex: 1 }} /></div>
         {(logs ?? []).length === 0 ? (
           q
             ? <div className="empty"><div className="eic"><ScrollText strokeWidth={1.6} /></div><h3>No matching entries</h3><p>Try a different table or action.</p></div>

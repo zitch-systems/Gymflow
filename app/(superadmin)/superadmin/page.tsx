@@ -4,6 +4,7 @@ import { GymTable } from '@/components/superadmin/gym-table';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
+import { sa } from '@/lib/superadmin-path';
 
 export const metadata = { title: 'Platform overview' };
 export const dynamic = 'force-dynamic';
@@ -65,7 +66,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
     <>
       <div className="hdr">
         <div><span className="pill-plat">Platform overview</span><h1>{gyms} gym{gyms === 1 ? '' : 's'} running on GymFlow</h1><p>{members ?? 0} members · {activeSubs ?? 0} active subscriptions platform-wide</p></div>
-        <Link className="gf-btn gf-btn-primary" href="/superadmin/onboard"><UserPlus strokeWidth={1.9} size={16} /> Onboard a gym</Link>
+        <Link className="gf-btn gf-btn-primary" href={sa('/onboard')}><UserPlus strokeWidth={1.9} size={16} /> Onboard a gym</Link>
       </div>
 
       <section className="kpis">
@@ -79,7 +80,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
 
       <section className="grid">
         <div className="panel">
-          <div className="panel-h"><div><h3>Platform MRR</h3><div className="sub">Trailing 12 months · {fmtNaira(trailingTotal)}</div></div><Link className="link" href="/superadmin/revenue">Revenue report <ArrowRight strokeWidth={2} /></Link></div>
+          <div className="panel-h"><div><h3>Platform MRR</h3><div className="sub">Trailing 12 months · {fmtNaira(trailingTotal)}</div></div><Link className="link" href={sa('/revenue')}>Revenue report <ArrowRight strokeWidth={2} /></Link></div>
           <svg viewBox="0 0 600 170" className="area" preserveAspectRatio="none" aria-hidden>
             <polyline points={pts} fill="none" stroke="#11d18b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -88,7 +89,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
           </div>
         </div>
         <div className="panel">
-          <div className="panel-h"><div><h3>Recent activity</h3><div className="sub">Latest payments</div></div><Link className="link" href="/superadmin/audit">Audit log <ArrowRight strokeWidth={2} /></Link></div>
+          <div className="panel-h"><div><h3>Recent activity</h3><div className="sub">Latest payments</div></div><Link className="link" href={sa('/audit')}>Audit log <ArrowRight strokeWidth={2} /></Link></div>
           {(recent ?? []).length === 0 ? (
             <div className="empty sm"><h3>No activity yet</h3><p>Payments across gyms will appear here.</p></div>
           ) : (recent ?? []).map((a, i) => (
@@ -102,7 +103,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
           <div><h3>Gyms</h3><div className="sub">{gyms} total · {trial} on trial · {pastDue} past due</div></div>
           <div style={{ display: 'flex', gap: 8 }}>
             {GYM_FILTERS.map(([k, label]) => (
-              <Link key={k} href={k === 'all' ? '/superadmin' : `/superadmin?f=${k}`} className={gymFilter === k ? 'gf-chip active' : 'gf-chip'} style={{ textDecoration: 'none' }}>{label}</Link>
+              <Link key={k} href={k === 'all' ? sa() : sa(`?f=${k}`)} className={gymFilter === k ? 'gf-chip active' : 'gf-chip'} style={{ textDecoration: 'none' }}>{label}</Link>
             ))}
           </div>
         </div>

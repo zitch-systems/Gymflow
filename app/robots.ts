@@ -9,7 +9,12 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin', '/coach', '/superadmin', '/dashboard', '/checkin', '/classes', '/launch', '/api', '/join', '/login', '/signup', '/forgot-password', '/reset-password', '/billing', '/offline'],
+      // The platform console is deliberately absent. robots.txt is public, so
+      // listing a path here announces it — and the console's path is now the
+      // secret (SUPERADMIN_PATH, see lib/superadmin-path.ts). Nothing links to
+      // it, so there is no crawl path to it; the retired /superadmin URL 404s
+      // like any other non-existent path, so it needs no entry either.
+      disallow: ['/admin', '/coach', '/dashboard', '/checkin', '/classes', '/launch', '/api', '/join', '/login', '/signup', '/forgot-password', '/reset-password', '/billing', '/offline'],
     },
     sitemap: `${SITE}/sitemap.xml`,
   };

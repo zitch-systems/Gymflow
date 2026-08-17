@@ -1,6 +1,7 @@
 import { SuperShell } from '@/components/superadmin/super-shell';
 import { requirePlatformAdmin, getProfile } from '@/lib/auth/dal';
 import { initialsOf } from '@/lib/format';
+import { superadminBase } from '@/lib/superadmin-path';
 
 // See app/(admin)/layout.tsx — headroom for a resuming Supabase project.
 export const maxDuration = 60;
@@ -15,7 +16,9 @@ export default async function SuperadminLayout({ children }: { children: React.R
   const profile = await getProfile();
   const name = profile?.full_name?.trim() || user.email?.split('@')[0] || 'Superadmin';
   return (
-    <SuperShell userName={name} userEmail={user.email ?? ''} userInitial={initialsOf(name, 'S')}>
+    // The shell builds every nav href from this base — it's a Client Component,
+    // so the server env has to be handed to it. See lib/superadmin-path.ts.
+    <SuperShell base={superadminBase()} userName={name} userEmail={user.email ?? ''} userInitial={initialsOf(name, 'S')}>
       {children}
     </SuperShell>
   );

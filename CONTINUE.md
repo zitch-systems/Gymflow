@@ -26,6 +26,19 @@ the work that is deliberately still open.
 Role gates live in `lib/auth/dal.ts` (all `cache()`-wrapped); RLS is the
 authority on writes.
 
+**The platform console is not at `/superadmin`.** It answers on a secret path
+set per deployment in `SUPERADMIN_PATH` (`lib/superadmin-path.ts`); the
+middleware rewrites `/<segment>/…` onto the internal `/superadmin` route and
+404s anyone asking for `/superadmin` directly — byte-identically to any
+made-up path, so a probe learns nothing. Nothing links to it: the marketing
+footer's "Platform admin" link is gone and robots.txt names neither path. A
+platform admin finds it by signing in — `/launch` redirects them there. Every
+in-console link is built with `sa()`; a literal `/superadmin` href still works
+in dev (where the env var is usually unset and the path falls back) but would
+dead-end in production, so `test/superadmin-path.test.ts` fails the build on
+one. Rotating the URL is an env change plus a redeploy — no file moves, because
+the route on disk never changes.
+
 An eighth surface isn't a page route: **`mobile/`**, the React Native (Expo)
 Android app for members — the member PWA's screens on a native runtime, plus a
 camera QR scanner. It holds no Supabase credentials; it signs in through

@@ -36,8 +36,15 @@ function tokenFreshFor(request: NextRequest): boolean {
 // Refreshes the Supabase auth session when it's near expiry and forwards the
 // updated cookies to both the browser and downstream Server Components.
 // Standard @supabase/ssr middleware pattern, with a freshness fast-path.
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+//
+// `rewriteTo` exists for the platform console, which is served from a secret
+// URL that has to be rewritten onto its internal route (lib/superadmin-path.ts)
+// AND have its session refreshed. Those can't be two responses — the second
+// would discard the first — so the rewrite target is threaded through here
+// rather than the refresh logic being duplicated at the call site.
+export async function updateSession(request: NextRequest, rewriteTo?: URL) {
+  const build = () => (rewriteTo ? NextResponse.rewrite(rewriteTo, { request }) : NextResponse.next({ request }));
+  let response = build();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -54,7 +61,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = build();
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
       },
     },

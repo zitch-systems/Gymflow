@@ -5,6 +5,7 @@ import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { platformAlertRecipients } from '@/lib/email';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
 import { contactAck, contactReceived } from '@/lib/email/templates/platform';
+import { sa } from '@/lib/superadmin-path';
 
 export type ContactState = { ok: boolean; error: string | null };
 
@@ -64,7 +65,10 @@ export async function submitContact(_prev: ContactState, formData: FormData): Pr
           topic,
           message: message || '',
           priority,
-          ticketUrl: platformAppUrl('/superadmin/support'),
+          // This mail goes only to PLATFORM_ALERT_EMAILS — GymFlow's own staff —
+          // so it may carry the console's URL. Built from sa() so a rotated
+          // SUPERADMIN_PATH doesn't start mailing dead links.
+          ticketUrl: platformAppUrl(sa('/support')),
         }),
         // Replies go straight to the person who wrote in, not to our own inbox.
         replyTo: email,

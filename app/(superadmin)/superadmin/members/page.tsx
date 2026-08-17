@@ -2,6 +2,7 @@ import { Users, UserPlus, Activity, Building2, Search } from 'lucide-react';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { Pagination } from '@/components/pagination';
+import { sa } from '@/lib/superadmin-path';
 
 export const metadata = { title: 'All members' };
 
@@ -71,7 +72,7 @@ export default async function SuperMembers({ searchParams }: { searchParams: Pro
       </section>
       <div className="panel">
         <div className="panel-h"><div><h3>{q ? 'Search results' : 'Recent members'}</h3><div className="sub">{q ? 'Matching name or email across every gym' : 'Newest across every gym'}</div></div></div>
-        <div className="toolbar"><form className="search" action="/superadmin/members" style={{ display: 'flex' }}><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Search across every gym…" aria-label="Search members" /></form></div>
+        <div className="toolbar"><form className="search" action={sa('/members')} style={{ display: 'flex' }}><Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Search across every gym…" aria-label="Search members" /></form></div>
         {recent.length === 0 ? (
           q
             ? <div className="empty"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No matching members</h3><p>Try a different name or email.</p></div>

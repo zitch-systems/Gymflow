@@ -3,6 +3,7 @@ import { Building2, Repeat, Hourglass, AlertTriangle, Search, UserPlus } from 'l
 import { GymTable } from '@/components/superadmin/gym-table';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { sa } from '@/lib/superadmin-path';
 
 export const metadata = { title: 'Gyms' };
 
@@ -31,7 +32,7 @@ export default async function SuperGyms({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <div className="hdr"><div><span className="pill-plat">Platform</span><h1>Gyms</h1><p>{total} gym{total === 1 ? '' : 's'} · {trial} on trial · {pastDue} past due</p></div><Link href="/superadmin/onboard" className="gf-btn gf-btn-primary" style={{ textDecoration: 'none' }}><UserPlus strokeWidth={1.9} size={16} /> Onboard a gym</Link></div>
+      <div className="hdr"><div><span className="pill-plat">Platform</span><h1>Gyms</h1><p>{total} gym{total === 1 ? '' : 's'} · {trial} on trial · {pastDue} past due</p></div><Link href={sa('/onboard')} className="gf-btn gf-btn-primary" style={{ textDecoration: 'none' }}><UserPlus strokeWidth={1.9} size={16} /> Onboard a gym</Link></div>
       <section className="kpis">
         {KPIS.map((k) => { const Icon = k.icon; return (
           <div className="kpi" key={k.lbl}><div className="kpi-top"><div className="kpi-ic" style={{ background: k.bg, color: k.fg }}><Icon strokeWidth={1.9} /></div></div><div className="kpi-val">{k.val}</div><div className="kpi-lbl">{k.lbl}</div></div>
@@ -39,13 +40,13 @@ export default async function SuperGyms({ searchParams }: { searchParams: Promis
       </section>
       <div className="panel">
         <div className="toolbar">
-          <form className="search" action="/superadmin/gyms" style={{ display: 'flex' }}>
+          <form className="search" action={sa('/gyms')} style={{ display: 'flex' }}>
             {filter !== 'all' && <input type="hidden" name="f" value={filter} />}
             <Search strokeWidth={1.75} /><input name="q" defaultValue={q} placeholder="Search gyms…" aria-label="Search gyms" />
           </form>
           <div style={{ flex: 1 }} />
           {FILTERS.map(([k, label]) => (
-            <Link key={k} href={`/superadmin/gyms?${new URLSearchParams({ ...(k !== 'all' && { f: k }), ...(q && { q }) }).toString()}`} className={filter === k ? 'gf-chip active' : 'gf-chip'} style={{ textDecoration: 'none' }}>{label}</Link>
+            <Link key={k} href={sa(`/gyms?${new URLSearchParams({ ...(k !== 'all' && { f: k }), ...(q && { q }) }).toString()}`)} className={filter === k ? 'gf-chip active' : 'gf-chip'} style={{ textDecoration: 'none' }}>{label}</Link>
           ))}
         </div>
         <GymTable limit={200} q={q} status={filter} />
