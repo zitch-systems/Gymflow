@@ -39,6 +39,7 @@
     "node_modules",
     "design",
     "test",
-    "gymflow-meta-connector"
+    "gymflow-meta-connector",
+    "mobile"
   ]
 }

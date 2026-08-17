@@ -94,9 +94,14 @@ const GUARDS = [
   'app/(coach)/layout.tsx',
   'app/join/[slug]/page.tsx',
   'app/api/cron/backups/route.ts',
-  'lib/actions/renew.ts',
   'lib/actions/member-billing.ts',
-  'lib/actions/checkin.ts',
+  // The door and the checkout are reached from two runtimes — the web Server
+  // Actions and the Android app's /api/app/* endpoints — so the guard lives in
+  // the shared core each of them calls, not in the action wrapper. That is the
+  // file to point this test at: a check in lib/actions/checkin.ts would say
+  // nothing about whether the phone gets the same answer.
+  'lib/checkin-core.ts',
+  'lib/renew-core.ts',
 ];
 
 describe('gym-status guards use the shared predicate', () => {
