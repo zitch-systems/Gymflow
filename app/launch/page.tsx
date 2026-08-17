@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { provisionOwner } from '@/lib/provision';
 import { healJoin } from '@/lib/actions/join';
 import { sa } from '@/lib/superadmin-path';
+import { gymLaunchUrl, memberBelongsOnGymSite } from '@/lib/web-signin';
 import { FinishSetup } from './finish-setup';
 
 // Post-login role router. signIn redirects here after a successful sign-in.
@@ -25,7 +27,10 @@ export default async function Launch() {
     // way through to the "name your gym" onboarding form. Route to the admin
     // console if ANY link is a non-instructor role; a pure instructor gets /coach.
     supabase.from('gym_staff_links').select('role').eq('user_id', user.id).eq('is_active', true),
-    supabase.from('gym_member_links').select('id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle(),
+    // gyms(slug) rides along: a member on the platform's website is sent to
+    // their own gym's page, and this is the query that already knows which gym.
+    supabase.from('gym_member_links').select('id, gyms(slug)').eq('user_id', user.id).eq('is_active', true)
+      .order('joined_at', { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   // The console's URL is configured per deployment, so this is the one place a
@@ -33,7 +38,20 @@ export default async function Launch() {
   if (pa) redirect(sa());
   const staffRoles = ((staffLinks ?? []) as { role: string | null }[]).map((l) => l.role);
   if (staffRoles.length > 0) redirect(staffRoles.some((r) => r && r !== 'instructor') ? '/admin' : '/coach');
-  if (member) redirect('/dashboard');
+
+  if (member) {
+    // Members belong on their gym's page, not on GymFlow's website. This covers
+    // the sessions signIn never sees — a /join invite completed on the apex, a
+    // confirmation link, a password reset. Target is the gym's own /launch, so
+    // a browser that already holds a session there lands on the dashboard
+    // rather than being asked to sign in twice.
+    const memberSlug = (member as { gyms?: { slug?: string | null } | null }).gyms?.slug ?? null;
+    const host = (await headers()).get('x-forwarded-host') ?? (await headers()).get('host');
+    if (memberBelongsOnGymSite(host, { isPlatformAdmin: false, isStaff: false, memberGymSlug: memberSlug })) {
+      redirect(gymLaunchUrl(memberSlug));
+    }
+    redirect('/dashboard');
+  }
 
   // No role anywhere: an account whose provisioning failed (or predates it).
   // Previously this fell through to /dashboard, whose gate bounced back to

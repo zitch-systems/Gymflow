@@ -26,6 +26,19 @@ the work that is deliberately still open.
 Role gates live in `lib/auth/dal.ts` (all `cache()`-wrapped); RLS is the
 authority on writes.
 
+**Members don't sign in on gymflow.ng.** The apex is GymFlow's own website —
+marketing, owner signup, and the console the gym's staff work in. A member's
+front door is their gym's page (`<slug>.gymflow.ng/login`, already branded) or
+the Android app. `lib/web-signin.ts` holds the rule; it fires only for a
+member-only account, on the production apex, whose gym has a usable slug — so
+staff (including an owner who trains at their own gym, who holds both link
+types) are never caught by it, and localhost/preview, where subdomains don't
+resolve, are exempt. Enforced in three places for different reasons: `signIn`
+drops the session it just minted and offers a link onward, `/launch` catches
+sessions made by other paths (a `/join` invite, a confirmation link), and
+`requireMember` is the actual boundary — without it a pre-existing apex session
+still opened `/dashboard`. `test/web-signin.test.ts` locks all three.
+
 **The platform console is not at `/superadmin`.** It answers on a secret path
 set per deployment in `SUPERADMIN_PATH` (`lib/superadmin-path.ts`); the
 middleware rewrites `/<segment>/…` onto the internal `/superadmin` route and

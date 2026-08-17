@@ -39,11 +39,12 @@ export function MarketingFooter() {
           <h4>Product</h4>
           <Link href="/features">Features</Link>
           <Link href="/pricing">Pricing</Link>
-          {/* Sign-in entry, not a deep link into the gated app: /dashboard bounced
-              members to the apex owner-login and pushed signed-in owners into the
-              admin portal. /login is the member sign-in (member-branded on a gym
-              subdomain); /launch then routes to /dashboard. */}
-          <Link href="/login">Member sign-in</Link>
+          {/* This is GymFlow's own site, so its sign-in is the staff one. A
+              member signing in here is sent to their gym's page instead
+              (lib/web-signin.ts), and the label used to promise otherwise —
+              "Member sign-in" pointed at a door that now hands them straight
+              back out. Members reach their gym by its own link, or the app. */}
+          <Link href="/login">Gym sign-in</Link>
           <Link href="/admin">For owners</Link>
           {/* No "Platform admin" link here any more. The console answers on a
               secret, per-deployment path (SUPERADMIN_PATH — lib/superadmin-path.ts),

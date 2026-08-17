@@ -257,6 +257,26 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
                 <AlertCircle size={15} strokeWidth={2} style={{ flexShrink: 0 }} /> {state.error}
               </p>
             )}
+            {/* Right password, wrong door. A member signed in on GymFlow's own
+                website; their gym's page is where their membership lives. Not
+                styled as an error — nothing went wrong, and the whole panel is
+                a link onward. The session minted a moment ago was already
+                dropped server-side, so this is genuinely a fresh start on the
+                other host. */}
+            {!up && inState.code === 'member_site' && inState.memberSiteUrl && (
+              <div role="status" style={{ background: 'var(--gf-brand-soft)', border: '1px solid var(--gf-brand)', borderRadius: 'var(--gf-radius-sm)', padding: '14px 16px', margin: '-4px 0 14px' }}>
+                <p style={{ margin: '0 0 4px', fontWeight: 600, fontSize: '0.9rem' }}>
+                  {inState.gymName ? `Your membership lives on ${inState.gymName}’s page` : 'Your membership lives on your gym’s page'}
+                </p>
+                <p style={{ margin: '0 0 12px', fontSize: '0.84rem', color: 'var(--gf-text-secondary)' }}>
+                  This is GymFlow’s website, for gym owners and staff. Members sign
+                  in on their own gym’s page — or in the GymFlow app.
+                </p>
+                <a className="gf-btn gf-btn-primary gf-btn-sm" href={inState.memberSiteUrl} style={{ textDecoration: 'none' }}>
+                  Continue to {inState.gymName ?? 'your gym'} <ArrowRight size={15} strokeWidth={2} />
+                </a>
+              </div>
+            )}
             {!up && inState.code === 'unconfirmed' && (
               // role="status" covers both the resend button's "Sending…" pending
               // text and the outcome message that replaces it — one live region
