@@ -1,8 +1,11 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { gymSignInUrl, isPlatformWebsite, memberBelongsOnGymSite } from '@/lib/web-signin';
 import { provisionOwner } from '@/lib/provision';
 import { createApiAuthClient } from '@/lib/gym-signup';
 import { validatePassword } from '@/lib/auth/password';
@@ -15,7 +18,16 @@ import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 // `code` lets the client react to specific failures (e.g. offer a resend
 // button when the email is unconfirmed) without string-matching messages.
-export type AuthState = { error: string | null; code?: 'unconfirmed' };
+//
+// 'member_site' isn't a failure: the credentials were right, but this is a
+// member signing in on GymFlow's website instead of their gym's page. The
+// client turns it into a way through, not an error — see lib/web-signin.ts.
+export type AuthState = {
+  error: string | null;
+  code?: 'unconfirmed' | 'member_site';
+  memberSiteUrl?: string;
+  gymName?: string | null;
+};
 
 // Two-factor verification state for /verify. `sent` drives the "a new code is
 // on its way" line without overloading `error` with success messages.
@@ -86,11 +98,64 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
     }
   }
 
+  // Members sign in on their own gym's page, not on GymFlow's website — see
+  // lib/web-signin.ts. Checked here, while we can still drop the session we
+  // just minted: leaving it in place would put a member session on the apex
+  // host, which is exactly what this rule exists to prevent.
+  if (user) {
+    const target = await memberSiteFor(user.id);
+    if (target) {
+      await supabase.auth.signOut();
+      return {
+        error: null,
+        code: 'member_site',
+        memberSiteUrl: target.url,
+        gymName: target.gymName,
+      };
+    }
+  }
+
   // Route by role on the NEXT request (/launch) — not here. Inside this action
   // the just-created session isn't attached to data queries yet, so role
   // lookups run as the anon role and return nothing. /launch re-runs the lookup
   // on a fresh request where the auth cookie applies. See app/launch/page.tsx.
   redirect('/launch');
+}
+
+/**
+ * Where this account should be signing in, if not here — or null to proceed.
+ *
+ * Runs on the service role, not the caller's session, for the reason the
+ * comment below the call site gives: inside this action the session isn't
+ * attached to queries yet, so a role lookup on the user's own client comes back
+ * empty and every account would look like "not staff". Reading roles as anon
+ * and acting on the answer would send owners to the member sign-in.
+ *
+ * Fails OPEN. Without a service key (preview builds) or on a query error the
+ * answer is null and sign-in proceeds as before: this is a routing rule, and
+ * `requireMember` is the boundary that actually holds it.
+ */
+async function memberSiteFor(userId: string): Promise<{ url: string; gymName: string | null } | null> {
+  const host = (await headers()).get('x-forwarded-host') ?? (await headers()).get('host');
+  if (!isPlatformWebsite(host)) return null;
+
+  try {
+    const admin = createAdminClient();
+    const [{ data: pa }, { data: staff }, { data: member }] = await Promise.all([
+      admin.from('platform_admins').select('id').eq('user_id', userId).eq('is_active', true).limit(1).maybeSingle(),
+      admin.from('gym_staff_links').select('id').eq('user_id', userId).eq('is_active', true).limit(1).maybeSingle(),
+      admin.from('gym_member_links').select('gym_id').eq('user_id', userId).eq('is_active', true)
+        .order('joined_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (pa || staff || !member?.gym_id) return null;
+
+    const { data: gym } = await admin.from('gyms').select('slug, name').eq('id', member.gym_id).maybeSingle();
+    const slug = (gym as { slug?: string | null } | null)?.slug ?? null;
+    if (!memberBelongsOnGymSite(host, { isPlatformAdmin: false, isStaff: false, memberGymSlug: slug })) return null;
+    return { url: gymSignInUrl(slug), gymName: (gym as { name?: string | null } | null)?.name ?? null };
+  } catch {
+    return null; // no service key here — let them through, the DAL still gates
+  }
 }
 
 /**

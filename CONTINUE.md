@@ -26,6 +26,19 @@ the work that is deliberately still open.
 Role gates live in `lib/auth/dal.ts` (all `cache()`-wrapped); RLS is the
 authority on writes.
 
+**Members don't sign in on gymflow.ng.** The apex is GymFlow's own website —
+marketing, owner signup, and the console the gym's staff work in. A member's
+front door is their gym's page (`<slug>.gymflow.ng/login`, already branded) or
+the Android app. `lib/web-signin.ts` holds the rule; it fires only for a
+member-only account, on the production apex, whose gym has a usable slug — so
+staff (including an owner who trains at their own gym, who holds both link
+types) are never caught by it, and localhost/preview, where subdomains don't
+resolve, are exempt. Enforced in three places for different reasons: `signIn`
+drops the session it just minted and offers a link onward, `/launch` catches
+sessions made by other paths (a `/join` invite, a confirmation link), and
+`requireMember` is the actual boundary — without it a pre-existing apex session
+still opened `/dashboard`. `test/web-signin.test.ts` locks all three.
+
 **The platform console is not at `/superadmin`.** It answers on a secret path
 set per deployment in `SUPERADMIN_PATH` (`lib/superadmin-path.ts`); the
 middleware rewrites `/<segment>/…` onto the internal `/superadmin` route and
@@ -38,6 +51,21 @@ in dev (where the env var is usually unset and the path falls back) but would
 dead-end in production, so `test/superadmin-path.test.ts` fails the build on
 one. Rotating the URL is an env change plus a redeploy — no file moves, because
 the route on disk never changes.
+
+The console has its own sign-in at `<segment>/login`
+(`app/(superadmin-auth)/`, a separate route group so it isn't behind the gate it
+exists to get you through). No signup, no password reset, no "launch your gym" —
+none of those can create, recover or grant a platform-admin account. It posts to
+the shared `signIn` action, so the second factor and the rate limits are the same
+ones everything else uses. `requirePlatformAdmin` sends both the signed-out and
+the not-an-admin case there rather than to the apex `/login`, which is the gym
+owners' front door and reads as being thrown out of the console.
+
+Which paths get their session refreshed is `lib/session-paths.ts`, not a
+matcher: `config.matcher` must be statically analysable, so it can't name the
+console's runtime path, and a surface that falls off the list keeps working
+until someone's token ages out. `test/session-paths.test.ts` checks every gated
+route group is on it and fails on a new group nobody has classified.
 
 An eighth surface isn't a page route: **`mobile/`**, the React Native (Expo)
 Android app for members — the member PWA's screens on a native runtime, plus a

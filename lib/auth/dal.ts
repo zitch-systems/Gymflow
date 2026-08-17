@@ -1,7 +1,9 @@
 import { cache } from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { gymLaunchUrl, memberBelongsOnGymSite } from '@/lib/web-signin';
+import { sa } from '@/lib/superadmin-path';
 import type { Database } from '@/lib/database.types';
 
 type Gym = Database['public']['Tables']['gyms']['Row'];
@@ -88,6 +90,19 @@ export const requireMember = cache(async (): Promise<{ user: NonNullable<Awaited
     gym = (data as Gym) ?? null;
   }
   if (!gym) redirect('/launch');
+
+  // The member surfaces live on the gym's own host, not on GymFlow's website.
+  // This is the boundary, not the sign-in form: /login and /launch route people
+  // to the right place, but a session minted before this rule existed — or by
+  // any path that doesn't pass through them — would still open /dashboard on
+  // the apex without it. Staff never reach here (requireStaff resolves them
+  // first), and it no-ops off the production apex, so localhost and preview
+  // deploys, where subdomains don't resolve, are unaffected.
+  const host = (await headers()).get('x-forwarded-host') ?? (await headers()).get('host');
+  if (memberBelongsOnGymSite(host, { isPlatformAdmin: false, isStaff: false, memberGymSlug: gym.slug })) {
+    redirect(gymLaunchUrl(gym.slug));
+  }
+
   return { user, gym, link: linkRow as Database['public']['Tables']['gym_member_links']['Row'] };
 });
 
@@ -183,7 +198,9 @@ export const isPlatformAdmin = cache(async (): Promise<boolean> => {
 
 export const requirePlatformAdmin = cache(async () => {
   const user = await getUser();
-  if (!user) redirect('/login');
+  // Signed out at the console door → the console's own sign-in, which keeps
+  // them on the secret path instead of dumping them on the public site.
+  if (!user) redirect(sa('/login'));
   const supabase = await createClient();
   const { data } = await supabase
     .from('platform_admins')
@@ -195,7 +212,12 @@ export const requirePlatformAdmin = cache(async () => {
   // them on the marketing landing page with no explanation — indistinguishable
   // from a broken link, and the usual cause is simply being signed in on a gym
   // account instead of the platform one. Send them somewhere they can act:
-  // the platform sign-in, with a notice saying which account they need.
-  if (!data) redirect('/login?denied=platform');
+  // the console's OWN sign-in, with a notice saying which account they need.
+  //
+  // Not the apex /login: that page is the gym owners' front door, complete with
+  // a "Create gym" tab and a password-reset link, none of which have anything
+  // to do with a platform-admin account. Landing there reads as "you've been
+  // thrown out of the console back to the normal site".
+  if (!data) redirect(sa('/login?denied=platform'));
   return user;
 });
