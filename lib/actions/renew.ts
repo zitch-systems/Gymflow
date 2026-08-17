@@ -5,7 +5,12 @@ import { requestOrigin } from '@/lib/request-origin';
 import { createClient } from '@/lib/supabase/server';
 import { startRenewalCore, type RenewResult } from '@/lib/renew-core';
 
-export type { RenewResult };
+// No `export type { RenewResult }` here, however tempting. A 'use server' file
+// may only export async functions, and Turbopack's server-actions transform
+// re-emitted this type-only re-export as a real one — so the compiled module
+// evaluated `export { RenewResult }` against a binding that types had erased,
+// and every /dashboard/renew request died with `RenewResult is not defined`
+// before the page could render. Import the type from '@/lib/renew-core'.
 
 // Start a Paystack checkout for a renewal from the web PWA. The pricing and
 // validation live in lib/renew-core.ts, shared with the Android app's

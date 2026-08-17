@@ -2,7 +2,8 @@
 
 import { useActionState } from 'react';
 import { Plus } from 'lucide-react';
-import { bookClass, cancelBooking, type BookState } from '@/lib/actions/booking';
+import { bookClass, cancelBooking } from '@/lib/actions/booking';
+import type { BookState } from '@/lib/booking-core';
 
 const INIT: BookState = { ok: false, error: null };
 
