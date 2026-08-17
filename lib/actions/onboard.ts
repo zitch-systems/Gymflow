@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { splitName } from '@/lib/format';
 import { validatePassword } from '@/lib/auth/password';
 import { logAudit } from '@/lib/audit';
-import { DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
+import { getPlatformSettings, trialEndsAt } from '@/lib/platform-settings';
 import { isPlanTier } from '@/lib/platform-plans';
 import { gymUrl } from '@/lib/email/brand';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
@@ -56,11 +56,16 @@ export async function provisionGym(_prev: OnboardState, formData: FormData): Pro
   const { data: existing } = await admin.from('gyms').select('id').eq('slug', slug).maybeSingle();
   if (existing) return { ok: false, error: `Subdomain "${slug}" is taken.` };
 
+  // Commission and trial length come from the platform's own settings row, so
+  // the number the console shows is the number a new gym actually gets. Falls
+  // back to the code constants when there's no row (lib/platform-settings.ts).
+  const defaults = await getPlatformSettings(admin);
+
   const { data: gym, error: gymErr } = await admin
     .from('gyms')
-    // status 'active' (the value gyms_status_check accepts); 14-day trial window
+    // status 'active' (the value gyms_status_check accepts); the trial window
     // is tracked in trial_ends_at, not status.
-    .insert({ name, slug, city, subscription_plan: plan, status: 'active', platform_commission_pct: DEFAULT_PLATFORM_COMMISSION_PCT, trial_ends_at: new Date(Date.now() + 14 * 86_400_000).toISOString() })
+    .insert({ name, slug, city, subscription_plan: plan, status: 'active', platform_commission_pct: defaults.defaultCommissionPct, trial_ends_at: trialEndsAt(defaults.defaultTrialDays) })
     .select('id')
     .single();
   if (gymErr || !gym) return { ok: false, error: gymErr?.message ?? 'Could not create gym.' };
