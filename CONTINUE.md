@@ -26,6 +26,22 @@ the work that is deliberately still open.
 Role gates live in `lib/auth/dal.ts` (all `cache()`-wrapped); RLS is the
 authority on writes.
 
+An eighth surface isn't a page route: **`mobile/`**, the React Native (Expo)
+Android app for members — the member PWA's screens on a native runtime, plus a
+camera QR scanner. It holds no Supabase credentials; it signs in through
+`/api/app/signin`, keeps the session in the Android keystore, and sends it as
+`Authorization: Bearer` to `/api/app/*`, where `requireApiMember()`
+(`lib/api-app.ts`) binds the token to a Supabase client so RLS authorises every
+read and write exactly as it does on the web. The rules the two runtimes must
+agree on — entry gates, class capacity, renewal pricing — live in
+`lib/checkin-core.ts`, `lib/booking-core.ts` and `lib/renew-core.ts`, which the
+web Server Actions and the mobile endpoints both call.
+`test/mobile-api.test.ts` locks both properties: no unlisted endpoint may skip
+authentication, and no caller may grow its own copy of a rule. Root
+`tsconfig.json` / `eslint.config.mjs` exclude `mobile/` — it has its own Expo
+toolchain (`cd mobile && npm run type-check && npm run lint`). See
+`mobile/README.md`.
+
 Each role lands somewhere different after sign-in — `/launch` routes by role:
 platform admin → `/superadmin`, staff → `/admin` (instructor → `/coach`),
 member → `/dashboard`. Credentials for the accounts that exercise those paths
@@ -126,6 +142,13 @@ otherwise shipped):
   the full admin surface; the RLS role arrays already distinguish them.
 - **Family plans**, **churn/lifecycle analytics**, **NFC access**,
   **OpenTelemetry**, **queue infrastructure** — genuine gaps, none blocking.
+- **Mobile app gaps** — the Android member app ships without freeze requests,
+  waiver signing or document viewing (each needs a staff-mediated or signature
+  flow; the profile screen links out to the web portal for them), and without
+  push notifications. Its 2FA position is inherited from `/api/app/signin`:
+  an account that owes a second factor is refused a mobile session outright,
+  so a coach who also trains at their own gym can't use the app until that
+  endpoint grows a challenge/verify pair.
 
 Reference docs: `AUDIT.md` (2026-06-28 full-stack audit),
 `REVIEW_ENTERPRISE_HARDENING.md` (adversarial review of a hardening prompt, with
