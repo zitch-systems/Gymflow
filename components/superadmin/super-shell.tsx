@@ -10,6 +10,7 @@ import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
   LayoutDashboard, Building2, Users, TrendingUp, UserPlus, ScrollText, LifeBuoy, Settings, LogOut, Globe, Banknote,
+  Bot, MessageCircle,
 } from 'lucide-react';
 import { LogoMark } from '@/components/ui/logo';
 
@@ -23,6 +24,10 @@ const NAV: { sub: string; label: string; icon: LucideIcon; section: 'Platform' |
   { sub: '/gyms', label: 'Gyms', icon: Building2, section: 'Platform' },
   { sub: '/members', label: 'Members', icon: Users, section: 'Platform' },
   { sub: '/revenue', label: 'Revenue', icon: TrendingUp, section: 'Platform' },
+  // The two backends gyms switch on for themselves but cannot provision: the
+  // AI catalogue ships disabled and keyless, and the WhatsApp number is shared.
+  { sub: '/ai', label: 'AI providers', icon: Bot, section: 'Platform' },
+  { sub: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, section: 'Platform' },
   { sub: '/onboard', label: 'Onboard', icon: UserPlus, section: 'Operations' },
   { sub: '/payout-approvals', label: 'Payout approvals', icon: Banknote, section: 'Operations' },
   { sub: '/audit', label: 'Audit log', icon: ScrollText, section: 'Operations' },

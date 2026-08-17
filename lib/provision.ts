@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getPlatformSettings, trialEndsAt } from '@/lib/platform-settings';
 import { splitName, fmtDate } from '@/lib/format';
 import { gymUrl } from '@/lib/email/brand';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
@@ -35,14 +36,20 @@ export async function provisionOwner(params: { userId: string; email: string; gy
   let gymSlug = base;
   let lastErr = '';
   // New gyms are 'active' (the value the gyms_status_check constraint accepts and
-  // the rest of the app treats as live). The 14-day trial lives in trial_ends_at,
-  // not in status. The slug list falls back name → name-2…name-6 → random suffix.
-  const trialEndsAt = new Date(Date.now() + 14 * 86_400_000).toISOString();
+  // the rest of the app treats as live). The trial lives in trial_ends_at, not
+  // in status. The slug list falls back name → name-2…name-6 → random suffix.
+  //
+  // Length and commission come from the platform settings row rather than being
+  // hardcoded here, so this path and the /superadmin/onboard path can't disagree
+  // about what a new gym starts on — they did: this one never set a commission
+  // at all and took the column default, the other set the code constant.
+  const defaults = await getPlatformSettings(admin);
+  const trialEnds = trialEndsAt(defaults.defaultTrialDays);
   const candidates = [base, ...Array.from({ length: 5 }, (_, i) => `${base}-${i + 2}`), `${base}-${Math.random().toString(36).slice(2, 6)}`];
   for (const slug of candidates) {
     const { data, error } = await admin
       .from('gyms')
-      .insert({ name: params.gymName, slug, status: 'active', subscription_plan: 'starter', trial_ends_at: trialEndsAt })
+      .insert({ name: params.gymName, slug, status: 'active', subscription_plan: 'starter', platform_commission_pct: defaults.defaultCommissionPct, trial_ends_at: trialEnds })
       .select('id')
       .maybeSingle();
     if (data) { gymId = data.id; gymSlug = slug; break; }
@@ -76,7 +83,7 @@ export async function provisionOwner(params: { userId: string; email: string; gy
         gymName: params.gymName,
         gymUrl: gymUrl(gymSlug),
         adminUrl: platformAppUrl('/admin'),
-        trialEndDate: fmtDate(trialEndsAt),
+        trialEndDate: fmtDate(trialEnds),
       }),
       template: 'owner_welcome',
     });

@@ -1,6 +1,11 @@
-import { CreditCard, MessageCircle, Mail, BarChart3, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { CreditCard, MessageCircle, Mail, BarChart3, ShieldCheck, Bot, KeyRound } from 'lucide-react';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getPlatformSettings } from '@/lib/platform-settings';
+import { secretsConfigured } from '@/lib/crypto/secret-box';
+import { sa } from '@/lib/superadmin-path';
+import { PlatformDefaultsForm } from './defaults-form';
 
 export const metadata = { title: 'Platform settings' };
 
@@ -18,22 +23,50 @@ export default async function SuperSettings() {
   // RLS-scoped client would show "1 active" no matter how many admins exist.
   // Safe here because the page is already gated by requirePlatformAdmin().
   const supabase = createAdminClient();
-  const { data: admins } = await supabase.from('platform_admins').select('name, email, is_active').eq('is_active', true);
+  const [{ data: admins }, defaults, { data: gymRates }] = await Promise.all([
+    supabase.from('platform_admins').select('name, email, is_active').eq('is_active', true),
+    getPlatformSettings(supabase),
+    // What every live gym is ACTUALLY on. The default above only decides what a
+    // new gym starts at, and the two drifting apart silently is exactly how the
+    // console ended up claiming a rate nobody was charged.
+    supabase.from('gyms').select('id, name, platform_commission_pct, status')
+      .not('status', 'in', '("terminated")')
+      .order('name', { ascending: true }),
+  ]);
 
   // Integration status reflects whether the env key is actually set.
   const status = (key: string) => (process.env[key] ? ['gf-badge-success', 'Live'] : ['gf-badge-neutral', 'Not set']);
+
+  const rates = (gymRates ?? []) as { id: string; name: string; platform_commission_pct: number | null; status: string | null }[];
+  const offDefault = rates.filter((g) => Number(g.platform_commission_pct ?? 0) !== defaults.defaultCommissionPct);
 
   return (
     <>
       <div className="hdr"><div><span className="pill-plat">Operations</span><h1>Platform settings</h1><p>Global configuration for all tenants</p></div></div>
       <div className="two" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <PlatformDefaultsForm commissionPct={defaults.defaultCommissionPct} trialDays={defaults.defaultTrialDays} />
+
           <div className="panel">
-            <div className="panel-title">Platform defaults</div>
-            <div className="panel-desc">Applied to every new gym at provision time. Fixed platform-wide for now.</div>
-            <div className="frow"><div className="gf-form-group"><label className="gf-form-label">Platform commission</label><input className="gf-input" value="3%" readOnly disabled /></div><div className="gf-form-group"><label className="gf-form-label">Trial length</label><input className="gf-input" value="14 days" readOnly disabled /></div></div>
-            <div className="gf-form-group"><label className="gf-form-label">Default currency</label><input className="gf-input" value="₦ Naira (NGN)" readOnly disabled /></div>
+            <div className="panel-title">Commission in force</div>
+            <div className="panel-desc">
+              {rates.length} gym{rates.length === 1 ? '' : 's'} · {offDefault.length} on a rate other than the {defaults.defaultCommissionPct}% default.
+              Change one from its page under Gyms.
+            </div>
+            {rates.length === 0 && <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.85rem' }}>No gyms yet.</div>}
+            {rates.map((g) => (
+              <div className="integ" key={g.id}>
+                <div className="m">
+                  <strong><Link href={sa(`/gyms/${g.id}`)} style={{ color: 'inherit' }}>{g.name}</Link></strong>
+                  <small>{g.status ?? 'unknown'}</small>
+                </div>
+                <span className={`gf-badge ${Number(g.platform_commission_pct ?? 0) === defaults.defaultCommissionPct ? 'gf-badge-neutral' : 'gf-badge-warning'}`}>
+                  {Number(g.platform_commission_pct ?? 0)}%
+                </span>
+              </div>
+            ))}
           </div>
+
           <div className="panel">
             <div className="panel-title">Platform admins</div>
             <div className="panel-desc">{(admins ?? []).length} active</div>
@@ -46,15 +79,35 @@ export default async function SuperSettings() {
             ))}
           </div>
         </div>
-        <div className="panel">
-          <div className="panel-title">Integrations</div>
-          <div className="panel-desc">Status reflects whether the server env key is configured.</div>
-          {INTEG.map((it) => {
-            const Icon = it.icon; const st = status(it.env);
-            return (
-              <div className="integ" key={it.name}><div className="ig" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}><Icon strokeWidth={1.75} /></div><div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></div>
-            );
-          })}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="panel">
+            <div className="panel-title">Integrations</div>
+            <div className="panel-desc">Status reflects whether the server env key is configured.</div>
+            {INTEG.map((it) => {
+              const Icon = it.icon; const st = status(it.env);
+              return (
+                <div className="integ" key={it.name}><div className="ig" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}><Icon strokeWidth={1.75} /></div><div className="m"><strong>{it.name}</strong><small>{it.sub}</small></div><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></div>
+              );
+            })}
+            <div className="integ">
+              <div className="ig" style={{ background: 'var(--gf-brand-soft)', color: 'var(--gf-brand)' }}><KeyRound strokeWidth={1.75} /></div>
+              <div className="m"><strong>Secrets encryption</strong><small>Encrypts stored provider keys at rest</small></div>
+              <span className={`gf-badge ${secretsConfigured() ? 'gf-badge-success' : 'gf-badge-neutral'}`}><span className="gf-dot" />{secretsConfigured() ? 'Live' : 'Not set'}</span>
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="panel-title">Backends</div>
+            <div className="panel-desc">The two platform services gyms switch on for themselves.</div>
+            <div className="integ">
+              <div className="ig" style={{ background: 'var(--gf-info-soft)', color: 'var(--gf-info)' }}><Bot strokeWidth={1.75} /></div>
+              <div className="m"><strong><Link href={sa('/ai')} style={{ color: 'inherit' }}>AI providers</Link></strong><small>Model vendors, platform keys, which gyms may pick them</small></div>
+            </div>
+            <div className="integ">
+              <div className="ig" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)' }}><MessageCircle strokeWidth={1.75} /></div>
+              <div className="m"><strong><Link href={sa('/whatsapp')} style={{ color: 'inherit' }}>WhatsApp channel</Link></strong><small>Shared business number, per-gym rollout</small></div>
+            </div>
+          </div>
         </div>
       </div>
     </>
