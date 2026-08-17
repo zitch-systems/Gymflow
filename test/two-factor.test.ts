@@ -232,8 +232,19 @@ describe('two-factor coverage', () => {
     const fn = src.slice(src.indexOf('export async function twoFactorRequiredForUser'));
     expect(fn).toContain("from('platform_admins')");
     // Required unless the env switch is explicitly off — that is the ONLY way
-    // past this clause, and it lives outside the product by design.
-    expect(fn).toMatch(/if \(!platformAdminTwoFactorDisabled\(process\.env\.PLATFORM_ADMIN_2FA\)\) return true;/);
+    // past this clause, and it lives outside the product by design. Pinned as
+    // "negated check, then return true" rather than one literal line, so adding
+    // a log line between them doesn't fail a test that isn't about logging.
+    expect(fn).toContain('const raw = process.env.PLATFORM_ADMIN_2FA;');
+    // Positional rather than one literal line: the clause must read "unless the
+    // switch parses as off, return true", and it must do so before the
+    // staff-links lookup. Pinning the exact line meant a log statement added
+    // between the check and the return failed a test that isn't about logging.
+    const gate = fn.indexOf('if (!platformAdminTwoFactorDisabled(raw))');
+    expect(gate).toBeGreaterThan(-1);
+    const returnsTrue = fn.indexOf('return true;', gate);
+    expect(returnsTrue).toBeGreaterThan(gate);
+    expect(returnsTrue).toBeLessThan(fn.indexOf("from('gym_staff_links')"));
     // Ahead of the staff-links lookup, or a platform admin who is also staff
     // somewhere would be answered by the gym's toggle instead.
     expect(fn.indexOf("from('platform_admins')")).toBeLessThan(fn.indexOf("from('gym_staff_links')"));
