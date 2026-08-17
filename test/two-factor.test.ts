@@ -5,7 +5,8 @@ import { asSuperuser } from './db';
 import {
   CODE_TTL_SECONDS, MAX_ATTEMPTS,
   deviceLabel, generateCode, generateDeviceToken, hashCode, hashDeviceToken,
-  hashesMatch, isWellFormedCode, judgeChallenge, normalizeCode, verdictMessage,
+  hashesMatch, isWellFormedCode, judgeChallenge, normalizeCode,
+  platformAdminTwoFactorDisabled, verdictMessage,
 } from '@/lib/two-factor';
 
 // The rules that decide whether an emailed second factor is accepted. These
@@ -190,6 +191,35 @@ describe('schema (20260729_gym_two_factor)', () => {
 // the service role, which the throwaway Postgres in these tests does not serve.
 // They are still worth having: each one pins a hole that was open in
 // production, and the failure mode in both cases is a line quietly going away.
+// The temporary off switch for the platform admin's second factor. It reads an
+// env var, so the thing worth testing is what counts as "off" — and, much more
+// importantly, what doesn't. Anything ambiguous has to mean ON: a typo here
+// would silently leave a password as the only thing in front of every tenant's
+// data, and nothing about the app would look different.
+describe('platformAdminTwoFactorDisabled', () => {
+  it('is off only for an explicit, unambiguous value', () => {
+    for (const v of ['off', 'OFF', ' off ', 'false', '0', 'no', 'disabled']) {
+      expect(platformAdminTwoFactorDisabled(v)).toBe(true);
+    }
+  });
+
+  it('defaults to ON when unset', () => {
+    expect(platformAdminTwoFactorDisabled(undefined)).toBe(false);
+    expect(platformAdminTwoFactorDisabled(null)).toBe(false);
+    expect(platformAdminTwoFactorDisabled('')).toBe(false);
+    expect(platformAdminTwoFactorDisabled('   ')).toBe(false);
+  });
+
+  it('reads anything it does not recognise as ON', () => {
+    // Fail-secure: "offf", "of", "nope", a pasted comment — none of these are
+    // an instruction to remove the second factor, and guessing that they might
+    // be is how the guard disappears without anyone deciding it should.
+    for (const v of ['offf', 'of', 'nope', 'true', '1', 'on', 'enabled', 'null', 'undefined', 'skip']) {
+      expect(platformAdminTwoFactorDisabled(v)).toBe(false);
+    }
+  });
+});
+
 describe('two-factor coverage', () => {
   const read = (p: string) => readFileSync(resolve(__dirname, '..', p), 'utf8');
 
@@ -201,7 +231,9 @@ describe('two-factor coverage', () => {
     const src = read('lib/auth/two-factor.ts');
     const fn = src.slice(src.indexOf('export async function twoFactorRequiredForUser'));
     expect(fn).toContain("from('platform_admins')");
-    expect(fn).toMatch(/if \(platformAdmin\) return true;/);
+    // Required unless the env switch is explicitly off — that is the ONLY way
+    // past this clause, and it lives outside the product by design.
+    expect(fn).toMatch(/if \(!platformAdminTwoFactorDisabled\(process\.env\.PLATFORM_ADMIN_2FA\)\) return true;/);
     // Ahead of the staff-links lookup, or a platform admin who is also staff
     // somewhere would be answered by the gym's toggle instead.
     expect(fn.indexOf("from('platform_admins')")).toBeLessThan(fn.indexOf("from('gym_staff_links')"));

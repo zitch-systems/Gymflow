@@ -52,6 +52,16 @@ dead-end in production, so `test/superadmin-path.test.ts` fails the build on
 one. Rotating the URL is an env change plus a redeploy — no file moves, because
 the route on disk never changes.
 
+`PLATFORM_ADMIN_2FA=off` suspends the platform admin's emailed second factor —
+a temporary measure for when the console account can't receive mail, not a
+setting to leave on. It's an env var by design: a deploy to change, logged on
+every check, unreachable from inside the product, and fail-secure (only
+off/false/0/no/disabled count; a typo leaves the factor ON). While it's off the
+console sign-in stops claiming "Protected by two-step sign-in", because a page
+that promises a protection the deployment has switched off is the reassurance
+that stops anyone checking. Gym staff are unaffected — theirs comes from
+`gyms.two_factor_required`.
+
 The console has its own sign-in at `<segment>/login`
 (`app/(superadmin-auth)/`, a separate route group so it isn't behind the gate it
 exists to get you through). No signup, no password reset, no "launch your gym" —

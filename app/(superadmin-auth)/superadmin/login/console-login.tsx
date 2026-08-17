@@ -20,7 +20,7 @@ const initial: AuthState = { error: null };
 // After a correct password, signIn redirects to /launch, which routes a
 // platform admin to the console — and anyone else to their own surface, which
 // is the honest outcome for a gym account typed into this box.
-export function ConsoleLogin({ denied }: { denied: boolean }) {
+export function ConsoleLogin({ denied, twoFactor }: { denied: boolean; twoFactor: boolean }) {
   const [state, action, pending] = useActionState(signIn, initial);
   const errorId = 'console-auth-error';
 
@@ -86,9 +86,11 @@ export function ConsoleLogin({ denied }: { denied: boolean }) {
           </button>
         </form>
 
-        <p style={{ display: 'flex', gap: 7, alignItems: 'center', justifyContent: 'center', color: 'var(--gf-text-muted)', fontSize: '0.76rem', marginTop: 20 }}>
-          <ShieldCheck size={13} strokeWidth={1.9} /> Protected by two-step sign-in
-        </p>
+        {twoFactor && (
+          <p style={{ display: 'flex', gap: 7, alignItems: 'center', justifyContent: 'center', color: 'var(--gf-text-muted)', fontSize: '0.76rem', marginTop: 20 }}>
+            <ShieldCheck size={13} strokeWidth={1.9} /> Protected by two-step sign-in
+          </p>
+        )}
       </div>
     </main>
   );

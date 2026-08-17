@@ -1,4 +1,5 @@
 import { ConsoleLogin } from './console-login';
+import { platformAdminTwoFactorDisabled } from '@/lib/two-factor';
 
 export const metadata = {
   title: 'Platform console',
@@ -33,5 +34,9 @@ export const maxDuration = 60;
 // /forgot-password like any other account.
 export default async function ConsoleLoginPage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const sp = await searchParams;
-  return <ConsoleLogin denied={sp.denied === 'platform'} />;
+  // Whether the footer may claim two-step sign-in. A page that promises a
+  // protection the deployment has switched off is worse than one that says
+  // nothing — it's the reassurance that stops anyone checking.
+  const twoFactor = !platformAdminTwoFactorDisabled(process.env.PLATFORM_ADMIN_2FA);
+  return <ConsoleLogin denied={sp.denied === 'platform'} twoFactor={twoFactor} />;
 }
