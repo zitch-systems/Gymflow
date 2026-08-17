@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { gymLaunchUrl, memberBelongsOnGymSite } from '@/lib/web-signin';
+import { sa } from '@/lib/superadmin-path';
 import type { Database } from '@/lib/database.types';
 
 type Gym = Database['public']['Tables']['gyms']['Row'];
@@ -197,7 +198,9 @@ export const isPlatformAdmin = cache(async (): Promise<boolean> => {
 
 export const requirePlatformAdmin = cache(async () => {
   const user = await getUser();
-  if (!user) redirect('/login');
+  // Signed out at the console door → the console's own sign-in, which keeps
+  // them on the secret path instead of dumping them on the public site.
+  if (!user) redirect(sa('/login'));
   const supabase = await createClient();
   const { data } = await supabase
     .from('platform_admins')
@@ -209,7 +212,12 @@ export const requirePlatformAdmin = cache(async () => {
   // them on the marketing landing page with no explanation — indistinguishable
   // from a broken link, and the usual cause is simply being signed in on a gym
   // account instead of the platform one. Send them somewhere they can act:
-  // the platform sign-in, with a notice saying which account they need.
-  if (!data) redirect('/login?denied=platform');
+  // the console's OWN sign-in, with a notice saying which account they need.
+  //
+  // Not the apex /login: that page is the gym owners' front door, complete with
+  // a "Create gym" tab and a password-reset link, none of which have anything
+  // to do with a platform-admin account. Landing there reads as "you've been
+  // thrown out of the console back to the normal site".
+  if (!data) redirect(sa('/login?denied=platform'));
   return user;
 });

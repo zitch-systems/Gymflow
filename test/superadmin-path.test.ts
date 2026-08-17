@@ -152,3 +152,44 @@ describe('nothing links to the internal console route', () => {
     expect(read('components/marketing/chrome.tsx')).not.toContain('Platform admin</Link>');
   });
 });
+
+// ── The console's own sign-in ─────────────────────────────────────────────
+
+describe('platform console sign-in', () => {
+  const page = 'app/(superadmin-auth)/superadmin/login/console-login.tsx';
+
+  it('lives outside the gated route group', () => {
+    // Inside app/(superadmin) it would sit under a layout that calls
+    // requirePlatformAdmin() — a sign-in page behind the gate it exists to get
+    // you through, redirecting to itself forever.
+    expect(() => read(page)).not.toThrow();
+    expect(() => read('app/(superadmin)/superadmin/login/page.tsx')).toThrow();
+  });
+
+  it('offers no self-service path that cannot help a platform admin', () => {
+    // None of these can create, recover or grant a platform-admin account, so
+    // each would be a dead end dressed as help.
+    const src = read(page);
+    expect(src).not.toContain('/signup');
+    expect(src).not.toContain('/forgot-password');
+    expect(src).not.toMatch(/Create gym|Launch your gym|Forgot your password/i);
+  });
+
+  it('posts to the shared signIn action, so 2FA and rate limits still apply', () => {
+    // A bespoke action here would be a second copy of the challenge and the
+    // throttles — and the copy that drifts is the one guarding the account that
+    // can read every tenant's data.
+    expect(read(page)).toContain("from '@/lib/auth/actions'");
+    expect(read(page)).toContain('useActionState(signIn');
+  });
+
+  it('is where the console sends people who cannot open it', () => {
+    const dal = read('lib/auth/dal.ts');
+    const body = dal.slice(dal.indexOf('export const requirePlatformAdmin'));
+    // Both the signed-out and the not-an-admin case, on the console's own path
+    // — not the apex /login, which is the gym owners' front door.
+    expect(body).toContain("sa('/login')");
+    expect(body).toContain("sa('/login?denied=platform')");
+    expect(body).not.toContain("redirect('/login?denied=platform')");
+  });
+});
