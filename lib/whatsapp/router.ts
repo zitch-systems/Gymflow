@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fmtNaira } from '@/lib/format';
+import { offersTrainer, trainerAddonPrice } from '@/lib/plan-addon';
 import {
   logInbound, logOutbound, markRead,
   sendWhatsAppButtons, sendWhatsAppFlow, sendWhatsAppList, sendWhatsAppText,
@@ -12,7 +13,7 @@ import {
 } from '@/lib/whatsapp/contacts';
 import { createFlowSession } from '@/lib/whatsapp/flow-session';
 import { SCREEN } from '@/lib/whatsapp/flow-json';
-import { gymById, gymByMemberCode, gymBySlug, loadGymWhatsAppSettings, type WhatsAppGym, type WhatsAppGymSettings } from '@/lib/whatsapp/settings';
+import { gymById, gymByMemberCode, gymBySlug, gymHomeUrl, loadGymWhatsAppSettings, type WhatsAppGym, type WhatsAppGymSettings } from '@/lib/whatsapp/settings';
 import { membershipSnapshot, planOptions, visitState } from '@/lib/whatsapp/membership';
 import { parseQrMessage, verifyGymQrToken, whatsappCheckToggle, whatsappCheckinCode } from '@/lib/whatsapp/checkin';
 import { startWhatsAppCheckout } from '@/lib/whatsapp/payments';
@@ -217,6 +218,17 @@ async function route(ctx: Ctx): Promise<void> {
       gym_name: activeGym?.name ?? 'GymFlow', gym_code: activeGym?.member_code ?? '', error: '',
     });
   }
+  // Answered before resolveGym on purpose: supportReply needs a gym to name a
+  // phone number, and anything that falls through to resolveGym here would
+  // reply with the same "what's your gym's code?" message that offered this
+  // button — a loop the member cannot get out of.
+  if (msg.actionId === 'auth:nocode') {
+    return ctx.buttons(
+      'No problem. Your gym’s code is a short word or number — for example on:\n\n• the invite message or email your gym sent you\n• the GymFlow poster or QR at reception\n• your membership card\n\nAsk anyone at the front desk and they’ll read it out. Send it here and I’ll take it from there.\n\nIf you already have a GymFlow account, you can sign in instead — I’ll find your gym from your account.',
+      [{ id: 'auth:signin', title: 'Sign in' }],
+    );
+  }
+
   // Creating an account does need one — the new member has to be attached to a
   // gym, and only they know which.
   if (!ctx.contact.active_gym_id && (msg.actionId === 'auth:signup' || SIGNUP_WORDS.has(word))) {
@@ -244,12 +256,26 @@ async function route(ctx: Ctx): Promise<void> {
   const action = msg.actionId ?? '';
 
   if (action === 'menu:status' || STATUS_WORDS.has(word)) return statusReply(ctx, gym, settings, memberId);
+  // 'menu:checkin' offers the camera; 'menu:checkin:now' is the in-chat
+  // fallback behind it. Typed words go to the offer too, so "check in" doesn't
+  // quietly take a different route from the menu button of the same name.
+  if (action === 'menu:checkin:now') return checkinNow(ctx, gym, memberId);
   if (action === 'menu:checkin' || CHECKIN_WORDS.has(word)) return checkinReply(ctx, gym, settings, memberId);
   if (action === 'menu:code' || CODE_WORDS.has(word)) return codeReply(ctx, gym, memberId);
   if (action === 'menu:renew' || RENEW_WORDS.has(word)) return plansReply(ctx, gym, memberId);
   if (action === 'menu:app' || APP_WORDS.has(word)) return appReply(ctx, gym, settings);
   if (action === 'menu:support' || SUPPORT_WORDS.has(word)) return supportReply(ctx, gym, settings);
-  if (action.startsWith('plan:')) return checkoutReply(ctx, gym, memberId, action.slice('plan:'.length));
+  // plan:<uuid>            → the package was chosen; ask about the trainer if
+  //                           this plan offers one
+  // plan:<uuid>:trainer     → with the private-trainer add-on
+  // plan:<uuid>:solo        → membership only
+  if (action.startsWith('plan:')) {
+    const [planId, choice] = action.slice('plan:'.length).split(':');
+    if (choice === 'trainer' || choice === 'solo') {
+      return checkoutReply(ctx, gym, memberId, planId, choice === 'trainer');
+    }
+    return trainerReply(ctx, gym, memberId, planId);
+  }
   if (action === 'menu:menu' || HELP_WORDS.has(word)) return mainMenu(ctx, gym, settings, memberId);
 
   // Nothing matched. Try the assistant, then fall back to the menu.
@@ -312,11 +338,22 @@ async function resolveGym(ctx: Ctx, raw: string): Promise<WhatsAppGym | null> {
   // own gym when no code is given, so an existing member messaging from a number
   // the gym doesn't have on file can identify themselves without first hunting
   // for their gym code.
+  // FIRST CONTACT ASKS FOR THE GYM CODE, and asks for it first.
+  //
+  // One business number fronts every gym on the platform, so until this number
+  // knows which gym it is talking about it cannot show a membership, price a
+  // package, or open a door — and "sign in" as the opening move asks a brand-new
+  // member for an account they don't have yet. The code is the one thing they
+  // are certain to have: it's on their invite and printed at reception.
+  //
+  // Sign in stays available as a button rather than the headline, because an
+  // existing member may well not know their gym's code — signinWithPassword
+  // resolves the gym from the account, so they never need it.
   await ctx.buttons(
-    'I’m GymFlow’s AI-powered WhatsApp assistant — I can check you in, show your membership status, help you renew and more.\n\nIf you already have an account, sign in — the same email and password you use in the GymFlow app work here. Otherwise reply with your gym’s code (it’s on your invite, or ask the front desk) to create one.',
+    'Welcome to GymFlow — I can check you in, show your membership, and help you renew, right here in WhatsApp.\n\n*What’s your gym’s code?* Reply with it to get started. It’s on your invite, on the poster at reception, or the front desk will tell you.\n\nAlready have a GymFlow account? Tap Sign in — same email and password as the app.',
     [
       { id: 'auth:signin', title: 'Sign in' },
-      { id: 'auth:signup', title: 'Create account' },
+      { id: 'auth:nocode', title: 'I don’t have a code' },
     ],
     { header: 'GymFlow' },
   );
@@ -364,7 +401,7 @@ async function mainMenu(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSetting
   await ctx.list(
     `I’m your AI-powered GymFlow assistant — check in, renew and check your membership details right here.\n\n${summary}\n\nWhat would you like to do?`,
     [
-      { id: 'menu:checkin', title: state.insideNow ? 'Check out' : 'Check in', description: state.insideNow ? 'You’re currently checked in' : 'Log your visit' },
+      { id: 'menu:checkin', title: state.insideNow ? 'Check out' : 'Check in', description: state.insideNow ? 'You’re currently checked in' : 'Scan the QR at the door' },
       { id: 'menu:code', title: 'Front desk code', description: 'A 6-digit code to read out' },
       { id: 'menu:status', title: 'My membership', description: 'Days left and expiry date' },
       { id: 'menu:renew', title: 'Renew or pay', description: 'See packages and pay' },
@@ -410,7 +447,45 @@ async function statusReply(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSett
   ]);
 }
 
+/**
+ * The door, offered camera-first.
+ *
+ * Tapping "Check in" used to check the member in on the spot, from wherever
+ * they happened to be — a message is not evidence of standing in the building.
+ * Scanning the QR at the entrance is, so that is now the offer, and the link
+ * lands on /checkin, which opens the camera on arrival (see
+ * app/(member)/checkin/checkin-client.tsx). The printed door QR encodes that
+ * same URL with ?via=qr, so one scan checks them in either way.
+ *
+ * WhatsApp cannot open a camera itself — no message type does that — so "open
+ * the camera" is necessarily a link that opens it. The two buttons under it are
+ * the honest fallbacks for when it can't: no camera permission, a locked-down
+ * browser, or a member whose phone simply won't cooperate at the door.
+ */
 async function checkinReply(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSettings, memberId: string): Promise<void> {
+  // A gym that turned QR check-in off gets the old behaviour: sending its
+  // members to scan a QR it doesn't use would be a dead end.
+  if (!settings.qrCheckinEnabled) return checkinNow(ctx, gym, memberId);
+
+  const state = await visitState(ctx.admin, memberId, gym.id);
+  const verb = state.insideNow ? 'Check out' : 'Check in';
+  // The gym's own subdomain, not settings.appHomeUrl — that one is overridable
+  // to a store listing or a branded link, and this has to reach the page that
+  // opens the camera.
+  const scanUrl = `${gymHomeUrl(gym)}/checkin`;
+
+  await ctx.buttons(
+    `${verb} by scanning the QR at ${gym.name}.\n\nTap to open your camera:\n${scanUrl}\n\nThe camera opens as soon as the page loads — point it at the QR by the door. If it doesn’t open, use one of the options below.`,
+    [
+      { id: 'menu:checkin:now', title: `${verb} here` },
+      { id: 'menu:code', title: 'Front desk code' },
+      { id: 'menu:menu', title: 'Menu' },
+    ],
+  );
+}
+
+/** Check in or out in the chat itself — the fallback when scanning isn't possible. */
+async function checkinNow(ctx: Ctx, gym: WhatsAppGym, memberId: string): Promise<void> {
   const res = await whatsappCheckToggle(ctx.admin, { gym, memberId, method: 'whatsapp' });
 
   if (!res.ok) {
@@ -425,7 +500,7 @@ async function checkinReply(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSet
   const tail = days !== null ? `\n\n${days} day${days === 1 ? '' : 's'} left on your membership.` : '';
   await ctx.buttons(
     `Checked in at ${gym.name}. Enjoy your session.${tail}`,
-    [{ id: 'menu:checkin', title: 'Check out' }, { id: 'menu:menu', title: 'Menu' }],
+    [{ id: 'menu:checkin:now', title: 'Check out' }, { id: 'menu:menu', title: 'Menu' }],
   );
 }
 
@@ -466,7 +541,41 @@ async function plansReply(ctx: Ctx, gym: WhatsAppGym, memberId: string): Promise
   );
 }
 
-async function checkoutReply(ctx: Ctx, gym: WhatsAppGym, memberId: string, planId: string): Promise<void> {
+/**
+ * The private-trainer add-on, offered as its own step.
+ *
+ * The plan row is what decides whether the add-on exists and what it costs
+ * (lib/plan-addon.ts), so a member can only be offered what their gym actually
+ * sells. Plans without one skip straight to checkout rather than asking a
+ * question with one real answer.
+ */
+async function trainerReply(ctx: Ctx, gym: WhatsAppGym, memberId: string, planId: string): Promise<void> {
+  const plans = await planOptions(ctx.admin, gym.id);
+  const plan = plans.find((p) => p.id === planId);
+  if (!plan) {
+    return ctx.buttons('That package isn’t available any more.', [{ id: 'menu:renew', title: 'See packages' }]);
+  }
+
+  const addon = { trainer_addon_enabled: plan.trainerAddonEnabled, trainer_addon_price: plan.trainerAddonPrice };
+  if (!offersTrainer(addon)) return checkoutReply(ctx, gym, memberId, planId, false);
+
+  const extra = trainerAddonPrice(addon);
+  // A bundled-free trainer is a perk, not a surcharge — say so rather than
+  // printing "+₦0" at someone.
+  const priceLine = extra > 0
+    ? `A private trainer is +${fmtNaira(extra)} on top of the ${plan.priceLabel} package — ${fmtNaira(plan.price + extra)} in total.`
+    : `${gym.name} includes a private trainer with this package at no extra cost.`;
+
+  await ctx.buttons(
+    `*${plan.name}* — ${plan.priceLabel} · ${plan.periodLabel}\n\n${priceLine}\n\nWould you like a private trainer with this membership?`,
+    [
+      { id: `plan:${planId}:trainer`, title: extra > 0 ? 'Add trainer' : 'Yes, include it' },
+      { id: `plan:${planId}:solo`, title: 'Membership only' },
+    ],
+  );
+}
+
+async function checkoutReply(ctx: Ctx, gym: WhatsAppGym, memberId: string, planId: string, withTrainer = false): Promise<void> {
   // memberId alone only proves this number is on file for a profile — that's
   // enough to read membership status, not enough to spend on it (see
   // contacts.ts). A contact only clears this once it's come through the Flow
@@ -486,14 +595,24 @@ async function checkoutReply(ctx: Ctx, gym: WhatsAppGym, memberId: string, planI
   }
 
   const res = await startWhatsAppCheckout(ctx.admin, {
-    gym, contactId: ctx.contact.id, memberId, memberEmail: email, planId,
+    gym, contactId: ctx.contact.id, memberId, memberEmail: email, planId, withTrainer,
   });
   if (!res.ok) {
     return ctx.buttons(res.error, [{ id: 'menu:renew', title: 'Try again' }, { id: 'menu:support', title: 'Contact gym' }]);
   }
 
+  // Paying while still inside a paid period is a RENEWAL, and the days stack on
+  // the end date instead of starting today (lib/plan-duration.ts#renewalBase).
+  // Said before paying, not after: a member who thinks they are buying time that
+  // starts now, and finds it starts in three weeks, has been misled by silence.
+  const snap = await membershipSnapshot(ctx.admin, memberId, gym.id);
+  const stacking = snap.active && snap.endDate
+    ? `\n\nThis is a renewal — your membership runs to ${snap.endDate}, and these days are added on top of that date. You don’t lose what you’ve already paid for.`
+    : '';
+  const trainerLine = withTrainer ? '\nIncludes a private trainer.' : '';
+
   await ctx.say(
-    `*${res.planName}* — ${fmtNaira(res.amountKobo / 100)}\n\nTap to pay securely with Paystack:\n${res.url}\n\nYour membership updates automatically once payment clears, and I’ll message you here to confirm.`,
+    `*${res.planName}* — ${fmtNaira(res.amountKobo / 100)}${trainerLine}${stacking}\n\nTap to pay securely with Paystack:\n${res.url}\n\nYour membership updates automatically once payment clears, and I’ll message you here to confirm.`,
   );
 }
 

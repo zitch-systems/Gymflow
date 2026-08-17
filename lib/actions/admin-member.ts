@@ -10,6 +10,7 @@ import { splitName, normalizeNgPhone, firstName, fmtDate } from '@/lib/format';
 import { extendDate, renewalBase } from '@/lib/plan-duration';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
+import { deliverDoorEvent } from '@/lib/notify';
 import {
   MEMBER_TEMPLATES, membershipPaused, membershipResumed, receipt, welcome,
   type ReceiptMethod,
@@ -124,10 +125,32 @@ async function hasActiveSub(supabase: SupabaseClient, gymId: string, memberId: s
   return Boolean(sub && (sub.end_date ?? '') >= watDateISO());
 }
 
+// Days left on the active subscription, for the WhatsApp check-in confirmation.
+// Null when there is no active subscription — the message then just says the
+// membership is active rather than inventing a number.
+async function daysLeftFor(supabase: SupabaseClient, gymId: string, memberId: string): Promise<number | null> {
+  const { data: sub } = await supabase
+    .from('member_subscriptions').select('end_date')
+    .eq('gym_id', gymId).eq('member_id', memberId).eq('status', 'active')
+    .order('end_date', { ascending: false }).limit(1).maybeSingle();
+  const end = (sub as { end_date: string | null } | null)?.end_date ?? null;
+  if (!end) return null;
+  return Math.max(0, Math.ceil((new Date(end).getTime() - Date.now()) / 86_400_000));
+}
+
+// How long an open visit has been running, in whole minutes.
+function minutesSince(startedAt: string | null | undefined): number | null {
+  if (!startedAt) return null;
+  const ms = Date.now() - new Date(startedAt).getTime();
+  return ms > 0 ? Math.round(ms / 60_000) : null;
+}
+
 // The member's open visit today (WAT): checked in, not yet checked out — the
 // row check-out closes. Mirrors openVisit in lib/actions/checkin.ts.
 async function openVisit(supabase: SupabaseClient, gymId: string, memberId: string) {
-  const { data } = await supabase.from('check_ins').select('id')
+  // checked_in_at rides along so check-out can tell the member how long they
+  // trained — the WhatsApp confirmation quotes it.
+  const { data } = await supabase.from('check_ins').select('id, checked_in_at')
     .eq('member_id', memberId).eq('gym_id', gymId)
     .eq('status', 'active').is('checked_out_at', null)
     .gte('checked_in_at', watDayStartUtc(watDateISO()))
@@ -167,6 +190,9 @@ export async function manualCheckIn(_prev: ActionState, formData: FormData): Pro
       checked_in_at: new Date().toISOString(), status: 'active', check_in_method: 'front_desk',
     });
     if (error) return { ok: false, error: error.message };
+    // The member's own confirmation. Staff see the result on this screen; until
+    // now the person it happened to saw nothing.
+    deliverDoorEvent({ memberId, gymId, action: 'checked_in', daysLeft: await daysLeftFor(supabase, gymId, memberId) });
     revalidatePath(`/admin/members/${memberId}`);
     revalidatePath('/admin/staff-checkin');
     return { ok: true, error: null, message: 'Checked in.' };
@@ -182,6 +208,7 @@ export async function manualCheckOut(_prev: ActionState, formData: FormData): Pr
     const open = await openVisit(supabase, gymId, memberId);
     if (!open) return { ok: false, error: 'Not checked in right now.' };
     await closeVisit(supabase, open.id);
+    deliverDoorEvent({ memberId, gymId, action: 'checked_out', sessionMinutes: minutesSince(open.checked_in_at) });
     revalidatePath(`/admin/members/${memberId}`);
     revalidatePath('/admin/staff-checkin');
     return { ok: true, error: null, message: 'Checked out.' };
@@ -225,6 +252,7 @@ export async function redeemCheckinCode(_prev: ActionState, formData: FormData):
     const open = await openVisit(supabase, gym.id, memberId);
     if (open) {
       await closeVisit(supabase, open.id);
+      deliverDoorEvent({ memberId, gymId: gym.id, action: 'checked_out', sessionMinutes: minutesSince(open.checked_in_at) });
       revalidatePath('/admin/staff-checkin');
       revalidatePath(`/admin/members/${memberId}`);
       return { ok: true, error: null, message: `${name} checked out.` };
@@ -241,6 +269,9 @@ export async function redeemCheckinCode(_prev: ActionState, formData: FormData):
       checked_in_at: nowIso, status: 'active', check_in_method: 'code',
     });
     if (error) return { ok: false, error: error.message };
+    // This is the path the member asked for by reading out a code, so the
+    // confirmation closes the loop they opened in the WhatsApp thread.
+    deliverDoorEvent({ memberId, gymId: gym.id, action: 'checked_in', daysLeft: await daysLeftFor(supabase, gym.id, memberId) });
     revalidatePath('/admin/staff-checkin');
     revalidatePath(`/admin/members/${memberId}`);
     return { ok: true, error: null, message: `${name} checked in.` };
