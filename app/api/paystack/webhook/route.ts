@@ -83,18 +83,26 @@ async function dispatch(event: Json): Promise<NextResponse> {
     if (!result.permanent) return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
-  // Confirm in the WhatsApp thread the member paid from. Gated on `created` so
-  // the webhook and the post-checkout callback — which Paystack fires almost
-  // simultaneously for the same transaction — cannot both message them. A
-  // no-op for payments that did not start in WhatsApp, and awaited but never
-  // fatal: the money is already settled and a failed courtesy message must not
-  // turn that into a retry.
+  // Confirm on WhatsApp. Gated on `created` so the webhook and the post-checkout
+  // callback — which Paystack fires almost simultaneously for the same
+  // transaction — cannot both message them. Awaited but never fatal: the money
+  // is already settled and a failed courtesy message must not turn that into a
+  // retry.
+  //
+  // member_id/gym_id come along so this reaches members who paid on the web or
+  // in the app, not only those who started the checkout in WhatsApp. The
+  // metadata is the same snapshot fulfillCharge just validated and used to
+  // credit the subscription, so by this line it has already been checked
+  // against the plan row and the member's active link to the gym.
   if (result.ok && result.created) {
     try {
       const admin = createAdminClient();
+      const meta = ((d.metadata as Json) ?? {}) as Record<string, unknown>;
       await confirmWhatsAppPayment(admin, {
         reference: d.reference as string,
         amountKobo: Number(d.amount ?? 0),
+        memberId: typeof meta.member_id === 'string' ? meta.member_id : null,
+        gymId: typeof meta.gym_id === 'string' ? meta.gym_id : null,
       });
     } catch (e) {
       console.error('[paystack/webhook] whatsapp confirmation failed:', (e as Error).message);

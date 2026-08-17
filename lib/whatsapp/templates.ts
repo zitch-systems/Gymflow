@@ -52,6 +52,44 @@ export const TEMPLATES = {
     ],
   },
 
+  // The door, when the member isn't in the 24-hour window.
+  //
+  // A member who taps "Front desk code" in WhatsApp is inside the window by
+  // definition — they messaged us seconds ago — and gets an ordinary message
+  // with buttons. These two exist for the other half: staff checking someone in
+  // by hand, or redeeming a code the member got days earlier. Without them that
+  // member silently gets nothing, which is indistinguishable from the feature
+  // being broken.
+  checkedIn: {
+    name: 'gymflow_checked_in',
+    language: 'en',
+    category: 'UTILITY',
+    components: [
+      {
+        type: 'BODY',
+        // 1 gym name · 2 time · 3 days left (or 'your membership is active')
+        text: 'Checked in at {{1}} at {{2}}. {{3}} Enjoy your session.',
+        example: { body_text: [['Iron Republic', '6:12 PM', '28 days left on your membership.']] },
+      },
+      { type: 'FOOTER', text: 'Reply MENU for options' },
+    ],
+  },
+
+  checkedOut: {
+    name: 'gymflow_checked_out',
+    language: 'en',
+    category: 'UTILITY',
+    components: [
+      {
+        type: 'BODY',
+        // 1 gym name · 2 time · 3 session length (or 'Thanks for training with us.')
+        text: 'Checked out of {{1}} at {{2}}. {{3}}',
+        example: { body_text: [['Iron Republic', '7:45 PM', 'You trained for 1h 33m.']] },
+      },
+      { type: 'FOOTER', text: 'Reply MENU for options' },
+    ],
+  },
+
   membershipExpired: {
     name: 'gymflow_membership_expired',
     language: 'en',

@@ -8,7 +8,10 @@ import {
   type CheckinResult, type CheckoutResult, type CodeResult,
 } from '@/lib/checkin-core';
 
-export type { CheckinResult, CheckoutResult, CodeResult };
+// No `export type { … }` here — see the note in lib/actions/renew.ts. A
+// 'use server' file may only export async functions, and Turbopack re-emitted
+// the type-only re-export as a real one, killing the module at evaluation.
+// Import these from '@/lib/checkin-core'.
 
 // Web (cookie-session) entry points for the door. The rules — who may enter,
 // what an open visit is, how a front-desk code is minted — live in

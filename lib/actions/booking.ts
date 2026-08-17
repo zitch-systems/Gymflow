@@ -5,7 +5,10 @@ import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { bookClassCore, cancelBookingCore, type BookState } from '@/lib/booking-core';
 
-export type { BookState };
+// No `export type { BookState }` here — see the note in lib/actions/renew.ts.
+// A 'use server' file may only export async functions, and Turbopack re-emitted
+// that type-only re-export as a real one, so the module died on evaluation.
+// components/member/class-actions.tsx imports the type from '@/lib/booking-core'.
 
 // Web (cookie-session) entry points for class bookings. Capacity, waitlisting
 // and waitlist promotion live in lib/booking-core.ts so the Android app's

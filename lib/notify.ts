@@ -5,7 +5,7 @@ import { firstName, fmtDate, watDateISO } from '@/lib/format';
 import { sendMessage } from '@/lib/sms';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { whatsappConfigured } from '@/lib/whatsapp/cloud-api';
-import { sendRenewalReminder } from '@/lib/whatsapp/notify';
+import { notifyDoorEvent, sendRenewalReminder, type DoorAction } from '@/lib/whatsapp/notify';
 import type { EmailContent } from '@/lib/email/layout';
 import { memberAppUrl, sendGymEmail, type EmailCategory } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, paymentFailed, receipt, renewalReminder } from '@/lib/email/templates/member';
@@ -108,6 +108,35 @@ async function sendMemberTemplate(
 }
 
 const gymNameOf = (gym: NotifyGym): string => (gym.name ?? '').trim() || 'Your gym';
+
+/**
+ * Fire-and-forget WhatsApp confirmation for a door event staff performed.
+ *
+ * Called from the admin Server Actions, which hold an RLS-scoped client — and
+ * whatsapp_contacts is service-role only, so this mints its own admin client
+ * rather than making every call site pass one.
+ *
+ * Deliberately not awaited by its callers and deliberately incapable of
+ * throwing: the check-in row is already written and the member is already
+ * inside. A messaging failure must not turn that into an error the staffer has
+ * to interpret while somebody stands at the desk waiting.
+ */
+export function deliverDoorEvent(params: {
+  memberId: string;
+  gymId: string;
+  action: DoorAction;
+  daysLeft?: number | null;
+  sessionMinutes?: number | null;
+}): void {
+  if (!whatsappConfigured()) return;
+  void (async () => {
+    try {
+      await notifyDoorEvent(createAdminClient(), params);
+    } catch (e) {
+      console.error('[notify] door event whatsapp failed:', (e as Error).message);
+    }
+  })();
+}
 
 // Renewal reminder: email on every tier, WhatsApp on Growth+. Both honor the
 // gym's renewal-nudges toggle (the staff-visible switch in Settings).

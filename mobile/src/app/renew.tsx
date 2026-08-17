@@ -7,7 +7,7 @@ import { Screen } from '@/components/screen';
 import { Badge, Body, Button, Card, EmptyState, ErrorState, Loading, Notice, Title, c } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { api } from '@/api/client';
-import { naira, plural } from '@/lib/format';
+import { naira, plural, shortDate } from '@/lib/format';
 import { radius, space } from '@/theme';
 import type { Plan, Plans } from '@/api/types';
 
@@ -123,8 +123,12 @@ export default function RenewScreen() {
     >
       <Title>Choose your plan</Title>
       <Body tone="secondary" style={{ marginTop: space.sm, lineHeight: 21 }}>
+        {/* Paying while still covered is a RENEWAL: the days stack onto the end
+            date rather than starting today. Naming that date is the difference
+            between a member who understands what they bought and one who
+            expects their new month to start this morning. */}
         {current && current.days_left > 0
-          ? `Your ${current.plan_name ?? 'membership'} renews in ${plural(current.days_left, 'day')}. Renewing early adds to your current term.`
+          ? `You’re covered for another ${plural(current.days_left, 'day')}${current.end_date ? `, through ${shortDate(current.end_date)}` : ''}. Paying now is a renewal — the days are added on top of that date, so nothing you’ve already paid for is lost.`
           : 'Pick a plan to start training.'}
       </Body>
 
