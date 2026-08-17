@@ -90,8 +90,12 @@ React Native. Run the two commands above before pushing changes here.
 - Package: `ng.gymflow.member`, scheme `gymflow`, `versionCode` in `app.json`.
 - `EXPO_PUBLIC_API_URL` is baked in at build time — set it per profile in
   `eas.json`, not from a developer's `.env.local`.
-- The launcher icon and splash are still the Expo placeholders in
-  `assets/images/`. Replace them with GymFlow artwork before any store build.
+- Icons are generated from the Flowbell mark, not hand-drawn:
+  `node mobile/scripts/generate-icons.mjs` (from the repo root) rewrites
+  `assets/images/`. The launcher icon uses the same dark-tile treatment as the
+  web favicon (`app/icon.svg`), and the adaptive foreground keeps the mark at
+  52% so Android's circle/squircle masking can't clip it. If the mark ever
+  changes in `components/ui/logo.tsx`, re-run the script.
 - The deep-link scheme is written in two places that must agree:
   `app.json` → `expo.scheme`, and `APP_SCHEME` in
   `app/api/app/pay/callback/route.ts`. A mismatch doesn't lose a payment — the

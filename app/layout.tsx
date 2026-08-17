@@ -1,13 +1,50 @@
 import type { Metadata, Viewport } from 'next';
-import { Plus_Jakarta_Sans, Inter, JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import { PwaRegister } from '@/components/pwa-register';
 import './globals.css';
 
-// Self-hosted, preloaded fonts (replaces a render-blocking Google Fonts
-// @import). Bound to the --font-* CSS vars that globals.css consumes.
-const fontDisplay = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-display', display: 'swap' });
-const fontBody = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-body', display: 'swap' });
-const fontMono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-mono', display: 'swap' });
+// Fonts, served from this repo — see app/fonts/README.md for what the files are
+// and how to refresh them.
+//
+// These used to come from next/font/google. That self-hosts the files at
+// RUNTIME, but the BUILD still downloads them from fonts.gstatic.com, and
+// Google rotates the hashed filenames: a build whose cache still held the old
+// URLs got a 404 for every weight, which Turbopack reported as ~20
+// module-not-found errors in the generated font CSS and failed the deploy.
+// Nothing in the app had changed. Committing the files removes Google from the
+// build path entirely, so a deploy can no longer be broken by someone else's
+// CDN — the same reasoning that keeps a lockfile in the repo.
+//
+// One variable file per family instead of the old five/four/three static
+// weights: same range, ~107 KB for all three, and one request each. `weight`
+// is the supported range, so every weight globals.css asks for interpolates.
+// Latin subset only, matching the previous subsets: ['latin'].
+const fontDisplay = localFont({
+  src: './fonts/plus-jakarta-sans-latin.woff2',
+  weight: '400 800',
+  style: 'normal',
+  variable: '--font-display',
+  display: 'swap',
+  // The stack a browser paints with while the file loads. Metric-adjacent
+  // sans faces, so the swap doesn't reflow the page.
+  fallback: ['system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+});
+const fontBody = localFont({
+  src: './fonts/inter-latin.woff2',
+  weight: '400 700',
+  style: 'normal',
+  variable: '--font-body',
+  display: 'swap',
+  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+});
+const fontMono = localFont({
+  src: './fonts/jetbrains-mono-latin.woff2',
+  weight: '400 600',
+  style: 'normal',
+  variable: '--font-mono',
+  display: 'swap',
+  fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+});
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
 
