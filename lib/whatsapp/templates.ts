@@ -83,7 +83,12 @@ export const TEMPLATES = {
       {
         type: 'BODY',
         // 1 gym name · 2 time · 3 session length (or 'Thanks for training with us.')
-        text: 'Checked out of {{1}} at {{2}}. {{3}}',
+        //
+        // "See you next time." is not decoration — Meta rejects a template body
+        // that ENDS on a variable, and this one submitted as `… {{2}}. {{3}}`
+        // came back "Invalid parameter". The trailing sentence is what makes it
+        // acceptable, so don't remove it without re-submitting.
+        text: 'Checked out of {{1}} at {{2}}. {{3}} See you next time.',
         example: { body_text: [['Iron Republic', '7:45 PM', 'You trained for 1h 33m.']] },
       },
       { type: 'FOOTER', text: 'Reply MENU for options' },
