@@ -144,6 +144,13 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
   const pays = payments ?? [];
   const paidPays = pays.filter((p) => PAID.has(String(p.status ?? p.payment_status ?? '').toLowerCase()));
   const memberGmv = paidPays.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  // An ESTIMATE, and only meaningful when a split exists. The commission is not
+  // recorded per payment anywhere — it is taken by Paystack at settlement via
+  // the subaccount's percentage_charge — so this multiplies today's rate by all
+  // historical GMV. Without a subaccount there is no split at all: the whole
+  // charge settles into the platform's own Paystack account, and the gym is owed
+  // the remainder rather than the platform being owed a commission.
+  const splitLive = Boolean(gym.paystack_subaccount_code);
   const commissionEarned = memberGmv * (Number(gym.platform_commission_pct ?? 0) / 100);
 
   const platPaid = (platPay ?? []).filter((p) => String(p.payment_status ?? '') === 'successful');
@@ -315,9 +322,21 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
                   display font and weight, which the editor's `font: inherit`
                   input would then pick up (and a <form> inside <b> is invalid
                   nesting anyway). */}
-              <div><span>Commission rate</span><CommissionEditor gymId={gym.id} pct={Number(gym.platform_commission_pct ?? 0)} /></div>
-              <div><span>Earned on member GMV</span><b className="naira">{fmtNaira(commissionEarned)}</b></div>
-              <div><span>Paystack subaccount</span><b>{gym.paystack_subaccount_code ? 'Connected' : 'Not connected'}</b></div>
+              <div><span>Commission rate</span><CommissionEditor gymId={gym.id} pct={Number(gym.platform_commission_pct ?? 0)} splitting={Boolean(gym.paystack_subaccount_code)} /></div>
+              <div>
+                <span>{splitLive ? 'Earned on member GMV (est.)' : 'Commission collected'}</span>
+                <b className="naira">{splitLive ? fmtNaira(commissionEarned) : '—'}</b>
+              </div>
+              <div><span>Paystack subaccount</span><b>{splitLive ? 'Connected' : 'Not connected'}</b></div>
+              {!splitLive && (
+                <div>
+                  <span>Why no commission?</span>
+                  <b style={{ fontWeight: 500, fontSize: '0.76rem', lineHeight: 1.4 }}>
+                    This gym hasn’t connected payouts, so member payments have no Paystack split — the full amount
+                    settles into GymFlow’s account and this gym is owed its share, rather than GymFlow earning {Number(gym.platform_commission_pct ?? 0)}%.
+                  </b>
+                </div>
+              )}
               <div><span>Pending instructor payouts</span><b className="naira">{pendingPayouts.length ? `${fmtNaira(pendingPayoutTotal)} · ${pendingPayouts.length}` : 'None'}</b></div>
             </div>
             {accounts.length ? (

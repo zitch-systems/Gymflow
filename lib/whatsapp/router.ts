@@ -404,6 +404,13 @@ async function mainMenu(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSetting
   await ctx.list(
     `I’m your AI-powered GymFlow assistant — check in, renew and check your membership details right here.\n\n${summary}\n\nWhat would you like to do?`,
     [
+      // Account first, deliberately. A contact only "recognised" by phone number
+      // can read a membership but cannot pay (checkoutReply gates on
+      // verified_at), so the way to prove who they are belongs at the top of the
+      // menu rather than buried under the actions it unlocks.
+      ctx.contact.verified_at
+        ? { id: 'menu:account', title: 'My account', description: 'Signed in as — or sign out' }
+        : { id: 'menu:account', title: 'Sign in or sign up', description: 'Unlock payments on this number' },
       { id: 'menu:checkin', title: state.insideNow ? 'Check out' : 'Check in', description: state.insideNow ? 'You’re currently checked in' : 'Scan the QR at the door' },
       { id: 'menu:code', title: 'Front desk code', description: 'A 6-digit code to read out' },
       { id: 'menu:status', title: 'My membership', description: 'Days left and expiry date' },
@@ -411,7 +418,6 @@ async function mainMenu(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSetting
       { id: 'menu:app', title: 'Open the app', description: 'Classes, wallet and more' },
       { id: 'menu:site', title: `${gym.name.slice(0, 16)} online`, description: 'The gym’s own website' },
       { id: 'menu:support', title: 'Contact the gym', description: settings.supportPhone ?? 'Speak to the front desk' },
-      { id: 'menu:account', title: 'My account', description: 'Signed in as — or sign out' },
     ],
     'Open menu',
     { header: gym.name.slice(0, 60), footer: 'Reply “menu” any time' },
