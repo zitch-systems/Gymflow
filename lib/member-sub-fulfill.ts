@@ -8,6 +8,7 @@ import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, autoRenewEnabled, autoRenewEnded } from '@/lib/email/templates/member';
 import { resolveTrainerOptIn } from '@/lib/plan-addon';
+import { commissionColumns, readSplit } from '@/lib/paystack-split';
 import type { Database } from '@/lib/database.types';
 
 // Fulfillment for the MEMBER auto-billing flow (member → gym recurring
@@ -317,13 +318,18 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
     if (plan) extendBy = { duration_days: plan.duration_days ?? null, duration_months: plan.duration_months ?? 1 };
   }
 
+  // Recurring charges split exactly like one-off ones, so they carry the same
+  // commission record. Omitting it here would have made auto-debit renewals
+  // invisible in platform earnings while manual renewals showed up.
+  // `as never`: the commission columns postdate database.types.ts.
   const { error: payErr } = await admin.from('payments').insert({
     member_id: sub.member_id, gym_id: sub.gym_id, plan_id: planId ?? null,
     amount: amountKobo / 100, currency: 'NGN',
     status: 'success', payment_status: 'successful',
     payment_method: 'auto_debit', paystack_reference: reference,
     payment_date: new Date().toISOString(),
-  });
+    ...commissionColumns(readSplit(data)),
+  } as never);
   if (payErr) {
     if (payErr.code === '23505') return { ok: true, handled: true }; // concurrent fulfiller won
     return { ok: false, handled: true, error: payErr.message };

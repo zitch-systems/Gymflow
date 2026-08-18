@@ -290,11 +290,19 @@ export async function recordPayment(_prev: ActionState, formData: FormData): Pro
   if (!PAYMENT_METHODS.has(method)) return { ok: false, error: 'Invalid payment method.' };
   try {
     const { gymId, gym, supabase, actorId } = await ctx(memberId);
+    // 'offline': cash or a transfer taken at the desk. The platform never
+    // touched this money and earns no commission on it, which is a different
+    // thing from earning zero — so the settlement is stated and the commission
+    // figures stay null. Staff cannot write those figures at all (the migration
+    // revokes the column privilege), so this can't be used to inflate what the
+    // platform appears to have earned from a gym.
+    // `as never`: the commission columns postdate database.types.ts.
     const { error } = await supabase.from('payments').insert({
       gym_id: gymId, member_id: memberId, plan_id: planId, amount, currency: 'NGN',
       payment_method: method, status: 'success', payment_status: 'successful',
       payment_date: new Date().toISOString(), paystack_reference: `MANUAL-${Date.now()}-${(globalThis.crypto as Crypto).randomUUID()}`,
-    });
+      platform_settlement: 'offline',
+    } as never);
     if (error) return { ok: false, error: error.message };
     const newEnd = extend && planId ? await extendSubscription(supabase, gymId, memberId, planId) : null;
     const { error: nErr } = await supabase.from('notifications').insert({

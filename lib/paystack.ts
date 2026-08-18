@@ -1,5 +1,6 @@
 import 'server-only';
 import { isChargeableKobo, subscriptionInitBody } from '@/lib/paystack-payloads';
+import { readSplit, type SplitRecord } from '@/lib/paystack-split';
 // Paystack server helpers. Uses PAYSTACK_SECRET_KEY (server-only). All calls
 // are no-throw on missing key at module load — callers check + surface errors.
 
@@ -466,7 +467,7 @@ export async function getBalance(): Promise<BalanceResult> {
 }
 
 export type VerifyResult =
-  | { ok: true; status: string; amountKobo: number; reference: string; metadata: Record<string, unknown>; channel: string | null }
+  | { ok: true; status: string; amountKobo: number; reference: string; metadata: Record<string, unknown>; channel: string | null; split: SplitRecord }
   | { ok: false; error: string };
 
 export async function verifyTransaction(reference: string): Promise<VerifyResult> {
@@ -478,7 +479,11 @@ export async function verifyTransaction(reference: string): Promise<VerifyResult
     const json = await res.json();
     if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Verify failed' };
     const d = json.data;
-    return { ok: true, status: d.status, amountKobo: d.amount, reference: d.reference, metadata: d.metadata ?? {}, channel: d.channel ?? null };
+    // The post-checkout callbacks fulfil from this response rather than the
+    // webhook body, so the split has to survive the round trip too — otherwise
+    // whichever of the two races in first decides whether commission is
+    // recorded at all.
+    return { ok: true, status: d.status, amountKobo: d.amount, reference: d.reference, metadata: d.metadata ?? {}, channel: d.channel ?? null, split: readSplit(d) };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

@@ -79,6 +79,16 @@ type ExtraGymCols = {
   brand_color: string | null; social_links: Record<string, string> | null;
 };
 
+// The commission columns postdate the generated database.types.ts, so naming
+// them in a select() poisons the whole row type. Query the table untyped and
+// state the shape here instead — same pattern as gym_payout_accounts below.
+type PayRow = {
+  id: string; amount: number | null; status: string | null; payment_status: string | null;
+  payment_date: string | null; created_at: string | null; paystack_reference: string | null;
+  plan_id: string | null; payment_method: string | null;
+  platform_settlement: string | null; platform_commission_amount: number | null;
+};
+
 type PayoutAccount = {
   id: string; bank_name: string | null; account_number: string | null; account_name: string | null;
   verified: boolean | null; is_active: boolean | null; paystack_subaccount_code: string | null;
@@ -114,7 +124,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
     supabase.from('membership_plans').select('id, name, price, duration_months, duration_days, is_active').eq('gym_id', id).order('price', { ascending: true }),
     supabase.from('classes').select('id', { count: 'exact', head: true }).eq('gym_id', id).eq('is_active', true),
     supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('gym_id', id).gte('checked_in_at', monthAgo),
-    supabase.from('payments').select('id, amount, status, payment_status, payment_date, created_at, paystack_reference, plan_id, payment_method').eq('gym_id', id).order('payment_date', { ascending: false }).limit(200),
+    supabase.from('payments' as never).select('id, amount, status, payment_status, payment_date, created_at, paystack_reference, plan_id, payment_method, platform_settlement, platform_commission_amount').eq('gym_id', id).order('payment_date', { ascending: false }).limit(200),
     supabase.from('platform_payments').select('id, amount, plan, payment_status, paystack_reference, billing_period_start, billing_period_end, created_at').eq('gym_id', id).order('created_at', { ascending: false }).limit(12),
     supabase.from('member_subscriptions').select('plan_id, status, end_date').eq('gym_id', id).eq('status', 'active'),
     supabase.from('gym_payout_accounts' as never).select('id, bank_name, account_number, account_name, verified, is_active, paystack_subaccount_code').eq('gym_id', id),
@@ -141,17 +151,21 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
     return s + (p ? perMonth(p.price, p.duration_months, p.duration_days) : 0);
   }, 0);
 
-  const pays = payments ?? [];
+  const pays = ((payments ?? []) as unknown as PayRow[]);
   const paidPays = pays.filter((p) => PAID.has(String(p.status ?? p.payment_status ?? '').toLowerCase()));
   const memberGmv = paidPays.reduce((s, p) => s + Number(p.amount ?? 0), 0);
-  // An ESTIMATE, and only meaningful when a split exists. The commission is not
-  // recorded per payment anywhere — it is taken by Paystack at settlement via
-  // the subaccount's percentage_charge — so this multiplies today's rate by all
-  // historical GMV. Without a subaccount there is no split at all: the whole
-  // charge settles into the platform's own Paystack account, and the gym is owed
-  // the remainder rather than the platform being owed a commission.
+  // Commission as it was actually taken, summed off the payment rows that
+  // recorded it (lib/paystack-split.ts stamps them at fulfilment). Rows written
+  // before that existed carry NULL, which means "not recorded" and must not be
+  // counted as zero — so they are reported separately rather than dragging the
+  // total down, and the estimate is only offered when there is nothing real to
+  // show. Multiplying today's rate by all historical GMV was the old behaviour
+  // and it silently repriced every past payment whenever the rate was edited.
   const splitLive = Boolean(gym.paystack_subaccount_code);
-  const commissionEarned = memberGmv * (Number(gym.platform_commission_pct ?? 0) / 100);
+  const commissionRows = paidPays.filter((p) => p.platform_commission_amount != null);
+  const commissionEarned = commissionRows.reduce((s, p) => s + Number(p.platform_commission_amount ?? 0), 0);
+  const unrecordedPays = paidPays.filter((p) => p.platform_settlement == null).length;
+  const estimated = memberGmv * (Number(gym.platform_commission_pct ?? 0) / 100);
 
   const platPaid = (platPay ?? []).filter((p) => String(p.payment_status ?? '') === 'successful');
   const platCollected = platPaid.reduce((s, p) => s + Number(p.amount ?? 0), 0);
@@ -324,9 +338,20 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
                   nesting anyway). */}
               <div><span>Commission rate</span><CommissionEditor gymId={gym.id} pct={Number(gym.platform_commission_pct ?? 0)} splitting={Boolean(gym.paystack_subaccount_code)} /></div>
               <div>
-                <span>{splitLive ? 'Earned on member GMV (est.)' : 'Commission collected'}</span>
-                <b className="naira">{splitLive ? fmtNaira(commissionEarned) : '—'}</b>
+                <span>{commissionRows.length ? `Commission taken · ${commissionRows.length} payment${commissionRows.length === 1 ? '' : 's'}` : 'Commission taken'}</span>
+                <b className="naira">{commissionRows.length ? fmtNaira(commissionEarned) : '—'}</b>
               </div>
+              {unrecordedPays > 0 && (
+                <div>
+                  <span>Taken before this was recorded</span>
+                  <b style={{ fontWeight: 500, fontSize: '0.76rem', lineHeight: 1.4 }}>
+                    {unrecordedPays} payment{unrecordedPays === 1 ? '' : 's'} predate{unrecordedPays === 1 ? 's' : ''} per-payment
+                    commission records. {splitLive
+                      ? `At today’s ${Number(gym.platform_commission_pct ?? 0)}% that would be about ${fmtNaira(estimated)} across all ${paidPays.length} payments — an estimate only, since the rate may have changed since.`
+                      : 'The rate they settled on is not recoverable — Paystack keeps no per-charge history of it.'}
+                  </b>
+                </div>
+              )}
               <div><span>Paystack subaccount</span><b>{splitLive ? 'Connected' : 'Not connected'}</b></div>
               {!splitLive && (
                 <div>

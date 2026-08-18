@@ -7,6 +7,7 @@ import { isTransferEvent, handleTransferEvent } from '@/lib/transfer-fulfill';
 import { verifyPaystackSignature, webhookBodyHash } from '@/lib/webhook-verify';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { confirmWhatsAppPayment } from '@/lib/whatsapp/notify';
+import { readSplit } from '@/lib/paystack-split';
 import { captureServerEvent } from '@/lib/server-error';
 
 export const dynamic = 'force-dynamic';
@@ -73,6 +74,11 @@ async function dispatch(event: Json): Promise<NextResponse> {
     amountKobo: Number(d.amount ?? 0),
     channel: (d.channel as string) ?? null,
     metadata: (d.metadata as Json) ?? {},
+    // Paystack states the split it applied on the event itself (subaccount +
+    // fees_split). It is the only record of what the platform actually kept on
+    // this charge — nothing reconstructs it later, because the rate lives on a
+    // mutable subaccount — so it is read here and stamped onto the payment row.
+    split: readSplit(d),
   });
 
   if (!result.ok) {
