@@ -60,18 +60,35 @@ describe('the door tells the member', () => {
 describe('checking in from WhatsApp', () => {
   const src = read('lib/whatsapp/router.ts');
 
-  it('offers the camera first and the in-chat toggle as the fallback', () => {
-    // A WhatsApp message is not evidence of standing in the building; scanning
-    // the QR at the door is.
-    expect(src).toContain('/checkin`');
-    expect(src).toContain("id: 'menu:checkin:now'");
-    expect(src).toMatch(/async function checkinNow\(/);
+  it('offers only the door QR and the front-desk code — never an in-chat button', () => {
+    // A WhatsApp message proves someone has a phone, not that they are standing
+    // in the building. An in-chat "check in here" button existed briefly and it
+    // made the other two routes pointless: anyone could log a visit from bed.
+    const fn = src.slice(src.indexOf('async function checkinReply'), src.indexOf('async function codeReply'));
+    expect(fn).toContain('/checkin`');
+    expect(fn).toContain("id: 'menu:code'");
+    expect(fn).not.toContain('whatsappCheckToggle');
+  });
+
+  it('has no route that checks a member in from the chat', () => {
+    expect(src).not.toContain('menu:checkin:now');
+    expect(src).not.toMatch(/async function checkinNow\b/);
+  });
+
+  it('reserves the toggle for the door QR, whose token comes off the wall', () => {
+    // handleQrCheckin is the ONLY caller: it verifies an HMAC token printed on
+    // the gym's own poster, so scanning it is a physical act in the same way
+    // reading a code out to reception is.
+    const calls = [...src.matchAll(/whatsappCheckToggle\(/g)];
+    expect(calls.length).toBe(1);
+    const qrFn = src.slice(src.indexOf('async function handleQrCheckin'));
+    expect(qrFn.slice(0, qrFn.indexOf('async function freeText'))).toContain('whatsappCheckToggle');
   });
 
   it('sends members to the gym subdomain, not the overridable app link', () => {
     // settings.appHomeUrl can be pointed at a store listing; the scan link has
     // to reach the page that opens the camera.
-    const fn = src.slice(src.indexOf('async function checkinReply'), src.indexOf('async function checkinNow'));
+    const fn = src.slice(src.indexOf('async function checkinReply'), src.indexOf('async function codeReply'));
     expect(fn).toContain('gymHomeUrl(gym)');
     // Comments stripped first: the code above this function explains why
     // appHomeUrl is the wrong choice here, and that explanation is not a use.
@@ -79,8 +96,39 @@ describe('checking in from WhatsApp', () => {
     expect(code).not.toContain('appHomeUrl');
   });
 
-  it('skips the scan offer for a gym that turned QR check-in off', () => {
-    expect(src).toMatch(/if \(!settings\.qrCheckinEnabled\) return checkinNow/);
+  it('falls back to the front desk when a gym turned QR check-in off', () => {
+    // Not to an in-chat toggle — to the other physical route.
+    const fn = src.slice(src.indexOf('async function checkinReply'), src.indexOf('async function codeReply'));
+    const guard = fn.slice(fn.indexOf('if (!settings.qrCheckinEnabled)'));
+    expect(guard.slice(0, 400)).toContain("id: 'menu:code'");
+  });
+});
+
+describe('the menu', () => {
+  const src = read('lib/whatsapp/router.ts');
+
+  it('links the gym’s own website, distinct from the app link', () => {
+    expect(src).toContain("id: 'menu:site'");
+    const fn = src.slice(src.indexOf('async function siteReply'), src.indexOf('async function accountReply'));
+    expect(fn).toContain('gymHomeUrl(gym)');
+  });
+
+  it('shows who the number is signed in as, and offers a way out', () => {
+    // WhatsApp has no session to close, so "signed in" means the contact row is
+    // bound to a profile. A resold or shared number would otherwise keep reading
+    // somebody else's membership with nothing on screen to say whose.
+    expect(src).toContain("id: 'menu:account'");
+    expect(src).toContain("id: 'auth:signout'");
+    expect(src).toMatch(/async function signOutReply/);
+  });
+
+  it('signing out clears the proof of identity, not just the link', () => {
+    // verified_at is what checkoutReply gates payment on. Leaving it set on a
+    // contact whose profile link is gone would be a hole.
+    const contacts = read('lib/whatsapp/contacts.ts');
+    const fn = contacts.slice(contacts.indexOf('export async function unlinkContact'));
+    expect(fn.slice(0, 500)).toContain('verified_at: null');
+    expect(fn.slice(0, 500)).toContain('profile_id: null');
   });
 });
 

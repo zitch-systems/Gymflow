@@ -157,6 +157,22 @@ export async function linkContact(
     .eq('id', contactId);
 }
 
+/**
+ * The inverse of linkContact: forget which account this number belongs to.
+ *
+ * Clears verified_at with it, so a signed-out contact cannot spend money on the
+ * membership it used to be attached to — the money-moving gate reads that
+ * column, and leaving it set while the profile link is gone would be a hole.
+ * active_gym_id is deliberately kept: the person is still standing in the same
+ * gym, and asking them for the code again to sign back in would be pointless.
+ */
+export async function unlinkContact(admin: Admin, contactId: string): Promise<void> {
+  await admin
+    .from('whatsapp_contacts')
+    .update({ profile_id: null, verified_at: null, updated_at: new Date().toISOString() })
+    .eq('id', contactId);
+}
+
 export async function setActiveGym(admin: Admin, contactId: string, gymId: string): Promise<void> {
   await admin
     .from('whatsapp_contacts')

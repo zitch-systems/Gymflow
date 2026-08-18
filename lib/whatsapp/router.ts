@@ -8,7 +8,7 @@ import {
   type WhatsAppSendResult,
 } from '@/lib/whatsapp/cloud-api';
 import {
-  contactByWaId, patchState, setActiveGym, setOptIn, upsertContact,
+  contactByWaId, patchState, setActiveGym, setOptIn, unlinkContact, upsertContact,
   activeGymIds, type WhatsAppContact,
 } from '@/lib/whatsapp/contacts';
 import { createFlowSession } from '@/lib/whatsapp/flow-session';
@@ -44,7 +44,9 @@ const CHECKIN_WORDS = new Set(['checkin', 'check in', 'check-in', 'in', 'arrived
 const CODE_WORDS = new Set(['code', 'front desk', 'reception', 'desk code']);
 const RENEW_WORDS = new Set(['renew', 'pay', 'payment', 'subscribe', 'package', 'packages', 'price', 'prices', 'plans']);
 const SUPPORT_WORDS = new Set(['support', 'human', 'agent', 'contact', 'complaint', 'talk to someone']);
-const APP_WORDS = new Set(['app', 'download', 'link', 'website', 'dashboard']);
+const APP_WORDS = new Set(['app', 'download', 'link', 'dashboard']);
+const SITE_WORDS = new Set(['website', 'site', 'web', 'gym website', 'page']);
+const ACCOUNT_WORDS = new Set(['account', 'my account', 'profile', 'who am i', 'signout', 'sign out', 'logout', 'log out']);
 const SIGNIN_WORDS = new Set(['signin', 'sign in', 'login', 'log in']);
 const SIGNUP_WORDS = new Set(['signup', 'sign up', 'register', 'join', 'create account']);
 const STOP_WORDS = new Set(['stop', 'unsubscribe', 'opt out', 'optout']);
@@ -256,14 +258,15 @@ async function route(ctx: Ctx): Promise<void> {
   const action = msg.actionId ?? '';
 
   if (action === 'menu:status' || STATUS_WORDS.has(word)) return statusReply(ctx, gym, settings, memberId);
-  // 'menu:checkin' offers the camera; 'menu:checkin:now' is the in-chat
-  // fallback behind it. Typed words go to the offer too, so "check in" doesn't
-  // quietly take a different route from the menu button of the same name.
-  if (action === 'menu:checkin:now') return checkinNow(ctx, gym, memberId);
+  // Typed words land on the same offer as the menu button, so "check in" can't
+  // quietly take a different route from the entry of the same name.
   if (action === 'menu:checkin' || CHECKIN_WORDS.has(word)) return checkinReply(ctx, gym, settings, memberId);
   if (action === 'menu:code' || CODE_WORDS.has(word)) return codeReply(ctx, gym, memberId);
   if (action === 'menu:renew' || RENEW_WORDS.has(word)) return plansReply(ctx, gym, memberId);
   if (action === 'menu:app' || APP_WORDS.has(word)) return appReply(ctx, gym, settings);
+  if (action === 'menu:site' || SITE_WORDS.has(word)) return siteReply(ctx, gym);
+  if (action === 'menu:account' || ACCOUNT_WORDS.has(word)) return accountReply(ctx, gym, memberId);
+  if (action === 'auth:signout') return signOutReply(ctx, gym);
   if (action === 'menu:support' || SUPPORT_WORDS.has(word)) return supportReply(ctx, gym, settings);
   // plan:<uuid>            → the package was chosen; ask about the trainer if
   //                           this plan offers one
@@ -406,7 +409,9 @@ async function mainMenu(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSetting
       { id: 'menu:status', title: 'My membership', description: 'Days left and expiry date' },
       { id: 'menu:renew', title: 'Renew or pay', description: 'See packages and pay' },
       { id: 'menu:app', title: 'Open the app', description: 'Classes, wallet and more' },
+      { id: 'menu:site', title: `${gym.name.slice(0, 16)} online`, description: 'The gym’s own website' },
       { id: 'menu:support', title: 'Contact the gym', description: settings.supportPhone ?? 'Speak to the front desk' },
+      { id: 'menu:account', title: 'My account', description: 'Signed in as — or sign out' },
     ],
     'Open menu',
     { header: gym.name.slice(0, 60), footer: 'Reply “menu” any time' },
@@ -462,45 +467,45 @@ async function statusReply(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSett
  * the honest fallbacks for when it can't: no camera permission, a locked-down
  * browser, or a member whose phone simply won't cooperate at the door.
  */
+/**
+ * The door. Two ways through it, and neither is "send a message".
+ *
+ * A WhatsApp message proves someone has a phone, not that they are standing in
+ * the building — so this offers the QR at the entrance (a link to /checkin,
+ * which opens the camera on arrival) or a 6-digit code read out to a human at
+ * reception. Both put a physical act between the member and the door.
+ *
+ * There is deliberately no in-chat "check in here" button. One existed briefly
+ * and it made the other two pointless: anyone could log a visit from bed.
+ *
+ * The other QR route — scanning the door poster with the phone's own camera,
+ * which sends `CHECKIN <slug> <token>` back here — is handled by
+ * handleQrCheckin and is equally physical: the token comes off the wall.
+ */
 async function checkinReply(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSettings, memberId: string): Promise<void> {
-  // A gym that turned QR check-in off gets the old behaviour: sending its
-  // members to scan a QR it doesn't use would be a dead end.
-  if (!settings.qrCheckinEnabled) return checkinNow(ctx, gym, memberId);
-
   const state = await visitState(ctx.admin, memberId, gym.id);
   const verb = state.insideNow ? 'Check out' : 'Check in';
+
+  // A gym that turned QR check-in off has only the front desk. Sending its
+  // members to scan a QR it doesn't use would be a dead end.
+  if (!settings.qrCheckinEnabled) {
+    return ctx.buttons(
+      `${verb} at the ${gym.name} front desk.\n\nTap below for a 6-digit code and read it out to reception — they'll ${state.insideNow ? 'check you out' : 'check you in'}.`,
+      [{ id: 'menu:code', title: 'Front desk code' }, { id: 'menu:menu', title: 'Menu' }],
+    );
+  }
+
   // The gym's own subdomain, not settings.appHomeUrl — that one is overridable
   // to a store listing or a branded link, and this has to reach the page that
   // opens the camera.
   const scanUrl = `${gymHomeUrl(gym)}/checkin`;
 
   await ctx.buttons(
-    `${verb} by scanning the QR at ${gym.name}.\n\nTap to open your camera:\n${scanUrl}\n\nThe camera opens as soon as the page loads — point it at the QR by the door. If it doesn’t open, use one of the options below.`,
+    `${verb} by scanning the QR at ${gym.name}.\n\nTap to open your camera:\n${scanUrl}\n\nThe camera opens as soon as the page loads — point it at the QR by the door.\n\nNo camera? Get a 6-digit code and read it out at reception instead.`,
     [
-      { id: 'menu:checkin:now', title: `${verb} here` },
       { id: 'menu:code', title: 'Front desk code' },
       { id: 'menu:menu', title: 'Menu' },
     ],
-  );
-}
-
-/** Check in or out in the chat itself — the fallback when scanning isn't possible. */
-async function checkinNow(ctx: Ctx, gym: WhatsAppGym, memberId: string): Promise<void> {
-  const res = await whatsappCheckToggle(ctx.admin, { gym, memberId, method: 'whatsapp' });
-
-  if (!res.ok) {
-    return ctx.buttons(res.error, [{ id: 'menu:renew', title: 'Renew' }, { id: 'menu:support', title: 'Contact gym' }]);
-  }
-
-  if (res.action === 'checked_out') {
-    return ctx.buttons(`Checked out of ${gym.name}. See you next time.`, [{ id: 'menu:menu', title: 'Menu' }]);
-  }
-
-  const days = res.daysRemaining;
-  const tail = days !== null ? `\n\n${days} day${days === 1 ? '' : 's'} left on your membership.` : '';
-  await ctx.buttons(
-    `Checked in at ${gym.name}. Enjoy your session.${tail}`,
-    [{ id: 'menu:checkin:now', title: 'Check out' }, { id: 'menu:menu', title: 'Menu' }],
   );
 }
 
@@ -619,6 +624,62 @@ async function checkoutReply(ctx: Ctx, gym: WhatsAppGym, memberId: string, planI
 async function appReply(ctx: Ctx, gym: WhatsAppGym, settings: WhatsAppGymSettings): Promise<void> {
   await ctx.say(
     `Open ${gym.name} on GymFlow:\n${settings.appHomeUrl}\n\nSign in with the same email and password you use here. You can book classes, see your wallet, scan the door QR and manage your membership.`,
+  );
+}
+
+/**
+ * The gym's own website — its branded page, not the member dashboard.
+ *
+ * Distinct from appReply on purpose: that one sends settings.appHomeUrl, which a
+ * gym may point at a store listing or a deep link, and members kept asking for
+ * the gym itself. This is always the tenant's own address.
+ */
+async function siteReply(ctx: Ctx, gym: WhatsAppGym): Promise<void> {
+  await ctx.buttons(
+    `${gym.name} online:\n${gymHomeUrl(gym)}\n\nOpening hours, classes, packages and how to find them.`,
+    [{ id: 'menu:menu', title: 'Menu' }],
+  );
+}
+
+/**
+ * Who this number is signed in as, and the way back out.
+ *
+ * WhatsApp has no session to close, so "signed in" here means the contact row
+ * is bound to a profile — and until now there was no way to see that or undo
+ * it. A shared or resold phone number would have kept reading somebody else's
+ * membership with no visible sign of whose.
+ */
+async function accountReply(ctx: Ctx, gym: WhatsAppGym, memberId: string): Promise<void> {
+  const { data } = await ctx.admin.from('profiles').select('full_name, email').eq('id', memberId).maybeSingle();
+  const profile = data as { full_name: string | null; email: string | null } | null;
+  const who = profile?.full_name?.trim() || profile?.email || 'your account';
+  // Phone-matched contacts are recognised, not proven — checkoutReply already
+  // refuses to spend money on them, so say plainly which footing they are on.
+  const proven = Boolean(ctx.contact.verified_at);
+
+  await ctx.buttons(
+    [
+      `Signed in as *${who}* at ${gym.name}.`,
+      profile?.email && profile.email !== who ? `Email: ${profile.email}` : null,
+      '',
+      proven
+        ? 'The same email and password work in the GymFlow app and on the web.'
+        : 'This number was matched to your account by phone number. Sign in with your password to unlock payments.',
+    ].filter((line) => line !== null).join('\n'),
+    proven
+      ? [{ id: 'auth:signout', title: 'Sign out' }, { id: 'menu:menu', title: 'Menu' }]
+      : [{ id: 'auth:signin', title: 'Sign in' }, { id: 'auth:signout', title: 'Not me' }, { id: 'menu:menu', title: 'Menu' }],
+  );
+}
+
+/** Detach this number from the account it was bound to. */
+async function signOutReply(ctx: Ctx, gym: WhatsAppGym): Promise<void> {
+  await unlinkContact(ctx.admin, ctx.contact.id);
+  ctx.contact.profile_id = null;
+  ctx.contact.verified_at = null;
+  await ctx.buttons(
+    `Signed out. This number is no longer linked to an account at ${gym.name}.\n\nYour membership itself is untouched — sign back in any time with the same email and password.`,
+    [{ id: 'auth:signin', title: 'Sign in' }, { id: 'auth:signup', title: 'Create account' }],
   );
 }
 
