@@ -25,7 +25,7 @@ export default async function WhatsAppPayCallback({ searchParams }: { searchPara
   if (reference) {
     const v = await verifyTransaction(reference);
     if (v.ok && v.status === 'success') {
-      const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata });
+      const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata, split: v.split });
       if (!f.ok) console.error(`[whatsapp/pay-callback] fulfill failed for ${v.reference}: ${f.error}`);
       ok = true;
       msg = 'Your membership is updated. Head back to WhatsApp — I’ll confirm it there too.';

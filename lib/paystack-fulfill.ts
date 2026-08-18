@@ -6,8 +6,14 @@ import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
 import { captureServerEvent } from '@/lib/server-error';
 import { settledAmountMatches } from '@/lib/paystack-event-state';
 import { planTotalKobo, resolveTrainerOptIn } from '@/lib/plan-addon';
+import { commissionColumns, type SplitRecord } from '@/lib/paystack-split';
 
-export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown> };
+// `split` is what Paystack reported about the settlement — passed in rather
+// than re-derived here, because the webhook and the post-checkout callback see
+// it in different shapes (event body vs verify response) and only the caller
+// knows which it holds. Null means the caller had nothing to say, which is
+// recorded as "not recorded" rather than as zero commission.
+export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown>; split?: SplitRecord | null };
 // `permanent` marks a failure that won't succeed on retry (e.g. unusable
 // metadata) so the webhook can ack instead of asking Paystack to resend.
 export type FulfillResult = { ok: boolean; created: boolean; error?: string; permanent?: boolean };
@@ -98,13 +104,22 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const pp = Number(plan.price ?? 0);
   if (Number.isFinite(pp) && pp > 0) planPriceKobo = planTotalKobo(plan, trainerAddon);
 
+  // Commission is stamped on the row at fulfilment because it is not
+  // recoverable afterwards: the rate lives on the Paystack subaccount, an
+  // operator can change it at any time, and Paystack keeps no per-charge
+  // history we can read back. Without this the console could only ever
+  // multiply TODAY's rate by all historical GMV — so editing a gym from 5% to
+  // 10% silently repriced every payment it had ever taken.
+  // `as never`: these columns postdate the generated database.types.ts, same
+  // pattern as webhook_events in the webhook route.
   const { data: payRow, error: payErr } = await admin.from('payments').insert({
     member_id: memberId, gym_id: gymId, plan_id: planId,
     amount: d.amountKobo / 100, currency: 'NGN',
     status: 'success', payment_status: 'successful',
     payment_method: d.channel ?? 'paystack', paystack_reference: d.reference,
     payment_date: new Date().toISOString(),
-  }).select('id').single();
+    ...commissionColumns(d.split ?? null),
+  } as never).select('id').single();
   if (payErr) {
     // 23505 = unique_violation: a concurrent fulfiller recorded this reference
     // between our pre-check and insert. Idempotent no-op, not a failure — and

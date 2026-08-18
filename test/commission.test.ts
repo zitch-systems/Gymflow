@@ -10,12 +10,18 @@ import { describe, expect, it } from 'vitest';
 // looking at, because a failed save signalled itself only through a tooltip and
 // a swapped icon.
 //
-// The mechanism worth remembering: GymFlow does not record a commission per
-// payment. It is taken by Paystack at settlement, via the `percentage_charge`
-// on the gym's subaccount. So the number in gyms.platform_commission_pct earns
-// nothing at all until that subaccount exists — a gym that has not connected
-// payouts settles the WHOLE charge into the platform account, which is a
-// different arrangement, not a smaller one.
+// The mechanism worth remembering: the commission is applied by Paystack at
+// settlement, via the `percentage_charge` on the gym's subaccount. So the
+// number in gyms.platform_commission_pct earns nothing at all until that
+// subaccount exists — a gym that has not connected payouts settles the WHOLE
+// charge into the platform account, which is a different arrangement, not a
+// smaller one.
+//
+// Because that rate lives on a mutable subaccount and Paystack keeps no
+// per-charge history of it, what was split has to be captured AT FULFILMENT or
+// it is gone. It used to be gone, and the console papered over the gap by
+// multiplying today's rate by all historical GMV — so re-rating a gym silently
+// re-priced every payment it had ever taken.
 
 const root = (...p: string[]) => resolve(__dirname, '..', ...p);
 const read = (path: string) => readFileSync(root(path), 'utf8');
@@ -91,11 +97,23 @@ describe('both places the rate is edited pass the split status', () => {
     expect(read('components/superadmin/gym-table.tsx')).toContain('paystack_subaccount_code');
   });
 
-  it('the detail page does not quote a commission figure when nothing is split', () => {
+  it('the detail page quotes what was recorded, not today’s rate times all history', () => {
     const src = read('app/(superadmin)/superadmin/gyms/[id]/page.tsx');
     expect(src).toContain('const splitLive = Boolean(gym.paystack_subaccount_code)');
-    // The estimate is labelled as one, and suppressed entirely without a split.
-    expect(src).toMatch(/splitLive \? 'Earned on member GMV \(est\.\)'/);
-    expect(src).toMatch(/splitLive \? fmtNaira\(commissionEarned\) : '—'/);
+    // The figure is a sum of recorded amounts...
+    expect(src).toMatch(/commissionRows\.reduce\(/);
+    expect(src).toContain('p.platform_commission_amount != null');
+    // ...and the estimate survives only as an explicitly-labelled aside about
+    // the rows that predate the recording.
+    expect(src).toContain('an estimate only');
+    expect(src).not.toMatch(/const commissionEarned = memberGmv \*/);
+  });
+
+  it('counts unrecorded payments rather than treating them as zero commission', () => {
+    // NULL means "we didn't record it", and summing NULLs as zeroes would make
+    // a gym that has always paid commission look like one that never has.
+    const src = read('app/(superadmin)/superadmin/gyms/[id]/page.tsx');
+    expect(src).toContain('p.platform_settlement == null');
+    expect(src).toMatch(/unrecordedPays > 0/);
   });
 });

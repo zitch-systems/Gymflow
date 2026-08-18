@@ -34,7 +34,7 @@ export default async function RenewCallback({ searchParams }: { searchParams: Pr
       if (v.metadata?.member_id && v.metadata.member_id !== user.id) {
         console.warn(`[renew/callback] viewer ${user.id} != payer ${String(v.metadata.member_id)} for ${v.reference}; fulfilling per metadata`);
       }
-      const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata });
+      const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata, split: v.split });
       if (!f.ok) console.error(`[renew/callback] fulfill failed for ${v.reference}: ${f.error}`);
       // Success belongs in the member's own portal, not on a standalone page
       // that reads like part of the payment processor. The dashboard raises a
