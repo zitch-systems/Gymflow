@@ -73,12 +73,19 @@ export async function setGymCommission(_prev: CommissionState, formData: FormDat
 
   const r = await updateSubaccountCommission(subaccount, stored);
   if (!r.ok) {
+    // Persisted, not just returned to this render — the reconciliation sweep
+    // (lib/reconcile.ts reconcileGymSplits) finds this gym on its own from
+    // here, without anyone re-opening the editor to reproduce the failure.
+    await db.from('gyms').update({ paystack_sync_error: r.error, paystack_sync_checked_at: new Date().toISOString() } as never).eq('id', gymId);
     return {
       ok: false, error: `Saved ${stored}% in GymFlow, but Paystack rejected the split change: ${r.error}`,
       pct: stored, notSplitting: true,
     };
   }
 
+  // The push landed — clear any out-of-sync flag a previous attempt left, so
+  // the sweep (and anything else that reads it later) doesn't act on stale news.
+  await db.from('gyms').update({ paystack_sync_error: null, paystack_sync_checked_at: new Date().toISOString() } as never).eq('id', gymId);
   return { ok: true, error: null, pct: stored, message: `Commission updated to ${stored}%. The live Paystack split now matches.` };
 }
 

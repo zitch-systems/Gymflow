@@ -568,7 +568,7 @@ export function payoutRejected(o: {
 
 /** Which change happened to a gym’s payout destination. Same vocabulary as
  *  lib/payout-alerts.ts so the audit trail and the email agree. */
-export type PayoutAccountAction = 'added' | 'activated' | 'removed';
+export type PayoutAccountAction = 'added' | 'activated' | 'removed' | 'recreated';
 
 const PAYOUT_ACTION: Record<PayoutAccountAction, { subject: string; heading: string; sentence: string }> = {
   added: {
@@ -585,6 +585,15 @@ const PAYOUT_ACTION: Record<PayoutAccountAction, { subject: string; heading: str
     subject: 'A payout account was removed at',
     heading: 'A payout account was removed',
     sentence: 'removed a payout account from',
+  },
+  // Automated: the reconciliation sweep found the stored subaccount code no
+  // longer resolving at Paystack and minted a replacement. No human acted, so
+  // actorName renders as GymFlow's own system rather than "a staff member" —
+  // see alertGymPayoutChanged's null-actorId branch.
+  recreated: {
+    subject: 'Your payout account was automatically reconnected at',
+    heading: 'Your payout account was reconnected',
+    sentence: 'reconnected the Paystack payout account for',
   },
 };
 

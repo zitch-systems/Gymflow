@@ -386,8 +386,10 @@ export async function GET(req: Request) {
     }
   }
 
-  // Paystack ↔ DB reconciliation: flag charges whose webhook was dropped and
-  // resolve payouts stuck in 'approved'. No-ops without PAYSTACK_SECRET_KEY.
+  // Paystack ↔ DB reconciliation: flag charges whose webhook was dropped,
+  // resolve payouts stuck in 'approved', and repair gyms whose Paystack split
+  // drifted (stale subaccount code, or a commission push that failed).
+  // No-ops without PAYSTACK_SECRET_KEY.
   let reconciliation: ReconcileSummary | null = null;
   if (admin) reconciliation = await runReconciliation();
 

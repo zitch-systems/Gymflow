@@ -24,3 +24,44 @@ export function chunk<T>(items: T[], size: number): T[][] {
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
   return out;
 }
+
+export type GymSplitFix = 'noop' | 'push_commission' | 'recreate' | 'retry_later';
+
+// What the Paystack lookup told us about the stored subaccount code:
+//  - 'found': it resolves — compare percentages.
+//  - 'not_found': Paystack came back with a genuine 404 — it's actually gone.
+//  - 'lookup_failed': anything else that kept us from getting a real answer —
+//    timeout, dropped connection, 401/429/5xx, a JSON-parse failure. This is
+//    NOT evidence the subaccount is gone, only that this one GET didn't land.
+export type SubaccountLookupStatus = 'found' | 'not_found' | 'lookup_failed';
+
+// Decide what a gym's Paystack subaccount needs, given the lookup's outcome
+// and, when it resolved, the live percentage_charge Paystack reports for it.
+// Pure so the branching — the actual bug this backs a fix for — is
+// unit-testable without a Paystack account. See lib/reconcile.ts
+// reconcileGymSplits, the sweep this drives.
+//
+// Recreating (minting a brand-new subaccount via createSubaccount + repointing
+// the gym's stored code) is reserved for a confirmed 404 — a transient lookup
+// failure must never be treated as "gone", or a Paystack blip during the
+// sweep mints duplicate subaccounts for every candidate gym in the run and
+// orphans their real ones. A failed lookup instead reports 'retry_later' so
+// the caller records the transient error and leaves the gym for the next run,
+// the same posture reconcilePayouts already takes on a failed getTransfer.
+export function planGymSplitFix(params: {
+  subaccountStatus: SubaccountLookupStatus;
+  livePct: number | null;
+  dbPct: number;
+}): GymSplitFix {
+  if (params.subaccountStatus === 'lookup_failed') return 'retry_later';
+  if (params.subaccountStatus === 'not_found') return 'recreate';
+  if (params.livePct == null || !commissionPctMatches(params.livePct, params.dbPct)) return 'push_commission';
+  return 'noop';
+}
+
+// Paystack can echo percentage_charge with float noise (20 stored, 19.999999
+// read back) — compare to 2dp, matching gyms.platform_commission_pct's
+// numeric(5,2) precision, so that noise alone never triggers a needless push.
+export function commissionPctMatches(livePct: number, dbPct: number): boolean {
+  return Math.round(livePct * 100) === Math.round(dbPct * 100);
+}

@@ -20,14 +20,18 @@ import { fmtDateTime } from '@/lib/format';
 type PayoutAction = PayoutAccountAction;
 
 // Notify every active gym owner that a gym payout account changed. actorId is
-// resolved to a display name from a second service-role read.
+// resolved to a display name from a second service-role read. Pass null for
+// an automated change (e.g. the reconciliation cron recreating a subaccount)
+// — there's no profile to look up, and rendering it as "a staff member" would
+// misreport an unattended job as a human action, undermining the exact
+// hijacked-session signal this alert exists to preserve.
 export async function alertGymPayoutChanged(params: {
   gymId: string;
   gymName: string;
   action: PayoutAction;
   bankName: string;
   last4: string;
-  actorId: string;
+  actorId: string | null;
 }): Promise<void> {
   // Skip the service-role owner lookup entirely when email isn't configured.
   if (!process.env.RESEND_API_KEY) return;
@@ -40,9 +44,12 @@ export async function alertGymPayoutChanged(params: {
     // "Changed by" is the whole point of the alert: an owner who can't tell
     // whether it was their own manager has nothing to act on. A profile we
     // can't read degrades to the vague form rather than printing a bare uuid.
-    const { data: actor } = await admin.from('profiles').select('full_name, email').eq('id', params.actorId).maybeSingle();
-    const row = actor as { full_name: string | null; email: string | null } | null;
-    const actorName = row?.full_name?.trim() || row?.email || 'a staff member';
+    let actorName = 'GymFlow’s automated reconciliation';
+    if (params.actorId) {
+      const { data: actor } = await admin.from('profiles').select('full_name, email').eq('id', params.actorId).maybeSingle();
+      const row = actor as { full_name: string | null; email: string | null } | null;
+      actorName = row?.full_name?.trim() || row?.email || 'a staff member';
+    }
 
     await sendPlatformEmail({
       to: emails,
