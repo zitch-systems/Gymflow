@@ -64,6 +64,23 @@ describe('setGymCommission', () => {
     expect(fn).toMatch(/Paystack rejected the split change/);
     expect(fn).toMatch(/Saved \$\{stored\}% in GymFlow/);
   });
+
+  it('persists a Paystack rejection so the reconciliation sweep can find it later', () => {
+    // The ephemeral action-state error is lost on reload; without a persisted
+    // record a gym stayed out of sync until someone re-opened the editor to
+    // reproduce the failure. See lib/reconcile.ts reconcileGymSplits.
+    const rejectAt = fn.indexOf('Paystack rejected the split change');
+    const persistAt = fn.indexOf('paystack_sync_error: r.error');
+    expect(persistAt).toBeGreaterThan(0);
+    expect(persistAt).toBeLessThan(rejectAt);
+  });
+
+  it('clears the persisted sync error once the push succeeds', () => {
+    const successAt = fn.indexOf('Commission updated to');
+    const clearAt = fn.indexOf('paystack_sync_error: null');
+    expect(clearAt).toBeGreaterThan(0);
+    expect(clearAt).toBeLessThan(successAt);
+  });
 });
 
 describe('the commission editor', () => {

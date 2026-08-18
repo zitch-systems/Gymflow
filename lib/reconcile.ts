@@ -1,8 +1,10 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { listTransactions, getTransfer } from '@/lib/paystack';
-import { missingLocally, unknownAtPaystack, chunk } from '@/lib/reconcile-core';
+import { listTransactions, getTransfer, getSubaccount, updateSubaccountCommission } from '@/lib/paystack';
+import { missingLocally, unknownAtPaystack, chunk, planGymSplitFix, type SubaccountLookupStatus } from '@/lib/reconcile-core';
+import { ensureSubaccount, syncGymFromActive, type PayoutAccount } from '@/lib/payout-sync';
 import { logAudit } from '@/lib/audit';
+import { alertGymPayoutChanged } from '@/lib/payout-alerts';
 import { captureServerEvent } from '@/lib/server-error';
 import { fmtDate } from '@/lib/format';
 import type { EmailContent } from '@/lib/email';
@@ -23,6 +25,13 @@ import { payoutCompleted, payoutFailed } from '@/lib/email/templates/platform';
 //      should appear in the same Paystack window.
 //   3. Stuck payouts: rows in 'approved' whose transfer.success/failed webhook
 //      never arrived are resolved by polling the transfer's real status.
+//   4. Gym splits: a gym's stored paystack_subaccount_code can stop resolving
+//      at Paystack (created under a different key/mode, or deleted there), or
+//      its live percentage_charge can drift from platform_commission_pct
+//      (setGymCommission writes the DB first and pushes to Paystack second, by
+//      design — see that function — so a Paystack rejection leaves the two out
+//      of sync). Checked gyms are flagged (or cleared) via
+//      gyms.paystack_sync_error / paystack_sync_checked_at.
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -32,16 +41,19 @@ export type ReconcileSummary = {
   missingLocally: number;
   unknownAtPaystack: number;
   payoutsResolved: number;
+  gymSplitsFixed: number;
   error?: string;
 };
 
 const WINDOW_MS = 48 * 60 * 60 * 1000; // catch anything the last two runs missed
 const LOG_CAP = 25; // per-run audit-entry cap so a systemic outage can't flood audit_logs
+const GYM_SPLIT_RECHECK_MS = 7 * 24 * 60 * 60 * 1000; // revisit every subaccount gym at least weekly
+const GYM_SPLIT_CAP = 25; // bounded — each candidate costs a Paystack round-trip, shares the cron's 60s budget
 
 export async function reconcilePayments(admin: Admin): Promise<ReconcileSummary> {
   const from = new Date(Date.now() - WINDOW_MS);
   const listed = await listTransactions({ from, status: 'success' });
-  if (!listed.ok) return { ran: false, checked: 0, missingLocally: 0, unknownAtPaystack: 0, payoutsResolved: 0, error: listed.error };
+  if (!listed.ok) return { ran: false, checked: 0, missingLocally: 0, unknownAtPaystack: 0, payoutsResolved: 0, gymSplitsFixed: 0, error: listed.error };
 
   const paystackRefs = listed.transactions.map((t) => t.reference);
   const amounts = new Map(listed.transactions.map((t) => [t.reference, t.amountKobo]));
@@ -93,7 +105,7 @@ export async function reconcilePayments(admin: Admin): Promise<ReconcileSummary>
     });
   }
 
-  return { ran: true, checked: paystackRefs.length, missingLocally: missing.length, unknownAtPaystack: unknown.length, payoutsResolved: 0 };
+  return { ran: true, checked: paystackRefs.length, missingLocally: missing.length, unknownAtPaystack: unknown.length, payoutsResolved: 0, gymSplitsFixed: 0 };
 }
 
 type StuckPayout = {
@@ -213,10 +225,167 @@ export async function reconcilePayouts(admin: Admin): Promise<number> {
   return resolved;
 }
 
+type GymSplitCandidate = {
+  id: string;
+  name: string | null;
+  paystack_subaccount_code: string | null;
+  platform_commission_pct: number | string | null;
+};
+
+// Gyms whose Paystack split needs (re)checking this run: ones a previous push
+// already flagged as failing, plus — oldest-checked first — any gym with a
+// subaccount that hasn't been verified in a week. The second half is what
+// catches a gym that went stale silently, with no commission edit ever
+// re-triggering the push that would have flagged it.
+async function gymSplitCandidates(admin: Admin): Promise<GymSplitCandidate[]> {
+  const staleBefore = new Date(Date.now() - GYM_SPLIT_RECHECK_MS).toISOString();
+  const { data } = await admin.from('gyms')
+    .select('id, name, paystack_subaccount_code, platform_commission_pct')
+    .not('paystack_subaccount_code', 'is', null)
+    .or(`paystack_sync_error.not.is.null,paystack_sync_checked_at.is.null,paystack_sync_checked_at.lt.${staleBefore}`)
+    .order('paystack_sync_checked_at', { ascending: true, nullsFirst: true })
+    .limit(GYM_SPLIT_CAP);
+  return (data ?? []) as unknown as GymSplitCandidate[];
+}
+
+// `expectedPct`, when given, guards this write the same way reconcilePayouts
+// guards its own state transitions with `.eq('status','approved')`: it only
+// applies if platform_commission_pct still matches the value this run last
+// acted on. Pass it whenever the write is declaring "this gym is in sync" —
+// if a human edit (setGymCommission) landed a new rate in the gap between our
+// read and this write, that declaration would be stale, so the row-affected
+// check quietly no-ops instead of certifying a rate we didn't verify.
+// Omit it for failure writes, where recording the error is correct regardless
+// of a concurrent rate change.
+async function markGymSplitChecked(admin: Admin, gymId: string, error: string | null, expectedPct?: number): Promise<void> {
+  let q = admin.from('gyms').update({
+    paystack_sync_error: error,
+    paystack_sync_checked_at: new Date().toISOString(),
+  } as never).eq('id', gymId);
+  if (expectedPct != null) q = q.eq('platform_commission_pct', expectedPct);
+  await q;
+}
+
+// Recreate a gym's subaccount when the stored code no longer resolves at
+// Paystack, reusing the exact create step lib/actions/payout-accounts.ts uses
+// (lib/payout-sync.ts) rather than a second implementation. `staleCode` guards
+// a race: if the active payout account's code has already moved off it since
+// this run looked it up — a concurrent sweep, or a human re-editing payouts —
+// this uses whatever is there now instead of creating a second subaccount.
+async function recreateGymSubaccount(
+  admin: Admin, gymId: string, gymName: string, staleCode: string, dbPct: number,
+): Promise<{ ok: true; subaccountCode: string } | { ok: false; error: string }> {
+  const { data } = await admin.from('gym_payout_accounts' as never)
+    .select('id, gym_id, bank_name, bank_code, account_number, account_name, verified, is_active, paystack_subaccount_code')
+    .eq('gym_id', gymId).eq('is_active', true).maybeSingle();
+  const account = data as unknown as PayoutAccount | null;
+  if (!account) return { ok: false, error: 'No active payout account on file to recreate the subaccount from.' };
+
+  // Only actually mints a new subaccount when the active account's code still
+  // matches what this run started from — see ensureSubaccount's `force` doc.
+  const force = account.paystack_subaccount_code === staleCode;
+  const created = await ensureSubaccount(admin, account, gymName, dbPct, { force });
+  if (!created.ok) return created;
+
+  await syncGymFromActive(admin, gymId);
+
+  // A genuine mint repoints where this gym's real member payments settle —
+  // the same class of change lib/actions/payout-accounts.ts always audits and
+  // alerts the owner about (see alertGymPayoutChanged's header comment: this
+  // is the second line of defense against a hijacked session that survives
+  // re-auth). `force` false means ensureSubaccount short-circuited on a code a
+  // human already changed underneath this run — nothing was actually touched,
+  // so nothing to log or alert about.
+  if (force) {
+    void logAudit({
+      action: 'gym_subaccount_recreated',
+      table: 'gyms',
+      gymId,
+      recordId: gymId,
+      values: { from: staleCode, to: created.subaccountCode, reason: 'stored subaccount code stopped resolving at Paystack (404)' },
+    });
+    await alertGymPayoutChanged({
+      gymId, gymName, action: 'recreated',
+      bankName: account.bank_name, last4: account.account_number.slice(-4),
+      actorId: null, // automated — see alertGymPayoutChanged's null-actorId branch
+    });
+  }
+
+  return created;
+}
+
+// For each candidate gym, check the stored subaccount code against Paystack
+// and fix whatever's wrong: recreate a missing/invalid subaccount, or push the
+// DB's commission % when only that has drifted. A gym that already matches
+// costs one Paystack GET and a checked_at stamp — no writes to Paystack.
+// Idempotent per gym: nothing here runs unless a mismatch was just observed,
+// so a gym already in sync is a fast no-op on every call.
+export async function reconcileGymSplits(admin: Admin): Promise<number> {
+  const candidates = await gymSplitCandidates(admin);
+  let fixed = 0;
+
+  for (const gym of candidates) {
+    const code = gym.paystack_subaccount_code;
+    if (!code) continue; // guarded by the query; keeps this loop self-contained
+
+    const lookup = await getSubaccount(code);
+
+    // Re-read the commission rate immediately before deciding/acting on it,
+    // rather than trusting the batch snapshot from gymSplitCandidates. That
+    // snapshot can be many candidates (and Paystack round-trips) stale by the
+    // time the serial loop reaches this gym — long enough for a concurrent
+    // setGymCommission edit to have written a new rate AND pushed it live in
+    // between. Planning off the fresh value here means an already-corrected
+    // rate reads as 'noop' instead of a "mismatch" this sweep would otherwise
+    // revert back to the old number.
+    const { data: freshRow } = await admin.from('gyms').select('platform_commission_pct').eq('id', gym.id).maybeSingle();
+    const dbPct = Number((freshRow as { platform_commission_pct: number | string | null } | null)?.platform_commission_pct ?? gym.platform_commission_pct ?? 0);
+
+    const subaccountStatus: SubaccountLookupStatus = lookup.ok ? 'found' : (lookup.status === 404 ? 'not_found' : 'lookup_failed');
+    const plan = planGymSplitFix({ subaccountStatus, livePct: lookup.ok ? lookup.data.percentageCharge : null, dbPct });
+
+    if (plan === 'retry_later') {
+      // Not evidence the subaccount is gone — this one GET failed (timeout,
+      // dropped connection, 401/429/5xx, bad JSON). Record why and leave the
+      // gym for the next run instead of minting a duplicate subaccount off a
+      // transient hiccup — see planGymSplitFix's doc.
+      await markGymSplitChecked(admin, gym.id, lookup.ok ? null : lookup.error);
+      continue;
+    }
+
+    if (plan === 'noop') {
+      await markGymSplitChecked(admin, gym.id, null, dbPct);
+      continue;
+    }
+
+    if (plan === 'recreate') {
+      const created = await recreateGymSubaccount(admin, gym.id, gym.name ?? 'Gym', code, dbPct);
+      if (!created.ok) { await markGymSplitChecked(admin, gym.id, created.error); continue; }
+      // A freshly created subaccount is created WITH dbPct already, but push
+      // it explicitly too — this path should end no less in-sync than the
+      // ordinary commission-edit flow's own push, and it's a harmless no-op
+      // at Paystack if the percentage already matches.
+      const push = await updateSubaccountCommission(created.subaccountCode, dbPct);
+      if (!push.ok) { await markGymSplitChecked(admin, gym.id, push.error); continue; }
+      fixed++;
+      await markGymSplitChecked(admin, gym.id, null, dbPct);
+      continue;
+    }
+
+    // plan === 'push_commission': the subaccount resolves, only the rate drifted.
+    const push = await updateSubaccountCommission(code, dbPct);
+    if (!push.ok) { await markGymSplitChecked(admin, gym.id, push.error); continue; }
+    fixed++;
+    await markGymSplitChecked(admin, gym.id, null, dbPct);
+  }
+
+  return fixed;
+}
+
 // Entrypoint for the cron. Never throws; a failed sweep reports itself and the
 // next daily run covers the gap (the window is 2× the cadence).
 export async function runReconciliation(): Promise<ReconcileSummary> {
-  const empty: ReconcileSummary = { ran: false, checked: 0, missingLocally: 0, unknownAtPaystack: 0, payoutsResolved: 0 };
+  const empty: ReconcileSummary = { ran: false, checked: 0, missingLocally: 0, unknownAtPaystack: 0, payoutsResolved: 0, gymSplitsFixed: 0 };
   if (!process.env.PAYSTACK_SECRET_KEY) return empty;
   let admin: Admin;
   try { admin = createAdminClient(); } catch { return empty; }
@@ -224,6 +393,7 @@ export async function runReconciliation(): Promise<ReconcileSummary> {
   try {
     const summary = await reconcilePayments(admin);
     summary.payoutsResolved = await reconcilePayouts(admin);
+    summary.gymSplitsFixed = await reconcileGymSplits(admin);
     return summary;
   } catch (e) {
     const error = (e as Error).message;

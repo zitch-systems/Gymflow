@@ -6,60 +6,13 @@ import { verifyPassword } from '@/lib/auth/actions';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
 import { alertGymPayoutChanged } from '@/lib/payout-alerts';
-import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
+import { resolveAccount } from '@/lib/paystack';
+import { ensureSubaccount, syncGymFromActive, type PayoutAccount as Account } from '@/lib/payout-sync';
 
 export type PayoutState = { ok: boolean; error: string | null };
 
 const MAX_ACCOUNTS = 4;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-type Account = {
-  id: string; gym_id: string; bank_name: string; bank_code: string;
-  account_number: string; account_name: string; verified: boolean; is_active: boolean;
-  paystack_subaccount_code: string | null;
-};
-
-// Mirror the gym's active payout account onto the gyms row (bank_* +
-// paystack_subaccount_code) so member billing, which reads gyms, keeps working.
-// A gym with no active account has its payout fields cleared.
-async function syncGymFromActive(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  gymId: string,
-) {
-  const { data } = await supabase.from('gym_payout_accounts' as never)
-    .select('bank_name, bank_code, account_number, account_name, paystack_subaccount_code')
-    .eq('gym_id', gymId).eq('is_active', true).maybeSingle();
-  const a = data as unknown as Pick<Account, 'bank_name' | 'bank_code' | 'account_number' | 'account_name' | 'paystack_subaccount_code'> | null;
-  await supabase.from('gyms').update({
-    bank_name: a?.bank_name ?? null,
-    bank_code: a?.bank_code ?? null,
-    account_number: a?.account_number ?? null,
-    account_name: a?.account_name ?? null,
-    paystack_subaccount_code: a?.paystack_subaccount_code ?? null,
-    // "Payout configured" flag used by the onboarding checklist.
-    payouts_locked: !!a,
-  } as never).eq('id', gymId);
-}
-
-// Ensure the given account has a Paystack subaccount (needed for split payouts).
-// Best-effort: without Paystack keys or on failure we leave it null — the
-// account is still saved so the gym has its details on file.
-async function ensureSubaccount(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  account: Account, businessName: string, commissionPct: number | null,
-): Promise<string | null> {
-  if (account.paystack_subaccount_code) return account.paystack_subaccount_code;
-  if (!process.env.PAYSTACK_SECRET_KEY) return null;
-  const sub = await createSubaccount({
-    businessName,
-    bankCode: account.bank_code,
-    accountNumber: account.account_number,
-    percentageCharge: commissionPct == null ? DEFAULT_PLATFORM_COMMISSION_PCT : Number(commissionPct),
-  });
-  if (!sub.ok) return null;
-  await supabase.from('gym_payout_accounts' as never).update({ paystack_subaccount_code: sub.subaccountCode } as never).eq('id', account.id);
-  return sub.subaccountCode;
-}
 
 // Add a payout account (up to MAX_ACCOUNTS). Requires the caller's password
 // (step-up authorization — this is a money-redirection surface, so a hijacked

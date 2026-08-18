@@ -237,6 +237,41 @@ export async function updateSubaccountCommission(subaccountCode: string, percent
   }
 }
 
+export type SubaccountInfo = { subaccountCode: string; percentageCharge: number; active: boolean };
+
+// Fetch a subaccount by code. Used by the reconciliation sweep to check
+// whether a gym's stored code still resolves at Paystack — it can stop
+// resolving if the subaccount was created under a different key/mode, or
+// deleted there — and, when it does, to compare its live percentage_charge
+// against ours before deciding whether a push is even needed.
+//
+// `status` on failure carries the HTTP status we actually got back (404 for a
+// genuine "no such subaccount"), or null when we never got one at all — a
+// thrown fetch (timeout/dropped connection) or a JSON-parse failure land in
+// the same catch as network errors. Callers that need to tell "truly gone"
+// apart from "this one GET hiccuped" key off that distinction — see
+// lib/reconcile-core.ts planGymSplitFix.
+export async function getSubaccount(code: string): Promise<{ ok: true; data: SubaccountInfo } | { ok: false; error: string; status: number | null }> {
+  try {
+    const res = await fetch(`${PAYSTACK_BASE}/subaccount/${encodeURIComponent(code)}`, {
+      headers: { Authorization: `Bearer ${secret()}` },
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Subaccount fetch failed', status: res.status };
+    return {
+      ok: true,
+      data: {
+        subaccountCode: json.data.subaccount_code,
+        percentageCharge: Number(json.data.percentage_charge),
+        active: Boolean(json.data.active),
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message, status: null };
+  }
+}
+
 export type RecipientResult = { ok: true; recipientCode: string } | { ok: false; error: string };
 
 // Create a transfer recipient (NUBAN) for instructor payouts. Paystack
