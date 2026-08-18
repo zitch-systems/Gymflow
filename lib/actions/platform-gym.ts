@@ -7,7 +7,15 @@ import { logAudit } from '@/lib/audit';
 import { updateSubaccountCommission } from '@/lib/paystack';
 import { isPlanTier } from '@/lib/platform-plans';
 
-export type CommissionState = { ok: boolean; error: string | null; message?: string };
+export type CommissionState = {
+  ok: boolean;
+  error: string | null;
+  message?: string;
+  /** The percentage now stored, echoed back so the editor can show what stuck. */
+  pct?: number;
+  /** True when the rate is only in our DB — no Paystack split is applying it. */
+  notSplitting?: boolean;
+};
 
 // Set a gym's platform commission %, platform-operator only. Persists the new
 // rate and, when the gym already has a Paystack subaccount, pushes it live (the
@@ -21,21 +29,57 @@ export async function setGymCommission(_prev: CommissionState, formData: FormDat
 
   const admin = await requirePlatformAdmin();
   const db = createAdminClient();
+  // Read the rate back rather than trusting the input: `.select()` on the
+  // UPDATE returns the row as stored, so the editor can show the number that is
+  // actually in the database. A save that silently didn't stick is the failure
+  // this whole action is most likely to have, and the one hardest to see.
   const { data: gym, error } = await db.from('gyms')
     .update({ platform_commission_pct: pct })
     .eq('id', gymId)
-    .select('paystack_subaccount_code')
+    .select('platform_commission_pct, paystack_subaccount_code')
     .single();
   if (error) return { ok: false, error: error.message };
+  if (!gym) return { ok: false, error: 'That gym no longer exists.' };
 
-  if (gym?.paystack_subaccount_code && process.env.PAYSTACK_SECRET_KEY) {
-    const r = await updateSubaccountCommission(gym.paystack_subaccount_code, pct);
-    if (!r.ok) return { ok: false, error: `Saved, but the live Paystack split wasn’t updated: ${r.error}` };
+  const stored = Number((gym as { platform_commission_pct: number | string | null }).platform_commission_pct ?? pct);
+  const subaccount = (gym as { paystack_subaccount_code: string | null }).paystack_subaccount_code;
+
+  // The row is written. Everything below is about the LIVE split, and none of it
+  // may swallow the fact that the database changed — an earlier version returned
+  // on a Paystack error before reaching these two lines, so the rate was saved,
+  // the console kept rendering the old number, and the operator was told the
+  // save had failed. Audit and revalidate first, report second.
+  logAudit({ action: 'gym_commission_updated', table: 'gyms', actorId: admin.id, gymId, recordId: gymId, values: { pct: stored } });
+  revalidateGym(gymId);
+
+  // No subaccount means no split exists to carry this rate: the gym has not
+  // connected payouts, so member payments settle whole into the platform's own
+  // Paystack account and nothing is divided at all. Saying "commission updated"
+  // there would be a lie of omission — the number is stored and applying to
+  // nothing.
+  if (!subaccount) {
+    return {
+      ok: true, error: null, pct: stored, notSplitting: true,
+      message: `Saved ${stored}% — but this gym hasn’t connected payouts, so no Paystack split is applying it yet.`,
+    };
   }
 
-  logAudit({ action: 'gym_commission_updated', table: 'gyms', actorId: admin.id, gymId, recordId: gymId, values: { pct } });
-  revalidateGym(gymId);
-  return { ok: true, error: null, message: 'Commission updated.' };
+  if (!process.env.PAYSTACK_SECRET_KEY) {
+    return {
+      ok: true, error: null, pct: stored, notSplitting: true,
+      message: `Saved ${stored}% — Paystack isn’t configured on this deployment, so the live split still carries the old rate.`,
+    };
+  }
+
+  const r = await updateSubaccountCommission(subaccount, stored);
+  if (!r.ok) {
+    return {
+      ok: false, error: `Saved ${stored}% in GymFlow, but Paystack rejected the split change: ${r.error}`,
+      pct: stored, notSplitting: true,
+    };
+  }
+
+  return { ok: true, error: null, pct: stored, message: `Commission updated to ${stored}%. The live Paystack split now matches.` };
 }
 
 // ── Shared plumbing for the per-gym platform controls ───────────────────────

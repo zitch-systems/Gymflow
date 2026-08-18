@@ -113,6 +113,16 @@ describe('the menu', () => {
     expect(fn).toContain('gymHomeUrl(gym)');
   });
 
+  it('puts sign-in / the account row first', () => {
+    // A contact only "recognised" by phone number can read a membership but
+    // cannot pay — checkoutReply gates on verified_at — so the way to prove who
+    // they are belongs above the actions it unlocks, not beneath them.
+    const rows = src.slice(src.indexOf('async function mainMenu'), src.indexOf('async function statusReply'));
+    const order = [...rows.matchAll(/id: '(menu:[a-z]+)'/g)].map((m) => m[1]);
+    expect(order[0]).toBe('menu:account');
+    expect(rows).toContain("title: 'Sign in or sign up'");
+  });
+
   it('shows who the number is signed in as, and offers a way out', () => {
     // WhatsApp has no session to close, so "signed in" means the contact row is
     // bound to a profile. A resold or shared number would otherwise keep reading
