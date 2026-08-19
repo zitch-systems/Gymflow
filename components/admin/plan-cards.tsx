@@ -11,10 +11,10 @@ import {
 import { fmtNaira } from '@/lib/format';
 
 const FEATURES: Record<PlanTier, string[]> = {
-  starter: ['Unlimited members', 'QR check-in', 'Paystack subscriptions', 'Email reminders'],
+  starter: ['Gym admin portal', 'Unlimited members', 'QR check-in', 'Paystack subscriptions', 'Email reminders'],
   growth: [
-    'Everything in Starter', 'Class scheduling + waitlists', 'WhatsApp reminders',
-    'Live analytics + exports', 'Multi-gym & staff roles', 'Instructor payouts', 'Priority support',
+    'Everything in Starter', 'Member app for your members', 'Instructor portal', 'WhatsApp + AI assistant',
+    'Class scheduling + waitlists', 'Live analytics + exports', 'Multi-gym & staff roles', 'Instructor payouts', 'Priority support',
   ],
 };
 

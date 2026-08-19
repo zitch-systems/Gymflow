@@ -17,9 +17,12 @@ const FEATURE_LABELS: Record<Feature, string> = {
   email_reminders: 'Email reminders',
   class_scheduling: 'Class scheduling + waitlists',
   whatsapp_reminders: 'WhatsApp reminders',
+  ai_assistant: 'AI assistant',
   analytics_exports: 'Live analytics + exports',
   multi_gym: 'Multi-gym & staff roles',
   instructor_payouts: 'Instructor payouts',
+  instructor_portal: 'Instructor portal',
+  member_app: 'Member app',
   priority_support: 'Priority support',
 };
 const ALL_FEATURES = Object.keys(FEATURE_LABELS) as Feature[];

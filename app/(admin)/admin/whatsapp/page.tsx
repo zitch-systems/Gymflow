@@ -2,6 +2,8 @@ import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { secretsConfigured } from '@/lib/crypto/secret-box';
 import { hasGymAiKey } from '@/lib/actions/whatsapp';
+import { gymHasFeature } from '@/lib/entitlements';
+import { FeatureLockWall } from '@/components/admin/feature-lock-wall';
 import { WhatsAppClient, type ContactRow, type AiProviderRow } from './whatsapp-client';
 
 export const metadata = { title: 'WhatsApp' };
@@ -26,6 +28,13 @@ function envStatus() {
 
 export default async function AdminWhatsApp() {
   const { gym } = await requireStaff(MANAGER_ROLES);
+
+  // Starter is the gym admin portal only — WhatsApp and the AI assistant are
+  // Growth surfaces. Checked before any of this page's queries run.
+  if (!gymHasFeature(gym, 'whatsapp_reminders')) {
+    return <FeatureLockWall gymName={gym.name} featureLabel="WhatsApp + AI assistant" />;
+  }
+
   const supabase = await createClient();
 
   const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
