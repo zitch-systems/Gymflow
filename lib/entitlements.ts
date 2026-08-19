@@ -32,7 +32,6 @@ const TIER_RANK: Record<PlanTier, number> = { starter: 0, growth: 1 };
 // The minimum tier that unlocks each feature (from the pricing matrix).
 const FEATURE_MIN_TIER: Record<Feature, PlanTier> = {
   // Starter and up
-  qr_checkin: 'starter',
   paystack_subscriptions: 'starter',
   email_reminders: 'starter',
   // Growth only — "Everything in Starter" + these. Growth is the top tier, so
@@ -50,6 +49,11 @@ const FEATURE_MIN_TIER: Record<Feature, PlanTier> = {
   // app/(coach)/layout.tsx), not just in the entitlements-driven UI.
   instructor_portal: 'growth',
   member_app: 'growth',
+  // Every door/print/WhatsApp QR points at /checkin inside app/(member) (see
+  // app/(admin)/admin/staff-checkin/page.tsx, app/print-qr/[slug]/page.tsx) —
+  // there is no check-in path that doesn't require the member app, so this
+  // can't be Starter-and-up while member_app is Growth-only.
+  qr_checkin: 'growth',
   priority_support: 'growth',
 };
 
@@ -79,7 +83,7 @@ export function featuresFor(tier: PlanTier): Feature[] {
 // Only these — never the features that were already Growth-gated before that
 // change (analytics exports, instructor payouts, ...), which a legacy gym was
 // never entitled to and shouldn't suddenly gain.
-const GRANDFATHERED_FEATURES = new Set<Feature>(['member_app', 'instructor_portal', 'ai_assistant', 'whatsapp_reminders']);
+const GRANDFATHERED_FEATURES = new Set<Feature>(['member_app', 'instructor_portal', 'ai_assistant', 'whatsapp_reminders', 'qr_checkin']);
 
 // gymHasFeature, but a gym stamped legacy_full_access (every gym that existed
 // before the Starter repositioning — see the migration that backfills it)

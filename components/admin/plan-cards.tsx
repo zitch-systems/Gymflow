@@ -11,9 +11,9 @@ import {
 import { fmtNaira } from '@/lib/format';
 
 const FEATURES: Record<PlanTier, string[]> = {
-  starter: ['Gym admin portal', 'Unlimited members', 'QR check-in', 'Paystack subscriptions', 'Email reminders'],
+  starter: ['Gym admin portal', 'Unlimited members', 'Paystack subscriptions', 'Email reminders'],
   growth: [
-    'Everything in Starter', 'Member app for your members', 'Instructor portal', 'WhatsApp + AI assistant',
+    'Everything in Starter', 'Member app + QR check-in', 'Instructor portal', 'WhatsApp + AI assistant',
     'Class scheduling + waitlists', 'Live analytics + exports', 'Multi-gym & staff roles', 'Instructor payouts', 'Priority support',
   ],
 };

@@ -23,18 +23,21 @@ describe('tierOf', () => {
 });
 
 describe('tierHasFeature — pricing matrix', () => {
-  it('Starter: check-in, subscriptions, email reminders only', () => {
-    expect(tierHasFeature('starter', 'qr_checkin')).toBe(true);
+  it('Starter: subscriptions and email reminders only', () => {
     expect(tierHasFeature('starter', 'paystack_subscriptions')).toBe(true);
     expect(tierHasFeature('starter', 'email_reminders')).toBe(true);
     expect(tierHasFeature('starter', 'class_scheduling')).toBe(false);
     expect(tierHasFeature('starter', 'analytics_exports')).toBe(false);
     expect(tierHasFeature('starter', 'instructor_payouts')).toBe(false);
   });
-  it('Starter is the admin portal only — no member app, no instructor portal', () => {
+  it('Starter is the admin portal only — no member app, no instructor portal, no QR check-in', () => {
+    // QR check-in has no path that doesn't cross app/(member) (the door QR,
+    // the printed poster, and the WhatsApp QR all deep-link to /checkin) — it
+    // can't be Starter-and-up while the member app itself is Growth-only.
     expect(tierHasFeature('starter', 'member_app')).toBe(false);
     expect(tierHasFeature('starter', 'instructor_portal')).toBe(false);
     expect(tierHasFeature('starter', 'ai_assistant')).toBe(false);
+    expect(tierHasFeature('starter', 'qr_checkin')).toBe(false);
   });
   it('Growth: everything — including what Scale used to gate', () => {
     for (const f of featuresFor('growth')) expect(tierHasFeature('growth', f)).toBe(true);
@@ -46,6 +49,7 @@ describe('tierHasFeature — pricing matrix', () => {
     expect(tierHasFeature('growth', 'instructor_payouts')).toBe(true);
     expect(tierHasFeature('growth', 'instructor_portal')).toBe(true);
     expect(tierHasFeature('growth', 'member_app')).toBe(true);
+    expect(tierHasFeature('growth', 'qr_checkin')).toBe(true);
     expect(tierHasFeature('growth', 'priority_support')).toBe(true);
   });
 });
@@ -67,7 +71,8 @@ describe('gymHasFeature + requiredTier', () => {
   it('requiredTier names the upgrade target', () => {
     expect(requiredTier('analytics_exports')).toBe('growth');
     expect(requiredTier('instructor_payouts')).toBe('growth');
-    expect(requiredTier('qr_checkin')).toBe('starter');
+    expect(requiredTier('qr_checkin')).toBe('growth');
+    expect(requiredTier('paystack_subscriptions')).toBe('starter');
   });
   it('every Feature has a required tier that actually unlocks it', () => {
     const all: Feature[] = [
@@ -86,13 +91,15 @@ describe('gymCanUse — legacy_full_access grandfather', () => {
     expect(gymCanUse(gym, 'instructor_portal')).toBe(false);
     expect(gymCanUse(gym, 'ai_assistant')).toBe(false);
     expect(gymCanUse(gym, 'whatsapp_reminders')).toBe(false);
+    expect(gymCanUse(gym, 'qr_checkin')).toBe(false);
   });
-  it('a legacy Starter gym keeps the member app, instructor portal, AI assistant and WhatsApp console', () => {
+  it('a legacy Starter gym keeps the member app, instructor portal, AI assistant, WhatsApp console and QR check-in', () => {
     const gym = { subscription_plan: 'starter', legacy_full_access: true };
     expect(gymCanUse(gym, 'member_app')).toBe(true);
     expect(gymCanUse(gym, 'instructor_portal')).toBe(true);
     expect(gymCanUse(gym, 'ai_assistant')).toBe(true);
     expect(gymCanUse(gym, 'whatsapp_reminders')).toBe(true);
+    expect(gymCanUse(gym, 'qr_checkin')).toBe(true);
   });
   it('the grandfather never extends to features that were already Growth-only before the repositioning', () => {
     // A legacy Starter gym was never entitled to these — the flag must not
