@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  tierOf, tierHasFeature, gymHasFeature, featuresFor, requiredTier, type Feature,
+  tierOf, tierHasFeature, gymHasFeature, gymCanUse, featuresFor, requiredTier, type Feature,
 } from '@/lib/entitlements';
 
 // Pure unit tests for the plan→feature matrix. This encodes the public pricing
@@ -76,5 +76,43 @@ describe('gymHasFeature + requiredTier', () => {
       'priority_support',
     ];
     for (const f of all) expect(tierHasFeature(requiredTier(f), f)).toBe(true);
+  });
+});
+
+describe('gymCanUse — legacy_full_access grandfather', () => {
+  it('a Starter gym without the flag is denied the newly Growth-gated surfaces, same as gymHasFeature', () => {
+    const gym = { subscription_plan: 'starter', legacy_full_access: false };
+    expect(gymCanUse(gym, 'member_app')).toBe(false);
+    expect(gymCanUse(gym, 'instructor_portal')).toBe(false);
+    expect(gymCanUse(gym, 'ai_assistant')).toBe(false);
+    expect(gymCanUse(gym, 'whatsapp_reminders')).toBe(false);
+  });
+  it('a legacy Starter gym keeps the member app, instructor portal, AI assistant and WhatsApp console', () => {
+    const gym = { subscription_plan: 'starter', legacy_full_access: true };
+    expect(gymCanUse(gym, 'member_app')).toBe(true);
+    expect(gymCanUse(gym, 'instructor_portal')).toBe(true);
+    expect(gymCanUse(gym, 'ai_assistant')).toBe(true);
+    expect(gymCanUse(gym, 'whatsapp_reminders')).toBe(true);
+  });
+  it('the grandfather never extends to features that were already Growth-only before the repositioning', () => {
+    // A legacy Starter gym was never entitled to these — the flag must not
+    // accidentally widen into features it predates.
+    const gym = { subscription_plan: 'starter', legacy_full_access: true };
+    expect(gymCanUse(gym, 'analytics_exports')).toBe(false);
+    expect(gymCanUse(gym, 'class_scheduling')).toBe(false);
+    expect(gymCanUse(gym, 'multi_gym')).toBe(false);
+    expect(gymCanUse(gym, 'instructor_payouts')).toBe(false);
+    expect(gymCanUse(gym, 'priority_support')).toBe(false);
+  });
+  it('missing/undefined legacy_full_access reads as false, not as an error', () => {
+    expect(gymCanUse({ subscription_plan: 'starter' }, 'member_app')).toBe(false);
+    expect(gymCanUse({ subscription_plan: 'starter', legacy_full_access: null }, 'member_app')).toBe(false);
+  });
+  it('a Growth gym needs no grandfathering — gymCanUse agrees with gymHasFeature either way', () => {
+    for (const legacy of [true, false]) {
+      const gym = { subscription_plan: 'growth', legacy_full_access: legacy };
+      expect(gymCanUse(gym, 'member_app')).toBe(true);
+      expect(gymCanUse(gym, 'instructor_portal')).toBe(true);
+    }
   });
 });

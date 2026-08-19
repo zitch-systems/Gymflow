@@ -6,7 +6,7 @@ import { SuspendedWall } from '@/components/admin/suspended-wall';
 import { FeatureLockWall } from '@/components/admin/feature-lock-wall';
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { isOfflineGym } from '@/lib/gym-status';
-import { gymHasFeature } from '@/lib/entitlements';
+import { gymCanUse } from '@/lib/entitlements';
 
 // See app/(admin)/layout.tsx — headroom for a resuming Supabase project.
 export const maxDuration = 60;
@@ -29,9 +29,12 @@ export default async function MemberLayout({ children }: { children: React.React
   if (isOfflineGym(gym)) return <SuspendedWall gymName={gym.name} audience="member" />;
 
   // Starter is the gym admin portal only — the member app is a Growth surface.
-  // Checked after the offline wall (an offline gym isn't reachable regardless
-  // of plan) but before the waiver, which presumes the app is even available.
-  if (!gymHasFeature(gym, 'member_app')) return <FeatureLockWall gymName={gym.name} featureLabel="The member app" audience="member" />;
+  // gymCanUse grandfathers gyms that already existed before this change (see
+  // gyms.legacy_full_access), so only a gym that signed up as Starter AFTER
+  // the repositioning hits this. Checked after the offline wall (an offline
+  // gym isn't reachable regardless of plan) but before the waiver, which
+  // presumes the app is even available.
+  if (!gymCanUse(gym, 'member_app')) return <FeatureLockWall gymName={gym.name} featureLabel="The member app" audience="member" />;
 
   const profile = await getProfile();
   const brand = (gym as { brand_color?: string | null }).brand_color;

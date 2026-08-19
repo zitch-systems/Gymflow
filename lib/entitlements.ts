@@ -74,6 +74,27 @@ export function featuresFor(tier: PlanTier): Feature[] {
   return (Object.keys(FEATURE_MIN_TIER) as Feature[]).filter((f) => tierHasFeature(tier, f));
 }
 
+// Features that moved from "every gym gets this" to Growth-only in the
+// Starter repositioning (member app, instructor portal, WhatsApp+AI console).
+// Only these — never the features that were already Growth-gated before that
+// change (analytics exports, instructor payouts, ...), which a legacy gym was
+// never entitled to and shouldn't suddenly gain.
+const GRANDFATHERED_FEATURES = new Set<Feature>(['member_app', 'instructor_portal', 'ai_assistant', 'whatsapp_reminders']);
+
+// gymHasFeature, but a gym stamped legacy_full_access (every gym that existed
+// before the Starter repositioning — see the migration that backfills it)
+// keeps the newly-Growth-gated surfaces it already had, regardless of tier.
+// Use this at the surface-level gates (app/(member)/layout.tsx,
+// app/(coach)/layout.tsx, the WhatsApp+AI console) that are new as of that
+// change; existing gates that predate it (lib/notify.ts's whatsapp_reminders
+// send-check, lib/actions/admin-class.ts, ...) keep calling gymHasFeature
+// directly — a legacy Starter gym was never entitled to those and this must
+// not change that.
+export function gymCanUse(gym: { subscription_plan: string | null; legacy_full_access?: boolean | null }, feature: Feature): boolean {
+  if (gymHasFeature(gym, feature)) return true;
+  return Boolean(gym.legacy_full_access) && GRANDFATHERED_FEATURES.has(feature);
+}
+
 // Actionable server-action error for a tier-gated feature. Enforcement points
 // return this so a Starter gym sees WHY the button failed and where to fix it,
 // instead of a generic error.
