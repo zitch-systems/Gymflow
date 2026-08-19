@@ -1,7 +1,9 @@
 import { CoachShell } from '@/components/coach/coach-shell';
 import { SuspendedWall } from '@/components/admin/suspended-wall';
+import { FeatureLockWall } from '@/components/admin/feature-lock-wall';
 import { requireInstructor, getProfile, getStaffGyms, INSTRUCTOR_ROLES } from '@/lib/auth/dal';
 import { isOfflineGym } from '@/lib/gym-status';
+import { gymHasFeature } from '@/lib/entitlements';
 import { initialsOf } from '@/lib/format';
 
 // See app/(admin)/layout.tsx — headroom for a resuming Supabase project.
@@ -17,6 +19,10 @@ export default async function CoachLayout({ children }: { children: React.ReactN
   // Same wall the admin console shows — a coach is staff, and a switched-off
   // gym has no classes to run. See app/(admin)/layout.tsx.
   if (isOfflineGym(gym)) return <SuspendedWall gymName={gym.name} />;
+  // Starter is the gym admin portal only — the instructor portal is a Growth
+  // surface. A coach is staff (unlike a member), so this points at Billing
+  // rather than dead-ending — see FeatureLockWall's 'staff' audience.
+  if (!gymHasFeature(gym, 'instructor_portal')) return <FeatureLockWall gymName={gym.name} featureLabel="The instructor portal" />;
   const [profile, staffGyms] = await Promise.all([getProfile(), getStaffGyms(INSTRUCTOR_ROLES)]);
   const name = profile?.full_name?.trim() || user.email?.split('@')[0] || 'Instructor';
   const sharePct = (gym as { instructor_revenue_share_pct?: number | null }).instructor_revenue_share_pct ?? null;

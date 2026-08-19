@@ -31,13 +31,21 @@ describe('tierHasFeature — pricing matrix', () => {
     expect(tierHasFeature('starter', 'analytics_exports')).toBe(false);
     expect(tierHasFeature('starter', 'instructor_payouts')).toBe(false);
   });
+  it('Starter is the admin portal only — no member app, no instructor portal', () => {
+    expect(tierHasFeature('starter', 'member_app')).toBe(false);
+    expect(tierHasFeature('starter', 'instructor_portal')).toBe(false);
+    expect(tierHasFeature('starter', 'ai_assistant')).toBe(false);
+  });
   it('Growth: everything — including what Scale used to gate', () => {
     for (const f of featuresFor('growth')) expect(tierHasFeature('growth', f)).toBe(true);
     expect(tierHasFeature('growth', 'class_scheduling')).toBe(true);
     expect(tierHasFeature('growth', 'whatsapp_reminders')).toBe(true);
+    expect(tierHasFeature('growth', 'ai_assistant')).toBe(true);
     expect(tierHasFeature('growth', 'analytics_exports')).toBe(true);
     expect(tierHasFeature('growth', 'multi_gym')).toBe(true);
     expect(tierHasFeature('growth', 'instructor_payouts')).toBe(true);
+    expect(tierHasFeature('growth', 'instructor_portal')).toBe(true);
+    expect(tierHasFeature('growth', 'member_app')).toBe(true);
     expect(tierHasFeature('growth', 'priority_support')).toBe(true);
   });
 });
@@ -62,7 +70,11 @@ describe('gymHasFeature + requiredTier', () => {
     expect(requiredTier('qr_checkin')).toBe('starter');
   });
   it('every Feature has a required tier that actually unlocks it', () => {
-    const all: Feature[] = ['qr_checkin', 'paystack_subscriptions', 'email_reminders', 'class_scheduling', 'whatsapp_reminders', 'analytics_exports', 'multi_gym', 'instructor_payouts', 'priority_support'];
+    const all: Feature[] = [
+      'qr_checkin', 'paystack_subscriptions', 'email_reminders', 'class_scheduling', 'whatsapp_reminders',
+      'ai_assistant', 'analytics_exports', 'multi_gym', 'instructor_payouts', 'instructor_portal', 'member_app',
+      'priority_support',
+    ];
     for (const f of all) expect(tierHasFeature(requiredTier(f), f)).toBe(true);
   });
 });

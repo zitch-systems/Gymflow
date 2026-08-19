@@ -17,9 +17,12 @@ export type Feature =
   | 'email_reminders'
   | 'class_scheduling'
   | 'whatsapp_reminders'
+  | 'ai_assistant'
   | 'analytics_exports'
   | 'multi_gym'
   | 'instructor_payouts'
+  | 'instructor_portal'
+  | 'member_app'
   | 'priority_support';
 
 // Ascending capability order — a tier includes every feature at or below its
@@ -37,9 +40,16 @@ const FEATURE_MIN_TIER: Record<Feature, PlanTier> = {
   // priority support); gyms migrated off Scale keep every feature they had.
   class_scheduling: 'growth',
   whatsapp_reminders: 'growth',
+  ai_assistant: 'growth',
   analytics_exports: 'growth',
   multi_gym: 'growth',
   instructor_payouts: 'growth',
+  // Starter is the gym's own admin portal only — the member-facing app and the
+  // instructor portal are Growth-only surfaces, not just Growth-only features
+  // within a surface everyone gets. Gated at the route group (app/(member)/layout.tsx,
+  // app/(coach)/layout.tsx), not just in the entitlements-driven UI.
+  instructor_portal: 'growth',
+  member_app: 'growth',
   priority_support: 'growth',
 };
 

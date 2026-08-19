@@ -3,8 +3,10 @@ import { MemberTabBar } from '@/components/member/tabbar';
 import { CameraPrime } from '@/components/member/camera-prime';
 import { WaiverWall } from '@/components/member/waiver-wall';
 import { SuspendedWall } from '@/components/admin/suspended-wall';
+import { FeatureLockWall } from '@/components/admin/feature-lock-wall';
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { isOfflineGym } from '@/lib/gym-status';
+import { gymHasFeature } from '@/lib/entitlements';
 
 // See app/(admin)/layout.tsx — headroom for a resuming Supabase project.
 export const maxDuration = 60;
@@ -25,6 +27,11 @@ export default async function MemberLayout({ children }: { children: React.React
   // (lib/actions/renew.ts, member-billing.ts, checkin.ts): a layout is chrome,
   // and chrome does not run for a Server Action invocation.
   if (isOfflineGym(gym)) return <SuspendedWall gymName={gym.name} audience="member" />;
+
+  // Starter is the gym admin portal only — the member app is a Growth surface.
+  // Checked after the offline wall (an offline gym isn't reachable regardless
+  // of plan) but before the waiver, which presumes the app is even available.
+  if (!gymHasFeature(gym, 'member_app')) return <FeatureLockWall gymName={gym.name} featureLabel="The member app" audience="member" />;
 
   const profile = await getProfile();
   const brand = (gym as { brand_color?: string | null }).brand_color;
