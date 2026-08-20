@@ -195,10 +195,29 @@ export async function joinAsCurrent(_prev: JoinState, formData: FormData): Promi
   redirect('/launch');
 }
 
-// Shared with /launch's self-heal for accounts whose join provisioning failed.
-export async function healJoin(userId: string, email: string, slug: string, phone?: string | null): Promise<boolean> {
+// /launch's self-heal for an authenticated account whose join provisioning
+// failed: re-link the CURRENT user to the gym recorded in their own signup
+// metadata. Every export of a 'use server' module is a callable POST endpoint,
+// so this trusts only the session — never a caller-supplied identity. An
+// earlier version took (userId, email, slug, phone) as arguments and did
+// service-role writes with them, which let an unauthenticated request enrol an
+// arbitrary user id into any (public) gym slug. All identity now comes from
+// getUser(); slug/phone come from that user's own metadata.
+export async function healJoin(): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const meta = (user.user_metadata as Record<string, unknown> | null) ?? {};
+  const slug = String(meta.join_gym_slug ?? '').trim();
+  if (!slug) return false;
+
   const gym = await gymBySlug(slug);
   if (!gym) return false;
-  const prov = await provisionMember({ userId, email, gymId: gym.id, phone: normalizeNgPhone(phone) });
+
+  const phone = meta.phone != null ? String(meta.phone) : null;
+  const prov = await provisionMember({
+    userId: user.id, email: user.email ?? '', gymId: gym.id, phone: normalizeNgPhone(phone),
+  });
   return prov.ok;
 }

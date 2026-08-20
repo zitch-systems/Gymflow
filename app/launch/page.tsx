@@ -61,8 +61,11 @@ export default async function Launch() {
   // anyone else gets the one-field setup form.
   const meta = (user.user_metadata as Record<string, unknown> | null) ?? {};
   const joinSlug = String(meta.join_gym_slug ?? '').trim();
-  const joinPhone = meta.phone != null ? String(meta.phone) : null;
-  if (joinSlug && (await healJoin(user.id, user.email ?? '', joinSlug, joinPhone))) redirect('/dashboard');
+  // healJoin re-resolves the user and slug from the session/metadata itself
+  // (it is a callable server action, so it must not take a caller-supplied
+  // identity) — the joinSlug read above is only a cheap pre-check to skip the
+  // call when there's nothing to heal.
+  if (joinSlug && (await healJoin())) redirect('/dashboard');
 
   const gymName = String(meta.gym_name ?? '').trim();
   if (gymName) {
