@@ -286,6 +286,41 @@ jobs:
       - name: Install the Vercel CLI
         run: npm i -g vercel@latest
 
+      # `vercel pull` answers every one of "token scoped to the wrong account",
+      # "wrong org/project id" and "whitespace pasted into a secret" with the
+      # same unhelpful line: "Could not retrieve Project Settings." Rather than
+      # guess between them one re-run at a time, print exactly enough to tell
+      # them apart — and nothing that could expose a secret.
+      #
+      # The ids are not secrets in any meaningful sense (they identify a
+      # project, they do not authorise anything), but they are stored as
+      # secrets, so only their LENGTH and non-secret prefix are printed. A value
+      # pasted with a trailing newline reads one longer than it looks:
+      #   VERCEL_ORG_ID     expected length 29, prefix "team_"
+      #   VERCEL_PROJECT_ID expected length 32, prefix "prj_"
+      # whoami/teams/projects then show what the TOKEN can actually reach: if
+      # the org the ids name is absent from that list, the token is scoped to
+      # the wrong account, whatever the ids say.
+      #
+      # continue-on-error so this never becomes the thing that fails the deploy;
+      # the real gate is the pull below.
+      - name: Diagnose Vercel access
+        continue-on-error: true
+        env:
+          ORG: ${{ secrets.VERCEL_ORG_ID }}
+          PROJ: ${{ secrets.VERCEL_PROJECT_ID }}
+          TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          echo "VERCEL_ORG_ID     length=${#ORG}  prefix=${ORG:0:5}   (expect 29 / team_)"
+          echo "VERCEL_PROJECT_ID length=${#PROJ} prefix=${PROJ:0:4}  (expect 32 / prj_)"
+          echo "VERCEL_TOKEN      length=${#TOKEN}"
+          echo "--- whoami (who the token is) ---"
+          vercel whoami --token="$TOKEN" || true
+          echo "--- scopes this token can reach ---"
+          vercel teams ls --token="$TOKEN" || true
+          echo "--- projects visible under VERCEL_ORG_ID ---"
+          vercel projects ls --token="$TOKEN" || true
+
       # `vercel pull` fetches the project's REAL production environment from
       # Vercel, so this build sees the same variables the Git-triggered build
       # saw. The placeholder NEXT_PUBLIC_* values used by the verify job are
