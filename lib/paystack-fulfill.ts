@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { extendDate, renewalBase } from '@/lib/plan-duration';
+import { grantMemberPeriod } from '@/lib/member-sub-core';
 import { logAudit } from '@/lib/audit';
 import { deliverReceipt, type NotifyGym } from '@/lib/notify';
 import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
@@ -129,30 +129,31 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   }
 
   // We are the writer that recorded the payment → extend (or create) the sub once.
-  const { data: sub } = await admin.from('member_subscriptions')
-    .select('id, end_date').eq('member_id', memberId).eq('gym_id', gymId).eq('status', 'active')
-    .order('end_date', { ascending: false }).limit(1).maybeSingle();
-  // Stack onto the current period when one is still running (buy = next period),
-  // else start today. Shared rule — see renewalBase().
-  const base = renewalBase(sub?.end_date);
-  const newEnd = extendDate(base, { duration_days: planDays, duration_months: planMonths });
-  const endIso = newEnd.toISOString().slice(0, 10);
+  // Stack onto the current period when one is still running (buy = next
+  // period), else start today — the shared rule, applied inside the database so
+  // the webhook and the post-checkout callback fulfilling two DIFFERENT
+  // references at the same instant can no longer overwrite each other's period.
+  //
   // trainer_addon tracks what the member paid for THIS period, so it's written
   // on every renewal — including back to false when they renew without the
   // trainer they took last time. Leaving a stale true would keep the gym owing
   // trainer time nobody paid for.
-  const { error: subErr } = sub
-    ? await admin.from('member_subscriptions').update({ end_date: endIso, plan_id: planId ?? undefined, trainer_addon: trainerAddon, updated_at: new Date().toISOString() }).eq('id', sub.id)
-    : await admin.from('member_subscriptions').insert({ member_id: memberId, gym_id: gymId, plan_id: planId, status: 'active', trainer_addon: trainerAddon, start_date: new Date().toISOString().slice(0, 10), end_date: endIso });
-  if (subErr) {
+  const extended = await grantMemberPeriod(
+    admin,
+    { gymId, memberId },
+    { duration_days: planDays, duration_months: planMonths },
+    { planId, trainerAddon },
+  );
+  if (!extended.ok) {
     // The member paid but the extension failed. The payment row we just
     // inserted is the idempotency lock — if we left it, every retry would
     // no-op at the pre-check and the member would stay unextended. Compensate:
     // remove the payment row and report failure so the webhook 500s and
     // Paystack retries the whole fulfillment.
     await admin.from('payments').delete().eq('paystack_reference', d.reference);
-    return { ok: false, created: false, error: `subscription extend failed: ${subErr.message}` };
+    return { ok: false, created: false, error: `subscription extend failed: ${extended.error}` };
   }
+  const endIso = extended.endDate;
 
   // The signed checkout snapshot already matched the settled charge. A
   // difference from the plan's CURRENT price therefore normally means staff

@@ -112,3 +112,13 @@ export function upgradeMessage(feature: Feature): string {
 export function requiredTier(feature: Feature): PlanTier {
   return FEATURE_MIN_TIER[feature];
 }
+
+// The member-facing counterpart to upgradeMessage(). A member has no billing
+// relationship with GymFlow — the gym is the one that chose the plan — so this
+// points them back at the gym instead of at Billing → Plans, matching
+// FeatureLockWall's audience="member" copy. Used by the gates that have no
+// chrome to render a wall in: the mobile API (lib/api-app.ts) and the member
+// Server Actions, neither of which app/(member)/layout.tsx ever runs for.
+export function memberLockedMessage(gymName: string, surface: string): string {
+  return `${gymName} is on a GymFlow plan that doesn’t include ${surface}. Please contact the gym directly.`;
+}

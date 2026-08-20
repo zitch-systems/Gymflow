@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { gymCanUse, gymHasFeature, memberLockedMessage } from '@/lib/entitlements';
 import { bookClassCore, cancelBookingCore, type BookState } from '@/lib/booking-core';
 
 // No `export type { BookState }` here — see the note in lib/actions/renew.ts.
@@ -22,6 +23,12 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
   const scheduleId = String(formData.get('scheduleId') ?? '');
   try {
     const { user, gym } = await requireMember();
+    // Both gates the phone gets in app/api/app/classes/route.ts, in the same
+    // order: the member app itself is a Growth surface (gymCanUse — legacy gyms
+    // keep it), and class scheduling was Growth-only even before that, so it
+    // stays on gymHasFeature. A layout does not run for an action POST.
+    if (!gymCanUse(gym, 'member_app')) return { ok: false, error: memberLockedMessage(gym.name, 'the member app') };
+    if (!gymHasFeature(gym, 'class_scheduling')) return { ok: false, error: memberLockedMessage(gym.name, 'class booking') };
     const supabase = await createClient();
     const res = await bookClassCore(supabase, user.id, gym, scheduleId);
     if (res.ok) { revalidatePath('/classes'); revalidatePath('/dashboard'); }

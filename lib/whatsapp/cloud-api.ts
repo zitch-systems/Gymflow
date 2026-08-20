@@ -261,12 +261,17 @@ export async function markRead(params: { phoneNumberId?: string | null; messageI
 // recorded — including failures, which are the ones an owner most needs to see.
 // Logging never throws: an insert problem must not swallow a delivered message.
 
+/** `duplicate` is true when this exact inbound message was already logged —
+ *  i.e. Meta is redelivering a message we have seen before. See the call site
+ *  in lib/whatsapp/router.ts for what that means for routing. */
+export type InboundLogResult = { duplicate: boolean };
+
 export async function logInbound(
   admin: Admin,
   params: { contactId: string; gymId: string | null; waMessageId: string | null; kind: string; body: string | null; payload?: unknown },
-): Promise<void> {
+): Promise<InboundLogResult> {
   try {
-    await admin.from('whatsapp_messages').insert({
+    const { error } = await admin.from('whatsapp_messages').insert({
       contact_id: params.contactId,
       gym_id: params.gymId,
       wa_message_id: params.waMessageId,
@@ -276,9 +281,20 @@ export async function logInbound(
       payload: (params.payload ?? null) as never,
       status: 'received',
     });
+    // 23505 on idx_whatsapp_messages_wa_id — the partial unique index over
+    // (wa_message_id, direction) that exists precisely so a redelivery cannot
+    // duplicate an inbound row. supabase-js does not throw on it, so it has to
+    // be read off the result: discarding it silently is what made the guard
+    // decorative. The index is partial, so a message with no id never collides
+    // and is never reported as a duplicate.
+    if (error) {
+      if (error.code === '23505') return { duplicate: true };
+      console.error('[whatsapp] inbound log failed:', error.message);
+    }
   } catch (e) {
     console.error('[whatsapp] inbound log failed:', (e as Error).message);
   }
+  return { duplicate: false };
 }
 
 export async function logOutbound(

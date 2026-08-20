@@ -3,6 +3,7 @@
 import { requireMember } from '@/lib/auth/dal';
 import { requestOrigin } from '@/lib/request-origin';
 import { createClient } from '@/lib/supabase/server';
+import { gymCanUse, memberLockedMessage } from '@/lib/entitlements';
 import { startRenewalCore, type RenewResult } from '@/lib/renew-core';
 
 // No `export type { RenewResult }` here, however tempting. A 'use server' file
@@ -17,6 +18,10 @@ import { startRenewalCore, type RenewResult } from '@/lib/renew-core';
 // /api/app/renew; what differs is the callback, and that is this file's job.
 export async function startRenewal(planId: string, withTrainer = false): Promise<RenewResult> {
   const { user, gym } = await requireMember();
+  // The member app is a Growth surface, and unlike the layout that walls the
+  // renew page, this runs for the action POST itself. See lib/actions/checkin.ts
+  // for why the wall isn't enough; /api/app/renew is covered by requireApiMember.
+  if (!gymCanUse(gym, 'member_app')) return { ok: false, error: memberLockedMessage(gym.name, 'the member app') };
   const supabase = await createClient();
 
   // The host the member is ON, not the apex: sessions are host-scoped, so a

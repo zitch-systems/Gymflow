@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { gymCanUse, gymHasFeature } from '@/lib/entitlements';
+import { planLocked } from '@/lib/api-app';
 
 // The Android member app (mobile/) reaches this platform through /api/app/*,
 // and nothing else. That makes this directory a second front door to every
@@ -133,5 +135,106 @@ describe('web and mobile share one implementation of the member rules', () => {
     const src = read(route);
     expect(src).not.toMatch(/\.insert\(/);
     expect(src).not.toMatch(/\.update\(/);
+  });
+});
+
+
+// ── The plan gate ───────────────────────────────────────────────────────────
+// Starter is the gym's own admin portal; the member app is a Growth surface
+// (lib/entitlements.ts). The web PWA is walled by app/(member)/layout.tsx — a
+// React layout, and a layout is chrome: it never runs for a route handler and
+// never runs for a Server Action POST.
+//
+// So the gate has to be written out again on both server-side doors, or a gym
+// that signed up as Starter after the repositioning gets the lock wall in its
+// own browser and the full Growth experience on the shipped Android app. Same
+// member, same account, opposite answers depending on the door.
+
+// The three endpoints that turn a member code into a gym before anyone has a
+// token. requireApiMember cannot cover them — that is the whole reason they are
+// in PUBLIC_ROUTES — so each carries the gate itself.
+const CODE_ROUTES = [
+  'app/api/app/gym/route.ts',
+  'app/api/app/signin/route.ts',
+  'app/api/app/signup/route.ts',
+];
+
+// The member-facing Server Actions. Web entry points, but the same defect: the
+// only member_app gate on the web is the layout, which an action POST bypasses.
+const MEMBER_ACTIONS = [
+  'lib/actions/checkin.ts',
+  'lib/actions/renew.ts',
+  'lib/actions/booking.ts',
+  'lib/actions/member-billing.ts',
+];
+
+describe('member surfaces are gated on the gym plan', () => {
+  it('gymCanUse is the policy: post-repositioning Starter out, legacy Starter and Growth in', () => {
+    const starter = { subscription_plan: 'starter', legacy_full_access: false };
+    const legacy = { subscription_plan: 'starter', legacy_full_access: true };
+    const growth = { subscription_plan: 'growth', legacy_full_access: false };
+    for (const feature of ['member_app', 'qr_checkin'] as const) {
+      expect(gymCanUse(starter, feature)).toBe(false);
+      expect(gymCanUse(legacy, feature)).toBe(true);
+      expect(gymCanUse(growth, feature)).toBe(true);
+    }
+    // Class scheduling predates the repositioning, so the grandfather must not
+    // reach it — which is why the booking branch uses gymHasFeature instead.
+    expect(gymHasFeature(legacy, 'class_scheduling')).toBe(false);
+    expect(gymHasFeature(growth, 'class_scheduling')).toBe(true);
+  });
+
+  it('requireApiMember refuses a locked gym, closing all of /api/app at once', () => {
+    const src = read('lib/api-app.ts');
+    expect(src).toContain("gymCanUse(gym, 'member_app')");
+    // gymHasFeature here would cut off every gym that existed before the
+    // repositioning — exactly what gyms.legacy_full_access exists to prevent.
+    expect(src).not.toContain("gymHasFeature(gym, 'member_app')");
+  });
+
+  it('the refusal is a 403 the app can tell apart from an auth failure', async () => {
+    const res = planLocked('Iron Republic', 'the member app');
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string; code: string };
+    // Its own code: 'expired' means refresh the token, 'not_a_member' means
+    // wrong account, and mobile/src/api/client.ts routes 401s into a re-auth.
+    // This is neither — the member is fine, the gym's plan is not.
+    expect(body.code).toBe('plan_locked');
+    // The app has no wall to render; it shows `error` verbatim, so the sentence
+    // has to name the gym and be something a member can act on.
+    expect(body.error).toContain('Iron Republic');
+  });
+
+  it.each(CODE_ROUTES)('%s gates the gym it resolved from the member code', (file) => {
+    const src = read(file);
+    expect(src).toContain('resolveGymByCode');
+    expect(src).toContain("gymCanUse(gym, 'member_app')");
+    expect(src).toContain('planLocked(');
+  });
+
+  it('signin/signup refuse before they enrol anyone', () => {
+    // Both idempotently link the account into the gym. Order matters: a member
+    // provisioned into a gym whose app they cannot open is a worse outcome than
+    // being turned away at the code.
+    for (const file of ['app/api/app/signin/route.ts', 'app/api/app/signup/route.ts']) {
+      const src = read(file);
+      expect(src.indexOf("gymCanUse(gym, 'member_app')")).toBeLessThan(src.indexOf('provisionMember('));
+    }
+  });
+
+  it('check-in gates entry on qr_checkin, its own feature', () => {
+    expect(read('app/api/app/checkin/route.ts')).toContain("gymCanUse(gym, 'qr_checkin')");
+  });
+
+  it('class booking gates on class_scheduling, which the grandfather must not widen into', () => {
+    const src = read('app/api/app/classes/route.ts');
+    expect(src).toContain("gymHasFeature(gym, 'class_scheduling')");
+    expect(src).not.toContain("gymCanUse(gym, 'class_scheduling')");
+  });
+
+  it.each(MEMBER_ACTIONS)('%s carries the gate too — a layout does not run for an action POST', (file) => {
+    const src = read(file);
+    expect(src).toContain("gymCanUse(gym, 'member_app')");
+    expect(src).toContain('memberLockedMessage(');
   });
 });

@@ -53,6 +53,30 @@ describe('RBAC helper RPC surface', () => {
     expect(gyms).toEqual([IDS.gymA]);
   });
 
+  it('extend_member_sub is reachable by the app roles and by nobody else', async () => {
+    // The membership-extension RPC is SECURITY INVOKER, so RLS is what decides
+    // whether a caller's UPDATE lands (see test/member-sub-extend.test.ts).
+    // What this pins is the surface: anon must not be able to invoke it at all,
+    // and both roles the app actually uses must be able to — the staff path
+    // calls it as `authenticated` and the two Paystack fulfillers as
+    // `service_role`, so losing either grant breaks a money path silently.
+    const call = `select public.extend_member_sub('${IDS.gymA}'::uuid, null, 1)`;
+    const err = await withSession({ role: 'anon' }, async (c) => {
+      try { await c.query(call); return null; } catch (e) { return e as { code?: string }; }
+    });
+    expect(err?.code).toMatch(/^42(501|883)$/);
+
+    for (const role of ['authenticated', 'service_role'] as const) {
+      // A gym id is not a subscription id, so this updates nothing and returns
+      // null — which is the point: it got far enough to run.
+      const value = await withSession({ role, uid: IDS.ownerA }, async (c) => {
+        const { rows } = await c.query(call);
+        return Object.values(rows[0])[0];
+      });
+      expect(value, `${role} must be able to execute extend_member_sub`).toBeNull();
+    }
+  });
+
   it('anon can still read the public landing tables (classes, business_hours)', async () => {
     // After tenant isolation hardening, gyms and membership_plans are no
     // longer accessible to anon. Classes and business_hours remain public.

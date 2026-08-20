@@ -47,11 +47,22 @@ function refundReference(event: Json): string | null {
 
 // A dispute is only a refund if the merchant lost (buyer got their money back).
 // close-won / pending states don't refund the payment.
+//
+// Paystack's own vocabulary is the trap here: its resolve-dispute API takes
+// exactly two resolutions, 'merchant-accepted' (the merchant conceded — the
+// buyer's money goes back, i.e. the merchant LOST) and 'declined' (the merchant
+// contested and kept the money). "Accepted" is the refund, "declined" is not —
+// the opposite of how both words read. So 'declined' is rejected first, before
+// any of the tolerant substring matches below, and no spelling containing it
+// (e.g. 'merchant-declined') can be read as a loss. The 'lost'/'reversed'
+// substrings stay as a catch-all for the other wordings Paystack has used on
+// this event.
 function isLostDispute(event: Json): boolean {
   if (str(event.event) !== 'charge.dispute.resolve') return false;
   const data = (event.data as Json) ?? {};
   const resolution = (str(data.resolution) ?? '').toLowerCase();
-  return resolution === 'merchant-declined' || resolution.includes('lost') || resolution.includes('reversed');
+  if (!resolution || resolution.includes('declined')) return false;
+  return resolution.includes('accepted') || resolution.includes('lost') || resolution.includes('reversed');
 }
 
 // A refund event that isn't a definitive "money went back" outcome (e.g.

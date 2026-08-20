@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { asSuperuser, withSession } from './db';
 import { IDS, seed } from './seed';
+import { hasLiveMandate, mandateGoneAtPaystack } from '@/lib/member-sub-core';
 
 // Member auto-recurring billing DB-behaviour tests. Covers:
 //   - past_due is a valid status (migration widened the check constraint)
@@ -141,5 +144,101 @@ describe('member auto-billing', () => {
       return rows[0].n as number;
     });
     expect(rows).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ── A second mandate on the same card ──────────────────────────────────────
+//
+// startAutoRenewal called Paystack without ever asking whether the member
+// already had a mandate, so tapping it again — on the same plan or a different
+// one — created a SECOND live Paystack Subscription against the same card.
+// onRecurringCharge then refuses that mandate's charges outright
+// ('subscription code conflicts with active mandate', permanent: true) and the
+// webhook still acks 200, so Paystack keeps billing: every cycle debits the
+// card and produces no payments row, no extension and no receipt.
+// lib/reconcile.ts flags it into audit_logs and Sentry and deliberately does
+// not fulfil it, so nothing downstream heals it either. The only place that can
+// stop it is the opt-in, before the mandate exists.
+
+describe('hasLiveMandate', () => {
+  it('is true when one of the member’s live rows already carries auto-debit', () => {
+    expect(hasLiveMandate([{ auto_debit_enabled: false }, { auto_debit_enabled: true }])).toBe(true);
+  });
+
+  it('is false for a member who has never opted in', () => {
+    expect(hasLiveMandate([{ auto_debit_enabled: false }])).toBe(false);
+  });
+
+  it('does NOT count the subscription code a cancellation leaves behind', () => {
+    // disableSub and the subscription.disable webhook clear auto_debit_enabled
+    // and keep paystack_subscription_code cached. Reading the code as "has a
+    // mandate" would lock a member out of auto-renew permanently after they
+    // once turned it off — the opposite failure, and just as expensive.
+    expect(hasLiveMandate([{ auto_debit_enabled: false, paystack_subscription_code: 'SUB_old' } as never])).toBe(false);
+  });
+
+  it('treats no rows and no answer as no mandate', () => {
+    expect(hasLiveMandate([])).toBe(false);
+    expect(hasLiveMandate(null)).toBe(false);
+    expect(hasLiveMandate(undefined)).toBe(false);
+  });
+});
+
+describe('a mandate Paystack has already dropped', () => {
+  // The opt-in guard above only refuses a SECOND mandate safely while the first
+  // one can still be turned off. disableSub returned early on any Paystack
+  // failure without touching auto_debit_enabled, so a member whose local flag
+  // outlived the Paystack subscription (a subscription.disable webhook that
+  // never landed, a cancellation done from the Paystack dashboard, an
+  // email_token we can no longer produce) could neither cancel — the disable
+  // call can never succeed — nor opt back in. Permanent, with no self-serve way
+  // out, and the refusal copy told them to do the one thing that cannot work.
+  it('is what a 4xx from Paystack means, and only a 4xx', () => {
+    for (const status of [400, 404, 422]) {
+      expect(mandateGoneAtPaystack({ status }), `${status} means Paystack has nothing to disable`).toBe(true);
+    }
+    // 5xx and a dropped connection are the opposite case: Paystack may well
+    // still be billing that card, so the local flag must NOT be cleared on the
+    // strength of them.
+    for (const res of [{ status: 500 }, { status: 502 }, {}]) {
+      expect(mandateGoneAtPaystack(res), `${JSON.stringify(res)} must stay a loud failure`).toBe(false);
+    }
+  });
+
+  it('clears the local flag instead of dead-ending the member', () => {
+    // Source lock, same reason as the describe below: disableSub is behind
+    // requireMember/requireStaff and a live Paystack call.
+    const src = readFileSync(resolve(__dirname, '..', 'lib/actions/member-billing.ts'), 'utf8');
+    // Both failure paths — the email_token refetch and the disable call itself.
+    expect(src.match(/mandateGoneAtPaystack\(/g)?.length).toBe(2);
+    expect(src).toContain("update({ auto_debit_enabled: false }).eq('id', sub.id)");
+    // And it says so rather than reporting a clean cancellation we never got.
+    expect(src).toMatch(/Paystack no longer has this subscription/);
+  });
+});
+
+describe('the auto-renew opt-in refuses a second mandate', () => {
+  // Source lock: startAutoRenewal is a 'use server' action behind
+  // requireMember() and a live Paystack call, so what is pinned here is that
+  // the guard exists, reads the right rows, and runs BEFORE the money path.
+  const src = readFileSync(resolve(__dirname, '..', 'lib/actions/member-billing.ts'), 'utf8');
+
+  it('checks for an existing mandate before it asks Paystack for a new one', () => {
+    // Order is the whole property: a check after initSubscription would be a
+    // subscription Paystack has already created and will already bill.
+    const guard = src.indexOf('hasLiveMandate(');
+    const init = src.indexOf('await initSubscription(');
+    expect(guard).toBeGreaterThan(-1);
+    expect(init).toBeGreaterThan(guard);
+  });
+
+  it('answers it from the member’s own live subscription rows', () => {
+    expect(src).toContain("select('auto_debit_enabled')");
+    expect(src).toContain('LIVE_SUB_STATUSES');
+    expect(src).toContain('.eq(\'member_id\', user.id).eq(\'gym_id\', gym.id)');
+  });
+
+  it('and refuses through the action’s existing error shape, saying what to do', () => {
+    expect(src).toMatch(/return \{ ok: false, error: 'Auto-renew is already on[^']*' \};/);
   });
 });

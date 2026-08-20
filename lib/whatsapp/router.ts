@@ -77,7 +77,7 @@ export async function handleInboundMessage(admin: Admin, msg: IncomingWhatsAppMe
 
   if (msg.messageId) void markRead({ phoneNumberId: msg.phoneNumberId, messageId: msg.messageId });
 
-  await logInbound(admin, {
+  const { duplicate } = await logInbound(admin, {
     contactId: contact.id,
     gymId: contact.active_gym_id,
     waMessageId: msg.messageId,
@@ -85,6 +85,23 @@ export async function handleInboundMessage(admin: Admin, msg: IncomingWhatsAppMe
     body: msg.text,
     payload: msg.actionId ? { actionId: msg.actionId } : msg.flowResponse,
   });
+
+  // ALWAYS returning 200 (see the webhook route) only covers a batch we managed
+  // to answer. Meta redelivers anything it did not see acked, and this route
+  // does its work synchronously — up to four LLM rounds, a Paystack init,
+  // several Graph sends — so a timeout or a crash before the ack brings the
+  // same wamid back. Routing it a second time does the action a second time:
+  // a redelivered door QR CHECKS THE MEMBER OUT while they are still inside, a
+  // redelivered package tap issues a second payment link under a second
+  // reference, a redelivered "front desk code" voids the one they are reading
+  // out. The inbound row's unique (wa_message_id, direction) index is what
+  // settles which delivery is the first one, so the loser stops here.
+  //
+  // A message Meta sent no id for still routes: an unanswered member is a worse
+  // failure than an occasional repeated one. The cost of this direction is that
+  // a delivery which logged its row and THEN died is not retried either — at
+  // most once, which for actions that move money and doors is the safe side.
+  if (duplicate) return;
 
   // A blocked contact is one a gym has explicitly silenced. Log and stop.
   if (contact.blocked) return;

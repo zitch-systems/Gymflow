@@ -3,6 +3,7 @@
 // they take credentials in the body and return JSON with permissive CORS.
 
 import { createClient as createSupabaseClient, type SupabaseClient, type User } from '@supabase/supabase-js';
+import { gymCanUse, memberLockedMessage } from '@/lib/entitlements';
 import type { Database } from '@/lib/database.types';
 
 const CORS: Record<string, string> = {
@@ -70,6 +71,22 @@ export function createTokenClient(token: string): AppSupabase {
 export type MemberContext = { supabase: AppSupabase; user: User; gym: Gym; link: MemberLink };
 
 /**
+ * The refusal for a member surface the gym's plan doesn't include.
+ *
+ * Its own code on purpose: the 401s below mean "refresh the token or sign in
+ * again" and the other 403s mean "wrong account", but this one is neither —
+ * the member and their token are fine, the gym's plan is what's missing, and
+ * nothing the member does on the phone changes it. The app has no wall to
+ * render (that's app/(member)/layout.tsx's FeatureLockWall, web only); it turns
+ * any non-2xx into an ApiError carrying `error` and shows that sentence
+ * (mobile/src/api/client.ts), so the copy has to read like something a member
+ * can act on — hence memberLockedMessage, not upgradeMessage.
+ */
+export function planLocked(gymName: string, surface: string): Response {
+  return json({ error: memberLockedMessage(gymName, surface), code: 'plan_locked' }, 403);
+}
+
+/**
  * Resolve the member behind a request, or the response to return instead.
  *
  * Mirrors requireMember() in lib/auth/dal.ts — newest active membership link
@@ -117,6 +134,20 @@ export async function requireApiMember(
     gym = (data as Gym) ?? null;
   }
   if (!gym) return { ok: false, res: json({ error: 'Your gym could not be loaded.', code: 'no_gym' }, 403) };
+
+  // Starter is the gym's own admin portal only — the member app is a Growth
+  // surface (lib/entitlements.ts). app/(member)/layout.tsx walls the web PWA,
+  // but a layout is chrome and chrome never runs for a route handler: without
+  // this, every /api/app/* endpoint served the full member experience to a gym
+  // whose own browser PWA shows the lock wall. Same member, same account,
+  // opposite answers depending on the door. This is the one gate they share.
+  //
+  // gymCanUse, not gymHasFeature: gyms that existed before the repositioning
+  // carry legacy_full_access and keep the app whatever tier they're on, so only
+  // a gym that signed up as Starter after it is refused here. The link query
+  // above embeds gyms(*) — and the fallback selects '*' — so that column is on
+  // the row even though lib/database.types.ts hasn't been regenerated for it.
+  if (!gymCanUse(gym, 'member_app')) return { ok: false, res: planLocked(gym.name, 'the member app') };
 
   return { ok: true, ctx: { supabase, user, gym, link: linkRow as MemberLink } };
 }
