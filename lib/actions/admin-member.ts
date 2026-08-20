@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { splitName, normalizeNgPhone, firstName, fmtDate } from '@/lib/format';
-import { extendDate, renewalBase } from '@/lib/plan-duration';
+import { grantMemberPeriod } from '@/lib/member-sub-core';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { deliverDoorEvent } from '@/lib/notify';
@@ -87,31 +87,15 @@ async function extendSubscription(supabase: SupabaseClient, gymId: string, membe
   const { data: plan } = await supabase.from('membership_plans').select('duration_days, duration_months').eq('id', planId).eq('gym_id', gymId).maybeSingle();
   if (!plan) throw new Error('Plan not found in this gym.');
   const dur = { duration_days: plan?.duration_days ?? null, duration_months: plan?.duration_months ?? null };
-  // Extend the latest ACTIVE sub only (mirrors the Paystack path in
-  // paystack-fulfill.ts). Without the status filter a later-dated cancelled/
-  // expired row could be picked and silently reactivated.
-  const { data: sub } = await supabase
-    .from('member_subscriptions').select('id, end_date')
-    .eq('gym_id', gymId).eq('member_id', memberId).eq('status', 'active')
-    .order('end_date', { ascending: false }).limit(1).maybeSingle();
-
-  const today = new Date();
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-
-  if (sub) {
-    // Stack onto the current period when it's still running — see renewalBase().
-    const base = renewalBase(sub.end_date, today);
-    const end = extendDate(base, dur);
-    const { error } = await supabase.from('member_subscriptions')
-      .update({ end_date: iso(end), status: 'active', plan_id: planId }).eq('id', sub.id);
-    if (error) throw new Error(error.message);
-    return iso(end);
-  }
-  const end = extendDate(today, dur);
-  const { error } = await supabase.from('member_subscriptions')
-    .insert({ gym_id: gymId, member_id: memberId, plan_id: planId, start_date: iso(today), end_date: iso(end), status: 'active' });
-  if (error) throw new Error(error.message);
-  return iso(end);
+  // Extends the latest ACTIVE sub, or starts one. The period is added inside
+  // the UPDATE (see lib/member-sub-core.ts): a cash renewal taken at the desk
+  // while the member's card charge is settling used to overwrite whichever
+  // period was written first, so the gym had two payments and the member had
+  // one month. Still the caller's own RLS client — msub_update_staff decides
+  // whether this staff member may write this gym's rows, not the function.
+  const extended = await grantMemberPeriod(supabase, { gymId, memberId }, dur, { planId });
+  if (!extended.ok) throw new Error(extended.error);
+  return extended.endDate;
 }
 
 // True when the member has an active subscription that hasn't expired today

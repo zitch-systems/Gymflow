@@ -1,4 +1,5 @@
-import { requireApiMember, json, corsPreflight, readJson } from '@/lib/api-app';
+import { requireApiMember, json, corsPreflight, readJson, planLocked } from '@/lib/api-app';
+import { gymCanUse } from '@/lib/entitlements';
 import { checkInCore, checkOutCore, generateCodeCore, openVisit } from '@/lib/checkin-core';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 
@@ -64,6 +65,22 @@ export async function POST(req: Request) {
 
   const body = await readJson(req);
   const action = String(body.action ?? '');
+
+  // Opening the door is qr_checkin, a Growth feature in its own right — every
+  // door/print/WhatsApp QR deep-links into the member app, which is why the two
+  // travel together in lib/entitlements.ts. requireApiMember has already refused
+  // a gym without member_app, so this only bites if the two ever come apart;
+  // naming the feature the branch actually needs is what stops that reopening
+  // the door silently. gymCanUse, not gymHasFeature — qr_checkin is one of the
+  // grandfathered surfaces.
+  //
+  // 'out' and 'state' are deliberately outside it: closing a visit you are
+  // already inside of is not entry, and a plan change mid-session must not trap
+  // a member in the building — the same reasoning generateCodeCore applies to a
+  // member with an open visit but a lapsed membership.
+  if ((action === 'in' || action === 'code') && !gymCanUse(gym, 'qr_checkin')) {
+    return planLocked(gym.name, 'app check-in');
+  }
 
   try {
     if (action === 'in') {

@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { validatePassword } from '@/lib/auth/password';
 import { normalizeNgPhone } from '@/lib/format';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
-import { json, corsPreflight, sessionPayload } from '@/lib/api-app';
+import { json, corsPreflight, sessionPayload, planLocked } from '@/lib/api-app';
+import { gymCanUse } from '@/lib/entitlements';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -47,6 +48,12 @@ export async function POST(req: Request) {
   try {
     const gym = await resolveGymByCode(code);
     if (!gym) return json({ error: 'No gym found for that code. Check it with your gym.' }, 404);
+
+    // Same gate as sign-in, and for the same reason it sits above the account
+    // creation rather than below it: a gym whose plan doesn't include the member
+    // app shouldn't gain an auto-confirmed auth account and a membership row out
+    // of a door its members can't walk through.
+    if (!gymCanUse(gym, 'member_app')) return planLocked(gym.name, 'the member app');
 
     const auth = createApiAuthClient();
     const { data, error } = await auth.auth.signUp({

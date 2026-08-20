@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { extendDate, renewalBase } from '@/lib/plan-duration';
+import { extendMemberSub, grantMemberPeriod } from '@/lib/member-sub-core';
 import { logAudit } from '@/lib/audit';
 import { deliverReceipt, deliverPaymentFailed, type NotifyGym } from '@/lib/notify';
 import { firstName, fmtDate } from '@/lib/format';
@@ -336,20 +336,28 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   }
 
   // Extend from the later of {current end_date, today}. Recurring charges
-  // should push forward; they should never shorten. Shared rule — renewalBase().
-  const base = renewalBase(sub.end_date);
-  const newEnd = extendDate(base, extendBy).toISOString().slice(0, 10);
-
-  const { error: subErr } = await admin.from('member_subscriptions').update({
-    end_date: newEnd,
-    status: 'active', // recovers from past_due once payment lands
-    updated_at: new Date().toISOString(),
-  }).eq('id', sub.id);
-  if (subErr) {
+  // should push forward; they should never shorten. Shared rule — applied
+  // inside the UPDATE (extendMemberSub) rather than computed here, so a cycle
+  // that lands while the member is also paying a one-off renewal stacks onto
+  // that period instead of replacing it. The status flip to 'active' rides
+  // along: it recovers the row from past_due once payment lands.
+  let extended = await extendMemberSub(admin, sub.id, extendBy);
+  if (!extended.ok && extended.code === '23505') {
+    // member_subscriptions_one_live_idx refused the row this mandate points at:
+    // it is NOT in the live set any more (findSub resolves by subscription code,
+    // and onSubscriptionEnd leaves that code on a row it expires), the member
+    // has since acquired a live one elsewhere, and the RPC's flip back to
+    // 'active' would have made two. The money is real either way, so credit the
+    // row that IS live instead of failing the webhook — otherwise Paystack
+    // retries this charge forever and the member is debited and never credited.
+    extended = await grantMemberPeriod(admin, { gymId: sub.gym_id, memberId: sub.member_id }, extendBy, { planId });
+  }
+  if (!extended.ok) {
     // Compensate — remove the payment row so a retry can re-attempt everything.
     await admin.from('payments').delete().eq('paystack_reference', reference);
-    return { ok: false, handled: true, error: `sub extend failed: ${subErr.message}` };
+    return { ok: false, handled: true, error: `sub extend failed: ${extended.error}` };
   }
+  const newEnd = extended.endDate;
 
   // Best-effort receipt notification.
   await admin.from('notifications').insert({

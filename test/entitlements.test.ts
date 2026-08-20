@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  tierOf, tierHasFeature, gymHasFeature, gymCanUse, featuresFor, requiredTier, type Feature,
+  tierOf, tierHasFeature, gymHasFeature, gymCanUse, featuresFor, requiredTier, upgradeMessage,
+  memberLockedMessage, type Feature,
 } from '@/lib/entitlements';
 
 // Pure unit tests for the plan→feature matrix. This encodes the public pricing
@@ -121,5 +122,22 @@ describe('gymCanUse — legacy_full_access grandfather', () => {
       expect(gymCanUse(gym, 'member_app')).toBe(true);
       expect(gymCanUse(gym, 'instructor_portal')).toBe(true);
     }
+  });
+});
+
+describe('locked-feature copy', () => {
+  it('upgradeMessage points staff at the console they can actually fix it in', () => {
+    expect(upgradeMessage('instructor_payouts')).toContain('Growth');
+    expect(upgradeMessage('instructor_payouts')).toContain('Billing');
+  });
+  it('memberLockedMessage points a member at the gym instead', () => {
+    // A member has no billing relationship with GymFlow — the gym chose the
+    // plan — so "upgrade in Billing → Plans" is advice they cannot take. This
+    // is what the mobile API and the member Server Actions return, and what the
+    // app renders verbatim (mobile/src/api/client.ts).
+    const msg = memberLockedMessage('Iron Republic', 'the member app');
+    expect(msg).toContain('Iron Republic');
+    expect(msg).toContain('the member app');
+    expect(msg).not.toContain('Billing');
   });
 });

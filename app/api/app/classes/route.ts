@@ -1,4 +1,5 @@
-import { requireApiMember, json, corsPreflight, readJson } from '@/lib/api-app';
+import { requireApiMember, json, corsPreflight, readJson, planLocked } from '@/lib/api-app';
+import { gymHasFeature } from '@/lib/entitlements';
 import { bookClassCore, cancelBookingCore } from '@/lib/booking-core';
 import { watDateISO, watNow } from '@/lib/format';
 import { nextOccurrenceDate } from '@/lib/class-dates';
@@ -90,6 +91,12 @@ export async function POST(req: Request) {
 
   try {
     if (action === 'book') {
+      // gymHasFeature, NOT gymCanUse: class scheduling was already Growth-only
+      // before the Starter repositioning, so legacy_full_access must not widen
+      // into it — a legacy Starter gym was never entitled to classes and
+      // lib/actions/admin-class.ts already refuses to let it create any.
+      // Mirrored in bookClass (lib/actions/booking.ts) so the two doors agree.
+      if (!gymHasFeature(gym, 'class_scheduling')) return planLocked(gym.name, 'class booking');
       const res = await bookClassCore(supabase, user.id, gym, String(body.schedule_id ?? ''));
       return res.ok
         ? json({ ok: true, waitlisted: Boolean(res.waitlisted), message: res.message ?? null })
@@ -97,6 +104,9 @@ export async function POST(req: Request) {
     }
 
     if (action === 'cancel') {
+      // Ungated on purpose: giving a seat back is not consuming the feature, and
+      // a member holding a booking made before a plan change must still be able
+      // to release it so someone on the waitlist gets it.
       const res = await cancelBookingCore(supabase, user.id, String(body.booking_id ?? ''));
       return res.ok ? json({ ok: true }) : json({ ok: false, error: res.error }, 422);
     }

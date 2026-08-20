@@ -1,6 +1,7 @@
 import { createApiAuthClient, resolveGymByCode, provisionMember } from '@/lib/gym-signup';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
-import { json, corsPreflight, sessionPayload } from '@/lib/api-app';
+import { json, corsPreflight, sessionPayload, planLocked } from '@/lib/api-app';
+import { gymCanUse } from '@/lib/entitlements';
 import { twoFactorRequiredForUser } from '@/lib/auth/two-factor';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,13 @@ export async function POST(req: Request) {
   try {
     const gym = await resolveGymByCode(code);
     if (!gym) return json({ error: 'No gym found for that code. Check it with your gym.' }, 404);
+
+    // The member app is a Growth surface — see requireApiMember, which refuses
+    // every authenticated endpoint the same way. Refused here too, and refused
+    // BEFORE provisionMember: this endpoint idempotently links the account into
+    // the gym, and enrolling someone into an app they can't open is worse than
+    // turning them away at the code.
+    if (!gymCanUse(gym, 'member_app')) return planLocked(gym.name, 'the member app');
 
     const auth = createApiAuthClient();
     const { data, error } = await auth.auth.signInWithPassword({ email, password });

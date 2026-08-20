@@ -148,14 +148,17 @@ export function planIntervalFor(durationDays: number | null, durationMonths: num
 export type SubscriptionInfo = { subscriptionCode: string; emailToken: string; status: string };
 
 // Fetch a subscription — needed to get the email_token required to disable it.
-export async function getSubscription(code: string): Promise<{ ok: true; data: SubscriptionInfo } | { ok: false; error: string }> {
+export async function getSubscription(code: string): Promise<{ ok: true; data: SubscriptionInfo } | { ok: false; error: string; status?: number }> {
   try {
     const res = await fetch(`${PAYSTACK_BASE}/subscription/${encodeURIComponent(code)}`, {
       headers: { Authorization: `Bearer ${secret()}` },
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Subscription fetch failed' };
+    // The HTTP status rides along on failures: a 4xx here means Paystack has
+    // nothing (usable) under this code, which callers treat differently from a
+    // 5xx or a dropped connection. See mandateGoneAtPaystack().
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Subscription fetch failed', status: res.status };
     return { ok: true, data: { subscriptionCode: json.data.subscription_code, emailToken: json.data.email_token, status: json.data.status } };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -165,7 +168,7 @@ export async function getSubscription(code: string): Promise<{ ok: true; data: S
 // Cancel a subscription. Paystack requires the code + the subscription's
 // email_token (fetched via getSubscription). After this Paystack stops billing
 // and fires subscription.disable / subscription.not_renew.
-export async function disableSubscription(code: string, emailToken: string): Promise<{ ok: boolean; error?: string }> {
+export async function disableSubscription(code: string, emailToken: string): Promise<{ ok: boolean; error?: string; status?: number }> {
   try {
     const res = await fetch(`${PAYSTACK_BASE}/subscription/disable`, {
       method: 'POST',
@@ -174,7 +177,7 @@ export async function disableSubscription(code: string, emailToken: string): Pro
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Disable failed' };
+    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Disable failed', status: res.status };
     return { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };

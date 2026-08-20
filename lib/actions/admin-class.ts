@@ -87,17 +87,27 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
       // cached code billing auto-renewing members the OLD combined total
       // forever, so drop it and let ensurePlanCode mint a fresh one at the new
       // amount on the next opt-in.
+      //
+      // paystack_plan_code — the BASE plan's cached code — pins the plan price
+      // alone and needs exactly the same treatment for exactly the same reason:
+      // without this, raising Monthly from ₦10,000 to ₦15,000 left the next
+      // member to opt into auto-renew quoted ₦15,000 by the UI and charged the
+      // cached Plan's ₦10,000 on checkout AND on every cycle after it, because
+      // /transaction/initialize ignores the amount when a plan code is present
+      // (lib/paystack.ts). Only the price moves the base total, so the add-on
+      // columns don't clear it.
       const { data: before } = await supabase.from('membership_plans')
         .select('price, trainer_addon_enabled, trainer_addon_price').eq('id', id).eq('gym_id', gym.id).maybeSingle();
-      const totalChanged = before != null && (
-        Number(before.price) !== price
-        || Boolean(before.trainer_addon_enabled) !== trainerEnabled
+      const priceChanged = before != null && Number(before.price) !== price;
+      const totalChanged = priceChanged || (before != null && (
+        Boolean(before.trainer_addon_enabled) !== trainerEnabled
         || Number(before.trainer_addon_price ?? 0) !== trainerPrice
-      );
+      ));
       const { error } = await supabase.from('membership_plans')
         .update({
           name, price, duration_days, duration_months, is_active: isActive, ...addon,
           ...(totalChanged ? { paystack_plan_code_trainer: null } : {}),
+          ...(priceChanged ? { paystack_plan_code: null } : {}),
         }).eq('id', id).eq('gym_id', gym.id);
       if (error) return { ok: false, error: error.message };
     } else {

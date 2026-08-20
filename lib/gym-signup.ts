@@ -13,9 +13,15 @@ import type { Database } from '@/lib/database.types';
 export type PublicGym = {
   id: string; name: string; slug: string;
   brand_color: string | null; logo_url: string | null; member_code: string;
+  // Not public in the branding sense — no caller renders these, and the /api/app
+  // responses build their own object rather than spreading this one. They're
+  // here because every entry point that turns a member code into a gym has to
+  // answer "does this gym's plan include the member app?" before it lets anyone
+  // in, and that answer needs the tier AND the grandfather flag.
+  subscription_plan: string | null; legacy_full_access: boolean | null;
 };
 
-const PUBLIC_GYM_COLS = 'id, name, slug, brand_color, logo_url, member_code';
+const PUBLIC_GYM_COLS = 'id, name, slug, brand_color, logo_url, member_code, subscription_plan, legacy_full_access';
 
 // Normalise a user-typed code: uppercase, strip anything outside the code
 // alphabet (spaces, dashes, ambiguous look-alikes the user might substitute).

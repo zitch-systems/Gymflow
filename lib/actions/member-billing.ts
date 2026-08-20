@@ -3,11 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { requireMember, requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { isOfflineGym } from '@/lib/gym-status';
+import { gymCanUse, memberLockedMessage } from '@/lib/entitlements';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requestOrigin } from '@/lib/request-origin';
 import { initSubscription, createPlan, planIntervalFor, getSubscription, disableSubscription } from '@/lib/paystack';
 import { logAudit } from '@/lib/audit';
+import { LIVE_SUB_STATUSES, hasLiveMandate, mandateGoneAtPaystack } from '@/lib/member-sub-core';
 import { offersTrainer, planTotalKobo } from '@/lib/plan-addon';
 import { firstName, fmtDate } from '@/lib/format';
 import { getContact, getEmailGym } from '@/lib/email/recipients';
@@ -95,6 +97,35 @@ export async function startAutoRenewal(planId: string, withTrainer = false): Pro
   if (isOfflineGym(gym)) {
     return { ok: false, error: 'This gym is not accepting payments right now. Please contact the gym.' };
   }
+  // And the same reasoning for the plan gate as in renew.ts, doubled for the
+  // same reason as the line above: a mandate this action opens keeps charging
+  // on a schedule long after the surface that opened it was walled off.
+  if (!gymCanUse(gym, 'member_app')) {
+    return { ok: false, error: memberLockedMessage(gym.name, 'the member app') };
+  }
+
+  // One mandate per member. A member who already has auto-renew on — on this
+  // plan or another one — would otherwise get a SECOND live Paystack
+  // Subscription against the same card, and the fulfiller refuses that
+  // mandate's charges permanently (`subscription code conflicts with active
+  // mandate`, lib/member-sub-fulfill.ts). Every cycle after that debits the
+  // card, records no payment, extends nothing and sends no receipt; the
+  // webhook still acks 200, so Paystack keeps charging. Refusing here is the
+  // only place that stops it, because by the time the charge lands the money
+  // has already left. Service role: the member CAN read their own rows, but a
+  // guard this consequential must not be one RLS edit away from silently
+  // passing.
+  const admin = createAdminClient();
+  const { data: liveSubs, error: liveErr } = await admin
+    .from('member_subscriptions')
+    .select('auto_debit_enabled')
+    .eq('member_id', user.id).eq('gym_id', gym.id)
+    .in('status', [...LIVE_SUB_STATUSES]);
+  if (liveErr) return { ok: false, error: liveErr.message };
+  if (hasLiveMandate(liveSubs)) {
+    return { ok: false, error: 'Auto-renew is already on for your membership. Turn it off first, then switch it on for the plan you want.' };
+  }
+
   const codeResult = await ensurePlanCode(planId, gym.id, withTrainer);
   if (!codeResult.ok) return { ok: false, error: codeResult.error };
 
@@ -193,17 +224,43 @@ async function disableSub(
     return { ok: true, error: null, message: 'Auto-renew was already off.' };
   }
 
+  // Paystack has nothing to disable under this code (4xx — see
+  // mandateGoneAtPaystack). Clear the local flag rather than refusing: leaving
+  // it true would trap the member between a cancel that can never succeed and
+  // an opt-in that refuses while any live row carries a mandate, with no way
+  // back to auto-renew at this gym. The caveat is said out loud because we
+  // could not get Paystack to confirm it.
+  const clearLocally = async (reason?: string): Promise<ActionState> => {
+    await admin.from('member_subscriptions').update({ auto_debit_enabled: false }).eq('id', sub.id);
+    void logAudit({
+      action: actor.role === 'member' ? 'member_auto_renew_cancelled_self' : 'member_auto_renew_cancelled_by_staff',
+      table: 'member_subscriptions',
+      actorId: actor.userId, gymId: sub.gym_id, recordId: sub.id,
+      values: { member_id: sub.member_id, paystack_subscription_code: sub.paystack_subscription_code, paystack_error: reason ?? null },
+    });
+    return {
+      ok: true, error: null,
+      message: `Auto-renew turned off. Paystack no longer has this subscription (${reason ?? 'not found'}), so tell the gym if another charge lands.`,
+    };
+  };
+
   // Paystack needs the email_token — cached from the subscription.create webhook
   // when possible; refetch if missing (older rows).
   let emailToken = sub.paystack_email_token;
   if (!emailToken) {
     const fetched = await getSubscription(sub.paystack_subscription_code);
-    if (!fetched.ok) return { ok: false, error: fetched.error };
+    if (!fetched.ok) {
+      return mandateGoneAtPaystack(fetched) ? clearLocally(fetched.error) : { ok: false, error: fetched.error };
+    }
     emailToken = fetched.data.emailToken;
   }
 
   const disabled = await disableSubscription(sub.paystack_subscription_code, emailToken);
-  if (!disabled.ok) return { ok: false, error: disabled.error ?? 'Could not cancel at Paystack.' };
+  if (!disabled.ok) {
+    return mandateGoneAtPaystack(disabled)
+      ? clearLocally(disabled.error)
+      : { ok: false, error: disabled.error ?? 'Could not cancel at Paystack.' };
+  }
 
   await admin.from('member_subscriptions')
     .update({ auto_debit_enabled: false })

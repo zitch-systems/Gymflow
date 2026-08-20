@@ -56,6 +56,46 @@ export async function startWhatsAppCheckout(
     return { ok: false, error: 'This gym isn’t accepting payments right now. Please contact the gym.' };
   }
 
+  // The member must be actively linked to THIS gym before a link is issued,
+  // because fulfilment refuses without that link: lib/paystack-fulfill.ts reads
+  // exactly the query below and returns 'member is not active in gym' as a
+  // PERMANENT failure — the webhook acks, nothing is retried, no payments row
+  // is written and no day is added. The money still settles into the gym's
+  // bank, so a checkout started here without the link is a charge that can
+  // never be credited.
+  //
+  // WhatsApp is the only surface that can reach that state. The web renewal
+  // resolves the link in requireMember() before it initialises anything, but
+  // here the active gym moves on a typed member code or a scanned door QR with
+  // no re-auth (resolveGym / handleQrCheckin in router.ts), so a verified
+  // member of gym A can arrive at gym B's package list — and a suspended member
+  // can reach their own gym's.
+  //
+  // The predicate is fulfillCharge's, verbatim (user_id + is_active), not
+  // check-in's looser member_id-or-user_id one: a pre-check that admits
+  // anything fulfilment will refuse is worth nothing.
+  const { data: link } = await admin
+    .from('gym_member_links').select('id')
+    .eq('user_id', params.memberId).eq('gym_id', params.gym.id).eq('is_active', true)
+    .limit(1).maybeSingle();
+  if (!link) {
+    // Only on the refusal path: is there a link at all, so the reply can tell
+    // them which of the two things to actually do.
+    const { data: inactive } = await admin
+      .from('gym_member_links').select('id')
+      .eq('user_id', params.memberId).eq('gym_id', params.gym.id)
+      .limit(1).maybeSingle();
+    return inactive
+      ? {
+          ok: false,
+          error: `Your ${params.gym.name} membership is suspended, so paying now wouldn’t reactivate it. Please see the front desk — once they lift it you can renew right here.`,
+        }
+      : {
+          ok: false,
+          error: `You’re not a member at ${params.gym.name} yet, so I can’t take a payment for it. Ask the front desk to sign you up first.\n\nAt a different gym? Reply with that gym’s code and I’ll switch over.`,
+        };
+  }
+
   const { data } = await admin
     .from('membership_plans')
     .select('id, name, price, duration_days, duration_months, trainer_addon_enabled, trainer_addon_price')

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { gymCanUse, memberLockedMessage } from '@/lib/entitlements';
 import {
   checkInCore, checkOutCore, generateCodeCore, openVisit,
   type CheckinResult, type CheckoutResult, type CodeResult,
@@ -28,6 +29,14 @@ export async function selfCheckIn(): Promise<CheckinResult> {
   } catch {
     return { ok: false, error: 'Please sign in to check in.' };
   }
+
+  // The member app is a Growth surface. app/(member)/layout.tsx walls the page
+  // this button lives on, but a layout does not run for an action POST — and a
+  // Server Action id stays callable by anyone who ever loaded the page, so the
+  // wall is chrome and this is the gate. gymCanUse keeps gyms that predate the
+  // repositioning (legacy_full_access) working; /api/app/checkin refuses the
+  // phone the same way, in requireApiMember.
+  if (!gymCanUse(gym, 'member_app')) return { ok: false, error: memberLockedMessage(gym.name, 'the member app') };
 
   const supabase = await createClient();
   const res = await checkInCore(supabase, user.id, gym);
@@ -73,6 +82,9 @@ export async function generateCheckinCode(): Promise<CodeResult> {
   } catch {
     return { ok: false, error: 'Please sign in first.' };
   }
+
+  // Same gate as selfCheckIn — a front-desk code is the door by another name.
+  if (!gymCanUse(gym, 'member_app')) return { ok: false, error: memberLockedMessage(gym.name, 'the member app') };
 
   const supabase = await createClient();
   return generateCodeCore(supabase, user.id, gym);
