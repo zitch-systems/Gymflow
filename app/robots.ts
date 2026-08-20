@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
+import { SITE_URL as SITE } from '@/lib/site-url';
 
 // Allow crawling of the public marketing pages; keep the authenticated app
 // surfaces and API routes out of the index.

@@ -4,6 +4,7 @@ import { Wallet } from 'lucide-react';
 import { PLATFORM_PLANS, PLAN_TIERS, BILLING_CYCLES, CYCLE_LABEL, planPrice } from '@/lib/platform-plans';
 import { BreadcrumbLd } from '@/components/marketing/breadcrumb-ld';
 import { PricingCards } from '@/components/marketing/pricing-cards';
+import { SITE_URL } from '@/lib/site-url';
 
 export const metadata = {
   title: 'Pricing',
@@ -25,7 +26,6 @@ export const metadata = {
   },
 };
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
 
 // Product + per-tier Offer structured data, generated from the real plan
 // catalog (lib/platform-plans.ts — amounts in kobo, Paystack is the source of

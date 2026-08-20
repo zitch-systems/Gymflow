@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import { PwaRegister } from '@/components/pwa-register';
+import { SITE_URL } from '@/lib/site-url';
 import './globals.css';
 
 // Fonts, served from this repo — see app/fonts/README.md for what the files are
@@ -45,8 +46,6 @@ const fontMono = localFont({
   display: 'swap',
   fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
 });
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
