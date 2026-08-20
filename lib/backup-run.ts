@@ -7,6 +7,7 @@ import { platformAppUrl, sendPlatformEmail } from '@/lib/email/send';
 import { getGymOwnerEmails } from '@/lib/email/recipients';
 import { gymBackupReady } from '@/lib/email/templates/platform';
 import { fmtDate, watDateISO } from '@/lib/format';
+import { captureServerEvent } from '@/lib/server-error';
 
 // Running one gym's backup end to end: build the archive, store it, log the
 // run, email the owners, prune old copies.
@@ -25,7 +26,9 @@ export type BackupRunResult = {
   size: number;
   emailed: boolean;
   error?: string;
-  /** Tables that could not be read; the archive still holds the rest. */
+  /** Everything wrong with this run that isn't the run failing: tables that
+   *  could not be read, and tables cut short by the row cap. Stored on the row,
+   *  shown in Settings, and put in the email. */
   problems: string[];
 };
 
@@ -33,15 +36,25 @@ export type BackupRunResult = {
 const CADENCE: Record<string, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', manual: 'On demand' };
 
 /**
- * Record a failed attempt.
+ * Record a failed attempt, and report it.
  *
  * A failure row matters more than a success one: without it, backups that stop
  * working look identical to backups that were never scheduled, and the first
- * anyone hears of it is when they need the file.
+ * anyone hears of it is when they need the file. But the row is only visible to
+ * whoever opens Settings → Backups, and nobody opens that page because backups
+ * are working — so the failure also goes to Sentry, the same channel the money
+ * paths use for handled-but-noteworthy conditions (lib/reconcile.ts).
  */
-async function logFailure(admin: ReturnType<typeof createAdminClient>, gymId: string, trigger: string, error: string) {
+async function logFailure(
+  admin: ReturnType<typeof createAdminClient>,
+  gymId: string,
+  trigger: string,
+  error: string,
+  problems: string[] = [],
+) {
+  void captureServerEvent('gym backup failed', { gymId, trigger, error, problems });
   await admin.from('gym_backups' as never).insert({
-    gym_id: gymId, status: 'failed', error: error.slice(0, 500), trigger,
+    gym_id: gymId, status: 'failed', error: error.slice(0, 500), trigger, problems,
   } as never);
 }
 
@@ -91,6 +104,19 @@ export async function runGymBackup(
     await logFailure(admin, gymId, opts.trigger, msg);
     return { ok: false, gymId, size: 0, emailed: false, error: msg, problems: [] };
   }
+  const problems = [...archive.failures, ...archive.warnings];
+
+  // Every table failed. buildGymBackup does not throw for a single table's
+  // sake, so what comes back here is a valid zip of a manifest and nothing
+  // else — a few hundred bytes that would store, log as 'success' and look
+  // entirely normal in the console. A run that backed up nothing is a failed
+  // run, and is recorded as one; the alternative is the false confidence this
+  // whole feature exists to remove.
+  if (archive.failures.length > 0 && Object.keys(archive.rowCounts).length === 0) {
+    const msg = `no table could be read: ${archive.failures.join('; ')}`;
+    await logFailure(admin, gymId, opts.trigger, msg, problems);
+    return { ok: false, gymId, size: 0, emailed: false, error: msg, problems };
+  }
 
   // Store first — see the note at the top of this file.
   const path = backupStoragePath(gymId, archive.filename, now);
@@ -98,8 +124,8 @@ export async function runGymBackup(
     contentType: 'application/zip', upsert: false,
   });
   if (upErr) {
-    await logFailure(admin, gymId, opts.trigger, `upload failed: ${upErr.message}`);
-    return { ok: false, gymId, size: archive.bytes.byteLength, emailed: false, error: upErr.message, problems: archive.failures };
+    await logFailure(admin, gymId, opts.trigger, `upload failed: ${upErr.message}`, problems);
+    return { ok: false, gymId, size: archive.bytes.byteLength, emailed: false, error: upErr.message, problems };
   }
 
   const { error: logErr } = await admin.from('gym_backups' as never).insert({
@@ -109,15 +135,27 @@ export async function runGymBackup(
     row_counts: archive.rowCounts,
     status: 'success',
     trigger: opts.trigger,
+    // Stored rather than only emailed: the email goes to whoever was an owner
+    // that day, and a partial backup has to still be visible in Settings months
+    // later, when someone is deciding whether to trust this file.
+    problems,
   } as never);
   if (logErr) {
     // The file is in storage but unlisted, so nobody can reach it. Remove it
     // rather than leave an orphan nothing points at.
     await admin.storage.from(BUCKET).remove([path]);
-    return { ok: false, gymId, size: archive.bytes.byteLength, emailed: false, error: logErr.message, problems: archive.failures };
+    void captureServerEvent('gym backup could not be logged', { gymId, trigger: opts.trigger, error: logErr.message });
+    return { ok: false, gymId, size: archive.bytes.byteLength, emailed: false, error: logErr.message, problems };
   }
 
   await admin.from('gyms').update({ backup_last_run_at: now.toISOString() } as never).eq('id', gymId);
+
+  // A partial run is the dangerous one: it looks like a backup, it downloads
+  // like a backup, and it is missing whatever failed. Reported even though the
+  // run succeeded, because nothing else asks GymFlow to go and look.
+  if (problems.length) {
+    void captureServerEvent('gym backup completed with problems', { gymId, trigger: opts.trigger, problems });
+  }
 
   // Email is the bonus channel; the backup already exists and is listed. An
   // archive over the attachment ceiling still gets a mail — one that points at
@@ -140,7 +178,7 @@ export async function runGymBackup(
             size: humanSize(archive.bytes.byteLength),
             backupsUrl: platformAppUrl('/admin/settings?section=backups'),
             attached: attachable,
-            problems: archive.failures,
+            problems,
           }),
           ...(attachable ? { attachments: [{ filename: archive.filename, content: archive.bytes }] } : {}),
           // One mail per stored archive, so a cron retry can't send twice.
@@ -153,5 +191,5 @@ export async function runGymBackup(
 
   await prune(admin, gymId).catch(() => { /* pruning is housekeeping, never a failure */ });
 
-  return { ok: true, gymId, size: archive.bytes.byteLength, emailed, problems: archive.failures };
+  return { ok: true, gymId, size: archive.bytes.byteLength, emailed, problems };
 }

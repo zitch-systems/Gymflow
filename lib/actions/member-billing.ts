@@ -121,7 +121,13 @@ export async function startAutoRenewal(planId: string, withTrainer = false): Pro
     .select('auto_debit_enabled')
     .eq('member_id', user.id).eq('gym_id', gym.id)
     .in('status', [...LIVE_SUB_STATUSES]);
-  if (liveErr) return { ok: false, error: liveErr.message };
+  // The member gets a sentence, never PostgREST's. This guard is the only thing
+  // standing between them and a second live mandate, so it must refuse when it
+  // cannot see — but the reason belongs in the server log, not on their screen.
+  if (liveErr) {
+    console.error(`[member-billing] live subscription lookup failed for ${user.id}: ${liveErr.message}`);
+    return { ok: false, error: 'We couldn’t check your current auto-renew settings just now. Please try again in a moment.' };
+  }
   if (hasLiveMandate(liveSubs)) {
     return { ok: false, error: 'Auto-renew is already on for your membership. Turn it off first, then switch it on for the plan you want.' };
   }

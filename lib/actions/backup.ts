@@ -74,9 +74,9 @@ export async function runBackupNow(_prev: BackupState, _formData: FormData): Pro
     try { revalidatePath('/admin/settings'); } catch { /* stale cache is tolerable */ }
     if (!res.ok) return { ok: false, error: res.error ?? 'Backup failed.' };
     // Partial success is reported as such — "Backup complete" over a run that
-    // silently dropped a table is exactly the false confidence this feature is
-    // supposed to remove.
-    const problems = res.problems.length ? ` Some tables could not be read: ${res.problems.join('; ')}.` : '';
+    // silently dropped a table, or stopped one 50,000 rows in, is exactly the
+    // false confidence this feature is supposed to remove.
+    const problems = res.problems.length ? ` Some tables are incomplete: ${res.problems.join('; ')}.` : '';
     return {
       ok: true,
       error: null,

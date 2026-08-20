@@ -13,6 +13,8 @@ export type BackupRow = {
   status: string;
   trigger: string;
   error: string | null;
+  /** Tables missing from or cut short in this archive. Empty on a clean run. */
+  problems: string[];
   rows: number;
 };
 
@@ -73,9 +75,11 @@ export function BackupSettings({
           <DatabaseBackup size={17} strokeWidth={1.9} /> Backups
         </div>
         <div className="panel-desc">
-          A copy of your members, subscriptions, payments, check-ins and classes — one spreadsheet
-          per table, in a zip. This runs automatically and is emailed to you; a copy is kept here
-          to download either way. Change the schedule or switch it off below.
+          A copy of your members and their details, subscriptions, payments, check-ins and
+          classes — one spreadsheet per table, in a zip. This runs automatically and is emailed to
+          you; a copy is kept here to download either way. Change the schedule or switch it off
+          below. It is a copy to keep, read or move elsewhere: it holds no passwords, and putting
+          it back into GymFlow is a job for support rather than an upload.
         </div>
 
         <div className="bk-freq" role="radiogroup" aria-label="Backup schedule">
@@ -145,6 +149,14 @@ export function BackupSettings({
                       ? (b.error ?? 'Failed')
                       : `${size(b.size_bytes)}${b.rows ? ` · ${b.rows.toLocaleString('en-NG')} records` : ''}${b.trigger === 'manual' ? ' · manual' : ''}`}
                   </small>
+                  {/* Said on the row itself, not behind a click: this file
+                      downloads and opens like any other, and the only place the
+                      gap is visible is here and in the manifest. */}
+                  {b.status !== 'failed' && b.problems.length > 0 && (
+                    <small style={{ color: 'var(--gf-warning)' }}>
+                      Incomplete — {b.problems.join('; ')}
+                    </small>
+                  )}
                 </span>
                 {b.status === 'failed'
                   ? <span className="gf-badge gf-badge-danger">Failed</span>
