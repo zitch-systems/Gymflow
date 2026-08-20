@@ -101,7 +101,26 @@ export async function extendMemberSub(
     p_plan_id: fields.planId ?? null,
     p_trainer_addon: fields.trainerAddon ?? null,
   });
-  if (error) return { ok: false, error: error.message, code: error.code };
+  if (error) {
+    // 42883 = undefined_function. There is exactly one way to see it here: the
+    // app is running against a database the extend_member_sub migration has not
+    // reached yet — the normal Vercel-then-Supabase deploy order, in the window
+    // between the two. Every renewal fails for as long as that window is open,
+    // so the failure has to name its own cause: a raw "function
+    // public.extend_member_sub(...) does not exist" in a webhook log is a
+    // half-hour of someone's evening. It stays a failure — falling back to the
+    // in-JS arithmetic this replaced would quietly reinstate the lost-period
+    // race the RPC exists to close, which is worse than a loud outage.
+    if (error.code === '42883') {
+      console.error('[member-sub] extend_member_sub is missing — apply supabase/migrations/20260821090000_atomic_member_sub_extend.sql to this database');
+      return {
+        ok: false,
+        code: error.code,
+        error: 'extend_member_sub RPC missing: apply migration 20260821090000_atomic_member_sub_extend.sql (app deployed ahead of the database).',
+      };
+    }
+    return { ok: false, error: error.message, code: error.code };
+  }
   // The function returns the updated row's end_date, so no date back means no
   // row was updated — a stale id, or RLS refusing this caller. Either way the
   // member was NOT extended and the caller must not report that they were.

@@ -17,7 +17,7 @@ backup cadence (daily on free/pro tiers; PITR if enabled) — see §5.
 | RLS policies (95) + role grants | ✅ | same baseline + incremental migrations |
 | Incremental schema changes | ✅ | `supabase/migrations/2026*.sql`, sorted order |
 | App code + config | ✅ | this repo (`main`) |
-| **Data** (rows: gyms, members, payments…) | ❌ | Supabase backups only (§5). Note the per-gym backup product (`gym_backups`, `/api/cron/backups`) is a tenant-facing export, not a DR asset — and it skips gyms whose status is `suspended`/`terminated`, so a switched-off tenant stops accumulating extracts from the moment it goes off. |
+| **Data** (rows: gyms, members, payments…) | ❌ | Supabase backups only (§5). Note the per-gym backup product (`gym_backups`, `/api/cron/backups`) is a tenant-facing export, not a DR asset — and it skips gyms whose status is `suspended`/`terminated`, so a switched-off tenant stops accumulating extracts from the moment it goes off. Loading one back is a manual operator procedure with real hazards (no credentials in the file, ids that collide): `docs/RESTORE.md`. |
 | **Secrets** (service-role key, Paystack keys, CRON_SECRET) | ❌ | Vercel env + password manager (§4) |
 | Paystack objects (plans, subaccounts, subscriptions, recipients) | ❌ | live in Paystack; codes are cached in DB columns and recoverable from the Paystack dashboard |
 | `gym-assets` storage bucket contents | ❌ | Supabase storage backups |
@@ -87,6 +87,10 @@ incrementals before any test executes. If CI is green, the rebuild path works.
 
   `session_replication_role = replica` prevents the membership-sync and
   audit triggers from double-firing while rows are replayed.
+- **From a per-gym backup zip** (one tenant lost their data, the project is
+  fine): follow `docs/RESTORE.md`. It is not a substitute for either path
+  above — the archive carries no credentials and no storage objects, and its
+  ids need handling before anything is loaded.
 - `auth.users` is managed by Supabase Auth — use the dashboard's auth backup
   or ask users to re-register with the same email (profiles rows survive and
   re-link by `profiles_id_fkey` only if auth UIDs are preserved; a plain SQL

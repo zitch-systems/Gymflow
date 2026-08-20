@@ -9,6 +9,10 @@ import { getGymOwnerEmails } from '@/lib/email/recipients';
 import { subscriptionCancelled, subscriptionPastDue, subscriptionReceipt } from '@/lib/email/templates/platform';
 import type { Database } from '@/lib/database.types';
 import { settledAmountMatches } from '@/lib/paystack-event-state';
+import { getSubscription, disableSubscription } from '@/lib/paystack';
+import { mandateGoneAtPaystack } from '@/lib/member-sub-core';
+import { logAudit } from '@/lib/audit';
+import { captureServerEvent } from '@/lib/server-error';
 
 type GymUpdate = Database['public']['Tables']['gyms']['Update'];
 
@@ -137,6 +141,61 @@ async function mailOwners(
   } catch { /* fulfilment already succeeded — this is the second channel */ }
 }
 
+/**
+ * Disable the mandate a newly-confirmed subscription replaces.
+ *
+ * An owner changing tier or cycle checks out a SECOND Paystack subscription —
+ * the plan cards deliberately keep every other tier/cycle clickable
+ * (components/admin/plan-cards.tsx) — and nothing in that flow cancels the
+ * first. Left alone Paystack bills both mandates forever, and both charges
+ * resolve back to this gym, so its tier flip-flops between the two plans on
+ * every renewal and gymCanUse() intermittently demotes a paying gym.
+ *
+ * Retiring the old mandate belongs HERE and nowhere earlier: a charge.success
+ * carrying a different subscription code is the first moment the replacement
+ * is known to be live, so there is neither a gap (an abandoned checkout never
+ * reaches this code, and the existing mandate keeps billing untouched) nor an
+ * overlap. It also runs BEFORE the gyms row is overwritten with the new code,
+ * because that column is the only place the old one is recorded — a disable we
+ * could not complete is audit-logged with the code first, so the mandate is
+ * never orphaned beyond a human's reach.
+ */
+async function retireSupersededMandate(admin: Admin, gymId: string, newCode: string): Promise<void> {
+  const { data: gym } = await admin.from('gyms').select('paystack_subscription_code').eq('id', gymId).maybeSingle();
+  const oldCode = gym?.paystack_subscription_code ?? null;
+  // No mandate yet (first subscription), or this is the same one renewing.
+  if (!oldCode || oldCode === newCode) return;
+
+  // A 4xx from either call means Paystack has nothing live under the old code —
+  // already disabled, or unknown (see mandateGoneAtPaystack). That is the state
+  // we were trying to reach, so it is not a failure. A 5xx or a dropped
+  // connection is: the mandate may still be billing.
+  const sub = await getSubscription(oldCode);
+  let failure: string | null = null;
+  if (!sub.ok) {
+    failure = mandateGoneAtPaystack(sub) ? null : sub.error;
+  } else {
+    const disabled = await disableSubscription(oldCode, sub.data.emailToken);
+    if (!disabled.ok && !mandateGoneAtPaystack(disabled)) failure = disabled.error ?? 'Disable failed';
+  }
+  if (!failure) return;
+
+  // Same posture as the reconciliation sweep (lib/reconcile.ts): a money event
+  // we could not complete unattended is recorded for a human rather than
+  // guessed at or swallowed. Awaited so the old code is durable before the
+  // update below takes the column.
+  await logAudit({
+    action: 'platform_subscription_orphaned',
+    table: 'gyms',
+    gymId,
+    recordId: gymId,
+    values: { old_subscription_code: oldCode, new_subscription_code: newCode, error: failure },
+  });
+  void captureServerEvent('platform billing: superseded Paystack subscription could not be disabled', {
+    gymId, oldSubscriptionCode: oldCode, newSubscriptionCode: newCode, error: failure,
+  });
+}
+
 // charge.success for a platform subscription: record the payment (idempotent on
 // reference) and advance the gym's paid-through. Also captures the Paystack
 // customer/subscription codes so future recurring events resolve back here.
@@ -190,6 +249,11 @@ async function fulfillCharge(admin: Admin, data: Json): Promise<PlatformResult> 
     return { ok: false, handled: true, error: payErr.message };
   }
 
+  // We recorded the payment, so this charge's subscription is confirmed live.
+  // If it replaces a different mandate, that one goes now — before the column
+  // naming it is overwritten below.
+  if (subscriptionCode) await retireSupersededMandate(admin, gymId, subscriptionCode);
+
   // We recorded the payment → activate / extend the gym's subscription once.
   const patch: GymUpdate = {
     subscription_status: 'active',
@@ -235,7 +299,17 @@ async function onSubscriptionCreate(admin: Admin, data: Json): Promise<PlatformR
   const gymId = await resolveGymId(admin, { customerCode, subscriptionCode });
   if (!gymId) return { ok: true, handled: true }; // first charge.success will link it; ack
   const patch: GymUpdate = { updated_at: new Date().toISOString() };
-  if (subscriptionCode) patch.paystack_subscription_code = subscriptionCode;
+  // Claim the code only when the gym has none. A subscription.create naming a
+  // DIFFERENT code is the first half of a plan switch, and a switch is not real
+  // until its charge settles: overwriting here would drop the live mandate's
+  // code before fulfillCharge could disable it (orphaning it at Paystack), and
+  // would hand the not-yet-paid subscription the stale-event guard in
+  // setStatusBySubscription. The new code takes the column in fulfillCharge,
+  // where a settled charge proves it.
+  if (subscriptionCode) {
+    const { data: gym } = await admin.from('gyms').select('paystack_subscription_code').eq('id', gymId).maybeSingle();
+    if (!gym?.paystack_subscription_code) patch.paystack_subscription_code = subscriptionCode;
+  }
   if (customerCode) patch.paystack_customer_code = customerCode;
   const { error } = await admin.from('gyms').update(patch).eq('id', gymId);
   if (error) return { ok: false, handled: true, error: error.message };

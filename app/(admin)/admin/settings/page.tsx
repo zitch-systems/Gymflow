@@ -44,13 +44,14 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
   // with it — the same defensive posture as the bank list above.
   const { data: backupRows } = await supabase
     .from('gym_backups' as never)
-    .select('id, created_at, size_bytes, status, trigger, error, row_counts')
+    .select('id, created_at, size_bytes, status, trigger, error, row_counts, problems')
     .eq('gym_id', gym.id)
     .order('created_at', { ascending: false })
     .limit(10);
   const backups = ((backupRows as unknown as {
     id: string; created_at: string; size_bytes: number | null; status: string;
     trigger: string; error: string | null; row_counts: Record<string, number> | null;
+    problems: string[] | null;
   }[]) ?? []).map((b) => ({
     id: b.id,
     created_at: b.created_at,
@@ -58,6 +59,9 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
     status: b.status,
     trigger: b.trigger,
     error: b.error,
+    // A run that stored a file but couldn't read every table is the one worth
+    // showing: it looks like a complete backup in every other respect.
+    problems: b.problems ?? [],
     rows: Object.values(b.row_counts ?? {}).reduce((n, v) => n + (Number(v) || 0), 0),
   }));
 

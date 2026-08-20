@@ -150,11 +150,14 @@ describe('web and mobile share one implementation of the member rules', () => {
 // own browser and the full Growth experience on the shipped Android app. Same
 // member, same account, opposite answers depending on the door.
 
-// The three endpoints that turn a member code into a gym before anyone has a
-// token. requireApiMember cannot cover them — that is the whole reason they are
-// in PUBLIC_ROUTES — so each carries the gate itself.
+// The endpoints that turn a member code into a gym before anyone has a token.
+// requireApiMember cannot cover them — that is the whole reason they are in
+// PUBLIC_ROUTES — so each carries the gate itself.
+//
+// /api/app/gym is deliberately absent: it refuses a plan-locked gym the same
+// way it refuses an unknown code, so it has no planLocked() call to assert.
+// See its own test below.
 const CODE_ROUTES = [
-  'app/api/app/gym/route.ts',
   'app/api/app/signin/route.ts',
   'app/api/app/signup/route.ts',
 ];
@@ -210,6 +213,22 @@ describe('member surfaces are gated on the gym plan', () => {
     expect(src).toContain('resolveGymByCode');
     expect(src).toContain("gymCanUse(gym, 'member_app')");
     expect(src).toContain('planLocked(');
+  });
+
+  it('the unauthenticated code lookup gates WITHOUT disclosing that the plan is why', () => {
+    // /api/app/gym takes nothing but a member code — no caller identity at all.
+    // A distinguishable refusal there would publish "which gyms pay GymFlow for
+    // what", with the gym's own name attached, to anyone holding a code. So a
+    // plan-locked gym is answered exactly as an unknown code is, and the route
+    // has no planLocked() call to make the difference visible.
+    const src = read('app/api/app/gym/route.ts');
+    expect(src).toContain("gymCanUse(gym, 'member_app')");
+    expect(src).not.toContain('planLocked');
+    // Both refusals collapse into the one 404 sentence.
+    expect(src).toContain('No gym found for that code.');
+    // And it throttles like signin/signup do — a member code is a short string
+    // an unauthenticated caller can guess at, and this is the cheapest oracle.
+    expect(src).toContain('rateLimit(');
   });
 
   it('signin/signup refuse before they enrol anyone', () => {

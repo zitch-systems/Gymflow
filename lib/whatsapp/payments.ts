@@ -74,10 +74,20 @@ export async function startWhatsAppCheckout(
   // The predicate is fulfillCharge's, verbatim (user_id + is_active), not
   // check-in's looser member_id-or-user_id one: a pre-check that admits
   // anything fulfilment will refuse is worth nothing.
-  const { data: link } = await admin
+  //
+  // The query error is kept separate from the empty result, exactly as
+  // fulfillCharge keeps them: collapsing the two would make a transient
+  // PostgREST failure read as "not a member" and tell a paid-up member they
+  // aren't one. The two failures want opposite handling — a DB error is
+  // "try again in a moment", a genuinely missing link is the sentence below.
+  const { data: link, error: linkErr } = await admin
     .from('gym_member_links').select('id')
     .eq('user_id', params.memberId).eq('gym_id', params.gym.id).eq('is_active', true)
     .limit(1).maybeSingle();
+  if (linkErr) {
+    console.error('[whatsapp/payments] member link lookup failed:', linkErr.message);
+    return { ok: false, error: 'Sorry — I couldn’t check your membership just now. Please try again in a moment.' };
+  }
   if (!link) {
     // Only on the refusal path: is there a link at all, so the reply can tell
     // them which of the two things to actually do.

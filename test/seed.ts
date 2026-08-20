@@ -15,10 +15,17 @@ export const IDS = {
 // Wipe every row that our fixtures create — order matters because of FKs.
 // Runs as superuser so RLS doesn't get in the way. Not TRUNCATE because we
 // want the auth.users rows and their profile-trigger side effects gone too.
+//
+// The money and legal tables have to be listed explicitly: since
+// 20260822090000 they hold profiles(id) with ON DELETE RESTRICT rather than
+// CASCADE, so deleting profiles no longer sweeps them up — which is the whole
+// point of that migration. waiver_signatures precedes waivers, and
+// salary_payments precedes gym_staff_links, for the same FK-ordering reason.
 export async function reset() {
   await asSuperuser(async (c) => {
     for (const t of [
       'public.payments', 'public.member_subscriptions', 'public.memberships',
+      'public.waiver_signatures', 'public.waivers', 'public.instructor_payouts', 'public.salary_payments',
       'public.checkin_codes', 'public.check_ins', 'public.gym_member_links', 'public.gym_staff_links',
       'public.membership_plans', 'public.profiles', 'public.gyms',
     ]) await c.query(`delete from ${t}`);

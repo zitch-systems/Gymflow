@@ -916,7 +916,8 @@ export function gymBackupReady(o: {
   /** Set when the archive was too large to attach — then the mail is a
    *  pointer to the console rather than a delivery. */
   attached: boolean;
-  /** Tables that could not be read on this run, if any. */
+  /** Tables that could not be read, or were cut short by the row cap, on this
+   *  run, if any. */
   problems?: string[];
 }): EmailContent {
   const total = o.counts.reduce((n, [, c]) => n + c, 0);
@@ -940,7 +941,7 @@ export function gymBackupReady(o: {
       bullets(o.counts.slice(0, 8).map(([label, n]) =>
         t`${strong(label)} — ${n.toLocaleString('en-NG')}`)),
       ...(o.problems?.length
-        ? [callout('warning', `Some tables could not be read this time: ${o.problems.join('; ')}. The rest of the backup is complete.`)]
+        ? [callout('warning', `Some tables are incomplete in this backup: ${o.problems.join('; ')}. The rest of it is complete.`)]
         : []),
       button('Open your backups', o.backupsUrl),
       small('One spreadsheet per table, openable in Excel, Google Sheets or Numbers. Card details and bank account numbers are deliberately excluded.'),

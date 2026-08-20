@@ -35,6 +35,18 @@ export async function startPlatformSubscription(tier: string, cycle: string): Pr
   }
 
   const { user, gym } = await requireStaff(OWNER_ROLES);
+  // A checkout for the plan the gym is already subscribed to buys nothing and
+  // mints a duplicate Paystack mandate that would bill alongside the first, so
+  // refuse it: the card for the current tier+cycle renders disabled
+  // (components/admin/plan-cards.tsx), which makes this a double-click or a
+  // stale tab, not an intent. A DIFFERENT tier or cycle is the switch the UI
+  // deliberately allows and goes through — the mandate it replaces is disabled
+  // by the fulfiller once the new subscription's first charge settles
+  // (retireSupersededMandate in lib/platform-fulfill.ts).
+  if (gym.paystack_subscription_code && gym.subscription_status === 'active'
+      && gym.subscription_plan === tier && gym.subscription_billing_cycle === cycle) {
+    return { ok: false, error: `You’re already on the ${CYCLE_LABEL[cycle].toLowerCase()} ${plan.name} plan.` };
+  }
   // Owners reach the console on the apex and on their gym's subdomain; return
   // them to whichever they were using, or the session is gone on arrival.
   const site = await requestOrigin();
