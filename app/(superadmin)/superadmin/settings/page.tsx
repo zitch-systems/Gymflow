@@ -4,6 +4,7 @@ import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getPlatformSettings } from '@/lib/platform-settings';
 import { secretsConfigured } from '@/lib/crypto/secret-box';
+import { arrangementLabel, isDefaultArrangement } from '@/lib/commission-breakdown';
 import { sa } from '@/lib/superadmin-path';
 import { PlatformDefaultsForm } from './defaults-form';
 
@@ -29,7 +30,11 @@ export default async function SuperSettings() {
     // What every live gym is ACTUALLY on. The default above only decides what a
     // new gym starts at, and the two drifting apart silently is exactly how the
     // console ended up claiming a rate nobody was charged.
-    supabase.from('gyms').select('id, name, platform_commission_pct, status')
+    // Mode and flat amount too: a gym on a flat deal keeps a percentage on its
+    // row as Paystack's fallback, so reading the percentage alone reports an
+    // arrangement it is not on — and calls it "the default" while it is on a
+    // negotiated one.
+    supabase.from('gyms').select('id, name, platform_commission_pct, platform_commission_mode, platform_commission_fixed_amount, status')
       .not('status', 'in', '("terminated")')
       .order('name', { ascending: true }),
   ]);
@@ -37,8 +42,16 @@ export default async function SuperSettings() {
   // Integration status reflects whether the env key is actually set.
   const status = (key: string) => (process.env[key] ? ['gf-badge-success', 'Live'] : ['gf-badge-neutral', 'Not set']);
 
-  const rates = (gymRates ?? []) as { id: string; name: string; platform_commission_pct: number | null; status: string | null }[];
-  const offDefault = rates.filter((g) => Number(g.platform_commission_pct ?? 0) !== defaults.defaultCommissionPct);
+  const rates = (gymRates ?? []) as {
+    id: string; name: string; status: string | null;
+    platform_commission_pct: number | null;
+    platform_commission_mode: string | null;
+    platform_commission_fixed_amount: number | null;
+  }[];
+  const arrangementOf = (g: (typeof rates)[number]) => ({
+    mode: g.platform_commission_mode, pct: g.platform_commission_pct, fixed: g.platform_commission_fixed_amount,
+  });
+  const offDefault = rates.filter((g) => !isDefaultArrangement(arrangementOf(g), defaults.defaultCommissionPct));
 
   return (
     <>
@@ -50,7 +63,7 @@ export default async function SuperSettings() {
           <div className="panel">
             <div className="panel-title">Commission in force</div>
             <div className="panel-desc">
-              {rates.length} gym{rates.length === 1 ? '' : 's'} · {offDefault.length} on a rate other than the {defaults.defaultCommissionPct}% default.
+              {rates.length} gym{rates.length === 1 ? '' : 's'} · {offDefault.length} on an arrangement other than the {defaults.defaultCommissionPct}% default.
               Change one from its page under Gyms.
             </div>
             {rates.length === 0 && <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.85rem' }}>No gyms yet.</div>}
@@ -60,8 +73,8 @@ export default async function SuperSettings() {
                   <strong><Link href={sa(`/gyms/${g.id}`)} style={{ color: 'inherit' }}>{g.name}</Link></strong>
                   <small>{g.status ?? 'unknown'}</small>
                 </div>
-                <span className={`gf-badge ${Number(g.platform_commission_pct ?? 0) === defaults.defaultCommissionPct ? 'gf-badge-neutral' : 'gf-badge-warning'}`}>
-                  {Number(g.platform_commission_pct ?? 0)}%
+                <span className={`gf-badge ${isDefaultArrangement(arrangementOf(g), defaults.defaultCommissionPct) ? 'gf-badge-neutral' : 'gf-badge-warning'}`}>
+                  {arrangementLabel(arrangementOf(g))}
                 </span>
               </div>
             ))}

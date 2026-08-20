@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { initTransaction } from '@/lib/paystack';
+import { gymCommission } from '@/lib/paystack-payloads';
 import { offersTrainer, planTotalKobo } from '@/lib/plan-addon';
 import { isOfflineGym } from '@/lib/gym-status';
 import type { Database } from '@/lib/database.types';
@@ -71,6 +72,10 @@ export async function startRenewalCore(
     },
     callbackUrl,
     subaccount: (gym.paystack_subaccount_code ?? '').trim() || null,
+    // The gym's commission arrangement travels with the charge: a fixed-mode
+    // gym owes a flat fee per payment, and it has to be the same flat fee
+    // whichever door the member paid through (web, WhatsApp, the app).
+    commission: gymCommission(gym),
   };
   let res = await initTransaction(txParams);
   // If the stored subaccount code is stale/invalid at Paystack, retry without

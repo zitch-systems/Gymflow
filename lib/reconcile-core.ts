@@ -48,6 +48,18 @@ export type SubaccountLookupStatus = 'found' | 'not_found' | 'lookup_failed';
 // orphans their real ones. A failed lookup instead reports 'retry_later' so
 // the caller records the transient error and leaves the gym for the next run,
 // the same posture reconcilePayouts already takes on a failed getTransfer.
+//
+// FIXED-MODE GYMS ARE CHECKED THE SAME WAY, on purpose, and this function needs
+// no notion of the mode at all. A gym on a flat per-payment fee still has
+// gyms.platform_commission_pct maintained as the subaccount's fallback rate —
+// the flat amount travels per-charge as Paystack's transaction_charge, and the
+// subaccount has nowhere to hold it (see lib/paystack.ts initTransaction). So
+// "does the live percentage_charge match our stored percentage" remains exactly
+// the right question for every gym. The two alternatives are both wrong:
+// skipping fixed-mode gyms would let their fallback rot unnoticed — precisely
+// the rate a charge falls back to when something goes wrong — and comparing the
+// live percentage against a flat naira figure would flag every fixed-mode gym
+// as drifted on every run, forever.
 export function planGymSplitFix(params: {
   subaccountStatus: SubaccountLookupStatus;
   livePct: number | null;

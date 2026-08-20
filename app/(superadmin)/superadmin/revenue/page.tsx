@@ -1,8 +1,13 @@
-import { Repeat, Banknote, CreditCard, Building2 } from 'lucide-react';
+import Link from 'next/link';
+import { Repeat, Banknote, CreditCard, Building2, Coins } from 'lucide-react';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { PLATFORM_PLANS, isPlanTier, PLAN_TIERS, normalizeCycle, monthlyEquivalentKobo, type PlanTier } from '@/lib/platform-plans';
+import {
+  COMMISSION_PERIODS, commissionPeriod, summarizeCommission, type GymCommissionRow,
+} from '@/lib/commission-breakdown';
+import { sa } from '@/lib/superadmin-path';
 
 export const metadata = { title: 'Revenue' };
 export const dynamic = 'force-dynamic';
@@ -10,19 +15,46 @@ export const maxDuration = 60;
 
 const COLORS = ['#11d18b', '#4080ff', '#c6f24e', '#ffb020', '#ff4560'];
 
-// Platform revenue = what GYMS pay GymFlow (the SaaS subscription), NOT what
-// members pay their gyms. The latter (member GMV) flows through gyms and is shown
-// separately as context — it is not the platform's revenue.
-export default async function SuperRevenue() {
+// How many gyms the commission table renders. Every total on the page is summed
+// over ALL gyms in the database (see summarizeCommission) — this caps the list
+// only, and what it leaves out is stated under the table rather than quietly
+// dropped, so a short table is never mistaken for the whole book.
+const GYM_ROWS = 50;
+
+/** `as never` on an rpc NAME collapses the whole builder to `never`; the
+ *  aggregate postdates the generated types, so it goes through this wrapper. */
+type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }> };
+
+// Platform revenue has two halves and they are not the same money:
+//
+//   · the SaaS subscription GYMS pay GymFlow (platform_payments) — the MRR and
+//     the collected figures below;
+//   · the COMMISSION GymFlow keeps out of what members pay their gyms, taken at
+//     settlement by Paystack's split.
+//
+// Member GMV is neither: it is the gyms' own revenue, shown only as the context
+// the commission is a slice of.
+export default async function SuperRevenue({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   await requirePlatformAdmin();
+  const sp = await searchParams;
+  const period = commissionPeriod(sp.p);
   const supabase = await createClient();
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-  const [{ data: gyms }, { data: platPay }, { data: memberPay }] = await Promise.all([
+  const [{ data: gyms }, { data: platPay }, { data: memberPay }, commissionRes] = await Promise.all([
     supabase.from('gyms').select('subscription_plan, subscription_status, subscription_billing_cycle'),
     supabase.from('platform_payments').select('amount, plan, created_at, billing_period_start').eq('payment_status', 'successful'),
     supabase.from('payments').select('amount').eq('payment_status', 'successful'),
+    // Aggregated in Postgres, one row per gym, over every qualifying payment —
+    // not a page of rows summed here. See the migration's header for what
+    // qualifies (splits only, successful, non-refunded).
+    (supabase as unknown as RpcClient).rpc('platform_commission_by_gym', {
+      p_from: period.from ? period.from.toISOString() : null,
+      p_to: null,
+    }),
   ]);
+
+  const commission = summarizeCommission((commissionRes.data as GymCommissionRow[] | null) ?? [], GYM_ROWS);
 
   const allGyms = gyms ?? [];
   const activeGyms = allGyms.filter((g) => g.subscription_status === 'active');
@@ -118,6 +150,71 @@ export default async function SuperRevenue() {
       <section className="panel" style={{ marginTop: 18 }}>
         <div className="panel-h"><div><h3>Member payment volume (GMV)</h3><div className="sub">Money members pay their gyms — flows to gyms, not platform revenue</div></div></div>
         <div style={{ padding: '6px 2px', fontSize: '1.5rem', fontWeight: 700 }}>{fmtNaira(memberGmv)}<span style={{ fontSize: '0.82rem', fontWeight: 400, color: 'var(--gf-text-muted)', marginLeft: 10 }}>processed across all gyms, all-time</span></div>
+      </section>
+
+      {/* GymFlow's slice of the GMV above. Every figure here is what Paystack
+          actually split at settlement, recorded per payment — never today's rate
+          applied to historical volume. */}
+      <section className="panel" style={{ marginTop: 18 }}>
+        <div className="panel-h">
+          <div><h3>Commission from member payments</h3><div className="sub">GymFlow’s cut of member subscription payments · {period.label.toLowerCase()}</div></div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {COMMISSION_PERIODS.map(([k, label]) => (
+              <Link key={k} href={sa(k === COMMISSION_PERIODS[0][0] ? '/revenue' : `/revenue?p=${k}`)} className={period.key === k ? 'gf-chip active' : 'gf-chip'} style={{ textDecoration: 'none' }}>{label}</Link>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: '6px 2px 14px', fontSize: '1.5rem', fontWeight: 700 }}>
+          {fmtNaira(commission.total)}
+          <span style={{ fontSize: '0.82rem', fontWeight: 400, color: 'var(--gf-text-muted)', marginLeft: 10 }}>
+            kept across {commission.payments.toLocaleString('en-NG')} payment{commission.payments === 1 ? '' : 's'} from {commission.earningGyms} gym{commission.earningGyms === 1 ? '' : 's'}
+            {' · '}{fmtNaira(commission.fromPercentage)} from percentage rates · {fmtNaira(commission.fromFlat)} from flat fees
+            {commission.unclassified > 0 ? ` · ${fmtNaira(commission.unclassified)} recorded without a basis` : ''}
+          </span>
+        </div>
+
+        {commission.rows.length === 0 ? (
+          <div className="empty"><div className="eic"><Coins strokeWidth={1.6} /></div><h3>No commission in this period</h3><p>Commission is recorded when a member pays a gym that has connected its Paystack payouts.</p></div>
+        ) : (
+          <>
+            <div className="tbl-scroll">
+              <table className="gt">
+                <thead><tr><th>Gym</th><th>Rate today</th><th style={{ textAlign: 'right' }}>Payments</th><th style={{ textAlign: 'right' }}>From rate</th><th style={{ textAlign: 'right' }}>From flat fee</th><th style={{ textAlign: 'right' }}>Commission</th></tr></thead>
+                <tbody>{commission.rows.map((g) => (
+                  <tr key={g.gymId}>
+                    <td><Link className="link" href={sa(`/gyms/${g.gymId}`)} style={{ textDecoration: 'none' }}><strong>{g.name}</strong></Link></td>
+                    <td style={{ color: 'var(--gf-text-secondary)' }}>{g.rateLabel}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--gf-text-secondary)' }}>{g.payments.toLocaleString('en-NG')}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--gf-text-secondary)' }} className="naira">{g.fromPercentage ? fmtNaira(g.fromPercentage) : '—'}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--gf-text-secondary)' }} className="naira">{g.fromFlat ? fmtNaira(g.fromFlat) : '—'}</td>
+                    <td style={{ textAlign: 'right' }} className="naira"><strong>{fmtNaira(g.commission)}</strong></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            {commission.hiddenGyms > 0 && (
+              <div className="sub" style={{ padding: '10px 2px 0' }}>
+                Showing the top {commission.rows.length} gyms by commission. {commission.hiddenGyms} more gym{commission.hiddenGyms === 1 ? '' : 's'} account for a further {fmtNaira(commission.hiddenCommission)}, already included in the {fmtNaira(commission.total)} total above.
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Money that is NOT commission, kept out of every figure above and
+            stated rather than hidden: a gym with no Paystack subaccount has its
+            members' payments land whole in GymFlow's account, so the platform is
+            holding the gym's share, not earning it. */}
+        {commission.held > 0 && (
+          <div className="sub" style={{ padding: '10px 2px 0' }}>
+            Separately, {fmtNaira(commission.held)} across {commission.heldPayments.toLocaleString('en-NG')} payment{commission.heldPayments === 1 ? '' : 's'} settled wholly into GymFlow’s account because those gyms have no Paystack split — that is money <strong>held and owed to gyms</strong>, not commission earned, and none of it is counted above.
+          </div>
+        )}
+        {commission.unrecordedPayments > 0 && (
+          <div className="sub" style={{ padding: '6px 2px 0' }}>
+            {commission.unrecordedPayments.toLocaleString('en-NG')} payment{commission.unrecordedPayments === 1 ? '' : 's'} in this period predate per-payment commission records, so what was taken on them is not known and is not estimated here.
+          </div>
+        )}
       </section>
     </>
   );

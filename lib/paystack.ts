@@ -1,5 +1,5 @@
 import 'server-only';
-import { isChargeableKobo, subscriptionInitBody } from '@/lib/paystack-payloads';
+import { isChargeableKobo, subscriptionInitBody, transactionChargeKobo, type GymCommission } from '@/lib/paystack-payloads';
 import { readSplit, type SplitRecord } from '@/lib/paystack-split';
 // Paystack server helpers. Uses PAYSTACK_SECRET_KEY (server-only). All calls
 // are no-throw on missing key at module load — callers check + surface errors.
@@ -18,14 +18,47 @@ export type InitResult =
 
 // Initialize a transaction. amountKobo = naira × 100. metadata carries the
 // member/gym/plan so the webhook can record the payment + extend the sub.
+//
+// `commission` is the gym's arrangement. In percentage mode nothing extra is
+// sent and Paystack splits on the subaccount's own percentage_charge, exactly
+// as before. In fixed mode a flat `transaction_charge` (kobo) rides along and
+// overrides that percentage for this one charge.
+//
+// The subaccount's percentage_charge is deliberately LEFT AS THE GYM'S
+// PERCENTAGE even for a fixed-mode gym (setGymCommission keeps pushing it).
+// It is the fallback: any charge that somehow reaches Paystack without a
+// transaction_charge — a call site added later that doesn't thread this
+// through, a fixed amount that resolved to null — still splits at the stored
+// rate. The alternative, zeroing it, makes that same slip settle 100% to the
+// gym with the platform earning nothing, and a 0% main-account share also
+// flips who bears the Paystack fee onto the platform. Both failure directions
+// are wrong in favour of the platform's own error; this one is wrong in favour
+// of "the old arrangement still applied", which is recoverable and visible in
+// what gets recorded on the payment.
 export async function initTransaction(params: {
   email: string;
   amountKobo: number;
   metadata: Record<string, unknown>;
   callbackUrl?: string;
   subaccount?: string | null;
+  commission?: GymCommission | null;
 }): Promise<InitResult> {
   try {
+    // Only meaningful alongside a subaccount: with no split there is nothing
+    // to route a flat charge away from — the whole amount already lands in the
+    // platform account.
+    const flatKobo = params.subaccount
+      ? transactionChargeKobo({ commission: params.commission, amountKobo: params.amountKobo })
+      : null;
+    // Our own record of what we ASKED for, carried on the charge's metadata.
+    // Paystack echoes metadata back on charge.success verbatim, and it is the
+    // only field in the payload we control — whether the charge event also
+    // repeats `transaction_charge` is Paystack's choice, and lib/paystack-split
+    // must not have to guess a basis when it doesn't. Kobo, matching the field
+    // it mirrors.
+    const metadata = flatKobo !== null
+      ? { ...params.metadata, platform_commission_flat_kobo: flatKobo }
+      : params.metadata;
     const res = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
@@ -33,11 +66,15 @@ export async function initTransaction(params: {
         email: params.email,
         amount: params.amountKobo,
         currency: 'NGN',
-        metadata: params.metadata,
+        metadata,
         callback_url: params.callbackUrl,
         // When set, settle this charge to the gym's Paystack subaccount (its own
         // bank); the platform keeps its commission and the subaccount bears fees.
         ...(params.subaccount ? { subaccount: params.subaccount, bearer: 'subaccount' } : {}),
+        // Flat commission for this charge, in kobo. Paystack sends exactly this
+        // much to the main account and the remainder to the subaccount,
+        // overriding the subaccount's percentage_charge for this transaction.
+        ...(flatKobo !== null ? { transaction_charge: flatKobo } : {}),
       }),
       cache: 'no-store',
     });

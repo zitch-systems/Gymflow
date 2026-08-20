@@ -27,7 +27,7 @@ const splitCharge = {
 
 describe('readSplit', () => {
   it('reads the rate and the naira the platform kept', () => {
-    expect(readSplit(splitCharge)).toEqual({ settlement: 'split', pct: 10, amountNaira: 500 });
+    expect(readSplit(splitCharge)).toEqual({ settlement: 'split', basis: 'percentage', pct: 10, amountNaira: 500 });
   });
 
   it('prefers what this transaction was split on over the subaccount’s current rate', () => {
@@ -44,7 +44,7 @@ describe('readSplit', () => {
 
   it('falls back to the subaccount rate when Paystack reported no breakdown', () => {
     const noBreakdown = { amount: 500_000, subaccount: { subaccount_code: 'ACCT_x1', percentage_charge: 7.5 } };
-    expect(readSplit(noBreakdown)).toEqual({ settlement: 'split', pct: 7.5, amountNaira: 375 });
+    expect(readSplit(noBreakdown)).toEqual({ settlement: 'split', basis: 'percentage', pct: 7.5, amountNaira: 375 });
   });
 
   it('records no commission when there was no subaccount to split to', () => {
@@ -52,7 +52,7 @@ describe('readSplit', () => {
     // the gym, not earned — reporting it as commission is the mistake that made
     // the console's figures wrong to begin with.
     for (const data of [{ amount: 500_000 }, { amount: 500_000, subaccount: null }, { amount: 500_000, subaccount: {} }]) {
-      expect(readSplit(data)).toEqual({ settlement: 'platform_only', pct: null, amountNaira: null });
+      expect(readSplit(data)).toEqual({ settlement: 'platform_only', basis: null, pct: null, amountNaira: null });
     }
   });
 
@@ -65,10 +65,85 @@ describe('readSplit', () => {
     }
   });
 
+  // A gym on a flat per-payment fee: lib/paystack.ts sends transaction_charge
+  // (kobo) and Paystack routes exactly that to the main account, overriding the
+  // subaccount's percentage for this one charge. ₦500 flat on a ₦5,000 payment.
+  const flatCharge = {
+    amount: 500_000,
+    subaccount: { subaccount_code: 'ACCT_x1', business_name: 'Trivion', percentage_charge: 10 },
+    fees_split: { paystack: 7_500, integration: 50_000, subaccount: 442_500, params: { bearer: 'subaccount', percentage_charge: 10, transaction_charge: 50_000 } },
+  };
+
+  it('records a flat charge as flat, with no rate at all', () => {
+    // The percentage on the subaccount is the FALLBACK, not what this charge
+    // used. Storing 10% here would invent an arrangement nobody agreed — and it
+    // would re-price itself on the next payment of a different size.
+    expect(readSplit(flatCharge)).toEqual({ settlement: 'split', basis: 'flat', pct: null, amountNaira: 500 });
+  });
+
+  it('falls back to the flat charge when Paystack reported no breakdown', () => {
+    const noBreakdown = {
+      amount: 500_000,
+      subaccount: { subaccount_code: 'ACCT_x1', percentage_charge: 10 },
+      transaction_charge: 50_000,
+    };
+    expect(readSplit(noBreakdown)).toEqual({ settlement: 'split', basis: 'flat', pct: null, amountNaira: 500 });
+  });
+
+  it('reads the flat fee off our own metadata when the event does not echo it', () => {
+    // Paystack accepts transaction_charge on /transaction/initialize; whether
+    // the charge event repeats it is Paystack's choice, and the webhook payload
+    // is not the /transaction/verify payload. Without our own record, the
+    // absence of an echo demotes a flat charge to "percentage at the
+    // subaccount's fallback rate" — 5% and ₦1,000 on a ₦20,000 payment where
+    // ₦500 was actually taken. Nothing errors, the CHECK constraint permits it,
+    // and the mislabelling is unrecoverable afterwards.
+    const noEcho = {
+      amount: 2_000_000,
+      subaccount: { subaccount_code: 'ACCT_x1', percentage_charge: 5 },
+      fees_split: { paystack: 30_000, integration: 50_000, subaccount: 1_920_000, params: { bearer: 'subaccount', percentage_charge: 5 } },
+      metadata: { plan_id: 'p1', platform_commission_flat_kobo: 50_000 },
+    };
+    expect(readSplit(noEcho)).toEqual({ settlement: 'split', basis: 'flat', pct: null, amountNaira: 500 });
+  });
+
+  it('prefers what Paystack reported over what we asked for', () => {
+    // Our metadata is the intent; an echo from Paystack describes what Paystack
+    // actually did, and a charge initialized before a re-mode settles on the
+    // older instruction. So the echo is read first.
+    const echoed = {
+      ...flatCharge,
+      metadata: { platform_commission_flat_kobo: 999_999 },
+    };
+    expect(readSplit(echoed)).toEqual({ settlement: 'split', basis: 'flat', pct: null, amountNaira: 500 });
+  });
+
+  it('ignores a metadata figure on an ordinary percentage charge', () => {
+    // A percentage-mode checkout never carries the key; junk in metadata (a
+    // member-supplied field, on a payload we do not control) must not be able
+    // to restate a percentage split as flat.
+    const junk = {
+      amount: 500_000,
+      subaccount: { subaccount_code: 'ACCT_x1', percentage_charge: 10 },
+      metadata: { platform_commission_flat_kobo: 'not a number' },
+    };
+    expect(readSplit(junk)).toEqual({ settlement: 'split', basis: 'percentage', pct: 10, amountNaira: 500 });
+  });
+
+  it('treats a zero transaction_charge as an ordinary percentage split', () => {
+    // Paystack echoes a 0 on percentage splits; reading that as "flat, ₦0" would
+    // strip the rate off every ordinary charge.
+    const zeroed = {
+      ...flatCharge,
+      fees_split: { ...flatCharge.fees_split, params: { bearer: 'subaccount', percentage_charge: 10, transaction_charge: 0 } },
+    };
+    expect(readSplit(zeroed)).toEqual({ settlement: 'split', basis: 'percentage', pct: 10, amountNaira: 500 });
+  });
+
   it('rejects an out-of-range rate rather than storing it', () => {
     // numeric(5,2) would take 400; a 400% commission would not be true.
     const absurd = { amount: 500_000, subaccount: { subaccount_code: 'ACCT_x1', percentage_charge: 400 } };
-    expect(readSplit(absurd)).toEqual({ settlement: 'split', pct: null, amountNaira: null });
+    expect(readSplit(absurd)).toEqual({ settlement: 'split', basis: 'percentage', pct: null, amountNaira: null });
   });
 
   it('rounds to the two decimals the columns actually store', () => {
@@ -89,10 +164,17 @@ describe('commissionColumns', () => {
   it('leaves the figures null on every settlement that is not a split', () => {
     // Mirrors the CHECK constraint in the migration, so a mismatch fails here
     // rather than as a 23514 on the money path.
-    expect(commissionColumns({ settlement: 'platform_only', pct: 3, amountNaira: 99 }))
-      .toEqual({ platform_settlement: 'platform_only', platform_commission_pct: null, platform_commission_amount: null });
-    expect(commissionColumns({ settlement: 'offline', pct: 3, amountNaira: 99 }))
-      .toEqual({ platform_settlement: 'offline', platform_commission_pct: null, platform_commission_amount: null });
+    expect(commissionColumns({ settlement: 'platform_only', basis: 'percentage', pct: 3, amountNaira: 99 }))
+      .toEqual({ platform_settlement: 'platform_only', platform_commission_basis: null, platform_commission_pct: null, platform_commission_amount: null });
+    expect(commissionColumns({ settlement: 'offline', basis: 'flat', pct: 3, amountNaira: 99 }))
+      .toEqual({ platform_settlement: 'offline', platform_commission_basis: null, platform_commission_pct: null, platform_commission_amount: null });
+  });
+
+  it('carries the basis so the console can say ₦500 flat instead of guessing a rate', () => {
+    expect(commissionColumns({ settlement: 'split', basis: 'flat', pct: null, amountNaira: 500 }))
+      .toEqual({ platform_settlement: 'split', platform_commission_basis: 'flat', platform_commission_pct: null, platform_commission_amount: 500 });
+    expect(commissionColumns({ settlement: 'split', basis: 'percentage', pct: 10, amountNaira: 500 }))
+      .toEqual({ platform_settlement: 'split', platform_commission_basis: 'percentage', platform_commission_pct: 10, platform_commission_amount: 500 });
   });
 });
 
@@ -160,6 +242,14 @@ describe('a gym cannot write its own commission figures', () => {
     await expect(insert('platform_settlement', ['offline'])).resolves.toBeTruthy();
   });
 
+  it('refuses a staff-written commission basis too', async () => {
+    // The basis is a claim about how the PLATFORM's cut was computed. It is not
+    // a figure, which is exactly why it was easy to leave out of the guard — a
+    // tenant that can label its own payments 'percentage' can make the console
+    // describe an arrangement that never applied.
+    await expect(insert('platform_commission_basis', ['percentage'])).rejects.toThrow(/cannot be set by a tenant/);
+  });
+
   it('and the settlement they can write carries no figures', async () => {
     // The CHECK constraint, not the trigger: 'offline' with a figure attached
     // is refused for everyone, service role included.
@@ -167,5 +257,65 @@ describe('a gym cannot write its own commission figures', () => {
       `insert into public.payments (gym_id, member_id, amount, paystack_reference, platform_settlement, platform_commission_amount)
        values ($1, $2, 5000, 'CHECK-test', 'offline', 4500)`, [IDS.gymA, IDS.memberA],
     ))).rejects.toThrow(/payments_platform_settlement_shape/);
+  });
+});
+
+describe('the flat-commission columns hold their shape', () => {
+  // The CHECK constraint, against the real database — a basis that contradicts
+  // the rest of the row is the failure this backs, and it must land here rather
+  // than as a 23514 on the money path.
+  beforeAll(async () => { await reset(); await seed(); });
+  afterAll(async () => { await reset(); });
+
+  const write = (cols: string, values: unknown[]) => asSuperuser((c) => c.query(
+    `insert into public.payments (gym_id, member_id, amount, paystack_reference, ${cols})
+     values ($1, $2, 5000, 'BASIS-${Math.random().toString(36).slice(2)}'${values.map((_, i) => `, $${i + 3}`).join('')})`,
+    [IDS.gymA, IDS.memberA, ...values],
+  ));
+
+  it('accepts a flat split with no rate', async () => {
+    await expect(write('platform_settlement, platform_commission_basis, platform_commission_amount', ['split', 'flat', 500]))
+      .resolves.toBeTruthy();
+  });
+
+  it('refuses a flat split that also claims a rate', async () => {
+    // A flat charge has no percentage. One that carries both is a row nobody
+    // can interpret, and the console would show whichever it happened to read.
+    await expect(write('platform_settlement, platform_commission_basis, platform_commission_pct', ['split', 'flat', 10]))
+      .rejects.toThrow(/payments_commission_basis_shape/);
+  });
+
+  it('refuses a basis on a payment that never split', async () => {
+    await expect(write('platform_settlement, platform_commission_basis', ['offline', 'flat']))
+      .rejects.toThrow(/payments_commission_basis_shape/);
+  });
+
+  it('refuses a basis that is neither', async () => {
+    await expect(write('platform_settlement, platform_commission_basis', ['split', 'sometimes']))
+      .rejects.toThrow(/payments_commission_basis_shape/);
+  });
+});
+
+describe('a gym carries its commission arrangement', () => {
+  beforeAll(async () => { await reset(); await seed(); });
+  afterAll(async () => { await reset(); });
+
+  it('defaults every existing and new gym to the percentage it already had', async () => {
+    // The whole safety property of the migration: adding fixed mode changed no
+    // gym's behaviour. Seeded gyms predate the columns.
+    const { rows } = await asSuperuser((c) => c.query(
+      'select platform_commission_mode, platform_commission_fixed_amount from public.gyms where id = $1', [IDS.gymA],
+    ));
+    expect(rows[0].platform_commission_mode).toBe('percentage');
+    expect(Number(rows[0].platform_commission_fixed_amount)).toBe(0);
+  });
+
+  it('refuses a mode it has no meaning for, and a negative flat fee', async () => {
+    await expect(asSuperuser((c) => c.query(
+      "update public.gyms set platform_commission_mode = 'whenever' where id = $1", [IDS.gymA],
+    ))).rejects.toThrow(/gyms_platform_commission_mode_check/);
+    await expect(asSuperuser((c) => c.query(
+      'update public.gyms set platform_commission_fixed_amount = -1 where id = $1', [IDS.gymA],
+    ))).rejects.toThrow(/gyms_platform_commission_fixed_amount_check/);
   });
 });
