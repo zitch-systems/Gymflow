@@ -98,9 +98,13 @@ incrementals before any test executes. If CI is green, the rebuild path works.
 
 ## 3. Redeploy the app
 
-1. Vercel project → set env vars (§4) → redeploy `main`. No build-time
-   secrets are required beyond the `NEXT_PUBLIC_*` placeholders, so the build
-   cannot fail on missing server keys.
+1. Vercel project → set env vars (§4), then release `main`. Note the Git
+   trigger for `main` is deliberately off (§4a), so a push does not deploy on
+   its own: re-run the CI workflow on `main`, or — in a rebuild, when CI cannot
+   reach the new project yet — deploy by hand with
+   `vercel deploy --prod --token=…` after `vercel link`. No build-time secrets
+   are required beyond the `NEXT_PUBLIC_*` placeholders, so the build cannot
+   fail on missing server keys.
 2. Wildcard domain `*.gymflow.ng` + apex must both point at Vercel for
    per-gym subdomains to resolve.
 
@@ -130,14 +134,48 @@ Repo-side (GitHub → Settings → Secrets → Actions), not Vercel:
 
 ## 4a. How migrations reach production
 
-`main` is the deploy trigger. On every push to it, after `verify` (lint,
-type-check, the RLS suite and a build) passes, the **`migrate` job**:
+`main` is the deploy trigger, and the pipeline is strictly ordered:
+
+```
+verify  →  migrate  →  deploy
+```
+
+After `verify` (lint, type-check, the RLS suite and a build) passes, the
+**`migrate` job**:
 
 1. runs `node scripts/migrate.mjs --dry-run` so the plan is in the log,
 2. applies every pending migration — each in its own transaction, in filename
    order, behind a Postgres advisory lock,
 3. rebuilds the shadow DB from the migrations and diffs its fingerprint against
    live, so an apply that didn't achieve what the repo says fails the build.
+
+Only then does the **`deploy` job** publish to Vercel. **Vercel's own Git
+trigger for `main` is switched off** (`vercel.json` → `git.deploymentEnabled.
+main: false`) precisely so it cannot race the migration: it used to deploy on
+push, in parallel, which left a window where production ran code whose
+migration had not landed. That window was real — on 2026-08-20 the app went
+live at 13:09:24 UTC calling `public.extend_member_sub` while the function was
+not created until 13:12:08, ~2m44s during which every membership renewal would
+have failed. A failed migration now means **no deploy at all**.
+
+Consequences worth knowing:
+
+- **A red `migrate` job leaves production on the previous release.** That is the
+  intended failure mode — old code against the old schema is coherent; new code
+  against the old schema is not.
+- **Rollback is still Vercel's Instant Rollback** (Deployments → ⋯ → Rollback),
+  but rolling the app back does **not** roll the schema back. Migrations here
+  are written additively for exactly this reason: the previous release must keep
+  working against the newer schema. A migration that cannot satisfy that needs
+  splitting across two releases (add the new shape, deploy, migrate the reads,
+  drop the old shape) rather than a rollback.
+- **`gymflow-meta-connector` is unaffected** — it has its own `vercel.json`
+  under its root directory, ships no migrations, and still deploys from Git.
+- **PR previews are unaffected** — `deploymentEnabled` names only `main`.
+- The `deploy` job needs `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`
+  in Actions secrets. With the Git trigger off, missing secrets mean production
+  stops receiving deploys, so the job fails loudly and names them rather than
+  skipping.
 
 The ledger is `supabase_migrations.repo_migrations (filename, checksum,
 applied_at)`, **keyed on filename, not the numeric prefix**: 39 of this repo's
