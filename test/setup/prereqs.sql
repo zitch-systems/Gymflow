@@ -67,3 +67,23 @@ grant anon, authenticated, service_role to current_user;
 -- can_see_profile() invoked by the user, fails with "permission denied for
 -- schema auth" here while working in production. Match production.
 grant usage on schema auth to anon, authenticated, service_role;
+
+-- Hosted Supabase also ships ALTER DEFAULT PRIVILEGES that grant EXECUTE on
+-- every newly created function in `public` to these three roles BY NAME
+-- (pg_default_acl there reads {postgres=X/…,anon=X/…,authenticated=X/…,
+-- service_role=X/…}). Plain Postgres has no such thing: `anon` only reaches a
+-- new function through PUBLIC.
+--
+-- That difference is not cosmetic, it hides a whole class of bug. A migration
+-- ending in `revoke all on function … from public` looks locked down here —
+-- anon loses its only route — while on live the named grant survives and anon
+-- keeps EXECUTE. That is exactly how platform_commission_by_gym shipped
+-- anon-executable (fixed in 20260826090000): the repo said anon=false, live
+-- said anon=true, and nothing local could reproduce it. The post-apply
+-- fingerprint diff in the migrate job caught it only after it had reached
+-- production.
+--
+-- Replicating the default privileges makes the shadow database faithful, so a
+-- revoke that names PUBLIC but forgets `anon` now fails the drift gate on the
+-- pull request instead of on live.
+alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;

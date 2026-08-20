@@ -77,6 +77,37 @@ describe('RBAC helper RPC surface', () => {
     }
   });
 
+  it('no SECURITY DEFINER function in public is executable by anon', async () => {
+    // A SECURITY DEFINER function runs as its owner, so RLS is not the boundary
+    // — the grant is. This is a whole-schema sweep rather than a named list so
+    // that the NEXT such function is covered without anyone remembering to add
+    // it here.
+    //
+    // It exists because of a real escape: 20260825090000 ended with
+    // `revoke all on function … from public`, which is sufficient on plain
+    // Postgres but not on Supabase, where ALTER DEFAULT PRIVILEGES grants
+    // EXECUTE to `anon` BY NAME on every new public function. PUBLIC was
+    // revoked, the named grant survived, and platform_commission_by_gym went to
+    // production anon-executable. test/setup/prereqs.sql now replicates those
+    // default privileges, which is what lets this assertion reproduce the bug
+    // locally at all — without it, anon looks correctly locked out here while
+    // being wide open on live.
+    const leaked = await withSession({ role: 'anon' }, async (c) => {
+      const { rows } = await c.query<{ proname: string }>(`
+        select p.proname
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public'
+          and p.prosecdef
+          and p.prokind = 'f'
+          and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+          and has_function_privilege('anon', p.oid, 'EXECUTE')
+        order by 1`);
+      return rows.map((r) => r.proname);
+    });
+    // Name them in the failure: "revoke execute on function <name> from anon".
+    expect(leaked, `anon holds EXECUTE on SECURITY DEFINER function(s): ${leaked.join(', ')}`).toEqual([]);
+  });
+
   it('anon can still read the public landing tables (classes, business_hours)', async () => {
     // After tenant isolation hardening, gyms and membership_plans are no
     // longer accessible to anon. Classes and business_hours remain public.
