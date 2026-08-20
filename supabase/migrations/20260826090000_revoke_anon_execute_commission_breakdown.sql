@@ -1,0 +1,35 @@
+-- Take EXECUTE on platform_commission_by_gym away from `anon`.
+--
+-- 20260825090000 created it SECURITY DEFINER and ended with:
+--
+--   revoke all on function public.platform_commission_by_gym(...) from public;
+--   grant execute on function public.platform_commission_by_gym(...) to authenticated;
+--
+-- On a plain Postgres that is enough — `anon` only ever held EXECUTE through
+-- PUBLIC, so revoking PUBLIC takes it away. On Supabase it is not: the project
+-- ships ALTER DEFAULT PRIVILEGES that grant EXECUTE on every new function in
+-- `public` to anon, authenticated and service_role *by name*
+-- (pg_default_acl: {postgres=X/…,anon=X/…,authenticated=X/…,service_role=X/…}).
+-- A named grant is not removed by revoking from PUBLIC, so on live the function
+-- came out with anon=true.
+--
+-- The sibling migration got this right — 20260821090000 line 107 revokes from
+-- `public, anon` explicitly — which is why extend_member_sub is anon=false on
+-- live and this one was not.
+--
+-- This is defence in depth rather than an open door: the function's first act
+-- is to raise 42501 unless private.is_platform_admin(), so an anon caller got
+-- an exception, never a row of commission data. But the repo said anon could
+-- not execute it and live said otherwise, and the gate that noticed is exactly
+-- the one that should have.
+--
+-- Worth knowing for the next SECURITY DEFINER function: the shadow database CI
+-- diffs against is plain Postgres and does NOT carry those default privileges
+-- (test/setup/prereqs.sql creates the roles but not the ALTER DEFAULT
+-- PRIVILEGES), so this class of drift cannot be reproduced locally — it only
+-- shows up in the migrate job's post-apply fingerprint diff against live.
+-- Always name `anon` in the revoke.
+--
+-- Idempotent, and a no-op on any database where anon never held the grant.
+
+revoke execute on function public.platform_commission_by_gym(timestamptz, timestamptz) from anon;
