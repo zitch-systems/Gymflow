@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isChargeableKobo, subscriptionInitBody } from '@/lib/paystack-payloads';
+import { gymCommission, isChargeableKobo, subscriptionInitBody, transactionChargeKobo } from '@/lib/paystack-payloads';
 import {
   PLATFORM_PLANS, PLAN_TIERS, BILLING_CYCLES, CYCLE_MONTHS, DEFAULT_CYCLE,
   planPrice, planAmountKobo, monthlyEquivalentKobo, cycleSavingPct,
@@ -130,5 +130,99 @@ describe('platform plan catalogue', () => {
 
   it('names every tier', () => {
     for (const tier of PLAN_TIERS) expect(PLATFORM_PLANS[tier].name.length).toBeGreaterThan(0);
+  });
+});
+
+// A gym's cut can be a percentage of each member payment or a FLAT naira
+// amount per payment. Paystack can only hold a percentage on the subaccount,
+// so the flat deal travels per-charge as `transaction_charge` (kobo) on
+// /transaction/initialize. That conversion and its clamp live here, pure,
+// because lib/paystack.ts is server-only and unreachable from a test.
+
+describe('gymCommission', () => {
+  it('reads a flat arrangement off the gym row', () => {
+    expect(gymCommission({ platform_commission_mode: 'fixed', platform_commission_fixed_amount: 500 }))
+      .toEqual({ mode: 'fixed', fixedNaira: 500 });
+  });
+
+  it('reads numerics that arrive as strings, which is how PostgREST sends them', () => {
+    expect(gymCommission({ platform_commission_mode: 'fixed', platform_commission_fixed_amount: '500.00' }).fixedNaira).toBe(500);
+  });
+
+  it('falls back to percentage for anything it does not recognise', () => {
+    // Every gym on the platform is on a percentage. An unset, null or unknown
+    // mode must mean the arrangement they already have, never "flat, ₦0".
+    for (const gym of [null, undefined, {}, { platform_commission_mode: null }, { platform_commission_mode: 'whenever' }]) {
+      expect(gymCommission(gym).mode).toBe('percentage');
+    }
+  });
+});
+
+describe('transactionChargeKobo', () => {
+  it('sends the flat fee in kobo for a fixed-mode gym', () => {
+    expect(transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira: 500 }, amountKobo: 500_000 })).toBe(50_000);
+  });
+
+  it('sends nothing at all for a percentage gym', () => {
+    // Not 0 — a zero transaction_charge is a real instruction to take nothing,
+    // which would override the subaccount's percentage and hand the gym the
+    // whole charge.
+    expect(transactionChargeKobo({ commission: { mode: 'percentage', fixedNaira: 500 }, amountKobo: 500_000 })).toBeNull();
+    expect(transactionChargeKobo({ commission: null, amountKobo: 500_000 })).toBeNull();
+  });
+
+  it('sends nothing for a flat fee that is zero, missing or nonsense', () => {
+    for (const fixedNaira of [0, null, NaN, -50]) {
+      expect(transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira }, amountKobo: 500_000 })).toBeNull();
+    }
+  });
+
+  it('clamps a flat fee larger than the payment, and leaves the gym a share', () => {
+    // A ₦5,000 flat fee on a ₦1,000 renewal is nonsense arithmetic, and
+    // Paystack's own answer to it is either a rejected checkout — the member
+    // cannot pay, for a reason entirely the platform's — or taking everything.
+    // Clamping picks the safe direction, but clamping to the amount ITSELF is
+    // the rejected checkout: lib/paystack.ts sends bearer:'subaccount', so the
+    // gym's share is where Paystack's own fee comes from, and a share of
+    // exactly ₦0 has nothing to pay it with.
+    const clamped = transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira: 5_000 }, amountKobo: 100_000 });
+    expect(clamped).not.toBeNull();
+    expect(clamped!).toBeLessThan(100_000);
+    // The headroom left behind covers 1.5% + ₦100 of the charge, which is what
+    // a local NGN transaction costs.
+    expect(100_000 - clamped!).toBeGreaterThanOrEqual(Math.ceil(100_000 * 0.015) + 10_000);
+  });
+
+  it('leaves that headroom even when the flat fee exactly equals the payment', () => {
+    // The boundary case: a ₦500 flat deal and a ₦500 day pass. min(amount,
+    // charge) is a legal-looking answer that zeroes the subaccount.
+    const exact = transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira: 500 }, amountKobo: 50_000 });
+    expect(exact).not.toBeNull();
+    expect(exact!).toBeLessThan(50_000);
+  });
+
+  it('sends no flat fee at all when the payment cannot carry one', () => {
+    // ₦50 is less than the fee on itself. Sending anything would leave the
+    // subaccount short; sending nothing falls back to the subaccount's
+    // percentage, which is a real arrangement rather than a failed checkout.
+    expect(transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira: 500 }, amountKobo: 5_000 })).toBeNull();
+  });
+
+  it('is unchanged for a flat fee the payment comfortably covers', () => {
+    // The ordinary case must not pay for the boundary: ₦500 out of ₦5,000.
+    expect(transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira: 500 }, amountKobo: 500_000 })).toBe(50_000);
+  });
+
+  it('rounds before clamping, so a rounded-up fee cannot slip past the ceiling', () => {
+    const clamped = transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira: 1_000.004 }, amountKobo: 100_000 });
+    expect(clamped!).toBeLessThan(100_000);
+    // ...and an ordinary fractional naira figure is still integer kobo.
+    expect(transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira: 12.345 }, amountKobo: 500_000 })).toBe(1_235);
+  });
+
+  it('sends nothing when there is no amount to take it from', () => {
+    for (const amountKobo of [0, -1, NaN]) {
+      expect(transactionChargeKobo({ commission: { mode: 'fixed', fixedNaira: 500 }, amountKobo })).toBeNull();
+    }
   });
 });

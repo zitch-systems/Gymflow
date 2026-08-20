@@ -31,7 +31,10 @@ import { payoutCompleted, payoutFailed } from '@/lib/email/templates/platform';
 //      (setGymCommission writes the DB first and pushes to Paystack second, by
 //      design — see that function — so a Paystack rejection leaves the two out
 //      of sync). Checked gyms are flagged (or cleared) via
-//      gyms.paystack_sync_error / paystack_sync_checked_at.
+//      gyms.paystack_sync_error / paystack_sync_checked_at. Gyms on a FIXED
+//      commission are swept identically — their percentage is still the live
+//      fallback on the subaccount, so it is still the thing to keep in sync.
+//      See planGymSplitFix for why this needs no mode awareness.
 
 type Admin = ReturnType<typeof createAdminClient>;
 

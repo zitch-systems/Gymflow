@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { updateSubaccountCommission } from '@/lib/paystack';
 import { isPlanTier } from '@/lib/platform-plans';
+import { parseCommission, type CommissionMode } from '@/lib/commission-settings';
 
 export type CommissionState = {
   ok: boolean;
@@ -13,43 +14,78 @@ export type CommissionState = {
   message?: string;
   /** The percentage now stored, echoed back so the editor can show what stuck. */
   pct?: number;
+  /** The mode now stored, echoed back for the same reason as `pct`. */
+  mode?: CommissionMode;
+  /** The flat naira per payment now stored. Only meaningful in fixed mode. */
+  fixed?: number;
   /** True when the rate is only in our DB — no Paystack split is applying it. */
   notSplitting?: boolean;
 };
 
-// Set a gym's platform commission %, platform-operator only. Persists the new
-// rate and, when the gym already has a Paystack subaccount, pushes it live (the
-// subaccount's percentage_charge is otherwise fixed at creation). Service-role
-// client: this is a trusted superadmin write, gated by requirePlatformAdmin.
+// Set a gym's platform commission, platform-operator only. The cut is either a
+// percentage of each member payment or a flat naira amount per payment; both
+// are stored on the gym, and the mode says which one is live.
+//
+// Persists the setting and, when the gym already has a Paystack subaccount,
+// pushes the PERCENTAGE live (the subaccount's percentage_charge is otherwise
+// fixed at creation). It pushes that in fixed mode too — deliberately: the flat
+// amount travels per-charge as transaction_charge, and the subaccount's
+// percentage stays behind it as the fallback for any charge that arrives
+// without one. See lib/paystack.ts initTransaction for why that direction is
+// the safe one. Service-role client: a trusted superadmin write, gated by
+// requirePlatformAdmin.
 export async function setGymCommission(_prev: CommissionState, formData: FormData): Promise<CommissionState> {
   const gymId = String(formData.get('gymId') ?? '');
-  const pct = Number(formData.get('pct'));
   if (!gymId) return { ok: false, error: 'Missing gym.' };
-  if (!Number.isFinite(pct) || pct < 0 || pct > 100) return { ok: false, error: 'Enter a percentage between 0 and 100.' };
+  // Both numbers and the mode are checked in one pure place — see
+  // lib/commission-settings.ts parseCommission for what each rule is for.
+  const parsed = parseCommission({
+    mode: formData.get('mode'), pct: formData.get('pct'), fixed: formData.get('fixed'),
+  });
+  if (parsed.value === null) return { ok: false, error: parsed.error };
+  const { mode, pct, fixed } = parsed.value;
 
   const admin = await requirePlatformAdmin();
   const db = createAdminClient();
-  // Read the rate back rather than trusting the input: `.select()` on the
-  // UPDATE returns the row as stored, so the editor can show the number that is
-  // actually in the database. A save that silently didn't stick is the failure
-  // this whole action is most likely to have, and the one hardest to see.
+  // Read the setting back rather than trusting the input: `.select()` on the
+  // UPDATE returns the row as stored, so the editor can show the numbers that
+  // are actually in the database. A save that silently didn't stick is the
+  // failure this whole action is most likely to have, and the hardest to see.
   const { data: gym, error } = await db.from('gyms')
-    .update({ platform_commission_pct: pct })
+    .update({ platform_commission_pct: pct, platform_commission_mode: mode, platform_commission_fixed_amount: fixed })
     .eq('id', gymId)
-    .select('platform_commission_pct, paystack_subaccount_code')
+    .select('platform_commission_pct, platform_commission_mode, platform_commission_fixed_amount, paystack_subaccount_code')
     .single();
   if (error) return { ok: false, error: error.message };
   if (!gym) return { ok: false, error: 'That gym no longer exists.' };
 
-  const stored = Number((gym as { platform_commission_pct: number | string | null }).platform_commission_pct ?? pct);
-  const subaccount = (gym as { paystack_subaccount_code: string | null }).paystack_subaccount_code;
+  const row = gym as {
+    platform_commission_pct: number | string | null;
+    platform_commission_mode: string | null;
+    platform_commission_fixed_amount: number | string | null;
+    paystack_subaccount_code: string | null;
+  };
+  const stored = Number(row.platform_commission_pct ?? pct);
+  const storedMode: CommissionMode = row.platform_commission_mode === 'fixed' ? 'fixed' : 'percentage';
+  const storedFixed = Number(row.platform_commission_fixed_amount ?? fixed);
+  // What the operator just set, in the words the messages below use. In fixed
+  // mode the percentage is stored but is not the arrangement, so quoting it
+  // would describe the wrong deal.
+  const label = storedMode === 'fixed' ? `₦${storedFixed.toLocaleString('en-NG')} per payment` : `${stored}%`;
+  const subaccount = row.paystack_subaccount_code;
 
   // The row is written. Everything below is about the LIVE split, and none of it
   // may swallow the fact that the database changed — an earlier version returned
   // on a Paystack error before reaching these two lines, so the rate was saved,
   // the console kept rendering the old number, and the operator was told the
   // save had failed. Audit and revalidate first, report second.
-  logAudit({ action: 'gym_commission_updated', table: 'gyms', actorId: admin.id, gymId, recordId: gymId, values: { pct: stored } });
+  logAudit({
+    action: 'gym_commission_updated', table: 'gyms', actorId: admin.id, gymId, recordId: gymId,
+    // All three, not just the live one: the audit trail has to answer "what was
+    // this gym's arrangement on that date", and in fixed mode the percentage is
+    // still the Paystack fallback that a stray charge would settle on.
+    values: { pct: stored, mode: storedMode, fixed: storedFixed },
+  });
   revalidateGym(gymId);
 
   // No subaccount means no split exists to carry this rate: the gym has not
@@ -57,17 +93,19 @@ export async function setGymCommission(_prev: CommissionState, formData: FormDat
   // Paystack account and nothing is divided at all. Saying "commission updated"
   // there would be a lie of omission — the number is stored and applying to
   // nothing.
+  const echo = { pct: stored, mode: storedMode, fixed: storedFixed };
+
   if (!subaccount) {
     return {
-      ok: true, error: null, pct: stored, notSplitting: true,
-      message: `Saved ${stored}% — but this gym hasn’t connected payouts, so no Paystack split is applying it yet.`,
+      ok: true, error: null, ...echo, notSplitting: true,
+      message: `Saved ${label} — but this gym hasn’t connected payouts, so no Paystack split is applying it yet.`,
     };
   }
 
   if (!process.env.PAYSTACK_SECRET_KEY) {
     return {
-      ok: true, error: null, pct: stored, notSplitting: true,
-      message: `Saved ${stored}% — Paystack isn’t configured on this deployment, so the live split still carries the old rate.`,
+      ok: true, error: null, ...echo, notSplitting: true,
+      message: `Saved ${label} — Paystack isn’t configured on this deployment, so the live split still carries the old rate.`,
     };
   }
 
@@ -78,15 +116,23 @@ export async function setGymCommission(_prev: CommissionState, formData: FormDat
     // here, without anyone re-opening the editor to reproduce the failure.
     await db.from('gyms').update({ paystack_sync_error: r.error, paystack_sync_checked_at: new Date().toISOString() } as never).eq('id', gymId);
     return {
-      ok: false, error: `Saved ${stored}% in GymFlow, but Paystack rejected the split change: ${r.error}`,
-      pct: stored, notSplitting: true,
+      ok: false, error: `Saved ${label} in GymFlow, but Paystack rejected the split change: ${r.error}`,
+      ...echo, notSplitting: true,
     };
   }
 
   // The push landed — clear any out-of-sync flag a previous attempt left, so
   // the sweep (and anything else that reads it later) doesn't act on stale news.
   await db.from('gyms').update({ paystack_sync_error: null, paystack_sync_checked_at: new Date().toISOString() } as never).eq('id', gymId);
-  return { ok: true, error: null, pct: stored, message: `Commission updated to ${stored}%. The live Paystack split now matches.` };
+  return {
+    ok: true, error: null, ...echo,
+    message: storedMode === 'fixed'
+      // The flat fee rides on each charge, not on the subaccount — so what
+      // "matches" here is the fallback percentage, and saying otherwise would
+      // promise a live setting Paystack has no place to hold.
+      ? `Commission updated to ${label}. It applies per payment; the ${stored}% split stays as the fallback.`
+      : `Commission updated to ${label}. The live Paystack split now matches.`,
+  };
 }
 
 // ── Shared plumbing for the per-gym platform controls ───────────────────────

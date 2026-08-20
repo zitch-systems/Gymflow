@@ -74,6 +74,18 @@ describe('planGymSplitFix', () => {
   it('treats a missing live percentage as a mismatch, not a match', () => {
     expect(planGymSplitFix({ subaccountStatus: 'found', livePct: null, dbPct: 20 })).toBe('push_commission');
   });
+
+  it('checks a fixed-mode gym on exactly the same terms', () => {
+    // A gym on a flat per-payment fee still has a percentage on its subaccount
+    // — the fallback any charge without a transaction_charge settles on — so
+    // the drift check stays percentage-vs-percentage for every gym. The two
+    // things this must NOT do: skip fixed-mode gyms (their fallback would rot
+    // unnoticed), or compare the live percentage against a naira figure (every
+    // fixed-mode gym flagged as drifted, forever). Neither can happen, because
+    // the planner has no notion of the mode at all — this pins that.
+    expect(planGymSplitFix({ subaccountStatus: 'found', livePct: 5, dbPct: 5 })).toBe('noop');
+    expect(planGymSplitFix({ subaccountStatus: 'found', livePct: 0, dbPct: 5 })).toBe('push_commission');
+  });
 });
 
 describe('commissionPctMatches', () => {

@@ -17,7 +17,10 @@ export type PayoutAccount = {
   account_name: string; verified: boolean; is_active: boolean;
 };
 
-type PayoutMeta = { payouts_connected: boolean; commission_pct: number };
+/** `commission_label` is the gym's arrangement already phrased — "5%" or
+ *  "₦500 flat" — because a percentage alone misdescribes a flat deal. Empty
+ *  when the gym is charged nothing. */
+type PayoutMeta = { payouts_connected: boolean; commission_label: string };
 
 // Manage up to four payout accounts and choose which one is active. The active
 // account is where member dues settle; switching between a gym's own saved
@@ -32,7 +35,7 @@ export function PayoutAccounts({ accounts, meta, banks }: { accounts: PayoutAcco
         <div className="panel-title">Payout accounts</div>
         <div className="panel-desc">
           Where member dues settle. Save up to {MAX_ACCOUNTS} bank accounts and pick which one is active — collections settle to the active account (T+1).
-          {meta.commission_pct > 0 ? ` Platform fee: ${meta.commission_pct}%.` : ''}
+          {meta.commission_label ? ` Platform fee: ${meta.commission_label}.` : ''}
         </div>
         <div style={{ marginTop: 12 }}>
           <span className={`gf-badge ${meta.payouts_connected ? 'gf-badge-success' : 'gf-badge-neutral'}`}><span className="gf-dot" />{meta.payouts_connected ? 'Payouts connected' : 'Not connected'}</span>

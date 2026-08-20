@@ -22,7 +22,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
   const supabase = await createClient();
   const { data: allGyms } = await supabase
     .from('gyms')
-    .select('id, name, slug, city, status, subscription_status, subscription_plan, platform_commission_pct, paystack_subaccount_code')
+    .select('id, name, slug, city, status, subscription_status, subscription_plan, platform_commission_pct, platform_commission_mode, platform_commission_fixed_amount, paystack_subaccount_code')
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -70,7 +70,7 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
                 </td>
                 <td style={{ textTransform: 'capitalize' }}>{g.subscription_plan ?? '—'}</td>
                 <td>{memberCount.get(g.id) ?? 0}</td>
-                <td><CommissionEditor gymId={g.id} pct={g.platform_commission_pct ?? 0} splitting={Boolean(g.paystack_subaccount_code)} /></td>
+                <td><CommissionEditor gymId={g.id} pct={g.platform_commission_pct ?? 0} mode={g.platform_commission_mode === 'fixed' ? 'fixed' : 'percentage'} fixed={Number(g.platform_commission_fixed_amount ?? 0)} splitting={Boolean(g.paystack_subaccount_code)} /></td>
                 <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
                 <td className="naira" style={{ textAlign: 'right' }}><a href={`/g/${g.slug}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title="Open public page">{g.slug} ↗</a></td>
                 <td style={{ textAlign: 'right', width: 36 }}>

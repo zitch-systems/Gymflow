@@ -2204,6 +2204,10 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-admin .commission-edit input { width:48px; padding:4px 6px; font:inherit; font-size:0.8rem; text-align:right; border:1px solid var(--gf-border); border-radius:6px; background:var(--gf-surface); color:var(--gf-text); }
 .ds-admin .commission-edit input:focus-visible { outline:2px solid var(--gf-brand); outline-offset:1px; }
 .ds-admin .commission-edit .pct { color:var(--gf-text-muted); font-size:0.8rem; }
+.ds-admin .commission-edit .mode { padding:4px 2px; font:inherit; font-size:0.8rem; border:1px solid var(--gf-border); border-radius:6px; background:var(--gf-surface); color:var(--gf-text); }
+.ds-admin .commission-edit .mode:focus-visible { outline:2px solid var(--gf-brand); outline-offset:1px; }
+/* A naira figure needs more room than a two-digit percentage. */
+.ds-admin .commission-edit input[name="fixed"] { width:72px; }
 .ds-admin .commission-edit .save { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; margin-left:4px; border:0; border-radius:6px; background:var(--gf-brand-soft); color:var(--gf-brand); cursor:pointer; }
 .ds-admin .commission-edit .save:disabled { opacity:0.5; cursor:default; }
 .ds-admin .commission-cell { display:inline-flex; flex-direction:column; gap:3px; align-items:flex-start; }

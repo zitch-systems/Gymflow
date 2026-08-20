@@ -13,6 +13,7 @@ import {
   gymBillingState, PLATFORM_PLANS, isPlanTier, normalizeCycle, planAmountKobo,
   monthlyEquivalentKobo, CYCLE_SUFFIX, type BillingState, type PlanTier,
 } from '@/lib/platform-plans';
+import { arrangementLabel, estimatedCommission } from '@/lib/commission-breakdown';
 import { ROOT_DOMAIN } from '@/lib/tenant';
 import { CommissionEditor } from '@/components/superadmin/commission-editor';
 import { GymControls } from '@/components/superadmin/gym-controls';
@@ -165,7 +166,16 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
   const commissionRows = paidPays.filter((p) => p.platform_commission_amount != null);
   const commissionEarned = commissionRows.reduce((s, p) => s + Number(p.platform_commission_amount ?? 0), 0);
   const unrecordedPays = paidPays.filter((p) => p.platform_settlement == null).length;
-  const estimated = memberGmv * (Number(gym.platform_commission_pct ?? 0) / 100);
+  // The arrangement, not the rate: in fixed mode the stored percentage is only
+  // Paystack's fallback, so both the estimate and the prose below have to be
+  // built from the mode as well (see lib/commission-breakdown.ts).
+  const arrangement = {
+    mode: gym.platform_commission_mode,
+    pct: gym.platform_commission_pct,
+    fixed: gym.platform_commission_fixed_amount,
+  };
+  const rate = arrangementLabel(arrangement);
+  const estimated = estimatedCommission(arrangement, { gmv: memberGmv, payments: paidPays.length });
 
   const platPaid = (platPay ?? []).filter((p) => String(p.payment_status ?? '') === 'successful');
   const platCollected = platPaid.reduce((s, p) => s + Number(p.amount ?? 0), 0);
@@ -336,7 +346,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
                   display font and weight, which the editor's `font: inherit`
                   input would then pick up (and a <form> inside <b> is invalid
                   nesting anyway). */}
-              <div><span>Commission rate</span><CommissionEditor gymId={gym.id} pct={Number(gym.platform_commission_pct ?? 0)} splitting={Boolean(gym.paystack_subaccount_code)} /></div>
+              <div><span>Commission rate</span><CommissionEditor gymId={gym.id} pct={Number(gym.platform_commission_pct ?? 0)} mode={gym.platform_commission_mode === 'fixed' ? 'fixed' : 'percentage'} fixed={Number(gym.platform_commission_fixed_amount ?? 0)} splitting={Boolean(gym.paystack_subaccount_code)} /></div>
               <div>
                 <span>{commissionRows.length ? `Commission taken · ${commissionRows.length} payment${commissionRows.length === 1 ? '' : 's'}` : 'Commission taken'}</span>
                 <b className="naira">{commissionRows.length ? fmtNaira(commissionEarned) : '—'}</b>
@@ -347,7 +357,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
                   <b style={{ fontWeight: 500, fontSize: '0.76rem', lineHeight: 1.4 }}>
                     {unrecordedPays} payment{unrecordedPays === 1 ? '' : 's'} predate{unrecordedPays === 1 ? 's' : ''} per-payment
                     commission records. {splitLive
-                      ? `At today’s ${Number(gym.platform_commission_pct ?? 0)}% that would be about ${fmtNaira(estimated)} across all ${paidPays.length} payments — an estimate only, since the rate may have changed since.`
+                      ? `At today’s ${rate} that would be about ${fmtNaira(estimated)} across all ${paidPays.length} payments — an estimate only, since the arrangement may have changed since.`
                       : 'The rate they settled on is not recoverable — Paystack keeps no per-charge history of it.'}
                   </b>
                 </div>
@@ -358,7 +368,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
                   <span>Why no commission?</span>
                   <b style={{ fontWeight: 500, fontSize: '0.76rem', lineHeight: 1.4 }}>
                     This gym hasn’t connected payouts, so member payments have no Paystack split — the full amount
-                    settles into GymFlow’s account and this gym is owed its share, rather than GymFlow earning {Number(gym.platform_commission_pct ?? 0)}%.
+                    settles into GymFlow’s account and this gym is owed its share, rather than GymFlow earning {rate}.
                   </b>
                 </div>
               )}

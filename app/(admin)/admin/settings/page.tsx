@@ -2,6 +2,7 @@ import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { listBanks, type Bank } from '@/lib/paystack';
 import { cacCertificateUrl } from '@/lib/actions/gym';
+import { arrangementLabel } from '@/lib/commission-breakdown';
 import { SettingsClient } from './settings-client';
 
 export const metadata = { title: 'Settings' };
@@ -106,6 +107,16 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
     });
   }
 
+  const commissionArrangement = {
+    mode: (gym as { platform_commission_mode?: string | null }).platform_commission_mode ?? null,
+    pct: gym.platform_commission_pct,
+    fixed: (gym as { platform_commission_fixed_amount?: number | null }).platform_commission_fixed_amount ?? null,
+  };
+  const commissionCharged = Number(
+    (commissionArrangement.mode === 'fixed' ? commissionArrangement.fixed : commissionArrangement.pct) ?? 0,
+  );
+  const commissionLabel = commissionCharged > 0 ? arrangementLabel(commissionArrangement) : '';
+
   return (
     <SettingsClient
       banks={banks}
@@ -140,7 +151,12 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
         bank_name: gym.bank_name, bank_code: gym.bank_code, account_number: gym.account_number, account_name: gym.account_name,
         payouts_connected: !!gym.paystack_subaccount_code,
         payouts_locked: (gym as { payouts_locked?: boolean }).payouts_locked ?? false,
-        commission_pct: gym.platform_commission_pct ?? 0,
+        // The arrangement in the owner's own terms, not the bare percentage: a
+        // gym on a flat ₦500 deal still carries a percentage on its row as
+        // Paystack's fallback, and quoting that told a paying customer a
+        // commission rate GymFlow does not charge them. Empty string when there
+        // is no cut to state, which is what the old `> 0` check meant.
+        commission_label: commissionLabel,
         member_freeze_enabled: (gym as { member_freeze_enabled?: boolean }).member_freeze_enabled !== false,
         notif_class_reminders:    (gym as { notif_class_reminders?: boolean }).notif_class_reminders !== false,
         notif_renewal_nudges:     (gym as { notif_renewal_nudges?: boolean }).notif_renewal_nudges !== false,

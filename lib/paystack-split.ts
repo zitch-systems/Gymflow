@@ -14,9 +14,22 @@
 /** How the money moved. See the column comments in the migration. */
 export type Settlement = 'split' | 'platform_only' | 'offline';
 
+/** What the platform's cut was computed from on this charge. */
+export type CommissionBasis = 'percentage' | 'flat';
+
 export type SplitRecord = {
   settlement: Settlement;
-  /** Rate applied, or null when nothing was split. */
+  /**
+   * How the cut was arrived at, or null when nothing was split. A flat charge
+   * has no rate at all — see `pct`.
+   */
+  basis: CommissionBasis | null;
+  /**
+   * Rate applied, or null when nothing was split OR the charge carried a flat
+   * transaction_charge. A ₦500 flat fee on a ₦5,000 payment is not "10%":
+   * deriving one would invent a rate nobody agreed and would reprice itself on
+   * the next payment of a different size.
+   */
   pct: number | null;
   /** Naira the platform kept, or null when Paystack didn't report a figure. */
   amountNaira: number | null;
@@ -47,15 +60,39 @@ export function readSplit(data: unknown): SplitRecord {
   // last means the charge was actually routed somewhere other than the platform
   // account, so the code is what decides, not the key's presence.
   const code = sub && typeof sub.subaccount_code === 'string' ? sub.subaccount_code.trim() : '';
-  if (!sub || !code) return { settlement: 'platform_only', pct: null, amountNaira: null };
+  if (!sub || !code) return { settlement: 'platform_only', basis: null, pct: null, amountNaira: null };
 
   const fees = d ? obj(d.fees_split) : null;
   const params = fees ? obj(fees.params) : null;
 
+  // A flat transaction_charge overrides the subaccount's percentage for this
+  // one charge (lib/paystack.ts initTransaction sends it for a fixed-mode gym),
+  // so its presence — not our gyms row, which can have been re-moded since —
+  // is what says this charge was flat. Read from the same two places the rate
+  // is read from, and only a positive figure counts: Paystack echoes a 0 on
+  // ordinary percentage splits.
+  //
+  // Third and last, the metadata we sent with the charge. Whether Paystack
+  // repeats transaction_charge on a charge event is Paystack's choice, and the
+  // webhook payload is not the /transaction/verify payload; without this the
+  // absence of an echo silently demotes a flat charge to "percentage at the
+  // subaccount's fallback rate", which is an arrangement the gym was never on
+  // and a figure nobody can tell apart from a real one afterwards. Our own
+  // metadata says what we asked Paystack for, so it is read last — an echo
+  // from Paystack, where present, still describes what Paystack did.
+  const meta = d ? obj(d.metadata) : null;
+  const flatKobo = num(params?.transaction_charge)
+    ?? num(d?.transaction_charge)
+    ?? num(meta?.platform_commission_flat_kobo);
+  const flat = flatKobo !== null && flatKobo > 0 ? flatKobo : null;
+
   // params.percentage_charge is the rate this transaction was actually split
   // on; subaccount.percentage_charge is the subaccount's rate as of the API
-  // response, which can already have moved. Prefer the former.
-  const pctRaw = num(params?.percentage_charge) ?? num(sub.percentage_charge);
+  // response, which can already have moved. Prefer the former. Ignored outright
+  // on a flat charge: the subaccount still carries its fallback percentage (see
+  // initTransaction), and recording that as the applied rate would describe an
+  // arrangement this charge did not use.
+  const pctRaw = flat !== null ? null : num(params?.percentage_charge) ?? num(sub.percentage_charge);
   const pct = pctRaw !== null && pctRaw >= 0 && pctRaw <= 100 ? round2(pctRaw) : null;
 
   // fees_split.integration is the main account's share in kobo — literally
@@ -64,12 +101,17 @@ export function readSplit(data: unknown): SplitRecord {
   // reported no breakdown.
   const integrationKobo = num(fees?.integration);
   const amountKobo = num(d?.amount);
+  // The flat charge is the fallback on a flat split, for the same reason pct ×
+  // amount is on a percentage one: it is what we asked Paystack for, used only
+  // when Paystack reported no breakdown of what it actually did.
   const keptKobo = integrationKobo !== null
     ? integrationKobo
-    : pct !== null && amountKobo !== null ? (amountKobo * pct) / 100 : null;
+    : flat !== null ? flat
+      : pct !== null && amountKobo !== null ? (amountKobo * pct) / 100 : null;
 
   return {
     settlement: 'split',
+    basis: flat !== null ? 'flat' : 'percentage',
     pct,
     amountNaira: keptKobo !== null && keptKobo >= 0 ? round2(keptKobo / 100) : null,
   };
@@ -86,6 +128,10 @@ export function commissionColumns(split: SplitRecord | null): Json {
   if (!split) return {};
   return {
     platform_settlement: split.settlement,
+    // The basis is what lets the console say "₦500 flat" rather than guessing a
+    // rate back out of the amount. NULL on anything that wasn't a split, where
+    // there is no cut to describe.
+    platform_commission_basis: split.settlement === 'split' ? split.basis : null,
     platform_commission_pct: split.settlement === 'split' ? split.pct : null,
     platform_commission_amount: split.settlement === 'split' ? split.amountNaira : null,
   };

@@ -227,7 +227,7 @@ export async function verifyEmailOtp(params: {
   if (!otp.user_id || !otp.gym_id) return { ok: false, error: 'Something went wrong. Please start again.' };
 
   const { data: gymRow } = await admin
-    .from('gyms').select('id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code')
+    .from('gyms').select('id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code, platform_commission_mode, platform_commission_fixed_amount')
     .eq('id', otp.gym_id).maybeSingle();
   const gym = gymRow as WhatsAppGym | null;
   if (!gym) return { ok: false, error: 'That gym is no longer available. Please contact your gym.' };
@@ -311,7 +311,7 @@ export async function signinWithPassword(params: {
       return { ok: false, error: 'You’re signed in, but you’re not a member of any gym yet. Ask your gym for their code.' };
     }
     const { data: gymRow } = await admin
-      .from('gyms').select('id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code')
+      .from('gyms').select('id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code, platform_commission_mode, platform_commission_fixed_amount')
       .eq('id', gymIds[0]).maybeSingle();
     gym = gymRow as WhatsAppGym | null;
   }

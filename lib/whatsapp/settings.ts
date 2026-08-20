@@ -15,6 +15,10 @@ export type WhatsAppGym = {
   phone: string | null;
   subscription_plan?: string | null;
   paystack_subaccount_code?: string | null;
+  // The commission arrangement, needed to price the platform's cut on a
+  // WhatsApp checkout exactly as the web renewal prices it.
+  platform_commission_mode?: string | null;
+  platform_commission_fixed_amount?: number | string | null;
 };
 
 export type WhatsAppGymSettings = {
@@ -29,7 +33,7 @@ export type WhatsAppGymSettings = {
 };
 
 export const GYM_COLUMNS =
-  'id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code';
+  'id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code, platform_commission_mode, platform_commission_fixed_amount';
 
 /**
  * The gym's home on the web — its own branded subdomain, which is also what the

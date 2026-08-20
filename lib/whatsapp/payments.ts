@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { initTransaction } from '@/lib/paystack';
+import { gymCommission } from '@/lib/paystack-payloads';
 import { planTotalKobo, offersTrainer } from '@/lib/plan-addon';
 import { isOfflineGym } from '@/lib/gym-status';
 import type { WhatsAppGym } from '@/lib/whatsapp/settings';
@@ -146,6 +147,10 @@ export async function startWhatsAppCheckout(
     // sends them back to WhatsApp once the charge is recorded.
     callbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng'}/pay/whatsapp/callback`,
     subaccount: (params.gym.paystack_subaccount_code ?? '').trim() || null,
+    // Same commission the web renewal sends — a flat-fee gym must be charged
+    // its flat fee here too, or what the platform keeps depends on which door
+    // the member happened to pay through. See lib/renew-core.ts.
+    commission: gymCommission(params.gym),
   };
   let res = await initTransaction(txParams);
   // If the stored subaccount code is stale/invalid at Paystack, retry without

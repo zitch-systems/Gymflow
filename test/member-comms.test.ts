@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { paymentConfirmationBody } from '@/lib/whatsapp/notify';
 
 // What a member is told, and by which channel.
 //
@@ -210,6 +211,63 @@ describe('payment confirmations', () => {
     // Still gated on `created`, so the webhook and the callback — which fire
     // near-simultaneously — cannot both message the member.
     expect(hook).toMatch(/if \(result\.ok && result\.created\)/);
+  });
+
+  it('read as a subscription confirmation, with the details a member would want', () => {
+    const body = paymentConfirmationBody({
+      gymName: 'Iron Republic', amount: '₦25,000', reference: 'ref_abc123',
+      planName: 'Monthly', startDate: '2026-09-01', endDate: '2026-09-30',
+    });
+    expect(body).toContain('Payment received — ₦25,000 to Iron Republic. Thank you.');
+    expect(body).toContain('Plan: Monthly');
+    expect(body).toContain('Covers: 1 Sept 2026 to 30 Sept 2026');
+    expect(body).toContain('Reference: ref_abc123');
+  });
+
+  it('drop a detail whole when it is missing rather than printing a broken line', () => {
+    // A subscription whose plan row was deleted, paid on a path with no
+    // reference to hand: still a clean confirmation, just a shorter one.
+    const body = paymentConfirmationBody({
+      gymName: 'Iron Republic', amount: '₦25,000', reference: null,
+      planName: null, startDate: null, endDate: '2026-09-30',
+    });
+    expect(body).toContain('Your membership now runs to 30 Sept 2026.');
+    expect(body).not.toContain('Plan:');
+    expect(body).not.toContain('Reference:');
+    expect(body).not.toContain('undefined');
+    // One paragraph break, no gap left behind by a dropped line.
+    expect(body).not.toMatch(/\n\n\n/);
+    expect(body).not.toMatch(/: *$/m);
+
+    // Nothing known at all degrades to the one sentence, with no trailing gap.
+    const bare = paymentConfirmationBody({
+      gymName: 'Iron Republic', amount: '₦25,000', planName: null, startDate: null, endDate: null,
+    });
+    expect(bare).toBe('Payment received — ₦25,000 to Iron Republic. Thank you.');
+  });
+
+  it('are built once and used by both entry points', () => {
+    // The WhatsApp-initiated path and the paid-on-the-web path are the same
+    // event to a member; they used to duplicate the sentence and drift.
+    const src = read('lib/whatsapp/notify.ts');
+    const calls = src.match(/paymentConfirmationBody\(\{/g) ?? [];
+    expect(calls.length).toBe(2);
+    expect(src).toMatch(/confirmForMember\([\s\S]{0,200}reference: params\.reference/);
+  });
+
+  it('still send the approved template unchanged when the member is out of window', () => {
+    // Meta templates are pre-approved and positional: gymflow_payment_receipt
+    // has exactly three body variables, so enriching the free-text message must
+    // not add a fourth here.
+    const src = read('lib/whatsapp/notify.ts');
+    const sends = [...src.matchAll(/TEMPLATES\.paymentReceipt\.language,\s*components: \[\{ type: 'body', parameters: \[([\s\S]*?)\] \}\]/g)];
+    expect(sends.length).toBe(2);
+    for (const send of sends) {
+      expect((send[1].match(/type: 'text'/g) ?? []).length).toBe(3);
+    }
+    const tpl = read('lib/whatsapp/templates.ts');
+    const def = tpl.slice(tpl.indexOf('paymentReceipt:'), tpl.indexOf('checkedIn:'));
+    expect((def.match(/\{\{\d\}\}/g) ?? []).length).toBe(3);
   });
 
   it('have a template for the out-of-window case', () => {

@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fmtNaira } from '@/lib/format';
+import { fmtDate, fmtNaira } from '@/lib/format';
 import { logOutbound, sendWhatsAppButtons, sendWhatsAppTemplate, sendWhatsAppText } from '@/lib/whatsapp/cloud-api';
 import { contactForProfile } from '@/lib/whatsapp/contacts';
 import { gymById, loadGymWhatsAppSettings } from '@/lib/whatsapp/settings';
@@ -29,6 +29,70 @@ function insideWindow(lastInboundAt: string | null): boolean {
   return Boolean(lastInboundAt) && Date.now() - new Date(lastInboundAt!).getTime() < WINDOW_MS;
 }
 
+/** What the member's subscription looks like after fulfilment credited it. */
+type SubscriptionFacts = { planName: string | null; startDate: string | null; endDate: string | null };
+
+/**
+ * The subscription a payment just credited, read back from the DB.
+ *
+ * Read back rather than being told: fulfilment has already written the row, and
+ * quoting the stored values means the member is told the same plan and dates the
+ * app will show them. The plan name lives on membership_plans, one hop from
+ * member_subscriptions.plan_id, which is nullable — a subscription created
+ * before the plan was deleted has none, and that has to read as "no plan line",
+ * never as "undefined".
+ */
+async function subscriptionFacts(admin: Admin, memberId: string, gymId: string): Promise<SubscriptionFacts> {
+  const { data: subRow } = await admin
+    .from('member_subscriptions')
+    .select('start_date, end_date, plan_id')
+    .eq('member_id', memberId).eq('gym_id', gymId)
+    .order('end_date', { ascending: false })
+    .limit(1).maybeSingle();
+  const sub = subRow as { start_date: string | null; end_date: string | null; plan_id: string | null } | null;
+  if (!sub) return { planName: null, startDate: null, endDate: null };
+
+  let planName: string | null = null;
+  if (sub.plan_id) {
+    const { data: planRow } = await admin
+      .from('membership_plans').select('name').eq('id', sub.plan_id).maybeSingle();
+    planName = (planRow as { name: string | null } | null)?.name ?? null;
+  }
+  return { planName, startDate: sub.start_date, endDate: sub.end_date };
+}
+
+/**
+ * The in-window confirmation body, shared by both entry points below.
+ *
+ * A member reads this as the receipt for their subscription, so it carries what
+ * they'd want from one: the plan, the amount, the period it covers and the
+ * reference they'd quote if something looked wrong. Every detail is optional and
+ * each is dropped whole when it's missing — a confirmation with fewer lines is
+ * fine, one with a blank "Plan:" or an "Invalid Date" is not.
+ *
+ * Dates go through fmtDate like everywhere else members see one. start_date and
+ * end_date are `date` columns, so they parse as UTC midnight and format back to
+ * the same calendar day — no WAT shift to undo here, unlike a timestamp.
+ */
+export function paymentConfirmationBody(
+  params: { gymName: string; amount: string; reference?: string | null } & SubscriptionFacts,
+): string {
+  const head = `Payment received — ${params.amount} to ${params.gymName}. Thank you.`;
+
+  const details: string[] = [];
+  if (params.planName) details.push(`Plan: ${params.planName}`);
+  if (params.startDate && params.endDate) {
+    details.push(`Covers: ${fmtDate(params.startDate)} to ${fmtDate(params.endDate)}`);
+  } else if (params.endDate) {
+    // No start date to pair it with — say the one thing we do know, in the
+    // sentence this message used before it carried details at all.
+    details.push(`Your membership now runs to ${fmtDate(params.endDate)}.`);
+  }
+  if (params.reference) details.push(`Reference: ${params.reference}`);
+
+  return details.length ? `${head}\n\n${details.join('\n')}` : head;
+}
+
 /**
  * Tell a member their payment went through, in the thread they started it in.
  *
@@ -52,21 +116,14 @@ export async function confirmWhatsAppPayment(
       if (!params.memberId || !params.gymId) return;
       return confirmForMember(admin, {
         memberId: params.memberId, gymId: params.gymId, amountKobo: params.amountKobo,
+        reference: params.reference,
       });
     }
 
     await markIntent(admin, params.reference, 'paid');
 
-    // Read the end date back rather than being told it: fulfilment has already
-    // written it, and quoting the stored value means the member is told the
-    // same date the app will show them.
-    const { data: subRow } = await admin
-      .from('member_subscriptions')
-      .select('end_date')
-      .eq('member_id', intent.member_id).eq('gym_id', intent.gym_id)
-      .order('end_date', { ascending: false })
-      .limit(1).maybeSingle();
-    const endDate = (subRow as { end_date: string | null } | null)?.end_date ?? null;
+    const facts = await subscriptionFacts(admin, intent.member_id, intent.gym_id);
+    const endDate = facts.endDate;
 
     const { data } = await admin
       .from('whatsapp_contacts').select('id, wa_id, last_inbound_at, active_gym_id')
@@ -77,12 +134,11 @@ export async function confirmWhatsAppPayment(
     const gym = await gymById(admin, intent.gym_id);
     const gymName = gym?.name ?? 'your gym';
     const amount = fmtNaira(params.amountKobo / 100);
-    const until = endDate ? `\n\nYour membership now runs to ${endDate}.` : '';
 
     if (insideWindow(contact.last_inbound_at)) {
       const res = await sendWhatsAppButtons({
         to: contact.wa_id,
-        body: `Payment received — ${amount} to ${gymName}. Thank you.${until}`,
+        body: paymentConfirmationBody({ gymName, amount, reference: params.reference, ...facts }),
         buttons: [
           { id: 'menu:checkin', title: 'Check in' },
           { id: 'menu:status', title: 'My membership' },
@@ -123,7 +179,7 @@ export async function confirmWhatsAppPayment(
  */
 async function confirmForMember(
   admin: Admin,
-  params: { memberId: string; gymId: string; amountKobo: number },
+  params: { memberId: string; gymId: string; amountKobo: number; reference?: string | null },
 ): Promise<void> {
   const { data: profile } = await admin
     .from('profiles').select('phone').eq('id', params.memberId).maybeSingle();
@@ -135,17 +191,12 @@ async function confirmForMember(
   const settings = await loadGymWhatsAppSettings(admin, gym);
   if (!settings.enabled) return;
 
-  const { data: subRow } = await admin
-    .from('member_subscriptions')
-    .select('end_date')
-    .eq('member_id', params.memberId).eq('gym_id', params.gymId)
-    .order('end_date', { ascending: false })
-    .limit(1).maybeSingle();
-  const endDate = (subRow as { end_date: string | null } | null)?.end_date ?? null;
+  const facts = await subscriptionFacts(admin, params.memberId, params.gymId);
+  const endDate = facts.endDate;
   const amount = fmtNaira(params.amountKobo / 100);
 
   if (insideWindow(contact.last_inbound_at)) {
-    const body = `Payment received — ${amount} to ${gym.name}. Thank you.${endDate ? `\n\nYour membership now runs to ${endDate}.` : ''}`;
+    const body = paymentConfirmationBody({ gymName: gym.name, amount, reference: params.reference, ...facts });
     const res = await sendWhatsAppButtons({
       to: contact.wa_id,
       body,

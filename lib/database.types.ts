@@ -796,6 +796,8 @@ export type Database = {
           paystack_subaccount_code: string | null
           paystack_subscription_code: string | null
           phone: string | null
+          platform_commission_fixed_amount: number
+          platform_commission_mode: string
           platform_commission_pct: number
           slug: string
           state: string | null
@@ -839,6 +841,8 @@ export type Database = {
           paystack_subaccount_code?: string | null
           paystack_subscription_code?: string | null
           phone?: string | null
+          platform_commission_fixed_amount?: number
+          platform_commission_mode?: string
           platform_commission_pct?: number
           slug: string
           state?: string | null
@@ -882,6 +886,8 @@ export type Database = {
           paystack_subaccount_code?: string | null
           paystack_subscription_code?: string | null
           phone?: string | null
+          platform_commission_fixed_amount?: number
+          platform_commission_mode?: string
           platform_commission_pct?: number
           slug?: string
           state?: string | null

@@ -148,7 +148,7 @@ export type GymProfile = {
   social_links: Record<string, string> | null; gallery_urls: string[] | null; instagram_posts: string[] | null;
   integrations: Record<string, string> | null;
   bank_name: string | null; bank_code: string | null; account_number: string | null; account_name: string | null;
-  payouts_connected: boolean; payouts_locked: boolean; commission_pct: number;
+  payouts_connected: boolean; payouts_locked: boolean; commission_label: string;
   member_freeze_enabled: boolean;
   notif_class_reminders: boolean; notif_renewal_nudges: boolean; notif_payment_receipts: boolean;
   notif_membership_updates: boolean;
@@ -416,7 +416,7 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
             <section className="sec on">
               <PayoutAccounts
                 accounts={payoutAccounts}
-                meta={{ payouts_connected: gym.payouts_connected, commission_pct: gym.commission_pct }}
+                meta={{ payouts_connected: gym.payouts_connected, commission_label: gym.commission_label }}
                 banks={banks}
               />
             </section>
