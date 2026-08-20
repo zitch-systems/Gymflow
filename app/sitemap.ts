@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { ROOT_DOMAIN } from '@/lib/tenant';
 import { OFFLINE_GYM_FILTER } from '@/lib/gym-status';
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
+import { SITE_URL as SITE } from '@/lib/site-url';
 
 // Public marketing routes only — the authenticated app surfaces are excluded
 // from the index (see robots.ts).

@@ -2,7 +2,7 @@
 // Values are developer-authored constants — no user input, so no escaping
 // concerns (same rationale as the pricing Product LD).
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gymflow.ng';
+import { SITE_URL } from '@/lib/site-url';
 
 export function BreadcrumbLd({ name, path }: { name: string; path: string }) {
   const ld = JSON.stringify({
