@@ -226,3 +226,85 @@ jobs:
             exit 1
           fi
           echo "Live schema matches the migrations."
+
+  # Production deploy — the step that makes migrations GATE the release.
+  #
+  # Vercel's Git integration used to deploy main on push, in parallel with the
+  # migrate job above. Nothing sequenced the two, so every migration-bearing
+  # merge opened a window where production ran code whose migration had not
+  # landed yet. That window was real, not theoretical: on 2026-08-20 the app
+  # went live at 13:09:24 UTC calling public.extend_member_sub, and the function
+  # was created at 13:12:08 — ~2m44s in which every membership renewal would
+  # have failed on a missing function.
+  #
+  # So the Git trigger for main is switched off (vercel.json → git.
+  # deploymentEnabled.main = false) and the deploy is issued from here instead,
+  # after `migrate` has both applied the migrations and proved the live schema
+  # matches them. Ordering is now verify → migrate → deploy, and a failed
+  # migration means no deploy at all rather than a deploy racing ahead of it.
+  #
+  # Only the `gymflow` project moves. gymflow-meta-connector has its own
+  # vercel.json under its root directory, ships no migrations, and keeps
+  # deploying straight from Git. PR previews are untouched — deploymentEnabled
+  # names only `main`, so every other branch still auto-deploys.
+  deploy:
+    name: deploy to production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: migrate
+    runs-on: ubuntu-latest
+    # Never let two merges deploy at once, and never cancel one midway: a
+    # half-finished deploy is worse than a queued one.
+    concurrency:
+      group: deploy-live
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail loudly and by name. With the Git trigger off, a missing secret
+      # means production simply stops receiving deploys — the one failure mode
+      # that is easy not to notice, so it must never be a silent skip.
+      - name: Require the Vercel secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          missing=""
+          if [ -z "$VERCEL_TOKEN" ]; then missing="$missing VERCEL_TOKEN"; fi
+          if [ -z "$VERCEL_ORG_ID" ]; then missing="$missing VERCEL_ORG_ID"; fi
+          if [ -z "$VERCEL_PROJECT_ID" ]; then missing="$missing VERCEL_PROJECT_ID"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing GitHub secret(s):$missing — production cannot be deployed. Add them in Settings → Secrets → Actions. VERCEL_ORG_ID and VERCEL_PROJECT_ID are in the Vercel project's Settings → General (or .vercel/project.json after \`vercel link\`); VERCEL_TOKEN is a personal/team token from Vercel → Account Settings → Tokens with access to this project."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the Vercel CLI
+        run: npm i -g vercel@latest
+
+      # `vercel pull` fetches the project's REAL production environment from
+      # Vercel, so this build sees the same variables the Git-triggered build
+      # saw. The placeholder NEXT_PUBLIC_* values used by the verify job are
+      # deliberately not reused here — that build proves the code compiles, this
+      # one is the artifact that actually serves traffic.
+      - name: Pull the production environment
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Build
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
