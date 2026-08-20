@@ -283,6 +283,16 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Vercel's project settings detect pnpm-lock.yaml and shell out to `pnpm`
+      # during `vercel build`. The GitHub runner doesn't ship pnpm, so without
+      # this step the build dies with `spawn pnpm ENOENT` before it can install
+      # a single dependency. pnpm@10 matches the version Vercel picks by
+      # project-creation date (logged at build start).
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Install the Vercel CLI
         run: npm i -g vercel@latest
 
