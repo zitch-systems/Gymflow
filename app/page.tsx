@@ -489,7 +489,7 @@ function ProductPreview() {
       <div className="product-float product-float-payment">
         <CreditCard />
         <span>
-          <strong>₦37,999 received</strong>
+          <strong>₦23,999 received</strong>
           <small>Growth subscription</small>
         </span>
       </div>

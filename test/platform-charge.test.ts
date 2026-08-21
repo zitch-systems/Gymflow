@@ -67,18 +67,6 @@ describe('planFromCharge — current plans', () => {
     });
   });
 
-  it('distinguishes two plans that happen to cost the same', () => {
-    // Starter quarterly and Growth monthly are both ₦37,999. Resolution is by
-    // plan code, so the shared amount can never collapse them into each other.
-    const sq = planFromCharge({}, { plan_code: CODES.starterQuarterly })!;
-    const gm = planFromCharge({}, { plan_code: CODES.growthMonthly })!;
-    expect(sq.expectedKobo).toBe(gm.expectedKobo);
-    expect(sq.tier).toBe('starter');
-    expect(gm.tier).toBe('growth');
-    expect(sq.months).toBe(3);
-    expect(gm.months).toBe(1);
-  });
-
   it('lets the plan code win over contradicting metadata', () => {
     // Paystack billed the annual plan; metadata claiming quarterly must not
     // shorten the period the gym actually paid for.
@@ -137,7 +125,7 @@ describe('planFromCharge — the retired Scale plan', () => {
   });
 
   it('expects Scale’s own price, not Growth’s monthly price', () => {
-    // Scale billed ₦119,999; Growth monthly is ₦37,999. Validating the charge
+    // Scale billed ₦119,999; Growth monthly is ₦23,999. Validating the charge
     // against the catalogue would reject every real Scale renewal.
     const scale = planFromCharge({}, { plan_code: CODES.retiredScale })!;
     expect(scale.expectedKobo).toBe(11_999_900);

@@ -67,7 +67,7 @@ export const PLATFORM_PLANS: Record<PlanTier, PlatformPlan> = {
     name: 'Growth',
     tagline: 'For multi-location gyms & classes',
     prices: {
-      monthly: { cycle: 'monthly', amountKobo: 3_799_900, planCodeEnv: 'PAYSTACK_PLAN_GROWTH' },
+      monthly: { cycle: 'monthly', amountKobo: 2_399_900, planCodeEnv: 'PAYSTACK_PLAN_GROWTH' },
       quarterly: { cycle: 'quarterly', amountKobo: 10_299_900, planCodeEnv: 'PAYSTACK_PLAN_GROWTH_QUARTERLY' },
       annually: { cycle: 'annually', amountKobo: 32_999_900, planCodeEnv: 'PAYSTACK_PLAN_GROWTH_ANNUAL' },
     },
