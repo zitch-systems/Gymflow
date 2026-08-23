@@ -303,7 +303,14 @@ export async function recordPayment(_prev: ActionState, formData: FormData): Pro
       } catch (e) {
         const rowId = (paymentRow as { id: string } | null)?.id;
         if (rowId) {
-          const { error: undoErr } = await supabase.from('payments').delete().eq('id', rowId);
+          // Use the service-role client: the ledger-integrity migration
+          // revokes DELETE on public.payments from authenticated (no app
+          // code should reach that verb through a user session), so an
+          // authenticated-session delete would fail with 42501 and leave
+          // the orphan row behind. The insert we're reversing is scoped
+          // by id — we're not opening a broader delete surface here.
+          const admin = createAdminClient();
+          const { error: undoErr } = await admin.from('payments').delete().eq('id', rowId);
           if (undoErr) console.warn(`[recordPayment] extend failed AND rollback failed for ${rowId}: ${undoErr.message}`);
         }
         return { ok: false, error: `Could not extend the membership — payment not recorded. ${(e as Error).message}` };
