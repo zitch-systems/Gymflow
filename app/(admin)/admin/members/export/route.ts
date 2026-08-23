@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
 import { csvFilename, toCsv } from '@/lib/csv';
 
+// Cap on rows per export. Reached => the CSV carries a truncation notice.
+const EXPORT_LIMIT = 5000;
+
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -21,7 +24,7 @@ export async function GET() {
 
   const { data: links } = await supabase
     .from('gym_member_links').select('user_id, member_id, joined_at, is_active')
-    .eq('gym_id', gym.id).order('joined_at', { ascending: false }).limit(5000);
+    .eq('gym_id', gym.id).order('joined_at', { ascending: false }).limit(EXPORT_LIMIT);
 
   const ids = [...new Set((links ?? []).map((l) => (l.member_id ?? l.user_id)).filter(Boolean) as string[])];
   const [{ data: profiles }, { data: subs }, { data: plans }] = await Promise.all([
@@ -60,6 +63,16 @@ export async function GET() {
       l.joined_at ? String(l.joined_at).slice(0, 10) : '', l.is_active ? 'yes' : 'no',
     ];
   });
+
+  // Same reason as the accounting export: a silently short member list reads
+  // as "this is everyone" and gets used for outreach and headcount.
+  const truncated = (links ?? []).length === EXPORT_LIMIT;
+  if (truncated) {
+    body.push([
+      `EXPORT TRUNCATED — only the most recent ${EXPORT_LIMIT} members are included.`,
+      '', '', '', '', '', '', '',
+    ]);
+  }
 
   const csv = toCsv(header, body);
   const filename = csvFilename('members', gym.name);
