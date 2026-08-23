@@ -65,8 +65,19 @@ as $function$
 declare
   is_owner boolean;
   is_pa    boolean;
+  uid uuid;
 begin
-  -- Service-role, superuser and platform-admin writes bypass the guard.
+  -- Service-role / superuser writes have no auth.uid() — the webhook fulfiller,
+  -- reconciliation cron, admin.from() calls, and the test harness all reach us
+  -- this way — so bypass the guard entirely; RLS separately controls what those
+  -- callers can do. The guard exists to stop an *authenticated* manager JWT
+  -- from PATCHing protected columns through PostgREST.
+  begin
+    uid := auth.uid();
+  exception when others then uid := null; end;
+  if uid is null then return new; end if;
+
+  -- Platform admins may write anything.
   is_pa := private.is_platform_admin();
   if is_pa then return new; end if;
 
