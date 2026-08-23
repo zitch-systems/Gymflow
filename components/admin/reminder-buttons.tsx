@@ -28,17 +28,23 @@ export function RemindAllButton() {
 // Per-member "Remind" on the expiring list.
 export function RemindButton({ subscriptionId }: { subscriptionId: string }) {
   const [done, setDone] = useState<'sent' | 'already' | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   function run() {
+    setError(null);
     start(async () => {
       const res = await remindMember(subscriptionId);
       if (res.ok) setDone(res.sent > 0 ? 'sent' : 'already');
+      else setError(res.error);
     });
   }
   if (done) return <span className="gf-badge gf-badge-success"><Check size={12} strokeWidth={2.4} /> {done === 'sent' ? 'Sent' : 'Already sent'}</span>;
   return (
-    <button className="gf-btn gf-btn-sm gf-btn-primary" onClick={run} disabled={pending}>
-      {pending ? 'Sending…' : 'Remind'}
-    </button>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      {error && <span style={{ fontSize: '0.78rem', color: 'var(--gf-danger)' }}>{error}</span>}
+      <button className="gf-btn gf-btn-sm gf-btn-primary" onClick={run} disabled={pending}>
+        {pending ? 'Sending…' : 'Remind'}
+      </button>
+    </div>
   );
 }

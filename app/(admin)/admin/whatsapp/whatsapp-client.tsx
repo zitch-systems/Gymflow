@@ -245,10 +245,12 @@ function ContactChat({ contactId, label }: { contactId: string; label: string })
   // are already at their fresh initial values with nothing to reset first.
   useEffect(() => {
     let live = true;
-    loadContactMessages(contactId).then((res) => {
-      if (!live) return;
-      if (res.ok) setMessages(res.messages); else setLoadError(res.error);
-    });
+    loadContactMessages(contactId)
+      .then((res) => {
+        if (!live) return;
+        if (res.ok) setMessages(res.messages); else setLoadError(res.error);
+      })
+      .catch(() => { if (live) setLoadError('Couldn’t load transcript. Try again.'); });
     return () => { live = false; };
   }, [contactId]);
 
@@ -256,7 +258,9 @@ function ContactChat({ contactId, label }: { contactId: string; label: string })
   // staff reply that was just sent shows up, and clear the textarea.
   useEffect(() => {
     if (wasPending.current && !replyPending && replyState.ok) {
-      loadContactMessages(contactId).then((res) => { if (res.ok) setMessages(res.messages); });
+      loadContactMessages(contactId)
+        .then((res) => { if (res.ok) setMessages(res.messages); else setLoadError(res.error); })
+        .catch(() => setLoadError('Couldn’t refresh transcript.'));
       formRef.current?.reset();
     }
     wasPending.current = replyPending;

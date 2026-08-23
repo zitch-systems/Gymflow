@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Users, UserPlus, ChevronRight, Power, ShieldCheck, KeyRound, Copy, Check } from 'lucide-react';
 import { setStaffActive, setStaffRole, resetStaffPassword, type StaffState } from '@/lib/actions/admin-staff';
@@ -50,6 +51,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 // Owner rows and the current user's own row are read-only (the server enforces
 // the same rules).
 export function StaffManager({ rows, currentUserId, roleLabels }: { rows: StaffRow[]; currentUserId: string; roleLabels: Record<string, string> }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -59,12 +61,20 @@ export function StaffManager({ rows, currentUserId, roleLabels }: { rows: StaffR
   function changeRole(userId: string, role: string) {
     setError(null); setBusyId(userId);
     const fd = new FormData(); fd.set('user_id', userId); fd.set('role', role);
-    start(async () => { const r = await setStaffRole(INIT, fd); if (!r.ok) setError(r.error); setBusyId(null); });
+    start(async () => {
+      const r = await setStaffRole(INIT, fd);
+      if (!r.ok) setError(r.error); else router.refresh();
+      setBusyId(null);
+    });
   }
   function toggleActive(userId: string, active: boolean) {
     setError(null); setBusyId(userId);
     const fd = new FormData(); fd.set('user_id', userId); fd.set('active', active ? 'true' : 'false');
-    start(async () => { const r = await setStaffActive(INIT, fd); if (!r.ok) setError(r.error); setBusyId(null); });
+    start(async () => {
+      const r = await setStaffActive(INIT, fd);
+      if (!r.ok) setError(r.error); else router.refresh();
+      setBusyId(null);
+    });
   }
   function resetPassword(userId: string, name: string) {
     setError(null); setBusyId(userId);
