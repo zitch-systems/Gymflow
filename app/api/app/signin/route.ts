@@ -1,4 +1,4 @@
-import { createApiAuthClient, resolveGymByCode, provisionMember } from '@/lib/gym-signup';
+import { createApiAuthClient, resolveGymByCode } from '@/lib/gym-signup';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { json, corsPreflight, sessionPayload, planLocked } from '@/lib/api-app';
 import { gymCanUse } from '@/lib/entitlements';
@@ -73,9 +73,24 @@ export async function POST(req: Request) {
       }, 403);
     }
 
-    // Ensure a membership at this gym (idempotent — no-op if already linked).
-    const prov = await provisionMember({ userId: data.user.id, email, gymId: gym.id, onboardingMethod: 'mobile_app' });
-    if (!prov.ok) return json({ error: prov.error ?? 'Signed in, but couldn’t attach your gym. Please try again.' }, 500);
+    // Signin does NOT enrol the caller into arbitrary gyms. Gym codes are
+    // printed on flyers/QRs and embedded in /g/[slug]/join-qr, so any signed-in
+    // user could otherwise call this route with someone else's public code and
+    // attach themselves as an active member of that gym (skewing member count,
+    // MRR, and granting member-app surface access at a gym they never joined).
+    // Only refresh the existing link — new joins must go through the signup
+    // flow (which requires opting in to that gym) or an admin-side invite.
+    const { data: existingLink } = await auth
+      .from('gym_member_links')
+      .select('id')
+      .eq('user_id', data.user.id)
+      .eq('gym_id', gym.id)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!existingLink) {
+      await auth.auth.signOut({ scope: 'local' });
+      return json({ error: 'This account isn’t a member of that gym. Sign up first, or ask your gym for a fresh invite.' }, 403);
+    }
 
     return json({
       gym: { id: gym.id, name: gym.name, slug: gym.slug, brand_color: gym.brand_color, logo_url: gym.logo_url },

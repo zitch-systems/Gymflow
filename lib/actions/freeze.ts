@@ -371,11 +371,18 @@ export async function resumeFreeze(_prev: ActionState, formData: FormData): Prom
     base.setUTCDate(base.getUTCDate() + days);
     const newEnd = base.toISOString().slice(0, 10);
 
-    const { error } = await supabase
+    // Compare-and-swap on status: two concurrent resumes (cron + staff, or
+    // two staff windows) would each read Date.now() a tick apart, compute
+    // slightly different credits, and each write end_date — the second write
+    // silently stamps an extra day on top of the first. Guarding on
+    // status='paused' turns the second UPDATE into 0 rows; we then treat it
+    // as "already resumed by another path" and return ok without re-crediting.
+    const { data: swapped, error } = await supabase
       .from('member_subscriptions')
       .update({ status: 'active', paused_at: null, pause_reason: null, pause_start: null, pause_end: null, end_date: newEnd })
-      .eq('id', sub.id);
+      .eq('id', sub.id).eq('status', 'paused').select('id').maybeSingle();
     if (error) return { ok: false, error: error.message };
+    if (!swapped) return { ok: true, error: null, message: 'Already resumed.' };
 
     void logAudit({
       action: 'membership_freeze_resumed',

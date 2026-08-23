@@ -1,5 +1,4 @@
 import { createApiAuthClient, resolveGymByCode, provisionMember } from '@/lib/gym-signup';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { validatePassword } from '@/lib/auth/password';
 import { normalizeNgPhone } from '@/lib/format';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
@@ -65,19 +64,18 @@ export async function POST(req: Request) {
     }
     if (!data.user) return json({ error: 'Could not create the account. Please try again.' }, 400);
 
-    // Auto-confirm + sign in so signup never depends on email delivery.
-    let session = data.session;
-    if (!session) {
-      try {
-        const admin = createAdminClient();
-        const { error: confirmErr } = await admin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
-        if (!confirmErr) {
-          const { data: signed } = await auth.auth.signInWithPassword({ email, password });
-          session = signed.session;
-        }
-      } catch { /* no service key — leave session null, account still created */ }
-    }
+    // Never service-role-confirm a public signup. The web /join flow observes
+    // this boundary (lib/actions/join.ts:150) — without it, anyone could mint
+    // and immediately control an account for an email they don't own. Same
+    // rule here: return whatever session the Auth server chose to issue (none,
+    // in the confirmations-required default), and let the confirmation link
+    // wake the account.
+    const session = data.session;
 
+    // Provisioning is safe to run before confirmation: it links the auth user
+    // (which now exists) to the gym so the confirmation → /launch handoff
+    // finds the member row already in place. The account still can't reach
+    // the app until the email is confirmed.
     const prov = await provisionMember({ userId: data.user.id, email, gymId: gym.id, fullName, phone, onboardingMethod: 'mobile_app' });
     if (!prov.ok) return json({ error: prov.error ?? 'Could not join the gym. Please try again.' }, 500);
 
