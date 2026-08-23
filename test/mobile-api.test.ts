@@ -231,14 +231,32 @@ describe('member surfaces are gated on the gym plan', () => {
     expect(src).toContain('rateLimit(');
   });
 
-  it('signin/signup refuse before they enrol anyone', () => {
-    // Both idempotently link the account into the gym. Order matters: a member
+  it('signup refuses before it enrols anyone', () => {
+    // Signup links the account into the gym. Order matters: a member
     // provisioned into a gym whose app they cannot open is a worse outcome than
     // being turned away at the code.
-    for (const file of ['app/api/app/signin/route.ts', 'app/api/app/signup/route.ts']) {
-      const src = read(file);
-      expect(src.indexOf("gymCanUse(gym, 'member_app')")).toBeLessThan(src.indexOf('provisionMember('));
-    }
+    const src = read('app/api/app/signup/route.ts');
+    expect(src.indexOf("gymCanUse(gym, 'member_app')")).toBeLessThan(src.indexOf('provisionMember('));
+  });
+
+  it('signin never enrols anyone', () => {
+    // Gym member codes are printed on flyers and embedded in /g/[slug]/join-qr,
+    // so a signin that provisions would let any signed-in user attach
+    // themselves as an active member of an arbitrary gym just by typing its
+    // public code. Signin verifies an EXISTING link and refuses otherwise;
+    // joining is the signup flow's job.
+    const src = read('app/api/app/signin/route.ts');
+    expect(src).not.toContain('provisionMember(');
+    expect(src).toContain('gym_member_links');
+  });
+
+  it('signup never service-role-confirms a public account', () => {
+    // Confirming an address the caller has not proven they own lets anyone
+    // mint and immediately control an account for someone else's email. The
+    // web /join flow observes the same boundary.
+    const src = read('app/api/app/signup/route.ts');
+    expect(src).not.toContain('auth.admin.updateUserById');
+    expect(src).not.toContain('createAdminClient');
   });
 
   it('check-in gates entry on qr_checkin, its own feature', () => {

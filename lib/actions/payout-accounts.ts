@@ -1,7 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
+import { requireStaff } from '@/lib/auth/dal';
+
+// Payout-account changes redirect every future member payment for the whole gym
+// — a hijacked or compromised manager account could reroute a full billing
+// cycle into their own bank. Restrict to the owner role only, matching the
+// posture of platform-billing.ts's OWNER_ROLES. Password step-up still applies
+// on top of this so a stolen owner session isn't enough on its own.
+const OWNER_ROLES = ['gym_owner', 'owner'] as const;
 import { verifyPassword } from '@/lib/auth/actions';
 import { createClient } from '@/lib/supabase/server';
 import { logAudit } from '@/lib/audit';
@@ -32,7 +39,7 @@ export async function addPayoutAccount(_prev: PayoutState, formData: FormData): 
     return { ok: false, error: 'Pick a bank and enter a 10-digit account number and the account name.' };
   }
   try {
-    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const { user, gym } = await requireStaff(OWNER_ROLES);
     const reauth = await verifyPassword(password);
     if (reauth.error) return { ok: false, error: reauth.error };
     const supabase = await createClient();
@@ -84,7 +91,7 @@ export async function setActivePayoutAccount(_prev: PayoutState, formData: FormD
   const password = String(formData.get('password') ?? '');
   if (!UUID_RE.test(accountId)) return { ok: false, error: 'Invalid account.' };
   try {
-    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const { user, gym } = await requireStaff(OWNER_ROLES);
     const reauth = await verifyPassword(password);
     if (reauth.error) return { ok: false, error: reauth.error };
     const supabase = await createClient();
@@ -123,7 +130,7 @@ export async function removePayoutAccount(_prev: PayoutState, formData: FormData
   const password = String(formData.get('password') ?? '');
   if (!UUID_RE.test(accountId)) return { ok: false, error: 'Invalid account.' };
   try {
-    const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const { user, gym } = await requireStaff(OWNER_ROLES);
     const reauth = await verifyPassword(password);
     if (reauth.error) return { ok: false, error: reauth.error };
     const supabase = await createClient();

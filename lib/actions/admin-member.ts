@@ -310,7 +310,7 @@ export async function recordPayment(_prev: ActionState, formData: FormData): Pro
           // the orphan row behind. The insert we're reversing is scoped
           // by id — we're not opening a broader delete surface here.
           const admin = createAdminClient();
-          const { error: undoErr } = await admin.from('payments').delete().eq('id', rowId);
+          const { error: undoErr } = await admin.from('payments').delete().eq('id', rowId).eq('gym_id', gymId);
           if (undoErr) console.warn(`[recordPayment] extend failed AND rollback failed for ${rowId}: ${undoErr.message}`);
         }
         return { ok: false, error: `Could not extend the membership — payment not recorded. ${(e as Error).message}` };

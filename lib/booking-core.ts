@@ -190,9 +190,16 @@ export async function cancelBookingCore(supabase: Sb, memberId: string, bookingI
           .eq('gym_id', row.gym_id).eq('class_schedule_id', row.class_schedule_id)
           .eq('booking_date', row.booking_date).eq('status', 'waitlisted')
           .order('booked_at', { ascending: true }).limit(1).maybeSingle();
+        // Compare-and-swap: two concurrent cancels of two separate booked
+        // seats could each SELECT the same longest-waiting waitlisted row and
+        // both try to promote it — one wins, the other silently drops a
+        // waitlisted member on the floor. Guard the UPDATE on the row still
+        // being waitlisted; if 0 rows update, this cancel's promotion is a
+        // no-op and the other cancel already handled it.
         if (next) {
-          await admin.from('class_bookings').update({ status: 'booked' }).eq('id', next.id);
-          if (next.member_id) {
+          const { data: casRow } = await admin.from('class_bookings')
+            .update({ status: 'booked' }).eq('id', next.id).eq('status', 'waitlisted').select('id').maybeSingle();
+          if (casRow && next.member_id) {
             await admin.from('notifications').insert({
               gym_id: row.gym_id, user_id: next.member_id, type: 'class', channel: 'in_app',
               title: 'A spot opened up', body: `Good news — a spot opened and you’re now booked in for ${row.booking_date}.`,

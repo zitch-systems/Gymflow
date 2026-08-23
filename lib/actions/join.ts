@@ -208,6 +208,20 @@ export async function healJoin(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
 
+  // user_metadata is writable by the user themselves (auth.updateUser can set
+  // arbitrary keys). A long-lived account could stamp `join_gym_slug` on their
+  // own metadata and call this to self-enrol into any gym slug. Guard by only
+  // treating this as a bootstrap heal for accounts that are BOTH freshly
+  // created (< 24h old, the confirmation-email window) AND have never joined
+  // a gym yet. That keeps the legitimate signup → confirmation → /launch
+  // handoff working while neutralising the metadata-poisoning attack.
+  const createdAt = user.created_at ? Date.parse(user.created_at) : NaN;
+  const HEAL_WINDOW_MS = 24 * 60 * 60 * 1000;
+  if (!Number.isFinite(createdAt) || Date.now() - createdAt > HEAL_WINDOW_MS) return false;
+  const { data: existing } = await supabase
+    .from('gym_member_links').select('id').eq('user_id', user.id).limit(1).maybeSingle();
+  if (existing) return false;
+
   const meta = (user.user_metadata as Record<string, unknown> | null) ?? {};
   const slug = String(meta.join_gym_slug ?? '').trim();
   if (!slug) return false;

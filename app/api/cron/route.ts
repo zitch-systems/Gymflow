@@ -324,10 +324,13 @@ export async function GET(req: Request) {
       const base = new Date((s.end_date ?? today) + 'T00:00:00Z');
       base.setUTCDate(base.getUTCDate() + days);
       const newEndDate = base.toISOString().slice(0, 10);
-      const { error } = await admin.from('member_subscriptions')
+      // CAS on status='paused': if a staff resumeFreeze raced this cron tick
+      // and already flipped the row, the guarded UPDATE affects 0 rows and we
+      // must not credit again on top of what they already stamped.
+      const { data: swapped, error } = await admin.from('member_subscriptions')
         .update({ status: 'active', paused_at: null, pause_reason: null, pause_start: null, pause_end: null, end_date: newEndDate })
-        .eq('id', s.id);
-      if (!error) {
+        .eq('id', s.id).eq('status', 'paused').select('id').maybeSingle();
+      if (!error && swapped) {
         freezesResumed++;
         if (s.gym_id && s.member_id) resumed.push({ gymId: s.gym_id, memberId: s.member_id, daysCredited: days, newEndDate });
       }
