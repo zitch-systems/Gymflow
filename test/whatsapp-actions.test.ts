@@ -85,7 +85,8 @@ const qrText = (slug: string, gymId: string) => `CHECKIN ${slug} ${signGymQrToke
 const gymRow = async (id: string): Promise<WhatsAppGym> =>
   asSuperuser(async (c) => {
     const { rows } = await c.query<WhatsAppGym>(
-      `select id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code
+      `select id, name, slug, member_code, status, phone, subscription_plan, legacy_full_access,
+              paystack_subaccount_code
        from public.gyms where id = $1`,
       [id],
     );
@@ -105,6 +106,16 @@ const ENV_KEYS = ['WHATSAPP_QR_SECRET', 'PAYSTACK_SECRET_KEY', 'SUPABASE_SERVICE
 
 beforeAll(async () => {
   await seed();
+  // The WhatsApp member channel and WhatsApp check-in are Growth features
+  // (lib/entitlements.ts: whatsapp_reminders, qr_checkin), and seed() creates
+  // gyms on the default Starter plan with legacy_full_access=false. These
+  // tests are about redelivery, routing and checkout mechanics — not about
+  // entitlement — so put both gyms on the plan that actually has the channel.
+  // Without this every check-in below is (correctly) refused before it starts.
+  await asSuperuser((c) => c.query(
+    `update public.gyms set subscription_plan = 'growth' where id = any($1::uuid[])`,
+    [[IDS.gymA, IDS.gymB]],
+  ));
   for (const k of ENV_KEYS) savedEnv[k] = process.env[k];
   process.env.WHATSAPP_QR_SECRET = QR_SECRET;
   // Set, so the "payments aren't configured" guard cannot be what makes a

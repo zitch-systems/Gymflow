@@ -30,7 +30,6 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
   const q = (sp.q ?? '').trim();
   const safe = q.replace(/[(),%*]/g, ' ').trim();
 
-  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   // QR render + the two independent check-in queries in parallel (previously
   // three sequential awaits).
   // A second door QR that opens WhatsApp with the check-in message pre-filled,
@@ -41,7 +40,13 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
   const waNumber = process.env.WHATSAPP_BUSINESS_NUMBER || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || null;
   const waLink = waNumber ? qrDeepLink(gym, waNumber) : null;
 
-  const [doorQr, waQr, { data: feed }, { data: openRows }] = await Promise.all([
+  // WAT day start, matching the open-visits query below and every other
+  // check-in boundary in the codebase. This was `new Date(); setHours(0,0,0,0)`
+  // — server-local, i.e. UTC on Vercel — so visits between 00:00 and 01:00 WAT
+  // counted against the wrong day.
+  const dayStartIso = watDayStartUtc(watDateISO());
+
+  const [doorQr, waQr, { data: feed }, { data: openRows }, { count: todayCount }] = await Promise.all([
     QRCode.toDataURL(checkinUrl, { margin: 2, width: 1024, errorCorrectionLevel: 'M', color: { dark: '#0a0b0e', light: '#ffffff' } }),
     waLink
       ? QRCode.toDataURL(waLink, { margin: 2, width: 1024, errorCorrectionLevel: 'M', color: { dark: '#0a0b0e', light: '#ffffff' } })
@@ -60,10 +65,19 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
       .eq('gym_id', gym.id)
       .eq('status', 'active').is('checked_out_at', null)
       .gte('checked_in_at', watDayStartUtc(watDateISO())),
+    // "Check-ins today" as a real COUNT, not a length. It used to be derived
+    // from the 12-row display feed above, so the KPI saturated at 12: a gym
+    // with 60 visits today reported 12, and once yesterday evening's rows
+    // filled the feed it could read LOWER than reality early in the day.
+    supabase
+      .from('check_ins')
+      .select('id', { count: 'exact', head: true })
+      .eq('gym_id', gym.id)
+      .gte('checked_in_at', dayStartIso),
   ]);
   const inGymIds = new Set((openRows ?? []).map((o) => o.member_id).filter(Boolean) as string[]);
 
-  const todayRows = (feed ?? []).filter((c) => c.checked_in_at && new Date(c.checked_in_at) >= dayStart);
+  const todayTotal = todayCount ?? 0;
   const lastTime = feed?.[0]?.checked_in_at
     ? new Date(feed[0].checked_in_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false })
     : '—';
@@ -90,10 +104,10 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <div className="page-h"><div><h1>Check-In</h1><p>{gym.name} · {todayRows.length} member{todayRows.length === 1 ? '' : 's'} in so far today</p></div></div>
+      <div className="page-h"><div><h1>Check-In</h1><p>{gym.name} · {todayTotal} member{todayTotal === 1 ? '' : 's'} in so far today</p></div></div>
 
       <section className="kpis k3">
-        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><ScanLine strokeWidth={1.9} /></div></div><div className="kpi-val">{todayRows.length}</div><div className="kpi-lbl">Check-ins today</div></div>
+        <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><ScanLine strokeWidth={1.9} /></div></div><div className="kpi-val">{todayTotal}</div><div className="kpi-lbl">Check-ins today</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#4080ff1f', color: '#4080ff' }}><Clock strokeWidth={1.9} /></div></div><div className="kpi-val">{lastTime}</div><div className="kpi-lbl">Last check-in</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#c6f24e1f', color: '#a8d92e' }}><Users strokeWidth={1.9} /></div></div><div className="kpi-val">{inGymIds.size}</div><div className="kpi-lbl">In gym now</div></div>
       </section>

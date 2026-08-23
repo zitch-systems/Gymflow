@@ -19,6 +19,10 @@ export type WhatsAppGym = {
   // WhatsApp checkout exactly as the web renewal prices it.
   platform_commission_mode?: string | null;
   platform_commission_fixed_amount?: number | string | null;
+  // Needed for gymCanUse(): without it the grandfather flag reads `undefined`
+  // and every entitlement gate on a WhatsApp path would silently lock out the
+  // legacy gyms that were promised continued access.
+  legacy_full_access?: boolean | null;
 };
 
 export type WhatsAppGymSettings = {
@@ -33,7 +37,8 @@ export type WhatsAppGymSettings = {
 };
 
 export const GYM_COLUMNS =
-  'id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code, platform_commission_mode, platform_commission_fixed_amount';
+  'id, name, slug, member_code, status, phone, subscription_plan, legacy_full_access, '
+  + 'paystack_subaccount_code, platform_commission_mode, platform_commission_fixed_amount';
 
 /**
  * The gym's home on the web — its own branded subdomain, which is also what the

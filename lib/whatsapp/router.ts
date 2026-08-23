@@ -13,6 +13,7 @@ import {
 } from '@/lib/whatsapp/contacts';
 import { createFlowSession } from '@/lib/whatsapp/flow-session';
 import { SCREEN } from '@/lib/whatsapp/flow-json';
+import { rateLimit } from '@/lib/rate-limit';
 import { gymById, gymByMemberCode, gymBySlug, gymHomeUrl, loadGymWhatsAppSettings, type WhatsAppGym, type WhatsAppGymSettings } from '@/lib/whatsapp/settings';
 import { membershipSnapshot, planOptions, visitState } from '@/lib/whatsapp/membership';
 import { parseQrMessage, verifyGymQrToken, whatsappCheckToggle, whatsappCheckinCode } from '@/lib/whatsapp/checkin';
@@ -102,6 +103,21 @@ export async function handleInboundMessage(admin: Admin, msg: IncomingWhatsAppMe
   // a delivery which logged its row and THEN died is not retried either — at
   // most once, which for actions that move money and doors is the safe side.
   if (duplicate) return;
+
+  // Per-sender inbound cap. Everything below runs synchronously on this
+  // request — free text can reach the assistant for up to MAX_TOOL_ROUNDS
+  // model calls, plus several Graph sends — and the number is public, so an
+  // unauthenticated stranger could otherwise drive unbounded LLM spend and tie
+  // up the 60s route by sending a few hundred sentences. Sign-up and sign-in
+  // are already rate-limited (lib/whatsapp/auth.ts); the conversation itself
+  // was not.
+  //
+  // Deliberately placed AFTER the duplicate check so Meta's own redeliveries
+  // never consume a member's budget, and generous enough (20/min) that no real
+  // conversation — including rapid button taps — will reach it. Silently
+  // dropping is right here: replying "slow down" to a flood is itself a send,
+  // and Meta needs the 200 the caller already returns.
+  if (!(await rateLimit(`wa-in:${msg.from}`, 20, 60))) return;
 
   // A blocked contact is one a gym has explicitly silenced. Log and stop.
   if (contact.blocked) return;
