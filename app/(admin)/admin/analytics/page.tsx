@@ -1,7 +1,7 @@
 import { Wallet, ScanLine, Users, CreditCard } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira } from '@/lib/format';
+import { fmtNaira, watDateISO } from '@/lib/format';
 
 export const metadata = { title: 'Analytics' };
 
@@ -30,7 +30,15 @@ export default async function AdminAnalytics() {
     supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('is_active', true),
     // Churn inputs: subscriptions that ended in the last 30 days. Members who
     // re-bought have a NEW active row, so they're filtered back out below.
-    supabase.from('member_subscriptions').select('member_id').eq('gym_id', gym.id).in('status', ['expired', 'cancelled']).gte('end_date', d30.slice(0, 10)).limit(2000),
+    //
+    // Bounded at BOTH ends. `gte` alone also matched rows whose end_date is in
+    // the FUTURE, which is not "ended" — a cancel-at-period-end member (status
+    // 'cancelled', still paid through next month) counted as churned while
+    // they were still training, inflating the rate. No app path writes such a
+    // row today, so this is latent rather than live, but the window now
+    // matches what the comment above claims it selects.
+    supabase.from('member_subscriptions').select('member_id').eq('gym_id', gym.id).in('status', ['expired', 'cancelled'])
+      .gte('end_date', d30.slice(0, 10)).lte('end_date', watDateISO()).limit(2000),
   ]);
 
   // 30-day churn: members whose subscription lapsed in the window and who have

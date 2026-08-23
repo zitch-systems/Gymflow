@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { numericCode } from '@/lib/crypto/secret-box';
 import { watDateISO, watDayStartUtc } from '@/lib/format';
 import { isOfflineGym } from '@/lib/gym-status';
+import { gymCanUse } from '@/lib/entitlements';
 import { membershipSnapshot } from '@/lib/whatsapp/membership';
 import type { WhatsAppGym } from '@/lib/whatsapp/settings';
 import type { Database } from '@/lib/database.types';
@@ -81,6 +82,22 @@ async function eligibility(
 
   if (opts.allowWhenInside && (await openVisit(admin, gym.id, memberId))) {
     return { ok: true, daysRemaining: null };
+  }
+
+  // Past the open-visit escape, this is unambiguously an ENTRY attempt, so the
+  // qr_checkin entitlement applies — exactly as it does on the mobile endpoint
+  // (app/api/app/checkin/route.ts gates 'in' and 'code' but never 'out').
+  // Checking out, and asking for a code in order to check out, stay ungated:
+  // a plan change mid-session must not trap a member inside the building.
+  //
+  // Without this, a Starter gym's members could still open the door over
+  // WhatsApp while the same gym's app members were correctly refused.
+  // gymCanUse, so grandfathered gyms keep the feature — WhatsAppGym now
+  // carries legacy_full_access precisely so this reads the real flag.
+  // subscription_plan is optional on WhatsAppGym but required-nullable on
+  // gymCanUse; normalise here rather than loosening the shared signature.
+  if (!gymCanUse({ subscription_plan: gym.subscription_plan ?? null, legacy_full_access: gym.legacy_full_access }, 'qr_checkin')) {
+    return { ok: false, error: `${gym.name} isn’t set up for WhatsApp check-in. Please see the front desk.` };
   }
 
   const snap = await membershipSnapshot(admin, memberId, gym.id);

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { chat } from './chat';
 import { isUnavailable, recordUsage, resolveAi } from './settings';
 import type { ChatMessage, ToolSpec } from './types';
+import { gymCanUse } from '@/lib/entitlements';
 import { gymFacts, membershipSnapshot, planOptions, upcomingClasses, visitState } from '@/lib/whatsapp/membership';
 import type { WhatsAppGym, WhatsAppGymSettings } from '@/lib/whatsapp/settings';
 import type { Database } from '@/lib/database.types';
@@ -115,6 +116,20 @@ export async function askAssistant(
   },
 ): Promise<AssistantResult> {
   if (!params.settings.aiEnabled) return { ok: false, reason: 'unavailable', detail: 'AI is off for this gym.' };
+
+  // The assistant is a Growth feature, but gym_whatsapp_settings.ai_enabled is
+  // a gym-owned switch that nothing resets on downgrade — so a gym that
+  // enabled AI on Growth and then dropped to Starter kept an assistant
+  // answering on the platform's token budget indefinitely. Entitlement is
+  // checked here, at the point of spend, rather than at the settings form,
+  // because the stored flag outlives the plan that justified it.
+  //
+  // 'unavailable' (not an error) is deliberate: per this function's contract
+  // the caller falls back to the scripted menu, so a downgraded gym's WhatsApp
+  // channel keeps working — it just stops answering free text with an LLM.
+  if (!gymCanUse({ subscription_plan: params.gym.subscription_plan ?? null, legacy_full_access: params.gym.legacy_full_access }, 'ai_assistant')) {
+    return { ok: false, reason: 'unavailable', detail: 'The AI assistant is not part of this gym’s plan.' };
+  }
 
   const resolved = await resolveAi(admin, params.gym.id);
   if (isUnavailable(resolved)) return { ok: false, reason: 'unavailable', detail: resolved.detail };
