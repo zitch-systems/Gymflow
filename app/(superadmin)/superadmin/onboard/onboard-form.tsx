@@ -12,7 +12,7 @@ const initial: OnboardState = { ok: false, error: null };
 // rejected by the gyms_subscription_plan_valid check constraint at insert time.
 const PLAN_OPTIONS = PLAN_TIERS.map((tier) => ({
   tier,
-  label: `${PLATFORM_PLANS[tier].name} — ${fmtNaira(planPrice(tier, DEFAULT_CYCLE).amountKobo / 100)}${CYCLE_SUFFIX[DEFAULT_CYCLE]}`,
+  label: `${PLATFORM_PLANS[tier].name} — ${fmtNaira(Math.round(planPrice(tier, DEFAULT_CYCLE).amountKobo / 100))}${CYCLE_SUFFIX[DEFAULT_CYCLE]}`,
 }));
 
 export function OnboardForm() {
