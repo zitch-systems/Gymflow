@@ -5,6 +5,14 @@ import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { gymCanUse, gymHasFeature, memberLockedMessage } from '@/lib/entitlements';
 import { bookClassCore, cancelBookingCore, type BookState } from '@/lib/booking-core';
+import { rateLimit } from '@/lib/rate-limit';
+
+// Each book/cancel writes rows AND can fire mail (booking confirmation,
+// waitlist promotion). A scripted book/cancel loop was an unbounded email
+// amplifier aimed at gym staff and our Resend bill, so cap the round trips a
+// single member can drive. Generous enough that no honest member browsing the
+// timetable will ever see it.
+const BOOKING_RATE = 'Too many booking changes — give it a minute and try again.';
 
 // No `export type { BookState }` here — see the note in lib/actions/renew.ts.
 // A 'use server' file may only export async functions, and Turbopack re-emitted
@@ -29,6 +37,7 @@ export async function bookClass(_prev: BookState, formData: FormData): Promise<B
     // stays on gymHasFeature. A layout does not run for an action POST.
     if (!gymCanUse(gym, 'member_app')) return { ok: false, error: memberLockedMessage(gym.name, 'the member app') };
     if (!gymHasFeature(gym, 'class_scheduling')) return { ok: false, error: memberLockedMessage(gym.name, 'class booking') };
+    if (!(await rateLimit(`book:user:${user.id}`, 30, 60))) return { ok: false, error: BOOKING_RATE };
     const supabase = await createClient();
     const res = await bookClassCore(supabase, user.id, gym, scheduleId);
     if (res.ok) { revalidatePath('/classes'); revalidatePath('/dashboard'); }
@@ -42,6 +51,7 @@ export async function cancelBooking(_prev: BookState, formData: FormData): Promi
   const bookingId = String(formData.get('bookingId') ?? '');
   try {
     const { user } = await requireMember();
+    if (!(await rateLimit(`book:user:${user.id}`, 30, 60))) return { ok: false, error: BOOKING_RATE };
     const supabase = await createClient();
     const res = await cancelBookingCore(supabase, user.id, bookingId);
     if (res.ok) { revalidatePath('/classes'); revalidatePath('/dashboard'); }

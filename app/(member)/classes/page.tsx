@@ -38,7 +38,10 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const [{ data: classes }, { data: schedules }, { data: bookings }, { count: unread }] = await Promise.all([
     supabase.from('classes').select('id, name, instructor, max_capacity, duration_minutes').eq('gym_id', gym.id),
     supabase.from('class_schedules').select('id, day_of_week, start_time, room, class_id').eq('gym_id', gym.id).eq('is_active', true).order('start_time', { ascending: true }),
-    supabase.from('class_bookings').select('id, booking_date, status, class_schedule_id, class_id').eq('member_id', user.id).neq('status', 'cancelled').order('booking_date', { ascending: true }),
+    // gym_id as well as member_id — see the same fix in app/api/app/classes:
+    // a member of two gyms otherwise sees the other gym's bookings against
+    // this gym's schedule map.
+    supabase.from('class_bookings').select('id, booking_date, status, class_schedule_id, class_id').eq('gym_id', gym.id).eq('member_id', user.id).neq('status', 'cancelled').order('booking_date', { ascending: true }),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
   ]);
 

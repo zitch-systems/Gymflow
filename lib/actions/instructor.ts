@@ -8,6 +8,7 @@ import { resolveAccount, type ResolveResult } from '@/lib/paystack';
 import { alertInstructorBankChanged } from '@/lib/payout-alerts';
 import { rateLimit } from '@/lib/rate-limit';
 import { storagePathFromPublicUrl } from '@/lib/format';
+import { checkImage } from '@/lib/upload-image';
 
 export type MarkResult = { ok: boolean; error: string | null };
 
@@ -125,17 +126,18 @@ export async function savePrefs(_prev: MarkResult, formData: FormData): Promise<
 export async function uploadAvatar(_prev: MarkResult, formData: FormData): Promise<MarkResult> {
   const file = formData.get('avatar');
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Choose a photo to upload.' };
-  if (!file.type.startsWith('image/')) return { ok: false, error: 'File must be an image.' };
-  if (file.size > 2_000_000) return { ok: false, error: 'Image must be under 2 MB.' };
+  // Avatars render in admin lists and member booking cards, and the bucket is
+  // public — an SVG here executes same-origin. See lib/upload-image.ts.
+  const checked = checkImage(file, 2_000_000);
+  if (!checked.ok) return { ok: false, error: checked.error };
   try {
     const { user, gym } = await requireInstructor();
     const supabase = await createClient();
-    const ext = ((file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
-    const path = `${gym.id}/avatars/${user.id}-${Date.now()}.${ext}`;
+    const path = `${gym.id}/avatars/${user.id}-${Date.now()}.${checked.ext}`;
     // Snapshot the current avatar BEFORE overwriting the pointer, so the old
     // object can be deleted (timestamped paths never overwrite → orphans).
     const { data: prevProfile } = await supabase.from('profiles').select('avatar_url').eq('id', user.id).maybeSingle();
-    const { error: upErr } = await supabase.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
+    const { error: upErr } = await supabase.storage.from('gym-assets').upload(path, file, { contentType: checked.contentType, upsert: true });
     if (upErr) return { ok: false, error: upErr.message };
     const { data: pub } = supabase.storage.from('gym-assets').getPublicUrl(path);
     const { error } = await supabase.from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id);
