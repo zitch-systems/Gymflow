@@ -137,7 +137,11 @@ describe('a run that partly worked', () => {
     const res = await runGymBackup(GYM, { trigger: 'manual', cadence: 'manual', email: false });
     expect(res.ok).toBe(true);
     expect(uploaded).toHaveLength(1);
-    expect(inserted[0].status).toBe('success');
+    // A real table read failure downgrades the row to 'partial' — 'success'
+    // is now reserved for runs where every requested table read cleanly. A
+    // row-cap truncation warning (data is in the archive, just capped) does
+    // NOT downgrade; only archive.failures do.
+    expect(inserted[0].status).toBe('partial');
     expect(inserted[0].problems).toEqual([
       'check-ins: permission denied',
       'payments: only the most recent 50,000 rows are included',
