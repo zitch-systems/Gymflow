@@ -26,13 +26,27 @@ export async function GET() {
   const ids = [...new Set((links ?? []).map((l) => (l.member_id ?? l.user_id)).filter(Boolean) as string[])];
   const [{ data: profiles }, { data: subs }, { data: plans }] = await Promise.all([
     ids.length ? supabase.from('profiles').select('id, full_name, email, phone').in('id', ids) : Promise.resolve({ data: [] as Profile[] }),
-    ids.length ? supabase.from('member_subscriptions').select('member_id, plan_id, status, end_date').eq('gym_id', gym.id).in('member_id', ids) : Promise.resolve({ data: [] as Sub[] }),
+    // Order by end_date descending so a member with multiple subscription
+    // rows (historical + current) has their MOST RECENT one land in
+    // subByMember first — the Map.set below keeps the last-in, so without an
+    // .order() PostgREST's default (unspecified) order could surface a
+    // cancelled/expired historical sub in the "Plan/Status/Renews" columns.
+    // nullsFirst=false pushes end_date NULLs (rare, but they happen for
+    // never-completed rows) to the bottom.
+    ids.length ? supabase.from('member_subscriptions').select('member_id, plan_id, status, end_date').eq('gym_id', gym.id).in('member_id', ids).order('end_date', { ascending: false, nullsFirst: false }) : Promise.resolve({ data: [] as Sub[] }),
     supabase.from('membership_plans').select('id, name').eq('gym_id', gym.id),
   ]);
 
   const pById = new Map((profiles ?? []).map((p) => [p.id, p as Profile]));
   const planById = new Map((plans ?? []).map((p: Plan) => [p.id, p.name]));
-  const subByMember = new Map((subs ?? []).map((s) => [s.member_id, s as Sub]));
+  // subs came back ordered by end_date desc — keep the FIRST hit per member
+  // (their live/most-recent sub) rather than letting later historical rows
+  // clobber it via Map.set. Using a plain for-loop makes the intent
+  // "first-wins" explicit; new Map(entries) would silently reverse it.
+  const subByMember = new Map<string, Sub>();
+  for (const s of (subs ?? []) as Sub[]) {
+    if (s.member_id && !subByMember.has(s.member_id)) subByMember.set(s.member_id, s);
+  }
 
   const header = ['Name', 'Email', 'Phone', 'Plan', 'Status', 'Renews', 'Joined', 'Active'];
   const body = (links ?? []).map((l) => {
