@@ -297,6 +297,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
 
       <GymControls
         gymId={gym.id}
+        gymName={gym.name ?? 'this gym'}
         suspended={suspended}
         plan={gym.subscription_plan ?? null}
         subscriptionStatus={gym.subscription_status ?? 'trial'}

@@ -10,7 +10,15 @@ export async function availableBalance(
   gymId: string, instructorId: string, sharePct: number,
 ): Promise<number> {
   const [{ data: subs }, { data: payouts }] = await Promise.all([
-    supabase.from('instructor_subscriptions').select('amount_paid').eq('gym_id', gymId).eq('instructor_id', instructorId),
+    // Exclude cancelled packs. 'expired' still counts — the member had the
+    // sessions — but a cancelled pack is revenue the gym did not keep, and
+    // summing it credited the coach a share of money that was never earned,
+    // which requestPayout would then approve for real transfer. No app path
+    // writes 'cancelled' today (the status is set directly in the DB), so this
+    // is a latent hole rather than a live one; the filter closes it before a
+    // cancellation feature makes it reachable.
+    supabase.from('instructor_subscriptions').select('amount_paid')
+      .eq('gym_id', gymId).eq('instructor_id', instructorId).neq('status', 'cancelled'),
     supabase.from('instructor_payouts').select('amount, status').eq('gym_id', gymId).eq('instructor_id', instructorId),
   ]);
   const gross = (subs ?? []).reduce((s, r) => s + Number(r.amount_paid ?? 0), 0);

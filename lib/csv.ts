@@ -20,7 +20,11 @@ export function csvCell(v: unknown): string {
   const s = v == null ? '' : String(v);
   // Prefix formula-injection characters so spreadsheet apps don't execute them.
   const safe = /^[=+\-@\t\r]/.test(s) ? `\t${s}` : s;
-  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  // \r as well as \n: a lone CR (no LF) inside a value — "Ada\rBo" from a
+  // pasted-in name — went out unquoted, and Excel and several CSV parsers
+  // treat a bare CR as a row break, so the export silently gained a row and
+  // every column after it shifted.
+  return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 /** Serialise a header + rows into an RFC 4180-ish CSV document. */

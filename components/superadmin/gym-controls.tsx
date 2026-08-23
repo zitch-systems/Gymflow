@@ -20,9 +20,12 @@ function Feedback({ state }: { state: CommissionState }) {
 // collects the input. Split into three independent forms so one failing (a bad
 // day count, say) doesn't discard what was typed into the others.
 export function GymControls({
-  gymId, suspended, plan, subscriptionStatus,
+  gymId, gymName, suspended, plan, subscriptionStatus,
 }: {
   gymId: string;
+  /** Named in the suspend confirmation — an operator about to take a tenant
+   *  offline should see which one, not a bare "are you sure?". */
+  gymName: string;
   suspended: boolean;
   plan: string | null;
   subscriptionStatus: string;
@@ -41,8 +44,19 @@ export function GymControls({
       </div>
 
       {/* Suspend / reactivate — the platform kill switch. Confirmed inline
-          because suspending takes the gym's console AND public page offline. */}
-      <form action={statusAction} className="act-bar">
+          because suspending takes the gym's console AND public page offline.
+          (That claim used to be comment-only: this was a single-click submit,
+          so one misclick took a whole tenant offline.) Only the destructive
+          direction is confirmed; reactivating is safe and stays one click. */}
+      <form
+        action={statusAction}
+        className="act-bar"
+        onSubmit={(e) => {
+          if (!suspended && !confirm(`Suspend ${gymName}? Its admin console and public page go offline until you reactivate it.`)) {
+            e.preventDefault();
+          }
+        }}
+      >
         <input type="hidden" name="gymId" value={gymId} />
         <input type="hidden" name="status" value={suspended ? 'active' : 'suspended'} />
         <button

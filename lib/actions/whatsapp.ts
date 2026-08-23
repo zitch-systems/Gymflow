@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
+import { gymCanUse, upgradeMessage } from '@/lib/entitlements';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
@@ -11,6 +12,22 @@ import { sendStaffReply } from '@/lib/whatsapp/notify';
 import type { Database } from '@/lib/database.types';
 
 export type WhatsAppSaveState = { ok: boolean; error: string | null };
+
+// The WhatsApp console page renders a FeatureLockWall for gyms below Growth,
+// but a wall in a page does not run for a Server Action POST — so every action
+// in this file was reachable by a Starter gym posting the action id directly,
+// which would enable the channel and send real WhatsApp messages on the
+// platform's number. Each write gates on the same feature the wall checks.
+// gymCanUse (not gymHasFeature) so grandfathered gyms keep what they had —
+// see the asymmetry documented in lib/entitlements.ts.
+function whatsappLocked(gym: Parameters<typeof gymCanUse>[0]): string | null {
+  return gymCanUse(gym, 'whatsapp_reminders') ? null : upgradeMessage('whatsapp_reminders');
+}
+
+// The assistant is its own Growth feature, gated separately from the channel.
+function aiLocked(gym: Parameters<typeof gymCanUse>[0]): string | null {
+  return gymCanUse(gym, 'ai_assistant') ? null : upgradeMessage('ai_assistant');
+}
 
 // ── Channel settings ────────────────────────────────────────────────────────
 // gym_whatsapp_settings.ai_enabled is deliberately left untouched here — it's
@@ -28,6 +45,8 @@ export async function saveWhatsAppSettings(_prev: WhatsAppSaveState, formData: F
   }
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const locked = whatsappLocked(gym);
+    if (locked) return { ok: false, error: locked };
     const supabase = await createClient();
     const patch: Database['public']['Tables']['gym_whatsapp_settings']['Insert'] = {
       gym_id: gym.id, enabled, support_phone, app_home_url, welcome_message, qr_checkin_enabled,
@@ -55,6 +74,8 @@ export async function replyToContact(_prev: WhatsAppSaveState, formData: FormDat
   if (!body) return { ok: false, error: 'Write a message first.' };
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const locked = whatsappLocked(gym);
+    if (locked) return { ok: false, error: locked };
     const supabase = await createClient();
     const { data: contact } = await supabase
       .from('whatsapp_contacts')
@@ -99,6 +120,8 @@ export async function loadContactMessages(contactId: string): Promise<{ ok: bool
   if (!id) return { ok: false, error: 'Missing conversation.', messages: [] };
   try {
     const { gym } = await requireStaff(MANAGER_ROLES);
+    const locked = whatsappLocked(gym);
+    if (locked) return { ok: false, error: locked, messages: [] };
     const supabase = await createClient();
     const { data: contact } = await supabase
       .from('whatsapp_contacts')
@@ -161,6 +184,8 @@ export async function saveAiSettings(_prev: WhatsAppSaveState, formData: FormDat
 
   try {
     const { user, gym } = await requireStaff(MANAGER_ROLES);
+    const locked = aiLocked(gym);
+    if (locked) return { ok: false, error: locked };
     const admin = createAdminClient();
     const patch: Database['public']['Tables']['gym_ai_settings']['Insert'] = {
       gym_id: gym.id,
