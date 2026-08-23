@@ -116,6 +116,16 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
       if (error) return { ok: false, error: error.message };
     }
     logAudit({ action: id ? 'plan_updated' : 'plan_created', table: 'membership_plans', actorId: user.id, gymId: gym.id, recordId: id, values: { name, price, duration_days, duration_months, ...addon } });
+    // Every member-facing surface that reads membership_plans (price, name,
+    // features, duration) must re-render after this write, or the member
+    // clicks Renew from a stale amount and the checkout re-reads live pricing
+    // — payment is safe, but the sticker shock is exactly the trust break
+    // this catches. The admin console redirect below covers /admin/pricing.
+    revalidatePath('/g/[slug]', 'page');
+    revalidatePath('/join/[slug]', 'page');
+    revalidatePath('/dashboard');
+    revalidatePath('/dashboard/renew');
+    revalidatePath('/dashboard/wallet');
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
@@ -159,6 +169,10 @@ export async function createClass(_prev: CState, formData: FormData): Promise<CS
     const { error: sErr } = await supabase.from('class_schedules').insert(rows);
     if (sErr) return { ok: false, error: sErr.message };
     logAudit({ action: 'class_created', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId, values: { name, days, startTime } });
+    // Member class list and any deep-link class page need to re-render or the
+    // new session doesn't appear until the RSC cache expires.
+    revalidatePath('/classes');
+    revalidatePath('/classes/[id]', 'page');
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
@@ -199,6 +213,8 @@ export async function updateClass(_prev: CState, formData: FormData): Promise<CS
       if (sErr) return { ok: false, error: sErr.message };
     }
     logAudit({ action: 'class_updated', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId, values: { name, dow, startTime } });
+    revalidatePath('/classes');
+    revalidatePath('/classes/[id]', 'page');
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
@@ -299,6 +315,8 @@ export async function deleteClass(_prev: CState, formData: FormData): Promise<CS
     const { error } = await supabase.from('classes').delete().eq('id', classId).eq('gym_id', gym.id);
     if (error) return { ok: false, error: error.message };
     logAudit({ action: 'class_deleted', table: 'classes', actorId: user.id, gymId: gym.id, recordId: classId });
+    revalidatePath('/classes');
+    revalidatePath('/classes/[id]', 'page');
 
     // Now tell them. Sliced so a popular class doesn't fire eighty sends at once
     // and time the action out. Best-effort: the class is already gone.
