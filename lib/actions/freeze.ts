@@ -5,7 +5,7 @@ import { requireMember, requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
-import { firstName, fmtDate } from '@/lib/format';
+import { firstName, fmtDate, watDateISO } from '@/lib/format';
 import type { EmailContent } from '@/lib/email/layout';
 import { adminOrNull, getContact, getGymStaffEmails } from '@/lib/email/recipients';
 import { memberAppUrl, platformAppUrl, sendGymEmail, sendPlatformEmail, type EmailCategory } from '@/lib/email/send';
@@ -40,7 +40,10 @@ function parseDate(value: FormDataEntryValue | null): string | null {
   return s;
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+// WAT, not UTC: freeze windows are validated against date-only columns that
+// the rest of the app writes in WAT. Between 23:00–00:00 WAT a UTC "today"
+// is already tomorrow, so a window could validate against the wrong day.
+const todayIso = () => watDateISO();
 const daysBetween = (a: string, b: string) =>
   Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000);
 
