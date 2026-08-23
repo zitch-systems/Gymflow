@@ -30,8 +30,12 @@ export async function GET(req: Request) {
       supabase.from('classes').select('id, name, instructor, max_capacity, duration_minutes, description').eq('gym_id', gym.id),
       supabase.from('class_schedules').select('id, day_of_week, start_time, room, class_id')
         .eq('gym_id', gym.id).eq('is_active', true).order('start_time', { ascending: true }),
+      // gym_id as well as member_id: the classes and schedules either side of
+      // this are gym-scoped, so a member of two gyms was getting the OTHER
+      // gym's bookings mashed against this gym's schedule map — rendering as
+      // mislabelled rows or matching the wrong schedule entirely.
       supabase.from('class_bookings').select('id, booking_date, status, class_schedule_id, class_id')
-        .eq('member_id', user.id).neq('status', 'cancelled').order('booking_date', { ascending: true }),
+        .eq('gym_id', gym.id).eq('member_id', user.id).neq('status', 'cancelled').order('booking_date', { ascending: true }),
     ]);
 
     const classMap = new Map(((classes ?? []) as ClassRow[]).map((c) => [c.id, c]));

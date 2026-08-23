@@ -8,6 +8,7 @@ import { logAudit } from '@/lib/audit';
 import { createSubaccount, resolveAccount, DEFAULT_PLATFORM_COMMISSION_PCT } from '@/lib/paystack';
 import { rateLimit } from '@/lib/rate-limit';
 import { storagePathFromPublicUrl } from '@/lib/format';
+import { checkImage } from '@/lib/upload-image';
 import { cacDocError, parseCacNumber } from '@/lib/cac';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
 import { getGymOwnerEmails } from '@/lib/email/recipients';
@@ -304,9 +305,12 @@ export async function uploadGymPhotos(_prev: GymSaveState, formData: FormData): 
     }
     const added: string[] = [];
     for (const file of files) {
-      const ext = ((file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
-      const path = `${gym.id}/gallery/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await storage.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
+      // Per-file allowlist: the batch only had an aggregate byte cap, so a
+      // single SVG rode in alongside legitimate photos. See lib/upload-image.ts.
+      const checked = checkImage(file, 2_500_000);
+      if (!checked.ok) return { ok: false, error: checked.error };
+      const path = `${gym.id}/gallery/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${checked.ext}`;
+      const { error: upErr } = await storage.storage.from('gym-assets').upload(path, file, { contentType: checked.contentType, upsert: true });
       if (upErr) return { ok: false, error: upErr.message };
       added.push(storage.storage.from('gym-assets').getPublicUrl(path).data.publicUrl);
     }
@@ -442,8 +446,12 @@ export async function updateNotifications(_prev: GymSaveState, formData: FormDat
 export async function uploadLogo(_prev: GymSaveState, formData: FormData): Promise<GymSaveState> {
   const file = formData.get('logo');
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: 'Choose an image to upload.' };
-  if (!file.type.startsWith('image/')) return { ok: false, error: 'File must be an image.' };
-  if (file.size > 2_000_000) return { ok: false, error: 'Image must be under 2 MB.' };
+  // `startsWith('image/')` admitted image/svg+xml, which the public bucket
+  // then served same-origin as executable script — on every branded page the
+  // logo appears on. Allowlist raster types and take the extension and stored
+  // content type from the allowlist, not from the client. See lib/upload-image.ts.
+  const checked = checkImage(file, 2_000_000);
+  if (!checked.ok) return { ok: false, error: checked.error };
   try {
     const { gym } = await requireStaff(MANAGER_ROLES);
     const supabase = await createClient();
@@ -453,9 +461,8 @@ export async function uploadLogo(_prev: GymSaveState, formData: FormData): Promi
     // "new row violates row-level security policy" that hits the user-scoped
     // client when its token doesn't reach the storage service.
     const storage = storageWriter(supabase);
-    const ext = ((file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'png';
-    const path = `${gym.id}/logo-${Date.now()}.${ext}`;
-    const { error: upErr } = await storage.storage.from('gym-assets').upload(path, file, { contentType: file.type, upsert: true });
+    const path = `${gym.id}/logo-${Date.now()}.${checked.ext}`;
+    const { error: upErr } = await storage.storage.from('gym-assets').upload(path, file, { contentType: checked.contentType, upsert: true });
     if (upErr) return { ok: false, error: upErr.message };
     const { data: pub } = storage.storage.from('gym-assets').getPublicUrl(path);
     const { error } = await supabase.from('gyms').update({ logo_url: pub.publicUrl } as never).eq('id', gym.id);

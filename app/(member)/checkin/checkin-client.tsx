@@ -187,7 +187,21 @@ export function CheckinClient({ initialCheckedIn, checkedInAt, history }: Props)
 
   const onScanned = useCallback((text: string) => {
     setScanning(false);
-    if (/\/checkin/i.test(text) || /[?&]via=qr/i.test(text)) {
+    // The shape test alone (`/checkin` anywhere in the string) matched ANY
+    // gym's door QR — and every gym's code has `/checkin` in it — so a member
+    // standing in front of a neighbouring gym's poster silently checked
+    // themselves in here, which is exactly what the error message below
+    // claims cannot happen. Each gym serves the member app from its own host,
+    // so require the scanned URL to point back at this same origin.
+    let sameGym = false;
+    try {
+      const url = new URL(text, window.location.origin);
+      sameGym = url.host === window.location.host
+        && (/\/checkin/i.test(url.pathname) || url.searchParams.get('via') === 'qr');
+    } catch {
+      sameGym = false; // not a URL at all — not one of our codes
+    }
+    if (sameGym) {
       (checkedIn ? doCheckOut : doCheckIn)();
     } else {
       setErr('That isn’t this gym’s check-in code. Scan the QR at the entrance.');

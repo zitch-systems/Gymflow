@@ -9,6 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { storagePathFromPublicUrl } from '@/lib/format';
 import { EXPENSE_CATEGORIES } from '@/lib/facility';
+import { checkImage } from '@/lib/upload-image';
 
 export type FState = { ok: boolean; error: string | null };
 
@@ -65,9 +66,13 @@ export async function saveEquipment(_prev: FState, fd: FormData): Promise<FState
 
     const patch: { photo_url?: string | null } = {};
     if (photo instanceof File && photo.size > 0) {
-      const ext = ((photo.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')) || 'jpg';
-      const path = `${gym.id}/equipment/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await storage.storage.from('gym-assets').upload(path, photo, { contentType: photo.type, upsert: true });
+      // Type/extension come from the allowlist, never from the client — see
+      // lib/upload-image.ts. This bucket is public, so an SVG stored here
+      // would be served same-origin and execute.
+      const checked = checkImage(photo, 3_000_000);
+      if (!checked.ok) return { ok: false, error: checked.error };
+      const path = `${gym.id}/equipment/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${checked.ext}`;
+      const { error: upErr } = await storage.storage.from('gym-assets').upload(path, photo, { contentType: checked.contentType, upsert: true });
       if (upErr) return { ok: false, error: upErr.message };
       patch.photo_url = storage.storage.from('gym-assets').getPublicUrl(path).data.publicUrl;
     } else if (removePhoto) {

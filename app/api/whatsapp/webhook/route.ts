@@ -79,8 +79,14 @@ export async function POST(req: NextRequest) {
         .update({ status: status.status, ...(status.errorTitle ? { error: status.errorTitle } : {}) })
         .eq('wa_message_id', status.messageId)
         .eq('direction', 'outbound');
-    } catch {
-      // Ignored by design.
+    } catch (e) {
+      // Still best-effort — a delivery receipt is not worth failing the
+      // webhook over — but no longer invisible. A tenant-wide auth or schema
+      // failure here freezes every outbound message on "sent" forever, and
+      // an empty catch made that indistinguishable from "nothing to update".
+      const error = e instanceof Error ? e.message : 'unknown error';
+      console.error(`[whatsapp/webhook] status update failed: ${error}`);
+      void captureServerEvent('whatsapp status update failed', { error });
     }
   }
 
