@@ -87,7 +87,7 @@ export function PlanCards({
           return (
             <div className={`price${pop ? ' pop' : ''}`} key={tier}>
               <div className="pname">{p.name}{isCurrent && <span className="pill" style={{ marginLeft: 8 }}>Current</span>}</div>
-              <div className="amt">{fmtNaira(price.amountKobo / 100)}<small>{CYCLE_SUFFIX[cycle]}</small></div>
+              <div className="amt">{fmtNaira(Math.round(price.amountKobo / 100))}<small>{CYCLE_SUFFIX[cycle]}</small></div>
               {/* Rounded to whole naira: monthlyEquivalentKobo splits a cycle
                   price across its months, which otherwise shows "₦12,666.33". */}
               <div className="price-permo">
