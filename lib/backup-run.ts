@@ -128,12 +128,20 @@ export async function runGymBackup(
     return { ok: false, gymId, size: archive.bytes.byteLength, emailed: false, error: upErr.message, problems };
   }
 
+  // Distinguish a complete run from a partial one at the row level, not just
+  // in the problems array. archive.failures are TABLES that couldn't be read
+  // — those rows are missing from the archive; archive.warnings are per-table
+  // notes like row-cap truncation, which mean the data IS in the archive.
+  // Only real failures downgrade to 'partial'; the prune() below only counts
+  // 'success' rows toward KEEP_BACKUPS so a partial cannot evict a real
+  // full backup from the retention window.
+  const backupStatus = archive.failures.length > 0 ? 'partial' : 'success';
   const { error: logErr } = await admin.from('gym_backups' as never).insert({
     gym_id: gymId,
     storage_path: path,
     size_bytes: archive.bytes.byteLength,
     row_counts: archive.rowCounts,
-    status: 'success',
+    status: backupStatus,
     trigger: opts.trigger,
     // Stored rather than only emailed: the email goes to whoever was an owner
     // that day, and a partial backup has to still be visible in Settings months

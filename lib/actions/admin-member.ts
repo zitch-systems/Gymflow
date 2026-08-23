@@ -281,14 +281,34 @@ export async function recordPayment(_prev: ActionState, formData: FormData): Pro
     // revokes the column privilege), so this can't be used to inflate what the
     // platform appears to have earned from a gym.
     // `as never`: the commission columns postdate database.types.ts.
-    const { error } = await supabase.from('payments').insert({
+    const { data: paymentRow, error } = await supabase.from('payments').insert({
       gym_id: gymId, member_id: memberId, plan_id: planId, amount, currency: 'NGN',
       payment_method: method, status: 'success', payment_status: 'successful',
       payment_date: new Date().toISOString(), paystack_reference: `MANUAL-${Date.now()}-${(globalThis.crypto as Crypto).randomUUID()}`,
       platform_settlement: 'offline',
-    } as never);
+    } as never).select('id').single();
     if (error) return { ok: false, error: error.message };
-    const newEnd = extend && planId ? await extendSubscription(supabase, gymId, memberId, planId) : null;
+    // Atomic-ish "payment + extend": if extend throws (transient RPC error /
+    // RLS quirk / 42883 mid-deploy) we roll back the payment row we just
+    // inserted, so a staff retry doesn't end up with TWO payments recorded
+    // for one real receipt (each attempt was minting a fresh MANUAL-…
+    // reference, so the unique index couldn't catch it). Payments-then-extend
+    // stays in that order because extend needs the paying member's live sub
+    // present; on failure we delete by the just-returned id, not by
+    // reference, so an unrelated concurrent insert can't be collateral.
+    let newEnd: string | null = null;
+    if (extend && planId) {
+      try {
+        newEnd = await extendSubscription(supabase, gymId, memberId, planId);
+      } catch (e) {
+        const rowId = (paymentRow as { id: string } | null)?.id;
+        if (rowId) {
+          const { error: undoErr } = await supabase.from('payments').delete().eq('id', rowId);
+          if (undoErr) console.warn(`[recordPayment] extend failed AND rollback failed for ${rowId}: ${undoErr.message}`);
+        }
+        return { ok: false, error: `Could not extend the membership — payment not recorded. ${(e as Error).message}` };
+      }
+    }
     const { error: nErr } = await supabase.from('notifications').insert({
       gym_id: gymId, user_id: memberId, type: 'payment', channel: 'in_app',
       title: 'Payment received', body: `₦${amount.toLocaleString('en-NG')} payment recorded. Thank you!`,
