@@ -79,7 +79,7 @@ export async function initTransaction(params: {
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Paystack init failed' };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Paystack init failed' };
     return { ok: true, authorization_url: json.data.authorization_url, reference: json.data.reference };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -121,7 +121,7 @@ export async function initSubscription(params: {
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Paystack init failed' };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Paystack init failed' };
     return { ok: true, authorization_url: json.data.authorization_url, reference: json.data.reference };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -153,7 +153,7 @@ export async function createPlan(params: {
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Paystack plan creation failed' };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Paystack plan creation failed' };
     return { ok: true, planCode: json.data.plan_code };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -195,7 +195,7 @@ export async function getSubscription(code: string): Promise<{ ok: true; data: S
     // The HTTP status rides along on failures: a 4xx here means Paystack has
     // nothing (usable) under this code, which callers treat differently from a
     // 5xx or a dropped connection. See mandateGoneAtPaystack().
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Subscription fetch failed', status: res.status };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Subscription fetch failed', status: res.status };
     return { ok: true, data: { subscriptionCode: json.data.subscription_code, emailToken: json.data.email_token, status: json.data.status } };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -251,7 +251,7 @@ export async function createSubaccount(params: {
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Subaccount creation failed' };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Subaccount creation failed' };
     return { ok: true, subaccountCode: json.data.subaccount_code };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -298,7 +298,7 @@ export async function getSubaccount(code: string): Promise<{ ok: true; data: Sub
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Subaccount fetch failed', status: res.status };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Subaccount fetch failed', status: res.status };
     return {
       ok: true,
       data: {
@@ -336,7 +336,7 @@ export async function createTransferRecipient(params: {
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Recipient creation failed' };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Recipient creation failed' };
     return { ok: true, recipientCode: json.data.recipient_code };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -373,7 +373,7 @@ export async function initiateTransfer(params: {
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Transfer failed' };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Transfer failed' };
     if (json.data.status === 'otp') {
       return { ok: false, error: 'This Paystack account requires an OTP for transfers. Disable "Confirm transfers with OTP" in Paystack settings to pay from the app.' };
     }
@@ -425,7 +425,7 @@ export async function resolveAccount(accountNumber: string, bankCode: string): P
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Could not verify this account' };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Could not verify this account' };
     return { ok: true, accountName: json.data.account_name };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -552,7 +552,7 @@ export async function verifyTransaction(reference: string): Promise<VerifyResult
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status) return { ok: false, error: json.message ?? 'Verify failed' };
+    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Verify failed' };
     const d = json.data;
     // The post-checkout callbacks fulfil from this response rather than the
     // webhook body, so the split has to survive the round trip too — otherwise

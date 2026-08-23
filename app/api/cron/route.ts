@@ -99,8 +99,11 @@ export async function GET(req: Request) {
   // Renewal reminders — needs service role (writes notifications across users).
   let remindersCreated = 0;
   if (admin) {
-    const today = new Date().toISOString().slice(0, 10);
-    const in3 = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+    // watDay (defined above, and already used by the class-reminder block) —
+    // end_date is a WAT date-only column, so a UTC "today" silently drops
+    // memberships expiring today whenever this runs after 23:00 UTC.
+    const today = watDay(0);
+    const in3 = watDay(3);
     const cutoff = new Date(Date.now() - 3 * 86_400_000).toISOString();
 
     const { data: subs } = await admin.from('member_subscriptions')
@@ -140,10 +143,18 @@ export async function GET(req: Request) {
           const fresh = due.filter((s) => !seen.has(`${s.member_id}:${s.id}`)).slice(0, 200);
           const gymIds = [...new Set(fresh.map((s) => s.gym_id as string))];
           const [{ data: contacts }, { data: gyms }] = await Promise.all([
-            admin.from('profiles').select('id, email, phone, full_name').in('id', fresh.map((s) => s.member_id as string)),
-            // Own select (narrower columns) so it needs its own filter — see
-            // emailTargets. A missing gym already short-circuits below.
-            admin.from('gyms').select('id, name, subscription_plan, notif_renewal_nudges').in('id', gymIds)
+            // notification_email is the member's own opt-out. Without it the
+            // recipient is built with no `wantsEmail` and sendGymEmail treats
+            // absent as consent, so a member who switched renewal mail off
+            // kept receiving it.
+            admin.from('profiles').select('id, email, phone, full_name, notification_email').in('id', fresh.map((s) => s.member_id as string)),
+            // GYM_EMAIL_COLUMNS, not a hand-narrowed list: these mails carry
+            // the gym's logo, colour and subdomain. Without slug/logo_url/
+            // brand_color every automated renewal reminder went out dressed as
+            // GymFlow with a Renew button pointing at the apex host instead of
+            // the member's own tenant — exactly what emailTargets' comment
+            // warns about. Still its own select so it keeps its own filter.
+            admin.from('gyms').select(GYM_EMAIL_COLUMNS).in('id', gymIds)
               .not('status', 'in', OFFLINE_GYM_FILTER),
           ]);
           const contactById = new Map((contacts ?? []).map((c) => [c.id, c]));
@@ -158,7 +169,7 @@ export async function GET(req: Request) {
               // memberId is what lets the reminder go out over the WhatsApp
               // Cloud API into the member's existing thread rather than the
               // plain Termii fallback.
-              { email: c.email, phone: c.phone, fullName: c.full_name, memberId: c.id },
+              { email: c.email, phone: c.phone, fullName: c.full_name, memberId: c.id, wantsEmail: c.notification_email },
               { days, endDate: s.end_date },
             );
           });
@@ -311,7 +322,9 @@ export async function GET(req: Request) {
   let freezesResumed = 0;
   const resumed: Array<{ gymId: string; memberId: string; daysCredited: number; newEndDate: string }> = [];
   if (admin) {
-    const today = new Date().toISOString().slice(0, 10);
+    // watDay, matching the rest of this route — pause_end is a WAT date-only
+    // column, so a UTC "today" resumes a freeze a day early or late.
+    const today = watDay(0);
     // gym_id and member_id ride along so the member can be told. Without them
     // this was the one membership state change that reached nobody: the
     // turnstile started working again and the member found out by trying it.

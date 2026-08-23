@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Mail, Phone, Dumbbell, CalendarCheck, CalendarClock, Banknote, ScanLine } from 'lucide-react';
 import { requireInstructor } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, fmtDateTime, daysLeft } from '@/lib/format';
+import { fmtNaira, fmtDate, fmtDateTime, daysLeft, watDateISO } from '@/lib/format';
 
 export const metadata = { title: 'Client · Instructor' };
 export const dynamic = 'force-dynamic';
@@ -36,7 +36,9 @@ export default async function CoachClientDetail({ params }: { params: Promise<{ 
   const name = profile.full_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email || 'Client';
   const initial = name.charAt(0).toUpperCase();
 
-  const today = new Date().toISOString().slice(0, 10);
+  // WAT — end_date is a WAT date-only column; a UTC "today" shows a coach
+  // an expired membership as still active late in the evening.
+  const today = watDateISO();
   const activePack = subList.find((s) => s.status === 'active' && (s.end_date ?? '') >= today) ?? subList[0] ?? null;
   const remaining = activePack?.end_date ? daysLeft(activePack.end_date) : 0;
   const packActive = Boolean(activePack && activePack.status === 'active' && (activePack.end_date ?? '') >= today);

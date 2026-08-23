@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { LayoutGrid, Dumbbell, Wrench, Receipt, AlertTriangle, Check, Plus, Pencil } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate } from '@/lib/format';
+import { fmtNaira, fmtDate, watDateISO } from '@/lib/format';
 import { ExpenseForm } from '@/components/admin/expense-form';
 
 export const metadata = { title: 'Facility' };
@@ -16,8 +16,9 @@ const EQ_STATUS: Record<string, [string, string]> = {
 export default async function AdminFacility() {
   const { gym } = await requireStaff();
   const supabase = await createClient();
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+  // WAT: next_maintenance_date is a WAT date-only column.
+  const todayIso = watDateISO();
+  const monthAgo = watDateISO(new Date(Date.now() - 30 * 86_400_000));
 
   const [{ data: equipment }, { data: expenses }] = await Promise.all([
     supabase.from('equipment').select('id, name, category, status, location, last_maintenance_date, next_maintenance_date, maintenance_notes, photo_url').eq('gym_id', gym.id).order('name', { ascending: true }).limit(100),

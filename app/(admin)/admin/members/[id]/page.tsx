@@ -84,7 +84,9 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
   const name = profile.full_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.email || 'Member';
   const initial = name.charAt(0).toUpperCase();
 
-  const today = new Date().toISOString().slice(0, 10);
+  // WAT, matching dayStartIso above — this file already used watDateISO on
+  // one line and UTC on the next, so expiry read differently in one panel.
+  const today = watDateISO();
   const activeSub = subList.find((s) => s.status === 'active' && (s.end_date ?? '') >= today) ?? subList[0] ?? null;
   const remaining = activeSub?.end_date ? daysLeft(activeSub.end_date) : 0;
   const isActive = Boolean(activeSub && activeSub.status === 'active' && (activeSub.end_date ?? '') >= today);

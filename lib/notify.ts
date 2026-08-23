@@ -77,6 +77,14 @@ export type NotifyRecipient = {
    * instead of the plain Termii SMS-style fallback.
    */
   memberId?: string | null;
+  /**
+   * profiles.notification_email — the member's own email opt-out. Optional so
+   * existing call sites keep compiling, but omitting it means sendGymEmail
+   * sees no preference and treats that as consent, which is how members who
+   * had switched renewal mail off kept receiving it. Pass it wherever the
+   * column is available.
+   */
+  wantsEmail?: boolean | null;
 };
 
 export type DeliveryOutcome = { email: boolean; whatsapp: boolean };
@@ -97,7 +105,10 @@ async function sendMemberTemplate(
 ): Promise<boolean> {
   const res = await sendGymEmail({
     gym,
-    to: { email: to.email, fullName: to.fullName },
+    // wantsEmail rides along so a member's own opt-out is honoured here the
+    // same way the direct sendGymEmail callers honour it. `!== false` keeps
+    // "not supplied" meaning consent, matching sendGymEmail's own default.
+    to: { email: to.email, fullName: to.fullName, wantsEmail: to.wantsEmail !== false },
     category: spec.category,
     template: spec.template,
     subject: content.subject,

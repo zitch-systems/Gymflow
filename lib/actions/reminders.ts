@@ -4,17 +4,24 @@ import { revalidatePath } from 'next/cache';
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { deliverRenewalReminder, inSlices, type NotifyGym } from '@/lib/notify';
+import { watDateISO } from '@/lib/format';
 
 export type RemindResult = { ok: boolean; sent: number; error: string | null };
 
 type Sb = Awaited<ReturnType<typeof createClient>>;
-type Contact = { id: string; email: string | null; phone: string | null; full_name: string | null };
+type Contact = { id: string; email: string | null; phone: string | null; full_name: string | null; notification_email: boolean | null };
 
 // The full Gym row carries the notif_* toggles and plan tier, but they
 // postdate the generated types — same cast pattern as the settings page.
 function asNotifyGym(gym: { id: string; name?: string | null }): NotifyGym {
   const g = gym as NotifyGym & { subscription_plan?: string | null };
+  // Spread, don't hand-list. requireStaff already loaded `gyms.*`, and the
+  // previous five-field copy silently dropped slug, logo_url, brand_color and
+  // email — so every staff-triggered reminder went out with GymFlow branding
+  // and a Renew button pointing at the apex host instead of the gym's own
+  // subdomain. Only the toggles need defaulting.
   return {
+    ...g,
     id: gym.id,
     name: gym.name ?? null,
     subscription_plan: g.subscription_plan ?? null,
@@ -63,9 +70,9 @@ async function remind(supabase: Sb, gym: NotifyGym, sub: { id: string; member_id
   // In-app row written (the system of record) — now the external channels.
   // Staff can read their members' profiles under the existing RLS policy.
   const { data: contact } = await supabase.from('profiles')
-    .select('email, phone, full_name').eq('id', sub.member_id).maybeSingle();
+    .select('email, phone, full_name, notification_email').eq('id', sub.member_id).maybeSingle();
   const outcome = contact
-    ? await deliverRenewalReminder(gym, { email: contact.email, phone: contact.phone, fullName: contact.full_name }, { days, endDate: sub.end_date })
+    ? await deliverRenewalReminder(gym, { email: contact.email, phone: contact.phone, fullName: contact.full_name, wantsEmail: contact.notification_email }, { days, endDate: sub.end_date })
     : none;
   return { sent: true, outcome };
 }
@@ -106,8 +113,10 @@ export async function remindAllDue(): Promise<RemindResult> {
   try {
     const { gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
-    const today = new Date().toISOString().slice(0, 10);
-    const weekAhead = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+    // WAT day boundaries — end_date is a WAT date-only column, so a UTC
+    // "today" drops memberships expiring today once it is past 23:00 WAT.
+    const today = watDateISO();
+    const weekAhead = watDateISO(new Date(Date.now() + 7 * 86_400_000));
     const { data: subs } = await supabase
       .from('member_subscriptions').select('id, member_id, end_date')
       .eq('gym_id', gym.id).eq('status', 'active').gte('end_date', today).lte('end_date', weekAhead)
@@ -149,7 +158,7 @@ export async function remindAllDue(): Promise<RemindResult> {
           // fire-and-forget work alive after the response).
           const notifyGym = asNotifyGym(gym);
           const { data: contacts } = await supabase.from('profiles')
-            .select('id, email, phone, full_name')
+            .select('id, email, phone, full_name, notification_email')
             .in('id', fresh.map((s) => s.member_id as string));
           const byId = new Map(((contacts ?? []) as Contact[]).map((c) => [c.id, c]));
           await inSlices(fresh, 10, async (s) => {
@@ -157,7 +166,7 @@ export async function remindAllDue(): Promise<RemindResult> {
             if (!c) return;
             const outcome = await deliverRenewalReminder(
               notifyGym,
-              { email: c.email, phone: c.phone, fullName: c.full_name },
+              { email: c.email, phone: c.phone, fullName: c.full_name, wantsEmail: c.notification_email },
               { days: daysUntil(s.end_date as string), endDate: s.end_date },
             );
             outcomes.push(outcome);
