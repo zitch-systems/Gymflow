@@ -5,6 +5,7 @@ import { handleInboundMessage } from '@/lib/whatsapp/router';
 import { captureServerEvent } from '@/lib/server-error';
 
 // Meta's inbound webhook for the WhatsApp Cloud API.
+// Rebuild this route after changing webhook or Supabase environment variables.
 //
 // Two jobs: prove the request came from Meta, then hand each message to the
 // router. Everything about what to SAY lives in lib/whatsapp/router.ts.
