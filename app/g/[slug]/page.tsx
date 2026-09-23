@@ -101,7 +101,7 @@ async function loadGym(slug: string) {
   if (isOfflineGym(gym)) return null;
 
   const now = watNow();
-  const todayDow = now.getDay();
+  const todayDow = now.getUTCDay();
 
   const [plansRes, hoursRes, zonesRes, schedRes, staffRes, occRes, trafficRes] = await Promise.all([
     db.from('membership_plans').select('id, name, price, duration_months, duration_days, description, features, trainer_addon_enabled, trainer_addon_price')
@@ -485,7 +485,7 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
           <div className="wrap">
             <div className="sh">
               <div>
-                <span className="eb">Today · {DAYS[now.getDay()]}</span>
+                <span className="eb">Today · {DAYS[now.getUTCDay()]}</span>
                 <h2>Book a class in two taps.</h2>
                 <p>Straight from the timetable your coaches manage.</p>
               </div>
@@ -642,8 +642,8 @@ export default async function GymPublicPage({ params }: { params: Promise<{ slug
                       {WEEK.map((d) => {
                         const rows = (byDay.get(d) ?? []).filter((r) => !r.is_closed && r.open_time);
                         return (
-                          <div className={d === now.getDay() ? 'now' : undefined} key={d}>
-                            <span>{DAYS[d]}{d === now.getDay() ? ' · today' : ''}</span>
+                          <div className={d === now.getUTCDay() ? 'now' : undefined} key={d}>
+                            <span>{DAYS[d]}{d === now.getUTCDay() ? ' · today' : ''}</span>
                             <span>
                               {rows.length === 0 ? 'Closed'
                                 : rows.map((r) => `${fmt12Hr(String(r.open_time).slice(0, 5))} – ${fmt12Hr(String(r.close_time ?? '').slice(0, 5))}`).join(' · ')}

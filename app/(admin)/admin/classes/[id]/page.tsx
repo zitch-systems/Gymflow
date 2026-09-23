@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Users, Gauge, CalendarCheck, GraduationCap, MapPin, Clock, Pencil } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Users, Gauge, CalendarCheck, GraduationCap, MapPin, Clock, Pencil } from 'lucide-react';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, watNow } from '@/lib/format';
+import { rosterSessionDate, shiftWeeks } from '@/lib/class-dates';
 import { AttendanceButtons } from '@/components/admin/attendance-buttons';
 
 export const metadata = { title: 'Class roster' };
@@ -13,8 +14,9 @@ export const maxDuration = 60;
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const hm = (t?: string | null) => (t ? String(t).slice(0, 5) : '');
 
-export default async function ClassRoster({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClassRoster({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ date?: string }> }) {
   const { id } = await params;
+  const { date: requestedDate } = await searchParams;
   const { gym, role } = await requireStaff();
   const canManage = (MANAGER_ROLES as readonly string[]).includes(role);
   const supabase = await createClient();
@@ -22,9 +24,17 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
   const { data: sched } = await supabase.from('class_schedules').select('id, class_id, day_of_week, start_time, end_time, room').eq('id', id).eq('gym_id', gym.id).maybeSingle();
   if (!sched) notFound();
 
+  // One session of the weekly slot: capacity is per session. A member holds one
+  // booking row per slot and rebooking moves its date forward, so sessions
+  // before the current one have no reliable roster.
+  const currentSession = rosterSessionDate(Number(sched.day_of_week), null, watNow());
+  const requested = rosterSessionDate(Number(sched.day_of_week), requestedDate, watNow());
+  const sessionDate = requested < currentSession ? currentSession : requested;
+  const prevSession = shiftWeeks(sessionDate, -1);
+
   const [{ data: cls }, { data: bookings }] = await Promise.all([
     sched.class_id ? supabase.from('classes').select('id, name, instructor, category, duration_minutes, max_capacity').eq('id', sched.class_id).maybeSingle() : Promise.resolve({ data: null }),
-    supabase.from('class_bookings').select('id, member_id, status, booking_date').eq('class_schedule_id', id).eq('gym_id', gym.id).order('booking_date', { ascending: false }),
+    supabase.from('class_bookings').select('id, member_id, status, booking_date').eq('class_schedule_id', id).eq('gym_id', gym.id).eq('booking_date', sessionDate).order('booked_at', { ascending: true }),
   ]);
 
   const bks = bookings ?? [];
@@ -35,7 +45,7 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? p.email ?? 'Member']));
 
   const cap = cls?.max_capacity ?? 0;
-  const active = bks.filter((b) => b.status !== 'cancelled');
+  const active = bks.filter((b) => b.status !== 'cancelled' && b.status !== 'waitlisted');
   const attended = bks.filter((b) => b.status === 'attended').length;
   const fill = cap > 0 ? Math.min(100, Math.round((active.length / cap) * 100)) : 0;
   const className = cls?.name ?? 'Class';
@@ -75,13 +85,22 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
       </section>
 
       <div className="panel">
-        <div className="panel-h"><h3>Roster</h3><span className="sub">{active.length} booked{cap ? ` of ${cap}` : ''}</span></div>
+        <div className="panel-h">
+          <h3>Roster · {fmtDate(sessionDate)}</h3>
+          <span className="sub" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {prevSession >= currentSession && (
+              <Link href={`/admin/classes/${id}?date=${prevSession}`} className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Previous session"><ChevronLeft strokeWidth={2} size={15} /></Link>
+            )}
+            {active.length} booked{cap ? ` of ${cap}` : ''}
+            <Link href={`/admin/classes/${id}?date=${shiftWeeks(sessionDate, 1)}`} className="gf-btn gf-btn-ghost gf-btn-sm" aria-label="Next session"><ChevronRight strokeWidth={2} size={15} /></Link>
+          </span>
+        </div>
         {bks.length === 0 ? (
-          <div className="empty sm"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No bookings yet</h3><p>Members who book this session appear here.</p></div>
+          <div className="empty sm"><div className="eic"><Users strokeWidth={1.6} /></div><h3>No bookings for this session</h3><p>Members who book it appear here.</p></div>
         ) : (
           <div className="tbl-scroll">
             <table className="tbl">
-              <thead><tr><th>Member</th><th>Status</th><th style={{ textAlign: 'right' }}>Booked for</th></tr></thead>
+              <thead><tr><th>Member</th><th>Status</th></tr></thead>
               <tbody>
                 {bks.map((b) => {
                   const nm = b.member_id ? (nameById.get(b.member_id) ?? 'Member') : 'Member';
@@ -89,7 +108,6 @@ export default async function ClassRoster({ params }: { params: Promise<{ id: st
                     <tr key={b.id}>
                       <td><div className="who"><span className="gf-avatar gf-avatar-sm">{nm.charAt(0).toUpperCase()}</span><div><strong>{b.member_id ? <Link href={`/admin/members/${b.member_id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{nm}</Link> : nm}</strong></div></div></td>
                       <td><AttendanceButtons bookingId={b.id} scheduleId={id} status={b.status ?? 'booked'} /></td>
-                      <td style={{ textAlign: 'right', color: 'var(--gf-text-secondary)' }}>{fmtDate(b.booking_date)}</td>
                     </tr>
                   );
                 })}

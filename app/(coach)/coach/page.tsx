@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { CalendarCheck, Users, Wallet, Calendar, ArrowRight } from 'lucide-react';
 import { requireInstructor, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, firstName } from '@/lib/format';
+import { fmtNaira, firstName, watDateISO, watDayStartUtc, watMonthStartISO } from '@/lib/format';
 
 export const metadata = { title: 'Today · Instructor' };
 
@@ -11,10 +11,9 @@ export default async function CoachToday() {
   const profile = await getProfile();
   const supabase = await createClient();
 
-  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const dayStart = new Date(watDayStartUtc(watDateISO()));
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-  const sixWeeksStart = new Date(); sixWeeksStart.setHours(0, 0, 0, 0); sixWeeksStart.setDate(sixWeeksStart.getDate() - 6 * 7);
+  const sixWeeksStartISO = watDateISO(new Date(Date.now() - 6 * 7 * 86_400_000));
 
   const [{ data: today }, { data: subs }, { data: monthSubs }, { data: weekSubs }] = await Promise.all([
     supabase.from('instructor_sessions')
@@ -27,10 +26,10 @@ export default async function CoachToday() {
       .eq('instructor_id', user.id).eq('gym_id', gym.id).eq('status', 'active'),
     supabase.from('instructor_subscriptions')
       .select('amount_paid, start_date')
-      .eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', monthStart.toISOString().slice(0, 10)),
+      .eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', watMonthStartISO()),
     supabase.from('instructor_subscriptions')
       .select('amount_paid, start_date')
-      .eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', sixWeeksStart.toISOString().slice(0, 10)),
+      .eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', sixWeeksStartISO),
   ]);
 
   const sharePct = Number(gym.instructor_revenue_share_pct ?? 70);

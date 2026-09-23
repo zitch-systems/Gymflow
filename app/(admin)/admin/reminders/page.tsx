@@ -1,7 +1,7 @@
 import { Clock, MessageCircle, Reply, Zap, Mail } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { daysLeft, watDateISO } from '@/lib/format';
+import { daysLeft, watDateISO, watDayStartUtc, watMonthStartISO } from '@/lib/format';
 import { RemindButton, RemindAllButton } from '@/components/admin/reminder-buttons';
 
 export const metadata = { title: 'Reminders' };
@@ -14,7 +14,7 @@ export default async function AdminReminders() {
   // page and the action that sends from it agree on which day it is.
   const today = watDateISO();
   const weekAhead = watDateISO(new Date(Date.now() + 7 * 86_400_000));
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
 
   const [{ data: expiring }, { data: sentRows }, { data: log }] = await Promise.all([
     supabase.from('member_subscriptions')

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Repeat, Banknote, CreditCard, Building2, Coins } from 'lucide-react';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira } from '@/lib/format';
+import { fmtNaira, watDayStartUtc, watMonthStartISO } from '@/lib/format';
 import { PLATFORM_PLANS, isPlanTier, PLAN_TIERS, normalizeCycle, monthlyEquivalentKobo, type PlanTier } from '@/lib/platform-plans';
 import {
   COMMISSION_PERIODS, commissionPeriod, summarizeCommission, type GymCommissionRow,
@@ -39,7 +39,7 @@ export default async function SuperRevenue({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const period = commissionPeriod(sp.p);
   const supabase = await createClient();
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
 
   const [{ data: gyms }, { data: platPay }, { data: memberPay }, commissionRes] = await Promise.all([
     supabase.from('gyms').select('subscription_plan, subscription_status, subscription_billing_cycle'),

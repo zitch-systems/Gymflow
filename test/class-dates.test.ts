@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSameWatDate, nextOccurrenceDate } from '@/lib/class-dates';
+import { isSameWatDate, nextOccurrenceDate, rosterSessionDate, shiftWeeks } from '@/lib/class-dates';
 
 // The bug this replaces: a member booked a 7:00 AM class in the afternoon. The
 // booking action rolled to next week (right — the class had run), the detail
@@ -70,5 +70,35 @@ describe('isSameWatDate', () => {
   it('matches the label to the date actually booked', () => {
     expect(isSameWatDate('2026-07-29', WED_5PM)).toBe(true);
     expect(isSameWatDate('2026-08-05', WED_5PM)).toBe(false);
+  });
+});
+
+// The admin roster once counted every booking the weekly slot had ever taken
+// against one session's capacity ("57/20 booked"). It now shows one session.
+describe('rosterSessionDate', () => {
+  it('stays on today after the class has started, so attendance can be marked', () => {
+    expect(rosterSessionDate(3, null, WED_5PM)).toBe('2026-07-29');
+  });
+
+  it('is the next session when the slot does not run today', () => {
+    expect(rosterSessionDate(5, null, WED_5PM)).toBe('2026-07-31');
+  });
+
+  it('honours a requested date on the slot’s weekday, past or future', () => {
+    expect(rosterSessionDate(3, '2026-07-22', WED_5PM)).toBe('2026-07-22');
+    expect(rosterSessionDate(3, '2026-08-12', WED_5PM)).toBe('2026-08-12');
+  });
+
+  it('ignores a requested date that is malformed, impossible, or on another weekday', () => {
+    expect(rosterSessionDate(3, 'garbage', WED_5PM)).toBe('2026-07-29');
+    expect(rosterSessionDate(3, '2026-02-31', WED_5PM)).toBe('2026-07-29');
+    expect(rosterSessionDate(3, '2026-07-30', WED_5PM)).toBe('2026-07-29');
+  });
+});
+
+describe('shiftWeeks', () => {
+  it('moves across month and year boundaries', () => {
+    expect(shiftWeeks('2026-07-29', 1)).toBe('2026-08-05');
+    expect(shiftWeeks('2026-01-02', -1)).toBe('2025-12-26');
   });
 });

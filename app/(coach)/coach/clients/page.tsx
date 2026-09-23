@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Dumbbell, CalendarCheck, AlertTriangle, Banknote, ChevronRight } from 'lucide-react';
 import { requireInstructor } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft, watDayStartUtc, watMonthStartISO } from '@/lib/format';
 
 export const metadata = { title: 'PT clients · Instructor' };
 
@@ -10,7 +10,8 @@ export default async function CoachClients() {
   const { user, gym } = await requireInstructor();
   const supabase = await createClient();
 
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
+  const monthStartISO = watMonthStartISO();
   const [{ data: subs }, { data: sessions }] = await Promise.all([
     supabase.from('instructor_subscriptions')
       .select('id, member_id, status, end_date, amount_paid, start_date')
@@ -23,7 +24,7 @@ export default async function CoachClients() {
 
   const active = (subs ?? []).filter((s) => s.status === 'active');
   const expiringSoon = active.filter((s) => s.end_date && daysLeft(s.end_date) <= 7).length;
-  const ptRevenueMo = (subs ?? []).filter((s) => s.start_date && new Date(s.start_date) >= monthStart).reduce((sum, s) => sum + Number(s.amount_paid ?? 0), 0);
+  const ptRevenueMo = (subs ?? []).filter((s) => s.start_date && s.start_date >= monthStartISO).reduce((sum, s) => sum + Number(s.amount_paid ?? 0), 0);
 
   const ids = [...new Set(active.map((s) => s.member_id).filter(Boolean) as string[])];
   const { data: profiles } = ids.length
