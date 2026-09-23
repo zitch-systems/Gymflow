@@ -15,6 +15,9 @@ const config = [
       // server components that legitimately read the clock per request
       // (new Date()/Date.now() for "today"/"this week" queries).
       'react-hooks/purity': 'off',
+      // Server actions for useActionState must accept (prevState, formData)
+      // even when they use neither; the leading underscore marks that.
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
     },
   },
 ];

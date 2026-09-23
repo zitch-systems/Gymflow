@@ -2,7 +2,7 @@ import { CheckCircle2, Clock, XCircle, ArrowRight } from 'lucide-react';
 import { verifyTransaction } from '@/lib/paystack';
 import { fulfillCharge } from '@/lib/paystack-fulfill';
 
-export const metadata = { title: 'Payment' };
+export const metadata = { title: 'Payment', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -52,22 +52,24 @@ export default async function WhatsAppPayCallback({ searchParams }: { searchPara
   const waUrl = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('menu')}`;
 
   return (
-    <section className="view on" data-v="whatsapp-pay-callback">
-      {/* Best-effort auto-return; the button below is the reliable path on
-          browsers (mostly in-app WebViews) that block a scripted redirect. */}
-      <meta httpEquiv="refresh" content={`2;url=${waUrl}`} />
-      <div className="pay-result">
-        <div className={`pay-ic ${outcome === 'failed' ? 'bad' : 'ok'}`}>
-          {outcome === 'paid' ? <CheckCircle2 strokeWidth={1.7} />
-            : outcome === 'pending' ? <Clock strokeWidth={1.7} />
-              : <XCircle strokeWidth={1.7} />}
+    <div className="ds-member">
+      <main id="main-content" className="view on" data-v="whatsapp-pay-callback">
+        {/* Best-effort auto-return; the button below is the reliable path on
+            browsers (mostly in-app WebViews) that block a scripted redirect. */}
+        <meta httpEquiv="refresh" content={`2;url=${waUrl}`} />
+        <div className="pay-result">
+          <div className={`pay-ic ${outcome === 'failed' ? 'bad' : 'ok'}`}>
+            {outcome === 'paid' ? <CheckCircle2 strokeWidth={1.7} />
+              : outcome === 'pending' ? <Clock strokeWidth={1.7} />
+                : <XCircle strokeWidth={1.7} />}
+          </div>
+          <h1>{outcome === 'paid' ? 'Payment successful' : outcome === 'pending' ? 'Payment received' : 'Payment not completed'}</h1>
+          <p>{msg}</p>
+          <a href={waUrl} className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" style={{ textDecoration: 'none', marginTop: 6 }}>
+            Return to WhatsApp <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
+          </a>
         </div>
-        <h2>{outcome === 'paid' ? 'Payment successful' : outcome === 'pending' ? 'Payment received' : 'Payment not completed'}</h2>
-        <p>{msg}</p>
-        <a href={waUrl} className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" style={{ textDecoration: 'none', marginTop: 6 }}>
-          Return to WhatsApp <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
-        </a>
-      </div>
-    </section>
+      </main>
+    </div>
   );
 }

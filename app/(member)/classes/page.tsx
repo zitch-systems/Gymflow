@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Bell, CalendarX, Coffee } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { watNow } from '@/lib/format';
 import { BookButton, CancelButton } from '@/components/member/class-actions';
 import { AddToCalendar } from '@/components/member/add-to-calendar';
 
@@ -24,15 +25,16 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const tab = sp.tab === 'book' ? 'book' : 'cal';
   const supabase = await createClient();
 
-  const today = new Date();
-  const todayDow = today.getDay();
+  // WAT wall-clock via getUTC*; the server clock is UTC.
+  const today = watNow();
+  const todayDow = today.getUTCDay();
   const todayStr = today.toISOString().slice(0, 10);
   const selDow = sp.d != null && !Number.isNaN(Number(sp.d)) ? (((Number(sp.d) % 7) + 7) % 7) : todayDow;
   const mondayOffset = (todayDow + 6) % 7;
-  const monday = new Date(today); monday.setDate(today.getDate() - mondayOffset);
+  const monday = new Date(today); monday.setUTCDate(today.getUTCDate() - mondayOffset);
   const week = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday); d.setDate(monday.getDate() + i);
-    return { dow: d.getDay(), dom: d.getDate(), label: SHORT[d.getDay()], isSel: d.getDay() === selDow };
+    const d = new Date(monday); d.setUTCDate(monday.getUTCDate() + i);
+    return { dow: d.getUTCDay(), dom: d.getUTCDate(), label: SHORT[d.getUTCDay()], isSel: d.getUTCDay() === selDow };
   });
 
   const [{ data: classes }, { data: schedules }, { data: bookings }, { count: unread }] = await Promise.all([
@@ -51,7 +53,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const upcoming = (bookings ?? []).filter((b) => (b.booking_date ?? '') >= todayStr);
   const bookedSet = new Set(upcoming.map((b) => b.class_schedule_id));
   // Days of this week the member has a booking on — the calstrip marks them accent.
-  const bookedDows = new Set(upcoming.map((b) => (b.booking_date ? new Date(`${b.booking_date}T00:00:00`).getDay() : -1)));
+  const bookedDows = new Set(upcoming.map((b) => (b.booking_date ? new Date(`${b.booking_date}T00:00:00Z`).getUTCDay() : -1)));
   const selSlots = (schedules ?? []).filter((s) => s.day_of_week === selDow);
   const myBookings = bookings ?? [];
   const unreadCount = unread ?? 0;

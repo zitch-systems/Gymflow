@@ -52,10 +52,10 @@ export default function ForgotPasswordPage() {
               <p className="lede">No worries — enter the email on your GymFlow account and we&apos;ll send a link to reset it.</p>
               <form action={handle} aria-busy={pending}>
                 <div className="field gf-form-group">
-                  <label className="gf-form-label">Email</label>
+                  <label className="gf-form-label" htmlFor="forgot-email">Email</label>
                   <div className="gf-input-group">
                     <Mail className="gf-input-icon" strokeWidth={1.75} />
-                    <input className="gf-input" type="email" name="email" placeholder="you@yourgym.ng" required value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={err ? true : undefined} aria-describedby={err ? errorId : undefined} />
+                    <input className="gf-input" id="forgot-email" type="email" name="email" autoComplete="email" placeholder="you@yourgym.ng" required value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={err ? true : undefined} aria-describedby={err ? errorId : undefined} />
                   </div>
                 </div>
                 {err && <p id={errorId} role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '-4px 0 14px' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}

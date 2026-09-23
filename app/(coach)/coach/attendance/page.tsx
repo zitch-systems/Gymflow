@@ -1,5 +1,6 @@
 import { requireInstructor } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { watDateISO, watDayStartUtc } from '@/lib/format';
 import { AttendanceClient, type Session } from './attendance-client';
 
 export const metadata = { title: 'Attendance · Instructor' };
@@ -8,7 +9,7 @@ export default async function CoachAttendance() {
   const { user, gym } = await requireInstructor();
   const supabase = await createClient();
 
-  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const dayStart = new Date(watDayStartUtc(watDateISO()));
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
   const { data: sessions } = await supabase
     .from('instructor_sessions')

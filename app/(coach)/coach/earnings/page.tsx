@@ -1,7 +1,7 @@
 import { Wallet, CalendarCheck, Banknote, Hourglass } from 'lucide-react';
 import { requireInstructor } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira } from '@/lib/format';
+import { fmtNaira, watDateISO, watDayStartUtc, watMonthStartISO } from '@/lib/format';
 
 export const metadata = { title: 'Earnings · Instructor' };
 export const dynamic = 'force-dynamic';
@@ -11,15 +11,15 @@ export default async function CoachEarnings() {
   const { user, gym } = await requireInstructor();
   const supabase = await createClient();
 
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-  const sixWeeks = new Date(); sixWeeks.setDate(sixWeeks.getDate() - 41);
+  const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
+  const sixWeeksISO = watDateISO(new Date(Date.now() - 41 * 86_400_000));
   const sharePct = Number(gym.instructor_revenue_share_pct ?? 70);
 
   const [{ data: monthSubs }, { count: sessionsPaid }, { data: pendingPayouts }, { data: weekSubs }] = await Promise.all([
-    supabase.from('instructor_subscriptions').select('amount_paid').eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', monthStart.toISOString().slice(0, 10)),
+    supabase.from('instructor_subscriptions').select('amount_paid').eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', watMonthStartISO()),
     supabase.from('instructor_sessions').select('id', { count: 'exact', head: true }).eq('instructor_id', user.id).eq('gym_id', gym.id).eq('status', 'completed').gte('scheduled_at', monthStart.toISOString()),
     supabase.from('instructor_payouts').select('amount').eq('instructor_id', user.id).eq('gym_id', gym.id).neq('status', 'paid'),
-    supabase.from('instructor_subscriptions').select('amount_paid, start_date').eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', sixWeeks.toISOString().slice(0, 10)),
+    supabase.from('instructor_subscriptions').select('amount_paid, start_date').eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', sixWeeksISO),
   ]);
 
   const gross = (monthSubs ?? []).reduce((s, m) => s + Number(m.amount_paid ?? 0), 0);

@@ -8,6 +8,7 @@ import {
   COMMISSION_PERIODS, commissionPeriod, summarizeCommission, type GymCommissionRow,
 } from '@/lib/commission-breakdown';
 import { sa } from '@/lib/superadmin-path';
+import { monthLabel, parseRevenueSummary } from '@/lib/platform-revenue';
 
 export const metadata = { title: 'Revenue' };
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ const GYM_ROWS = 50;
 
 /** `as never` on an rpc NAME collapses the whole builder to `never`; the
  *  aggregate postdates the generated types, so it goes through this wrapper. */
-type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }> };
+type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
 
 // Platform revenue has two halves and they are not the same money:
 //
@@ -39,12 +40,12 @@ export default async function SuperRevenue({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const period = commissionPeriod(sp.p);
   const supabase = await createClient();
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-  const [{ data: gyms }, { data: platPay }, { data: memberPay }, commissionRes] = await Promise.all([
+  const [{ data: gyms }, revenueRes, commissionRes] = await Promise.all([
     supabase.from('gyms').select('subscription_plan, subscription_status, subscription_billing_cycle'),
-    supabase.from('platform_payments').select('amount, plan, created_at, billing_period_start').eq('payment_status', 'successful'),
-    supabase.from('payments').select('amount').eq('payment_status', 'successful'),
+    // Summed in Postgres: a fetched row list is capped at PostgREST's max-rows,
+    // which froze these totals once there were more than 1000 payments.
+    (supabase as unknown as RpcClient).rpc('platform_revenue_summary', { p_months: 12 }),
     // Aggregated in Postgres, one row per gym, over every qualifying payment —
     // not a page of rows summed here. See the migration's header for what
     // qualifies (splits only, successful, non-refunded).
@@ -70,29 +71,16 @@ export default async function SuperRevenue({ searchParams }: { searchParams: Pro
     return s + (tier ? monthlyEquivalentKobo(tier, normalizeCycle(g.subscription_billing_cycle)) / 100 : 0);
   }, 0);
 
-  const plat = platPay ?? [];
-  // Bucket on the billing period, not row-insert time: the self-heal billing
-  // callback can insert a row days after the charge, which would otherwise put
-  // revenue in the wrong month.
-  const periodOf = (p: { billing_period_start?: string | null; created_at?: string | null }) => p.billing_period_start ?? p.created_at ?? '';
-  const platMonth = plat.filter((p) => new Date(periodOf(p)) >= monthStart).reduce((s, p) => s + Number(p.amount ?? 0), 0);
-  const platAllTime = plat.reduce((s, p) => s + Number(p.amount ?? 0), 0);
-  const memberGmv = (memberPay ?? []).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  // Platform collections are bucketed on billing_period_start (the self-heal
+  // billing callback can insert a row days after the charge).
+  if (revenueRes.error) throw new Error(`platform_revenue_summary failed: ${revenueRes.error.message}`);
+  const revenue = parseRevenueSummary(revenueRes.data);
+  const platMonth = revenue.platformThisMonth;
+  const platAllTime = revenue.platformAllTime;
+  const memberGmv = revenue.memberGmv;
 
   // Trailing-12-month platform revenue bars.
-  const months: { label: string; total: number }[] = [];
-  const idx = new Map<string, number>();
-  const base = new Date(); base.setDate(1);
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(base); d.setMonth(d.getMonth() - i);
-    idx.set(`${d.getFullYear()}-${d.getMonth()}`, months.length);
-    months.push({ label: d.toLocaleString('en-NG', { month: 'short' }), total: 0 });
-  }
-  for (const p of plat) {
-    const d = new Date(periodOf(p));
-    const i = idx.get(`${d.getFullYear()}-${d.getMonth()}`);
-    if (i != null) months[i].total += Number(p.amount ?? 0);
-  }
+  const months = revenue.platformMonthly.map((m) => ({ label: monthLabel(m.month), total: m.total }));
   const maxT = Math.max(1, ...months.map((m) => m.total));
 
   // Active subscriptions by plan tier (the MRR mix).

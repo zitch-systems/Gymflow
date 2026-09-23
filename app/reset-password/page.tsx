@@ -74,10 +74,10 @@ export default function ResetPasswordPage() {
 
               <form action={handle} aria-busy={pending}>
                 <div className="field gf-form-group">
-                  <label className="gf-form-label">New password</label>
+                  <label className="gf-form-label" htmlFor="reset-password">New password</label>
                   <div className="gf-input-group">
                     <Lock className="gf-input-icon" strokeWidth={1.75} />
-                    <PasswordInput className="gf-input" name="password" placeholder="••••••••" value={pw} onChange={(e) => setPw(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={pwDescribedBy} />
+                    <PasswordInput className="gf-input" id="reset-password" name="password" autoComplete="new-password" placeholder="••••••••" value={pw} onChange={(e) => setPw(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={pwDescribedBy} />
                   </div>
                 </div>
 
@@ -105,10 +105,10 @@ export default function ResetPasswordPage() {
                 </ul>
 
                 <div className="field gf-form-group">
-                  <label className="gf-form-label">Confirm password</label>
+                  <label className="gf-form-label" htmlFor="reset-password-confirm">Confirm password</label>
                   <div className="gf-input-group">
                     <Lock className="gf-input-icon" strokeWidth={1.75} />
-                    <PasswordInput className="gf-input" placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={confirmDescribedBy} />
+                    <PasswordInput className="gf-input" id="reset-password-confirm" autoComplete="new-password" placeholder="••••••••" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-invalid={err ? true : undefined} aria-describedby={confirmDescribedBy} />
                   </div>
                 </div>
                 {/* aria-live announces the match/mismatch verdict as it updates;

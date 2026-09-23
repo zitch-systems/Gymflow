@@ -58,6 +58,11 @@ export function watDateISO(instant: Date = new Date()): string {
   return new Date(instant.getTime() + WAT_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+// First day (YYYY-MM-01) of the WAT calendar month containing `instant`.
+export function watMonthStartISO(instant: Date = new Date()): string {
+  return `${watDateISO(instant).slice(0, 7)}-01`;
+}
+
 // The UTC instant of WAT midnight for a WAT calendar date (YYYY-MM-DD) — use as
 // a lower bound when filtering UTC timestamps by "since the start of today (WAT)".
 export function watDayStartUtc(watDate: string): string {

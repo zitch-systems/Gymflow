@@ -4,7 +4,7 @@ import { ArrowLeft, Mail, Phone, ShieldCheck, CalendarDays, Users, CalendarCheck
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fmtNaira, fmtDate } from '@/lib/format';
+import { fmtNaira, fmtDate, watDayStartUtc, watMonthStartISO } from '@/lib/format';
 
 export const metadata = { title: 'Staff member' };
 export const dynamic = 'force-dynamic';
@@ -42,7 +42,7 @@ export default async function StaffDetail({ params }: { params: Promise<{ id: st
 
   const role = (link.role as string) ?? '';
   const isInstructor = role === 'instructor';
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
 
   const [{ data: clients }, { count: sessions30 }, { count: classesCount }] = await Promise.all([
     supabase.from('instructor_subscriptions').select('member_id, status, end_date, amount_paid').eq('instructor_id', id).eq('gym_id', gym.id).eq('status', 'active'),

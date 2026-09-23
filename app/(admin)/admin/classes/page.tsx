@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { CalendarDays, Ticket, Gauge, Hourglass, CalendarX, Plus } from 'lucide-react';
 import { requireStaff, MANAGER_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { watNow } from '@/lib/format';
+import { rosterSessionDate } from '@/lib/class-dates';
 
 export const metadata = { title: 'Classes' };
 
@@ -19,16 +21,19 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
   const { gym, role } = await requireStaff();
   const canManage = (MANAGER_ROLES as readonly string[]).includes(role);
   const sp = await searchParams;
-  const today = new Date();
-  const todayDow = today.getDay();
-  const selDow = sp.d != null && !Number.isNaN(Number(sp.d)) ? Number(sp.d) : todayDow;
+  // WAT wall-clock via getUTC*: the server runs in UTC, which put 00:00–01:00
+  // WAT on the previous day.
+  const today = watNow();
+  const todayDow = today.getUTCDay();
+  const reqDow = Number(sp.d);
+  const selDow = sp.d != null && Number.isInteger(reqDow) && reqDow >= 0 && reqDow <= 6 ? reqDow : todayDow;
   // This week's date for each weekday (Mon-anchored), shown big in the day cards
   // like revamp/admin-classes.html ("MON 26 · 4 classes").
-  const monday = new Date(today); monday.setDate(today.getDate() - ((todayDow + 6) % 7));
+  const monday = new Date(today); monday.setUTCDate(today.getUTCDate() - ((todayDow + 6) % 7));
   const domByDow = new Map<number, number>();
   for (let i = 0; i < 7; i++) {
-    const d = new Date(monday); d.setDate(monday.getDate() + i);
-    domByDow.set(d.getDay(), d.getDate());
+    const d = new Date(monday); d.setUTCDate(monday.getUTCDate() + i);
+    domByDow.set(d.getUTCDay(), d.getUTCDate());
   }
 
   const supabase = await createClient();
@@ -40,11 +45,15 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
 
   const scheduleIds = (schedules ?? []).map((s) => s.id);
   const { data: bookings } = scheduleIds.length
-    ? await supabase.from('class_bookings').select('class_schedule_id, status').eq('gym_id', gym.id).neq('status', 'cancelled').in('class_schedule_id', scheduleIds)
-    : { data: [] as { class_schedule_id: string | null; status: string | null }[] };
+    ? await supabase.from('class_bookings').select('class_schedule_id, status, booking_date').eq('gym_id', gym.id).neq('status', 'cancelled').in('class_schedule_id', scheduleIds).gte('booking_date', today.toISOString().slice(0, 10))
+    : { data: [] as { class_schedule_id: string | null; status: string | null; booking_date: string | null }[] };
+  // Only each slot's current session counts. A booking row is reused week to
+  // week, so a stale 'booked' row from a past week would otherwise fill today.
+  const sessionBySchedule = new Map((schedules ?? []).map((s) => [s.id, rosterSessionDate(s.day_of_week, null, today)]));
+  const current = (bookings ?? []).filter((b) => b.class_schedule_id && b.booking_date === sessionBySchedule.get(b.class_schedule_id));
   // Confirmed seats fill the bar / fill-rate; waitlisted rows are tracked apart.
-  const booked = (bookings ?? []).filter((b) => b.status === 'booked');
-  const waitlistCount = (bookings ?? []).filter((b) => b.status === 'waitlisted').length;
+  const booked = current.filter((b) => b.status !== 'waitlisted');
+  const waitlistCount = current.filter((b) => b.status === 'waitlisted').length;
   const bookedBy = new Map<string, number>();
   for (const b of booked) if (b.class_schedule_id) bookedBy.set(b.class_schedule_id, (bookedBy.get(b.class_schedule_id) ?? 0) + 1);
 

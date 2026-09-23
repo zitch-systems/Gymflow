@@ -1,6 +1,8 @@
 import { CalendarX } from 'lucide-react';
 import { requireInstructor } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { watNow } from '@/lib/format';
+import { rosterSessionDate } from '@/lib/class-dates';
 
 export const metadata = { title: 'Classes · Instructor' };
 
@@ -22,11 +24,19 @@ export default async function CoachClasses() {
     .order('day_of_week', { ascending: true }).order('start_time', { ascending: true });
 
   const scheduleIds = (schedules ?? []).map((s) => s.id);
+  const now = watNow();
   const { data: bookings } = scheduleIds.length
-    ? await supabase.from('class_bookings').select('class_schedule_id').neq('status', 'cancelled').in('class_schedule_id', scheduleIds)
-    : { data: [] as { class_schedule_id: string | null }[] };
+    ? await supabase.from('class_bookings').select('class_schedule_id, booking_date').eq('gym_id', gym.id).in('status', ['booked', 'attended', 'no_show']).in('class_schedule_id', scheduleIds).gte('booking_date', now.toISOString().slice(0, 10))
+    : { data: [] as { class_schedule_id: string | null; booking_date: string | null }[] };
+  // Seats taken in each slot's current session only — booking rows are reused
+  // week to week, so older rows are not this week's seats.
+  const sessionBySchedule = new Map((schedules ?? []).map((s) => [s.id, rosterSessionDate(s.day_of_week, null, now)]));
   const bookedBy = new Map<string, number>();
-  for (const b of bookings ?? []) if (b.class_schedule_id) bookedBy.set(b.class_schedule_id, (bookedBy.get(b.class_schedule_id) ?? 0) + 1);
+  for (const b of bookings ?? []) {
+    if (b.class_schedule_id && b.booking_date === sessionBySchedule.get(b.class_schedule_id)) {
+      bookedBy.set(b.class_schedule_id, (bookedBy.get(b.class_schedule_id) ?? 0) + 1);
+    }
+  }
 
   const rows = schedules ?? [];
 

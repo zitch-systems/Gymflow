@@ -48,3 +48,26 @@ export function nextOccurrenceDate(dow: number, startTime: string | null | undef
 export function isSameWatDate(date: string, now: Date): boolean {
   return date === now.toISOString().slice(0, 10);
 }
+
+/**
+ * Which session of a weekly slot the staff roster shows. A requested date is
+ * honoured only if it is a real YYYY-MM-DD on the slot's weekday; otherwise
+ * today's session when the slot runs today (attendance is marked after it
+ * starts), else the next one.
+ */
+export function rosterSessionDate(dow: number, requested: string | null | undefined, now: Date): string {
+  if (requested && /^\d{4}-\d{2}-\d{2}$/.test(requested)) {
+    const d = new Date(`${requested}T00:00:00Z`);
+    if (!Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === requested && d.getUTCDay() === dow) {
+      return requested;
+    }
+  }
+  return nextOccurrenceDate(dow, null, now);
+}
+
+/** `date` (YYYY-MM-DD) shifted by whole weeks. */
+export function shiftWeeks(date: string, weeks: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + weeks * 7);
+  return d.toISOString().slice(0, 10);
+}

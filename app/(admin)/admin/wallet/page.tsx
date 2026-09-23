@@ -1,7 +1,7 @@
 import { Banknote, ArrowDownLeft, ArrowUpRight, CreditCard, Download, Filter } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate } from '@/lib/format';
+import { fmtNaira, fmtDate, watDayStartUtc, watMonthStartISO } from '@/lib/format';
 
 export const metadata = { title: 'Wallet' };
 
@@ -34,7 +34,7 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
   const to = sp.to && DATE_RE.test(sp.to) ? sp.to : '';
   const hasFilters = Boolean(status || method || from || to);
 
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
 
   // The transactions list honours the filters; the "this month" KPIs stay
   // month-scoped regardless (they summarise the month, not the current view).

@@ -2604,7 +2604,7 @@ body.auth { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh;
 .ds-member .pay-ic svg { width:34px; height:34px; }
 .ds-member .pay-ic.ok { background:var(--gf-success-soft); color:var(--gf-success); }
 .ds-member .pay-ic.bad { background:var(--gf-danger-soft); color:var(--gf-danger); }
-.ds-member .pay-result h2 { font-family:var(--gf-font-display); font-weight:800; font-size:1.3rem; margin:0 0 8px; }
+.ds-member .pay-result :is(h1, h2) { font-family:var(--gf-font-display); font-weight:800; font-size:1.3rem; margin:0 0 8px; }
 .ds-member .pay-result p { color:var(--gf-text-secondary); font-size:0.9rem; margin:0 0 22px; }
 
 /* ═══════════════ PER-GYM BRANDED SUBDOMAIN LANDING (app/g/[slug]) ═══════════════ */

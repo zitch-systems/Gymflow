@@ -5,12 +5,15 @@ import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 import { sa } from '@/lib/superadmin-path';
+import { monthLabel, parseRevenueSummary } from '@/lib/platform-revenue';
 
 export const metadata = { title: 'Platform overview' };
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const PAID = ['success', 'successful', 'completed', 'paid'];
+
+type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
 
 const GYM_FILTERS = [['all', 'All'], ['active', 'Active'], ['trial', 'Trial'], ['past_due', 'Past due']] as const;
 
@@ -20,13 +23,11 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
   const gymFilter = GYM_FILTERS.find(([k]) => k === sp.f)?.[0] ?? 'all';
   const supabase = await createClient();
 
-  const since12 = new Date(); since12.setDate(1); since12.setMonth(since12.getMonth() - 11);
-
-  const [{ count: members }, { count: activeSubs }, { data: gymRows }, { data: pays }, { data: recent }] = await Promise.all([
+  const [{ count: members }, { count: activeSubs }, { data: gymRows }, revenueRes, { data: recent }] = await Promise.all([
     supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('member_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     supabase.from('gyms').select('id, name, subscription_status'),
-    supabase.from('payments').select('amount, payment_date, created_at, status').gte('payment_date', since12.toISOString()).in('status', PAID),
+    (supabase as unknown as RpcClient).rpc('platform_revenue_summary', { p_months: 12 }),
     supabase.from('payments').select('amount, payment_date, gym_id, status').in('status', PAID).order('payment_date', { ascending: false }).limit(5),
   ]);
 
@@ -37,20 +38,10 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
   const trial = gymList.filter((g) => (g.subscription_status ?? 'trial') === 'trial').length;
   const pastDue = gymList.filter((g) => g.subscription_status === 'past_due').length;
 
-  // Trailing-12-month revenue series from real payments.
-  const months: { label: string; total: number }[] = [];
-  const idx = new Map<string, number>();
-  const base = new Date(); base.setDate(1);
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(base); d.setMonth(d.getMonth() - i);
-    idx.set(`${d.getFullYear()}-${d.getMonth()}`, months.length);
-    months.push({ label: d.toLocaleString('en-NG', { month: 'short' }), total: 0 });
-  }
-  for (const p of pays ?? []) {
-    const d = new Date(p.payment_date ?? p.created_at ?? '');
-    const i = idx.get(`${d.getFullYear()}-${d.getMonth()}`);
-    if (i != null) months[i].total += Number(p.amount ?? 0);
-  }
+  // Trailing-12-month revenue series, summed in Postgres (a fetched row list is
+  // capped at PostgREST's max-rows).
+  if (revenueRes.error) throw new Error(`platform_revenue_summary failed: ${revenueRes.error.message}`);
+  const months = parseRevenueSummary(revenueRes.data).memberMonthly.map((m) => ({ label: monthLabel(m.month), total: m.total }));
   const trailingTotal = months.reduce((s, m) => s + m.total, 0);
   const maxT = Math.max(1, ...months.map((m) => m.total));
   const pts = months.map((m, i) => `${(i / (months.length - 1)) * 600},${150 - (m.total / maxT) * 138}`).join(' ');
