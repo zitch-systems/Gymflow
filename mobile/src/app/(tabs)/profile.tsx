@@ -12,8 +12,10 @@ import type { ProfilePayload } from '@/api/types';
 
 const STATUS: Record<string, { label: string; tone: 'success' | 'info' | 'warning' | 'danger' }> = {
   active: { label: 'Active', tone: 'success' },
-  paused: { label: 'Frozen', tone: 'info' },
-  pause_requested: { label: 'Freeze pending', tone: 'info' },
+  scheduled: { label: 'Scheduled', tone: 'info' },
+  frozen: { label: 'Frozen', tone: 'info' },
+  freeze_pending: { label: 'Freeze pending', tone: 'info' },
+  expired: { label: 'Expired', tone: 'warning' },
   past_due: { label: 'Payment failed', tone: 'danger' },
 };
 
@@ -38,7 +40,12 @@ export default function ProfileScreen() {
   const joined = profile.joined_at
     ? new Date(profile.joined_at).toLocaleDateString('en-NG', { month: 'short', year: 'numeric' })
     : null;
-  const status = membership?.status ? STATUS[membership.status] : null;
+  const statusKey = membership?.status === 'past_due' && membership.display_state === 'active'
+    ? 'past_due'
+    : membership?.display_state;
+  const status = statusKey ? STATUS[statusKey] : null;
+  const membershipDate = membership?.display_state === 'scheduled' ? membership.start_date : membership?.end_date;
+  const membershipDateLabel = membership?.display_state === 'scheduled' ? 'Starts' : 'Renews';
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -54,7 +61,7 @@ export default function ProfileScreen() {
       <View style={styles.stats}>
         <Stat value={String(stats.visits)} label="Visits" />
         <Stat value={String(stats.classes_attended)} label="Classes" />
-        <Stat value={membership?.end_date ? shortDate(membership.end_date) : '—'} label="Renews" small />
+        <Stat value={membershipDate ? shortDate(membershipDate) : '—'} label={membershipDateLabel} small />
       </View>
 
       <SectionTitle>Membership</SectionTitle>

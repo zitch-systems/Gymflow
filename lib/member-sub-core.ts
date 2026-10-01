@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { watDateISO } from '@/lib/format';
 import { extendDate, renewalBase, type PlanDuration } from '@/lib/plan-duration';
 
 // The shared rules for a member's subscription row: which statuses count as
@@ -149,13 +150,13 @@ export async function grantMemberPeriod(
   // Latest ACTIVE sub only: a later-dated cancelled/expired row must not be
   // picked up and silently reactivated.
   const { data: sub } = await sb.from('member_subscriptions')
-    .select('id').eq('member_id', who.memberId).eq('gym_id', who.gymId).eq('status', 'active')
+    .select('id').eq('member_id', who.memberId).eq('gym_id', who.gymId).in('status', [...LIVE_SUB_STATUSES])
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
   if (sub) return extendMemberSub(sb, sub.id, period, fields);
 
   // Nothing live to stack onto — start the period today. renewalBase(null) is
   // today, so this is the same rule the RPC applies with nothing to stack on.
-  const today = new Date();
+  const today = new Date(`${watDateISO()}T00:00:00Z`);
   const endIso = extendDate(renewalBase(null, today), period).toISOString().slice(0, 10);
   const { error } = await sb.from('member_subscriptions').insert({
     gym_id: who.gymId, member_id: who.memberId, plan_id: fields.planId ?? null,

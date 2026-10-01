@@ -2,7 +2,6 @@ import 'server-only';
 import { createHmac, timingSafeEqual } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { numericCode } from '@/lib/crypto/secret-box';
-import { watDateISO, watDayStartUtc } from '@/lib/format';
 import { isOfflineGym } from '@/lib/gym-status';
 import { gymCanUse } from '@/lib/entitlements';
 import { membershipSnapshot } from '@/lib/whatsapp/membership';
@@ -48,7 +47,6 @@ async function openVisit(admin: Admin, gymId: string, memberId: string) {
     .select('id, checked_in_at')
     .eq('member_id', memberId).eq('gym_id', gymId)
     .eq('status', 'active').is('checked_out_at', null)
-    .gte('checked_in_at', watDayStartUtc(watDateISO()))
     .order('checked_in_at', { ascending: false })
     .limit(1).maybeSingle();
   return data as { id: string; checked_in_at: string | null } | null;
@@ -76,7 +74,7 @@ async function eligibility(
     .from('gym_member_links').select('is_active')
     .eq('gym_id', gym.id).or(`member_id.eq.${memberId},user_id.eq.${memberId}`)
     .maybeSingle();
-  if (link && (link as { is_active: boolean | null }).is_active === false) {
+  if (!link || (link as { is_active: boolean | null }).is_active !== true) {
     return { ok: false, error: 'Your membership is suspended. Please see the front desk.' };
   }
 
@@ -139,7 +137,12 @@ export async function whatsappCheckToggle(
     checked_in_at: new Date().toISOString(),
     status: 'active',
   });
-  if (error) return { ok: false, error: 'Check-in didn’t go through. Please see the front desk.' };
+  if (error) {
+    if (error.code === '23505' && await openVisit(admin, params.gym.id, params.memberId)) {
+      return { ok: true, action: 'already_in', daysRemaining: gate.daysRemaining };
+    }
+    return { ok: false, error: 'Check-in didn’t go through. Please see the front desk.' };
+  }
 
   return { ok: true, action: 'checked_in', daysRemaining: gate.daysRemaining };
 }

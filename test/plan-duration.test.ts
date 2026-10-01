@@ -57,6 +57,11 @@ describe('projectRenewalEnd — active member buys the next period', () => {
 });
 
 describe('projectRenewalEnd — lapsed member starts fresh from today', () => {
+  it('starts on the new WAT day while the server is still on the previous UTC day', () => {
+    const now = new Date('2026-09-30T23:30:00Z');
+    expect(projectRenewalEnd(null, DAILY, now).toISOString().slice(0, 10)).toBe('2026-10-02');
+    expect(projectRenewalEnd('2026-10-01', DAILY, now).toISOString().slice(0, 10)).toBe('2026-10-02');
+  });
   it('daily plan covers today + 1 day', () => {
     const end = projectRenewalEnd(null, DAILY, NOW);
     expect(end.getTime()).toBe(NOW.getTime() + DAY);

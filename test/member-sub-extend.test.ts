@@ -372,8 +372,8 @@ describe('every writer that extends a membership goes through the RPC', () => {
   // renew a membership is exactly the kind of thing that gets added later with
   // a fresh read-modify-write in it.
   const WRITERS = [
-    ['lib/paystack-fulfill.ts', 'grantMemberPeriod('],      // one-off card renewal
-    ['lib/member-sub-fulfill.ts', 'extendMemberSub('],      // auto-debit cycle
+    ['lib/paystack-fulfill.ts', 'settleMemberCharge('],      // one-off card renewal
+    ['lib/member-sub-fulfill.ts', 'settleMemberCharge('],      // auto-debit cycle
     ['lib/actions/admin-member.ts', 'grantMemberPeriod('],  // front-desk cash
   ] as const;
 
@@ -600,14 +600,10 @@ describe('a recurring charge for a mandate whose row is no longer live', () => {
     expect(await endDateOf(live)).toBe('2027-07-01');
   });
 
-  it('is wired into the auto-debit fulfiller', () => {
-    // Source lock: onRecurringCharge is webhook code behind a signature check
-    // and a live Paystack payload, so what is pinned here is that the 23505 out
-    // of extendMemberSub is recovered rather than turned into a failed webhook.
-    const src = read('lib/member-sub-fulfill.ts');
-    const extend = src.indexOf('await extendMemberSub(');
-    const recover = src.indexOf("extended.code === '23505'");
-    expect(recover).toBeGreaterThan(extend);
-    expect(src.slice(recover)).toContain('grantMemberPeriod(');
+  it('is wired through atomic settlement in the auto-debit fulfiller', () => {
+    expect(read('lib/member-sub-fulfill.ts')).toContain('await settleMemberCharge(');
+    // The RPC's live-row recovery and payment rollback are exercised by the
+    // atomic-member-charge database suite, including concurrent requests.
+    expect(read('lib/member-sub-fulfill.ts')).not.toContain("from('payments').delete()");
   });
 });

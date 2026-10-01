@@ -20,7 +20,7 @@
     "fflate": "^0.8.3",
     "jsqr": "^1.4.0",
     "lucide-react": "^0.471.0",
-    "next": "^16.0.0",
+    "next": "16.3.8",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -34,10 +34,27 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.0.0",
-    "eslint-config-next": "^16.0.0",
+    "eslint-config-next": "16.3.8",
     "pg": "^8.13.1",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.0",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "vercel": "62.1.0"
+  },
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ],
+    "overrides": {
+      "nanoid@<3.3.18": "3.3.18",
+      "browserslist@<=4.28.6": "4.28.7",
+      "baseline-browser-mapping@>=2.0.0 <2.11.0": "2.11.26"
+    }
   }
 }

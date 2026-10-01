@@ -1,5 +1,6 @@
 import { requireApiMember, json, corsPreflight, readJson, publicGym } from '@/lib/api-app';
-import { splitName, normalizeNgPhone } from '@/lib/format';
+import { daysLeft, normalizeNgPhone, splitName, watDateISO } from '@/lib/format';
+import { membershipDisplayState } from '@/lib/membership-display';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
       supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id),
       supabase.from('class_bookings').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'attended'),
       supabase.from('member_subscriptions')
-        .select('id, status, end_date, auto_debit_enabled, paystack_subscription_code')
+        .select('id, status, start_date, end_date, auto_debit_enabled, paystack_subscription_code')
         .eq('member_id', user.id).eq('gym_id', gym.id)
         .in('status', ['active', 'pause_requested', 'paused', 'past_due'])
         .order('end_date', { ascending: false }).limit(1).maybeSingle(),
@@ -48,6 +49,13 @@ export async function GET(req: Request) {
       membership: sub
         ? {
             status: sub.status,
+            display_state: membershipDisplayState({
+              status: sub.status,
+              startDate: sub.start_date,
+              daysRemaining: daysLeft(sub.end_date),
+              today: watDateISO(),
+            }),
+            start_date: sub.start_date,
             end_date: sub.end_date,
             auto_renew: Boolean(sub.auto_debit_enabled && sub.paystack_subscription_code),
           }

@@ -1,5 +1,5 @@
 import { verifyTransaction } from '@/lib/paystack';
-import { fulfillCharge } from '@/lib/paystack-fulfill';
+import { fulfillVerifiedMemberCharge } from '@/lib/member-payment-callback';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -86,7 +86,7 @@ export async function GET(req: Request) {
     // Confirmed at Paystack — fulfil it from the Paystack-verified metadata, the
     // same authoritative, idempotent path the webhook uses. The webhook remains
     // the backup if this ever fails.
-    const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata, split: v.split });
+    const f = await fulfillVerifiedMemberCharge(v);
     if (!f.ok) {
       console.error(`[app/pay/callback] fulfill failed for ${v.reference}: ${f.error}`);
       return handOff('success', v.reference, 'Your payment went through. Your membership will update shortly.');

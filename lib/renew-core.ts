@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { initTransaction } from '@/lib/paystack';
+import { reserveMemberCheckout } from '@/lib/member-checkout';
 import { gymCommission } from '@/lib/paystack-payloads';
 import { offersTrainer, planTotalKobo } from '@/lib/plan-addon';
 import { isOfflineGym } from '@/lib/gym-status';
@@ -59,8 +60,14 @@ export async function startRenewalCore(
 
   const trainerAddon = withTrainer && offersTrainer(plan);
   const amountKobo = planTotalKobo(plan, trainerAddon);
+  const checkout = await reserveMemberCheckout({
+    gymId: gym.id, memberId: user.id, planId: plan.id, amountKobo,
+    durationDays: plan.duration_days, durationMonths: plan.duration_months, trainerAddon,
+  });
+  if (!checkout.ok) return checkout;
 
   const txParams = {
+    reference: checkout.reference,
     email: user.email ?? '',
     amountKobo,
     metadata: {

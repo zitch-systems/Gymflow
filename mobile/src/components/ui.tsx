@@ -102,7 +102,11 @@ export function Row({
   );
   if (!onPress) return content;
   return (
-    <Pressable onPress={onPress} android_ripple={{ color: 'rgba(255,255,255,0.06)' }}>
+    <Pressable
+      onPress={onPress}
+      android_ripple={{ color: 'rgba(255,255,255,0.06)' }}
+      accessibilityRole="button"
+    >
       {content}
     </Pressable>
   );
@@ -143,6 +147,7 @@ export function Button({
       disabled={off}
       android_ripple={variant === 'ghost' ? undefined : { color: 'rgba(0,0,0,0.12)' }}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: off, busy: Boolean(loading) }}
       style={[styles.button, variantStyle, { paddingVertical: pad }, off && { opacity: 0.55 }, style]}
     >
@@ -234,12 +239,13 @@ export function Notice({ message, tone = 'danger' }: { message: string; tone?: B
 // ── Form fields ────────────────────────────────────────────────────────────
 
 export const Field = forwardRef<TextInput, TextInputProps & { label: string; hint?: string }>(
-  function Field({ label, hint, style, ...props }, ref) {
+  function Field({ label, hint, style, accessibilityLabel, ...props }, ref) {
     return (
       <View style={{ marginBottom: space.lg }}>
         <Text style={styles.fieldLabel}>{label}</Text>
         <TextInput
           ref={ref}
+          accessibilityLabel={accessibilityLabel ?? label}
           placeholderTextColor={c.textMuted}
           style={[styles.input, style]}
           {...props}

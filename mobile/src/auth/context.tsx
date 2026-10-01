@@ -20,7 +20,7 @@ type AuthValue = {
   /** Look up a gym from the code on the wall. Doesn't sign anyone in. */
   resolveGym: (code: string) => Promise<Gym>;
   signIn: (params: { code: string; email: string; password: string }) => Promise<void>;
-  signUp: (params: { code: string; email: string; password: string; fullName: string; phone?: string }) => Promise<void>;
+  signUp: (params: { code: string; email: string; password: string; fullName: string; phone?: string }) => Promise<'signed-in' | 'confirmation-required'>;
   signOut: () => Promise<void>;
 };
 
@@ -87,9 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const finishAuth = useCallback(async (res: AuthResponse, code: string) => {
     if (!res.session) {
-      // Sign-up can succeed without a session when the platform is configured to
-      // require email confirmation and no service key is present to auto-confirm.
-      throw new Error('Your account was created. Please confirm your email, then sign in.');
+      throw new Error('Could not start your session. Please sign in again.');
     }
     await Promise.all([applySession(res.session), storage.setGym(res.gym), storage.setLastCode(code.trim())]);
     setGym(res.gym);
@@ -107,7 +105,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.post<AuthResponse>('/api/app/signup', {
       code, email, password, full_name: fullName, phone: phone ?? '',
     }, false);
+    // A confirmed-email deployment creates the account without returning a
+    // session. That is a successful signup, so let the screen show the member
+    // the confirmation step instead of rendering it as a red form error.
+    if (!res.session) {
+      await storage.setLastCode(code.trim());
+      return 'confirmation-required';
+    }
     await finishAuth(res, code);
+    return 'signed-in';
   }, [finishAuth]);
 
   const value = useMemo<AuthValue>(

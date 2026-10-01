@@ -1,5 +1,6 @@
 import { requireApiMember, json, corsPreflight } from '@/lib/api-app';
-import { daysLeft } from '@/lib/format';
+import { daysLeft, watDateISO } from '@/lib/format';
+import { membershipDisplayState } from '@/lib/membership-display';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -29,8 +30,8 @@ export async function GET(req: Request) {
         .eq('member_id', user.id).eq('gym_id', gym.id)
         .order('payment_date', { ascending: false }).limit(40),
       supabase.from('member_subscriptions')
-        .select('end_date, plan_id, status, membership_plans(name)')
-        .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+        .select('start_date, end_date, plan_id, status, membership_plans(name)')
+        .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due', 'paused', 'pause_requested'])
         .order('end_date', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('saved_cards')
         .select('id, brand, last4, exp_month, exp_year, bank, is_default')
@@ -61,13 +62,24 @@ export async function GET(req: Request) {
     }
 
     const planName = (sub as unknown as { membership_plans: { name: string } | null } | null)?.membership_plans?.name ?? null;
+    const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
+    const displayState = sub ? membershipDisplayState({
+      status: sub.status, startDate: sub.start_date, daysRemaining: remaining, today: watDateISO(),
+    }) : null;
 
     return json({
       total_spent: totalSpent,
       this_month: months[months.length - 1].amount,
       months: months.map((m) => ({ label: m.label, amount: m.amount })),
       subscription: sub
-        ? { plan_name: planName, end_date: sub.end_date, days_left: sub.end_date ? daysLeft(sub.end_date) : 0, status: sub.status }
+        ? {
+            plan_name: planName,
+            start_date: sub.start_date,
+            end_date: sub.end_date,
+            days_left: remaining,
+            status: sub.status,
+            display_state: displayState,
+          }
         : null,
       cards: (cards ?? []).map((c) => ({
         id: c.id, brand: c.brand, last4: c.last4,

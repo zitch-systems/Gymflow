@@ -1,14 +1,14 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { extendMemberSub, grantMemberPeriod } from '@/lib/member-sub-core';
+import { settleMemberCharge } from '@/lib/member-charge';
 import { logAudit } from '@/lib/audit';
 import { deliverReceipt, deliverPaymentFailed, type NotifyGym } from '@/lib/notify';
-import { firstName, fmtDate } from '@/lib/format';
+import { firstName, fmtDate, watDateISO } from '@/lib/format';
 import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, autoRenewEnabled, autoRenewEnded } from '@/lib/email/templates/member';
 import { resolveTrainerOptIn } from '@/lib/plan-addon';
-import { commissionColumns, readSplit } from '@/lib/paystack-split';
+import { readSplit } from '@/lib/paystack-split';
 import type { Database } from '@/lib/database.types';
 
 // Fulfillment for the MEMBER auto-billing flow (member → gym recurring
@@ -200,7 +200,7 @@ async function onSubscriptionCreate(admin: Admin, data: Json): Promise<Result> {
   const meta = (data.metadata as Json) ?? {};
 
   const sub = await findSub(admin, subCode, custCode, str(meta.member_id), str(meta.gym_id));
-  if (!sub) return { ok: true, handled: true }; // The first charge.success will link them; ack.
+  if (!sub) return { ok: false, handled: true, error: 'Initial member charge has not created its subscription yet' };
   if (
     subCode &&
     sub.paystack_subscription_code &&
@@ -265,11 +265,23 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   const subCode = str(data.subscription_code) ?? str((data.subscription as Json)?.subscription_code);
   const custCode = str(customer.customer_code);
 
-  const sub = await findSub(admin, subCode, custCode, str(meta.member_id), str(meta.gym_id));
-  if (!sub) return { ok: false, handled: true, error: 'could not resolve member subscription' };
+  const { data: reserved, error: reservationError } = await admin
+    .from('member_payment_checkouts' as never).select('*').eq('reference', reference).maybeSingle();
+  if (reservationError) return { ok: false, handled: true, error: reservationError.message };
+  const checkout = reserved as unknown as {
+    gym_id: string; member_id: string; plan_id: string; trainer_addon: boolean;
+    duration_days: number | null; duration_months: number | null;
+    provider_plan_code: string | null;
+  } | null;
+  const gymId = checkout?.gym_id ?? str(meta.gym_id);
+  const memberId = checkout?.member_id ?? str(meta.member_id);
+  const sub = await findSub(admin, subCode, custCode, memberId, gymId);
+  if (!sub && !checkout) return { ok: false, handled: true, error: 'could not resolve member subscription or checkout' };
+  const boundGymId = checkout?.gym_id ?? sub!.gym_id;
+  const boundMemberId = checkout?.member_id ?? sub!.member_id;
   if (
     subCode &&
-    sub.paystack_subscription_code &&
+    sub?.paystack_subscription_code &&
     sub.paystack_subscription_code !== subCode &&
     sub.auto_debit_enabled
   ) {
@@ -279,23 +291,6 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
     };
   }
 
-  // Bind the codes on the first successful charge. subscription.create can
-  // arrive before the row is resolvable and used to be acknowledged without
-  // storing them; subsequent renewals then had no safe key and were lost.
-  // Run this before the payment fast-path so a replay can repair an older row.
-  const codePatch: MemberSubUpdate = { auto_debit_enabled: true, updated_at: new Date().toISOString() };
-  if (subCode) codePatch.paystack_subscription_code = subCode;
-  if (custCode) codePatch.paystack_customer_code = custCode;
-  const trainer = await trainerOptInFromMeta(admin, sub.gym_id, str(meta.plan_id) ?? sub.plan_id, meta.trainer_addon);
-  if (trainer !== null) codePatch.trainer_addon = trainer;
-  const { error: codeErr } = await admin.from('member_subscriptions').update(codePatch).eq('id', sub.id);
-  if (codeErr) return { ok: false, handled: true, error: `subscription code bind failed: ${codeErr.message}` };
-
-  // Idempotency: payments.paystack_reference is UNIQUE. Fast-path pre-check
-  // then the 23505 catch is the real guard.
-  const { data: existing } = await admin.from('payments').select('id').eq('paystack_reference', reference).maybeSingle();
-  if (existing) return { ok: true, handled: true };
-
   const amountKobo = Number(data.amount ?? 0);
   // A recurring charge must carry a real, positive amount before it records a
   // successful payment and extends access. The one-off and platform rails both
@@ -303,6 +298,7 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   // charge.success would grant a full billing period for free. Reject it as
   // handled — a retry with the same bad amount would repeat, so don't ask
   // Paystack to redeliver.
+  if (data.currency !== 'NGN') return { ok: false, handled: true, error: 'unexpected recurring currency', permanent: true };
   if (!Number.isSafeInteger(amountKobo) || amountKobo <= 0) {
     return { ok: false, handled: true, error: `recurring charge has a non-positive amount (${data.amount})` };
   }
@@ -310,61 +306,68 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   // Load the plan's duration to extend end_date correctly. We prefer the sub's
   // own plan_id (survives if the membership_plans row is later archived) and
   // fall back to metadata.plan_id.
-  const planId = sub.plan_id ?? str(meta.plan_id);
+  const planId = checkout?.plan_id ?? sub?.plan_id ?? str(meta.plan_id);
   let extendBy = { duration_days: null as number | null, duration_months: 1 as number | null };
   if (planId) {
     const { data: plan } = await admin.from('membership_plans')
-      .select('duration_days, duration_months').eq('id', planId).eq('gym_id', sub.gym_id).maybeSingle();
-    if (plan) extendBy = { duration_days: plan.duration_days ?? null, duration_months: plan.duration_months ?? 1 };
+      .select('duration_days, duration_months, paystack_plan_code, paystack_plan_code_trainer').eq('id', planId).eq('gym_id', boundGymId).maybeSingle();
+    if (!plan) return { ok: false, handled: true, error: 'recurring plan is missing' };
+    const providerPlan = (data.plan as Json) ?? {};
+    const providerCode = str(providerPlan.plan_code);
+    const boundMandate = Boolean(subCode && sub?.paystack_subscription_code === subCode);
+    const approvedCodes = checkout?.provider_plan_code
+      ? [checkout.provider_plan_code] : [plan.paystack_plan_code, plan.paystack_plan_code_trainer];
+    if (!boundMandate && (!providerCode || !approvedCodes.includes(providerCode))) {
+      return { ok: false, handled: true, error: 'recurring charge is not bound to the gym plan', permanent: true };
+    }
+    if (Number(providerPlan.amount) !== amountKobo || providerPlan.currency !== 'NGN') {
+      return { ok: false, handled: true, error: 'recurring charge does not match provider plan', permanent: true };
+    }
+    // Later cycles use the interval actually sold at Paystack; a staff edit to
+    // the local plan must not shorten an existing monthly mandate to one day.
+    const providerPeriods: Record<string, typeof extendBy> = {
+      daily: { duration_days: 1, duration_months: null }, weekly: { duration_days: 7, duration_months: null },
+      monthly: { duration_days: null, duration_months: 1 }, quarterly: { duration_days: null, duration_months: 3 },
+      biannually: { duration_days: null, duration_months: 6 }, annually: { duration_days: null, duration_months: 12 },
+    };
+    extendBy = checkout
+      ? { duration_days: checkout.duration_days, duration_months: checkout.duration_months }
+      : providerPeriods[str(providerPlan.interval) ?? ''];
+    if (!extendBy) return { ok: false, handled: true, error: 'Provider billing interval needs reconciliation' };
   }
 
-  // Recurring charges split exactly like one-off ones, so they carry the same
-  // commission record. Omitting it here would have made auto-debit renewals
-  // invisible in platform earnings while manual renewals showed up.
-  // `as never`: the commission columns postdate database.types.ts.
-  const { error: payErr } = await admin.from('payments').insert({
-    member_id: sub.member_id, gym_id: sub.gym_id, plan_id: planId ?? null,
-    amount: amountKobo / 100, currency: 'NGN',
-    status: 'success', payment_status: 'successful',
-    payment_method: 'auto_debit', paystack_reference: reference,
-    payment_date: new Date().toISOString(),
-    ...commissionColumns(readSplit(data)),
-  } as never);
-  if (payErr) {
-    if (payErr.code === '23505') return { ok: true, handled: true }; // concurrent fulfiller won
-    return { ok: false, handled: true, error: payErr.message };
-  }
-
-  // Extend from the later of {current end_date, today}. Recurring charges
-  // should push forward; they should never shorten. Shared rule — applied
-  // inside the UPDATE (extendMemberSub) rather than computed here, so a cycle
-  // that lands while the member is also paying a one-off renewal stacks onto
-  // that period instead of replacing it. The status flip to 'active' rides
-  // along: it recovers the row from past_due once payment lands.
-  let extended = await extendMemberSub(admin, sub.id, extendBy);
-  if (!extended.ok && extended.code === '23505') {
-    // member_subscriptions_one_live_idx refused the row this mandate points at:
-    // it is NOT in the live set any more (findSub resolves by subscription code,
-    // and onSubscriptionEnd leaves that code on a row it expires), the member
-    // has since acquired a live one elsewhere, and the RPC's flip back to
-    // 'active' would have made two. The money is real either way, so credit the
-    // row that IS live instead of failing the webhook — otherwise Paystack
-    // retries this charge forever and the member is debited and never credited.
-    extended = await grantMemberPeriod(admin, { gymId: sub.gym_id, memberId: sub.member_id }, extendBy, { planId });
-  }
-  if (!extended.ok) {
-    // Compensate — remove the payment row so a retry can re-attempt everything.
-    await admin.from('payments').delete().eq('paystack_reference', reference);
-    return { ok: false, handled: true, error: `sub extend failed: ${extended.error}` };
-  }
-  const newEnd = extended.endDate;
+  // Bind the codes on the first successful charge. subscription.create can
+  // arrive before the row is resolvable and used to be acknowledged without
+  // storing them; subsequent renewals then had no safe key and were lost.
+  // Bind after atomic settlement creates the first row. A replay repairs a
+  // failed code write without extending the paid term again.
+  const codePatch: MemberSubUpdate = { auto_debit_enabled: true, updated_at: new Date().toISOString() };
+  if (subCode) codePatch.paystack_subscription_code = subCode;
+  if (custCode) codePatch.paystack_customer_code = custCode;
+  const trainer = checkout?.trainer_addon ?? await trainerOptInFromMeta(admin, boundGymId, planId, meta.trainer_addon);
+  if (trainer !== null) codePatch.trainer_addon = trainer;
+  if (!planId) return { ok: false, handled: true, error: 'recurring plan is missing' };
+  const settled = await settleMemberCharge(admin, {
+    reference, gymId: boundGymId, memberId: boundMemberId, planId,
+    amountKobo, currency: 'NGN', period: extendBy, trainerAddon: trainer,
+    method: 'auto_debit', split: readSplit(data), subscriptionId: sub?.id,
+  });
+  if (!settled.ok) return { ok: false, handled: true, error: settled.error };
+  const { data: paidSub, error: paidSubError } = await admin.from('member_subscriptions').select('id')
+    .eq('gym_id', boundGymId).eq('member_id', boundMemberId)
+    .in('status', ['active', 'past_due', 'paused', 'pause_requested']).limit(1).maybeSingle();
+  if (paidSubError || !paidSub) return { ok: false, handled: true, error: 'Could not bind paid member mandate' };
+  const { error: codeErr } = await admin.from('member_subscriptions').update(codePatch).eq('id', paidSub.id);
+  if (codeErr) return { ok: false, handled: true, error: `subscription code bind failed: ${codeErr.message}` };
+  if (!settled.created) return { ok: true, handled: true };
+  const newEnd = settled.endDate!;
 
   // Best-effort receipt notification.
   await admin.from('notifications').insert({
-    gym_id: sub.gym_id, user_id: sub.member_id, type: 'payment', channel: 'in_app',
+    gym_id: boundGymId, user_id: boundMemberId, type: 'payment', channel: 'in_app',
     title: 'Membership renewed', body: `₦${(amountKobo / 100).toLocaleString('en-NG')} auto-debited — access extended to ${newEnd}.`,
   });
-  await emailMember(admin, sub.gym_id, sub.member_id, (gym, contact) =>
+  await emailMember(admin, boundGymId, boundMemberId, (gym, contact) =>
     deliverReceipt(gym, contact, { amountNaira: amountKobo / 100, endDate: newEnd }));
 
   return { ok: true, handled: true };
@@ -381,7 +384,7 @@ async function onPaymentFailed(admin: Admin, data: Json): Promise<Result> {
 
   const { error: statusErr } = await admin.from('member_subscriptions').update({
     status: 'past_due', updated_at: new Date().toISOString(),
-  }).eq('id', sub.id);
+  }).eq('id', sub.id).in('status', ['active', 'past_due']);
   if (statusErr) return { ok: false, handled: true, error: statusErr.message };
 
   await admin.from('notifications').insert({
@@ -410,13 +413,22 @@ async function onSubscriptionEnd(admin: Admin, data: Json): Promise<Result> {
   if (!sub) return { ok: true, handled: true };
   if (isStaleFor(sub, subCode)) return { ok: true, handled: true };
 
-  const stillPaid = sub.end_date && new Date(sub.end_date) >= new Date();
-  const newStatus = stillPaid ? 'active' : 'expired';
+  const stillPaid = sub.end_date && sub.end_date >= watDateISO();
+  // Turning off a card mandate does not resume a freeze or revoke the last
+  // paid calendar day. Preserve an intentional pause until the gym resumes it.
+  const newStatus = sub.status === 'paused' || sub.status === 'pause_requested' || sub.status === 'cancelled'
+    ? sub.status : stillPaid ? 'active' : 'expired';
 
+  // Ending a mandate always clears billing, but a concurrent staff freeze or
+  // cancellation must not be overwritten by the status snapshot read above.
   const { error: statusErr } = await admin.from('member_subscriptions').update({
-    status: newStatus, auto_debit_enabled: false, updated_at: new Date().toISOString(),
+    auto_debit_enabled: false, updated_at: new Date().toISOString(),
   }).eq('id', sub.id);
   if (statusErr) return { ok: false, handled: true, error: statusErr.message };
+  const { error: endErr } = await admin.from('member_subscriptions').update({
+    status: newStatus, updated_at: new Date().toISOString(),
+  }).eq('id', sub.id).eq('status', sub.status ?? '');
+  if (endErr) return { ok: false, handled: true, error: endErr.message };
 
   // The mandate is gone either way — whether access lapsed with it or still has
   // paid-for time on it. Silence here is how a member discovers the card stopped

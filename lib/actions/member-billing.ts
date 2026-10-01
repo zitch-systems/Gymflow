@@ -11,6 +11,7 @@ import { initSubscription, createPlan, planIntervalFor, getSubscription, disable
 import { logAudit } from '@/lib/audit';
 import { LIVE_SUB_STATUSES, hasLiveMandate, mandateGoneAtPaystack } from '@/lib/member-sub-core';
 import { offersTrainer, planTotalKobo } from '@/lib/plan-addon';
+import { reserveMemberCheckout } from '@/lib/member-checkout';
 import { firstName, fmtDate } from '@/lib/format';
 import { getContact, getEmailGym } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
@@ -47,7 +48,7 @@ async function ensurePlanCode(
   planId: string,
   gymId: string,
   withTrainer: boolean,
-): Promise<{ ok: true; code: string; amountKobo: number; trainerAddon: boolean } | { ok: false; error: string }> {
+): Promise<{ ok: true; code: string; amountKobo: number; trainerAddon: boolean; durationDays: number | null; durationMonths: number | null } | { ok: false; error: string }> {
   const admin = createAdminClient();
   const { data: plan, error } = await admin
     .from('membership_plans')
@@ -61,7 +62,8 @@ async function ensurePlanCode(
   const trainerAddon = withTrainer && offersTrainer(plan);
   const amountKobo = planTotalKobo(plan, trainerAddon);
   const cached = trainerAddon ? plan.paystack_plan_code_trainer : plan.paystack_plan_code;
-  if (cached) return { ok: true, code: cached, amountKobo, trainerAddon };
+  const period = { durationDays: plan.duration_days, durationMonths: plan.duration_months };
+  if (cached) return { ok: true, code: cached, amountKobo, trainerAddon, ...period };
 
   const interval = planIntervalFor(plan.duration_days ?? null, plan.duration_months ?? null);
   if (!interval) return { ok: false, error: `Plan "${plan.name}" duration doesn't map to a Paystack billing interval.` };
@@ -79,7 +81,7 @@ async function ensurePlanCode(
   await admin.from('membership_plans')
     .update(trainerAddon ? { paystack_plan_code_trainer: res.planCode } : { paystack_plan_code: res.planCode })
     .eq('id', plan.id);
-  return { ok: true, code: res.planCode, amountKobo, trainerAddon };
+  return { ok: true, code: res.planCode, amountKobo, trainerAddon, ...period };
 }
 
 // Start an auto-renewing subscription for the signed-in member. Same shape as
@@ -134,10 +136,18 @@ export async function startAutoRenewal(planId: string, withTrainer = false): Pro
 
   const codeResult = await ensurePlanCode(planId, gym.id, withTrainer);
   if (!codeResult.ok) return { ok: false, error: codeResult.error };
+  const checkout = await reserveMemberCheckout({
+    gymId: gym.id, memberId: user.id, planId, amountKobo: codeResult.amountKobo,
+    durationDays: codeResult.durationDays, durationMonths: codeResult.durationMonths,
+    trainerAddon: codeResult.trainerAddon,
+    providerPlanCode: codeResult.code,
+  }, admin);
+  if (!checkout.ok) return checkout;
 
   // Same host the member started on — see lib/request-origin.ts.
   const site = await requestOrigin();
   const res = await initSubscription({
+    reference: checkout.reference,
     email: user.email ?? '',
     planCode: codeResult.code,
     amountKobo: codeResult.amountKobo,

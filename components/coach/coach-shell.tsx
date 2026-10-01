@@ -10,7 +10,7 @@ import { GymSwitcher } from '@/components/gym-switcher';
 import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
-  CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
+  CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut,
 } from 'lucide-react';
 import { LogoMark } from '@/components/ui/logo';
 
@@ -84,7 +84,7 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
           <span className="gf-topbar-title" style={{ fontFamily: 'var(--gf-font-display)' }}>Instructor portal</span>
           <div className="top-spacer" />
           <ThemeToggle />
-          <Link href="/coach/settings" className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></Link>
+          <Link href="/coach/settings" className="icon-btn bell" title="Settings" aria-label="Settings"><Settings strokeWidth={1.75} /></Link>
         </header>
         <main id="main-content" className="content">{children}</main>
       </div>

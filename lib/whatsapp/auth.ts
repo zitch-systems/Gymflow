@@ -299,14 +299,25 @@ export async function signinWithPassword(params: {
   const admin = createAdminClient();
   const userId = data.user.id;
 
-  // Which gym? An explicit code wins. Otherwise, if they belong to exactly one
-  // gym, use it; more than one and the conversation asks.
+  // Which gym? A code may select only a gym this account is already actively
+  // linked to. Member codes are deliberately public (printed at reception and
+  // used by the join flow), so possession of one is not an invitation that a
+  // password sign-in may turn into a new tenant membership. New members enrol
+  // through the explicit signup flow; sign-in only restores an existing link.
+  //
+  // Without this check, any GymFlow user could submit another gym's public code
+  // with their own valid password and the old provisioning call would create
+  // an active link in that tenant. The mobile sign-in endpoint already observes
+  // this boundary (app/api/app/signin/route.ts).
+  const gymIds = await activeGymIds(admin, userId);
   let gym: WhatsAppGym | null = null;
   if (params.gymCode) {
     gym = await gymByMemberCode(admin, params.gymCode);
     if (!gym) return { ok: false, error: 'We couldn’t find a gym with that code.' };
+    if (!gymIds.includes(gym.id)) {
+      return { ok: false, error: 'This account isn’t a member of that gym. Create an account first, or ask the front desk for help.' };
+    }
   } else {
-    const gymIds = await activeGymIds(admin, userId);
     if (gymIds.length === 0) {
       return { ok: false, error: 'You’re signed in, but you’re not a member of any gym yet. Ask your gym for their code.' };
     }
@@ -316,18 +327,6 @@ export async function signinWithPassword(params: {
     gym = gymRow as WhatsAppGym | null;
   }
   if (!gym) return { ok: false, error: 'We couldn’t load your gym. Please try again.' };
-
-  // Signing in through WhatsApp joins the gym if they aren't linked yet — the
-  // same idempotent trust model /api/app/signin already uses for the app.
-  const prov = await provisionMember({
-    userId,
-    email,
-    gymId: gym.id,
-    fullName: (data.user.user_metadata?.full_name as string | undefined) ?? null,
-    phone: waIdToLocal(params.waId),
-    onboardingMethod: 'whatsapp',
-  });
-  if (!prov.ok) return { ok: false, error: 'Signed in, but we couldn’t attach your gym. Please try again.' };
 
   // Store the WhatsApp number on the profile if it has none, so the next
   // message is recognised without another sign-in.

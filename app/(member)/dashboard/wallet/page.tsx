@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { Bell, Wallet, Repeat, CreditCard, ChevronRight, ArrowDownLeft, Receipt } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft, watDateISO } from '@/lib/format';
+import { membershipDisplayState } from '@/lib/membership-display';
 
 export const metadata = { title: 'Wallet' };
 
@@ -18,8 +19,8 @@ export default async function WalletPage() {
       .eq('member_id', user.id).eq('gym_id', gym.id)
       .order('payment_date', { ascending: false }).limit(40),
     supabase.from('member_subscriptions')
-      .select('end_date, plan_id, status, membership_plans(name)')
-      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+      .select('start_date, end_date, plan_id, status, membership_plans(name)')
+      .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due', 'paused', 'pause_requested'])
       .order('end_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('saved_cards')
       .select('id, brand, last4, exp_month, exp_year, bank, is_default')
@@ -33,8 +34,20 @@ export default async function WalletPage() {
   const successful = txns.filter((p) => p.payment_status === 'successful');
   const totalSpent = successful.reduce((s, p) => s + Number(p.amount ?? 0), 0);
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
+  const displayState = sub ? membershipDisplayState({
+    status: sub.status, startDate: sub.start_date, daysRemaining: remaining, today: watDateISO(),
+  }) : null;
   const planName = (sub as unknown as { membership_plans: { name: string } | null })?.membership_plans?.name ?? null;
   const unreadCount = unread ?? 0;
+  const membershipSummary = displayState === 'scheduled'
+    ? `Starts ${fmtDate(sub!.start_date)}`
+    : displayState === 'active'
+      ? `Renews ${fmtDate(sub!.end_date)}`
+      : displayState === 'frozen'
+        ? 'Membership frozen'
+        : displayState === 'freeze_pending'
+          ? 'Freeze pending'
+          : 'No active membership';
 
   // Last 6 months of successful spend (UTC buckets).
   const now = new Date();
@@ -62,7 +75,7 @@ export default async function WalletPage() {
       <div className="wcard">
         <div className="wlabel"><Wallet strokeWidth={1.9} /> Total spent</div>
         <div className="wbal">{fmtNaira(totalSpent)}</div>
-        <div className="wnext"><Repeat strokeWidth={1.9} /> {remaining > 0 ? `Renews ${fmtDate(sub!.end_date)}` : 'No active membership'}</div>
+        <div className="wnext"><Repeat strokeWidth={1.9} /> {membershipSummary}</div>
         <div className="wbtns">
           <Link href="/dashboard/renew" className="b-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, textDecoration: 'none', borderRadius: 'var(--gf-radius-sm)', padding: 11, fontFamily: 'var(--gf-font-display)', fontWeight: 700, fontSize: '0.84rem' }}><CreditCard strokeWidth={2} /> Renew plan</Link>
         </div>
@@ -85,7 +98,7 @@ export default async function WalletPage() {
       <div className="group" style={{ marginBottom: 14 }}>
         <Link href="/dashboard/renew" className="row">
           <span className="ic"><CreditCard strokeWidth={1.9} /></span>
-          <div className="m"><strong>Renew or change plan</strong><small>{planName ? `${planName} · ` : ''}{remaining > 0 ? `renews ${fmtDate(sub!.end_date)}` : 'expired'}</small></div>
+          <div className="m"><strong>Renew or change plan</strong><small>{planName ? `${planName} · ` : ''}{membershipSummary.toLowerCase()}</small></div>
           <ChevronRight className="chev" strokeWidth={1.9} />
         </Link>
       </div>

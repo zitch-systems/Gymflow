@@ -181,7 +181,8 @@ describe('commissionColumns', () => {
 describe('every path that records a payment records what was split', () => {
   it('one-off charges, from the webhook and from both callbacks', () => {
     const fulfill = read('lib/paystack-fulfill.ts');
-    expect(fulfill).toContain('commissionColumns(d.split ?? null)');
+    expect(fulfill).toContain('split: d.split');
+    expect(read('lib/member-charge.ts')).toContain('commissionColumns(input.split ?? null)');
     // fulfillCharge is fed by four call sites and each has to hand the split
     // over — whichever of the webhook and the callback wins the race writes the
     // row, so a callback that dropped it would lose the record half the time.
@@ -191,14 +192,15 @@ describe('every path that records a payment records what was split', () => {
       'app/api/app/pay/callback/route.ts',
       'app/(member)/dashboard/renew/callback/page.tsx',
     ]) {
-      expect(read(file), `${file} must pass the verified split through`).toContain('split: v.split');
+      expect(read(file), `${file} must use shared verified fulfillment`).toContain('fulfillVerifiedMemberCharge(v)');
     }
     // ...which means verifyTransaction has to carry it back at all.
     expect(read('lib/paystack.ts')).toContain('split: readSplit(d)');
   });
 
   it('auto-debit renewals, which split exactly like one-off ones', () => {
-    expect(read('lib/member-sub-fulfill.ts')).toContain('commissionColumns(readSplit(data))');
+    expect(read('lib/member-sub-fulfill.ts')).toContain('split: readSplit(data)');
+    expect(read('lib/member-payment-callback.ts')).toContain('split: v.split');
   });
 
   it('cash and transfers taken at the desk say so instead of staying silent', () => {

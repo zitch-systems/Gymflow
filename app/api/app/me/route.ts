@@ -1,5 +1,6 @@
 import { requireApiMember, json, corsPreflight, publicGym } from '@/lib/api-app';
 import { daysLeft, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
+import { membershipDisplayState } from '@/lib/membership-display';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -92,12 +93,17 @@ export async function GET(req: Request) {
     });
 
     const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
+    const displayState = sub ? membershipDisplayState({
+      status: sub.status, startDate: sub.start_date, daysRemaining: remaining, today,
+    }) : null;
     // The bar under the plan name is the fraction of the paid term still left,
     // so it agrees with the number printed beside it.
     const termDays = sub?.start_date && sub?.end_date
       ? Math.max(1, Math.round((Date.parse(sub.end_date) - Date.parse(sub.start_date)) / 86_400_000))
       : 0;
-    const progressPct = termDays > 0 ? Math.min(100, Math.max(0, Math.round((remaining / termDays) * 100))) : 0;
+    const progressPct = displayState === 'active' && termDays > 0
+      ? Math.min(100, Math.max(0, Math.round((remaining / termDays) * 100)))
+      : 0;
 
     return json({
       gym: publicGym(gym),
@@ -111,6 +117,7 @@ export async function GET(req: Request) {
       subscription: sub
         ? {
             status: sub.status,
+            display_state: displayState,
             plan_name: plan?.name ?? 'Membership',
             start_date: sub.start_date,
             end_date: sub.end_date,

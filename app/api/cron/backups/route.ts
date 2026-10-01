@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'crypto';
 import { adminOrNull } from '@/lib/email/recipients';
-import { backupDue } from '@/lib/backup-plan';
+import { backupDue, rotatingDailyBatch } from '@/lib/backup-plan';
 import { runGymBackup } from '@/lib/backup-run';
 import { isOfflineGym } from '@/lib/gym-status';
 
@@ -15,6 +15,33 @@ export const maxDuration = 300;
 // today is still due tomorrow rather than skipped. Without this bound a growing
 // tenant list would eventually time out mid-loop and back up nobody.
 const MAX_PER_RUN = 20;
+const GYM_PAGE_SIZE = 1000;
+
+type BackupGym = {
+  id: string; name: string | null; backup_frequency: string | null;
+  backup_email: boolean | null; backup_last_run_at: string | null; status: string | null;
+};
+
+/** PostgREST projects commonly cap one response at 1,000 rows. Page explicitly
+ * so tenants beyond that server-side cap do not silently disappear from the
+ * scheduler. Ordering by the primary key makes the rotating batch stable. */
+async function enabledGyms(admin: NonNullable<ReturnType<typeof adminOrNull>>): Promise<{
+  gyms: BackupGym[]; error: { message: string } | null;
+}> {
+  const gyms: BackupGym[] = [];
+  for (let from = 0; ; from += GYM_PAGE_SIZE) {
+    const { data, error } = await admin
+      .from('gyms')
+      .select('id, name, backup_frequency, backup_email, backup_last_run_at, status')
+      .neq('backup_frequency', 'off')
+      .order('id', { ascending: true })
+      .range(from, from + GYM_PAGE_SIZE - 1);
+    if (error) return { gyms: [], error };
+    const page = (data ?? []) as BackupGym[];
+    gyms.push(...page);
+    if (page.length < GYM_PAGE_SIZE) return { gyms, error: null };
+  }
+}
 
 function safeEqual(a: string, b: string): boolean {
   const ha = createHash('sha256').update(a).digest();
@@ -46,24 +73,21 @@ export async function GET(req: Request) {
   // scheduler doesn't retry a configuration state that won't change.
   if (!admin) return Response.json({ ok: true, skipped: 'no service role key' });
 
-  const { data: gyms, error } = await admin
-    .from('gyms')
-    .select('id, name, backup_frequency, backup_email, backup_last_run_at, status')
-    .neq('backup_frequency', 'off');
+  const { gyms, error } = await enabledGyms(admin);
   if (error) return Response.json({ ok: false, error: error.message }, { status: 500 });
 
   const now = new Date();
-  const due = ((gyms ?? []) as {
-    id: string; name: string | null; backup_frequency: string | null;
-    backup_email: boolean | null; backup_last_run_at: string | null; status: string | null;
-  }[])
+  const due = gyms
     // A gym GymFlow has suspended keeps its data but stops being processed —
     // emailing an extract to an account we've taken offline is not our call to
     // make on their behalf.
     .filter((g) => !isOfflineGym(g))
     .filter((g) => backupDue(g.backup_frequency, g.backup_last_run_at, now));
 
-  const batch = due.slice(0, MAX_PER_RUN);
+  // Rotate instead of always taking the first 20. A tenant whose backup fails
+  // stays due; without rotation it can repeatedly occupy a slot and starve a
+  // later tenant forever.
+  const batch = rotatingDailyBatch(due, MAX_PER_RUN, now);
   const results = [];
   for (const gym of batch) {
     results.push(await runGymBackup(gym.id, {

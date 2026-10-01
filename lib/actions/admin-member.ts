@@ -6,9 +6,8 @@ import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
-import { splitName, normalizeNgPhone, firstName, fmtDate } from '@/lib/format';
+import { splitName, normalizeNgPhone, firstName, fmtDate, daysLeft, watDateISO } from '@/lib/format';
 import { grantMemberPeriod } from '@/lib/member-sub-core';
-import { watDateISO, watDayStartUtc } from '@/lib/format';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { deliverDoorEvent } from '@/lib/notify';
 import {
@@ -104,7 +103,8 @@ async function extendSubscription(supabase: SupabaseClient, gymId: string, membe
 async function hasActiveSub(supabase: SupabaseClient, gymId: string, memberId: string) {
   const { data: sub } = await supabase
     .from('member_subscriptions').select('end_date')
-    .eq('gym_id', gymId).eq('member_id', memberId).eq('status', 'active')
+    .eq('gym_id', gymId).eq('member_id', memberId).in('status', ['active', 'past_due'])
+    .lte('start_date', watDateISO())
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
   return Boolean(sub && (sub.end_date ?? '') >= watDateISO());
 }
@@ -115,11 +115,12 @@ async function hasActiveSub(supabase: SupabaseClient, gymId: string, memberId: s
 async function daysLeftFor(supabase: SupabaseClient, gymId: string, memberId: string): Promise<number | null> {
   const { data: sub } = await supabase
     .from('member_subscriptions').select('end_date')
-    .eq('gym_id', gymId).eq('member_id', memberId).eq('status', 'active')
+    .eq('gym_id', gymId).eq('member_id', memberId).in('status', ['active', 'past_due'])
+    .lte('start_date', watDateISO())
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
   const end = (sub as { end_date: string | null } | null)?.end_date ?? null;
   if (!end) return null;
-  return Math.max(0, Math.ceil((new Date(end).getTime() - Date.now()) / 86_400_000));
+  return daysLeft(end);
 }
 
 // How long an open visit has been running, in whole minutes.
@@ -137,7 +138,6 @@ async function openVisit(supabase: SupabaseClient, gymId: string, memberId: stri
   const { data } = await supabase.from('check_ins').select('id, checked_in_at')
     .eq('member_id', memberId).eq('gym_id', gymId)
     .eq('status', 'active').is('checked_out_at', null)
-    .gte('checked_in_at', watDayStartUtc(watDateISO()))
     .order('checked_in_at', { ascending: false })
     .limit(1).maybeSingle();
   return data;
@@ -173,7 +173,14 @@ export async function manualCheckIn(_prev: ActionState, formData: FormData): Pro
       gym_id: gymId, member_id: memberId,
       checked_in_at: new Date().toISOString(), status: 'active', check_in_method: 'front_desk',
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (error.code === '23505' && await openVisit(supabase, gymId, memberId)) {
+        revalidatePath(`/admin/members/${memberId}`);
+        revalidatePath('/admin/staff-checkin');
+        return { ok: true, error: null, message: 'Already checked in.' };
+      }
+      return { ok: false, error: 'We couldn’t record this check-in. Please try again.' };
+    }
     // The member's own confirmation. Staff see the result on this screen; until
     // now the person it happened to saw nothing.
     deliverDoorEvent({ memberId, gymId, action: 'checked_in', daysLeft: await daysLeftFor(supabase, gymId, memberId) });

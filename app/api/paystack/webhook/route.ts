@@ -72,6 +72,7 @@ async function dispatch(event: Json): Promise<NextResponse> {
   const result = await fulfillCharge({
     reference: d.reference as string,
     amountKobo: Number(d.amount ?? 0),
+    currency: typeof d.currency === 'string' ? d.currency : '',
     channel: (d.channel as string) ?? null,
     metadata: (d.metadata as Json) ?? {},
     // Paystack states the split it applied on the event itself (subaccount +

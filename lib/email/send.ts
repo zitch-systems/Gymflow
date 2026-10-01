@@ -144,8 +144,7 @@ export type PlatformSendOptions = {
   replyTo?: string;
   idempotencyKey?: string;
   template: string;
-  /** Files to attach — see SendEmailParams.attachments. Used by the backup
-   *  run, which mails the gym its own archive. */
+  /** Files to attach — see SendEmailParams.attachments. */
   attachments?: Array<{ filename: string; content: Uint8Array }>;
 };
 

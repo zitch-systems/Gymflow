@@ -1,3 +1,4 @@
+import { watDateISO } from '@/lib/format';
 // Membership-plan billing periods.
 //
 // A plan stores EITHER duration_days (daily / weekly) OR duration_months
@@ -64,11 +65,16 @@ export function planCadenceLabel(p: PlanDuration): string {
 // path (one-off checkout, recurring auto-debit, admin assign) so the rule can't
 // drift between them.
 export function renewalBase(endDate: string | Date | null | undefined, now: Date = new Date()): Date {
+  if (typeof endDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+    const today = watDateISO(now);
+    const base = new Date(`${endDate >= today ? endDate : today}T00:00:00Z`);
+    if (!Number.isNaN(base.getTime())) return base;
+  }
   if (endDate != null) {
     const end = endDate instanceof Date ? endDate : new Date(endDate);
     if (!Number.isNaN(end.getTime()) && end.getTime() > now.getTime()) return end;
   }
-  return now;
+  return new Date(`${watDateISO(now)}T00:00:00Z`);
 }
 
 // The end date a renewal would produce: stack onto the current period (if any
@@ -84,8 +90,8 @@ export function projectRenewalEnd(currentEnd: string | Date | null | undefined, 
 export function extendDate(from: Date, p: PlanDuration): Date {
   const out = new Date(from);
   const d = p.duration_days ?? 0;
-  if (d > 0) out.setDate(out.getDate() + d);
-  else out.setMonth(out.getMonth() + Math.max(1, p.duration_months ?? 1));
+  if (d > 0) out.setUTCDate(out.getUTCDate() + d);
+  else out.setUTCMonth(out.getUTCMonth() + Math.max(1, p.duration_months ?? 1));
   return out;
 }
 

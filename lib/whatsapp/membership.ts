@@ -34,15 +34,15 @@ export async function membershipSnapshot(
   const today = watDateISO();
   const { data } = await admin
     .from('member_subscriptions')
-    .select('status, end_date, membership_plans(name)')
+    .select('status, start_date, end_date, membership_plans(name)')
     .eq('member_id', memberId)
     .eq('gym_id', gymId)
-    .in('status', ['active', 'past_due', 'paused'])
+    .in('status', ['active', 'past_due', 'paused', 'pause_requested'])
     .order('end_date', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const sub = data as { status: string | null; end_date: string | null; membership_plans: { name: string } | { name: string }[] | null } | null;
+  const sub = data as { status: string | null; start_date: string; end_date: string | null; membership_plans: { name: string } | { name: string }[] | null } | null;
   if (!sub) {
     return { active: false, status: null, planName: null, endDate: null, daysRemaining: null, inGracePeriod: false };
   }
@@ -51,10 +51,10 @@ export async function membershipSnapshot(
   // how PostgREST infers the relationship; normalise rather than assume.
   const planRel = sub.membership_plans;
   const planName = Array.isArray(planRel) ? planRel[0]?.name ?? null : planRel?.name ?? null;
-  const expired = (sub.end_date ?? '') < today;
+  const expired = (sub.end_date ?? '') < today || sub.start_date > today;
 
   return {
-    active: !expired && sub.status !== 'paused',
+    active: !expired && (sub.status === 'active' || sub.status === 'past_due'),
     status: sub.status,
     planName,
     endDate: sub.end_date,
@@ -79,7 +79,6 @@ export async function visitState(admin: Admin, memberId: string, gymId: string):
       .select('checked_in_at')
       .eq('member_id', memberId).eq('gym_id', gymId)
       .eq('status', 'active').is('checked_out_at', null)
-      .gte('checked_in_at', watDayStartUtc(today))
       .order('checked_in_at', { ascending: false })
       .limit(1).maybeSingle(),
     admin

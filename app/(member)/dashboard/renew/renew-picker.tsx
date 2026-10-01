@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { CreditCard, Lock, AlertCircle, Repeat, CalendarClock, UserRoundCheck } from 'lucide-react';
-import { fmtNaira, fmtDate } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
 import { startRenewal } from '@/lib/actions/renew';
 import { startAutoRenewal } from '@/lib/actions/member-billing';
 import { planPeriodLabel, planCadenceLabel, monthlyEquivalent, projectRenewalEnd } from '@/lib/plan-duration';
@@ -26,7 +26,17 @@ export type Plan = {
 // moment they consider it: they're buying trainer time, not choosing a person.
 const gymAssignsNote = 'Your gym matches you with a trainer after you pay';
 
-export function RenewPicker({ plans, currentEnd = null }: { plans: Plan[]; currentEnd?: string | null }) {
+export function RenewPicker({
+  plans,
+  currentEnd = null,
+  currentStart = null,
+  scheduled = false,
+}: {
+  plans: Plan[];
+  currentEnd?: string | null;
+  currentStart?: string | null;
+  scheduled?: boolean;
+}) {
   const [picked, setPicked] = useState(plans[0]?.id ?? '');
   const [autoRenew, setAutoRenew] = useState(false);
   // Opting into the gym's private-trainer add-on. Kept per-picker rather than
@@ -42,7 +52,7 @@ export function RenewPicker({ plans, currentEnd = null }: { plans: Plan[]; curre
   const addonPrice = trainerAddonPrice(sel);
   const total = sel ? planTotalPrice(sel, withTrainer) : 0;
 
-  const activeUntil = currentEnd && new Date(currentEnd).getTime() > Date.now() ? currentEnd : null;
+  const activeUntil = currentEnd && daysLeft(currentEnd) > 0 ? currentEnd : null;
   const projectedEnd = sel ? projectRenewalEnd(currentEnd, sel) : null;
 
   function pay() {
@@ -81,7 +91,9 @@ export function RenewPicker({ plans, currentEnd = null }: { plans: Plan[]; curre
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, margin: '14px 2px 2px', padding: '11px 13px', borderRadius: 'var(--gf-radius-sm)', background: 'var(--gf-brand-soft)', border: '1px solid var(--gf-border-glow)', fontSize: '0.83rem', lineHeight: 1.45 }}>
         <CalendarClock strokeWidth={1.9} size={16} style={{ flexShrink: 0, marginTop: 1, color: 'var(--gf-brand)' }} />
           <span>
-            {activeUntil
+            {scheduled && currentStart && activeUntil
+              ? <>Your membership starts <strong>{fmtDate(currentStart)}</strong> and is set up through <strong>{fmtDate(activeUntil)}</strong>. This {sel.name} adds the next period and extends you to <strong>{fmtDate(projectedEnd.toISOString().slice(0, 10))}</strong>.</>
+              : activeUntil
               ? <>You&rsquo;re covered through <strong>{fmtDate(activeUntil)}</strong>. This {sel.name} starts the next period and extends you to <strong>{fmtDate(projectedEnd.toISOString().slice(0, 10))}</strong>.</>
               : <>This {sel.name} covers you through <strong>{fmtDate(projectedEnd.toISOString().slice(0, 10))}</strong>.</>}
           </span>

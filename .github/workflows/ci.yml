@@ -33,22 +33,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.6
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
 
       - name: Type-check
-        run: npm run type-check
+        run: pnpm type-check
 
       - name: Test (RLS + tenant isolation)
-        run: npm test
+        run: pnpm test
         env:
           POSTGRES_HOST: 127.0.0.1
           POSTGRES_PORT: 5432
@@ -56,7 +60,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
 
       - name: Build
-        run: npm run build
+        run: pnpm build
         env:
           # Placeholder public values — the app reads NEXT_PUBLIC_* at runtime and
           # RLS is the access authority, so build/prerender only needs them to be
@@ -111,15 +115,20 @@ jobs:
           # without the secret.
           echo '::warning::SUPABASE_DB_URL is not set — the schema-drift gate did NOT run. Live schema is unverified against the checked-in migrations.'
 
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.on == 'true'
+        with:
+          version: 10.34.6
+
       - uses: actions/setup-node@v4
         if: steps.gate.outputs.on == 'true'
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
         if: steps.gate.outputs.on == 'true'
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build shadow DB from migrations
         if: steps.gate.outputs.on == 'true'
@@ -189,13 +198,17 @@ jobs:
             exit 1
           fi
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.6
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Show the plan
         run: node scripts/migrate.mjs --dry-run
@@ -278,23 +291,20 @@ jobs:
             exit 1
           fi
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.6
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
-      # Vercel's project settings detect pnpm-lock.yaml and shell out to `pnpm`
-      # during `vercel build`. The GitHub runner doesn't ship pnpm, so without
-      # this step the build dies with `spawn pnpm ENOENT` before it can install
-      # a single dependency. pnpm@10 matches the version Vercel picks by
-      # project-creation date (logged at build start).
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Install the Vercel CLI
-        run: npm i -g vercel@latest
+      # Install the same frozen graph verified above. This includes the pinned
+      # Vercel CLI, avoiding a mutable global `vercel@latest` in the release
+      # path and ensuring the tool itself changes only through this lockfile.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       # `vercel pull` answers every one of "token scoped to the wrong account",
       # "wrong org/project id" and "whitespace pasted into a secret" with the
@@ -325,11 +335,11 @@ jobs:
           echo "VERCEL_PROJECT_ID length=${#PROJ} prefix=${PROJ:0:4}  (expect 32 / prj_)"
           echo "VERCEL_TOKEN      length=${#TOKEN}"
           echo "--- whoami (who the token is) ---"
-          vercel whoami --token="$TOKEN" || true
+          pnpm exec vercel whoami --token="$TOKEN" || true
           echo "--- scopes this token can reach ---"
-          vercel teams ls --token="$TOKEN" || true
+          pnpm exec vercel teams ls --token="$TOKEN" || true
           echo "--- projects visible under VERCEL_ORG_ID ---"
-          vercel projects ls --token="$TOKEN" || true
+          pnpm exec vercel projects ls --token="$TOKEN" || true
 
       # `vercel pull` fetches the project's REAL production environment from
       # Vercel, so this build sees the same variables the Git-triggered build
@@ -340,16 +350,16 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+        run: pnpm exec vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Build
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        run: pnpm exec vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Deploy
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        run: pnpm exec vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"

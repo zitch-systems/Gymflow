@@ -2,6 +2,7 @@ import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
 import { csvFilename, toCsv } from '@/lib/csv';
+import { chunksOf, readBoundedPages } from '@/lib/paged-query';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -36,22 +37,34 @@ export async function GET(req: Request) {
   const from = url.searchParams.get('from');            // inclusive
   const to = url.searchParams.get('to');                // inclusive (end of day)
 
-  let q = supabase.from('payments')
-    .select('id, amount, currency, paystack_reference, payment_method, payment_date, created_at, payment_status, plan_id, member_id')
-    .eq('gym_id', gym.id).order('payment_date', { ascending: false }).limit(EXPORT_LIMIT);
-  if (status) q = q.eq('payment_status', status);
-  if (method) q = q.eq('payment_method', method);
-  if (from) q = q.gte('payment_date', `${from}T00:00:00Z`);
-  if (to) q = q.lte('payment_date', `${to}T23:59:59Z`);
-  const { data: rows } = await q;
-  const payments = (rows as Payment[] | null) ?? [];
+  const page = await readBoundedPages((pageFrom, pageTo) => {
+    let q = supabase.from('payments')
+      .select('id, amount, currency, paystack_reference, payment_method, payment_date, created_at, payment_status, plan_id, member_id')
+      .eq('gym_id', gym.id)
+      .order('payment_date', { ascending: false }).order('id', { ascending: false });
+    if (status) q = q.eq('payment_status', status);
+    if (method) q = q.eq('payment_method', method);
+    if (from) q = q.gte('payment_date', `${from}T00:00:00Z`);
+    if (to) q = q.lte('payment_date', `${to}T23:59:59Z`);
+    return q.range(pageFrom, pageTo);
+  }, EXPORT_LIMIT);
+  const payments = page.rows as Payment[];
+  const truncated = page.truncated;
 
   const memberIds = [...new Set(payments.map((r) => r.member_id).filter(Boolean) as string[])];
   const planIds = [...new Set(payments.map((r) => r.plan_id).filter(Boolean) as string[])];
-  const [{ data: profiles }, { data: plans }] = await Promise.all([
-    memberIds.length ? supabase.from('profiles').select('id, full_name, email').in('id', memberIds) : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string | null }[] }),
-    planIds.length ? supabase.from('membership_plans').select('id, name').in('id', planIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-  ]);
+  const profiles: { id: string; full_name: string | null; email: string | null }[] = [];
+  const plans: { id: string; name: string }[] = [];
+  for (const idChunk of chunksOf(memberIds, 100)) {
+    const { data, error } = await supabase.from('profiles').select('id, full_name, email').in('id', idChunk);
+    if (error) throw new Error(`Wallet export profile query failed: ${error.message}`);
+    profiles.push(...(data ?? []));
+  }
+  for (const idChunk of chunksOf(planIds, 100)) {
+    const { data, error } = await supabase.from('membership_plans').select('id, name').in('id', idChunk);
+    if (error) throw new Error(`Wallet export plan query failed: ${error.message}`);
+    plans.push(...(data ?? []));
+  }
   const profById = new Map((profiles ?? []).map((p) => [p.id, p]));
   const planById = new Map((plans ?? []).map((p) => [p.id, p.name]));
 
@@ -85,7 +98,6 @@ export async function GET(req: Request) {
   // EXPORT_LIMIT payments would file on a short ledger without ever being
   // told. Say so in the file itself (a header alone is invisible to someone
   // opening it in Excel) — money columns stay blank so the row can't be summed.
-  const truncated = payments.length === EXPORT_LIMIT;
   if (truncated) {
     body.push([
       '', '', '', '',

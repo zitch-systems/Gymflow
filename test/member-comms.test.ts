@@ -295,4 +295,14 @@ describe('one account across WhatsApp, the app and the web', () => {
     expect(src).toMatch(/password: params\.password/);
     expect(src).not.toMatch(/password_hash|bcrypt|scrypt|argon/i);
   });
+
+  it('WhatsApp sign-in cannot enrol an account into a gym named by a public code', () => {
+    // Member codes are printed at reception. Sign-in must prove an active link
+    // already exists; only the explicit signup path may provision a new one.
+    const src = read('lib/whatsapp/auth.ts');
+    const signin = src.slice(src.indexOf('export async function signinWithPassword'));
+    expect(signin).toContain('activeGymIds(admin, userId)');
+    expect(signin).toContain('gymIds.includes(gym.id)');
+    expect(signin).not.toContain('provisionMember(');
+  });
 });

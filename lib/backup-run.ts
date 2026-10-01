@@ -2,7 +2,6 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildGymBackup, type BackupArchive } from '@/lib/backup';
 import { backupStoragePath, humanSize, KEEP_BACKUPS } from '@/lib/backup-plan';
-import { ATTACHMENT_LIMIT } from '@/lib/email';
 import { platformAppUrl, sendPlatformEmail } from '@/lib/email/send';
 import { getGymOwnerEmails } from '@/lib/email/recipients';
 import { gymBackupReady } from '@/lib/email/templates/platform';
@@ -10,12 +9,11 @@ import { fmtDate, watDateISO } from '@/lib/format';
 import { captureServerEvent } from '@/lib/server-error';
 
 // Running one gym's backup end to end: build the archive, store it, log the
-// run, email the owners, prune old copies.
+// run, notify the owners, prune old copies.
 //
-// Order matters and is deliberate. The archive is STORED before it is emailed,
-// and the run is logged before either can fail: a backup that exists but wasn't
-// delivered is a recoverable inconvenience, while one that was emailed but not
-// kept leaves the console claiming a backup that isn't there.
+// Order matters and is deliberate. The archive is STORED before its email
+// notification, and the run is logged before notification can fail: delivery
+// is optional, while the authenticated console is the source of the archive.
 
 const BUCKET = 'gym-backups';
 
@@ -58,19 +56,33 @@ async function logFailure(
   } as never);
 }
 
-/** Keep the newest KEEP_BACKUPS archives; delete the rest from storage and the
- *  log together, so the list never offers a download that 404s. */
+/** Keep a bounded history of both complete and partial archives.
+ *
+ * Partial archives are useful recovery material, but they must not evict the
+ * complete copies and they must not live forever. Keep an independent window
+ * for each status. Delete the index rows only after Storage confirms deletion;
+ * otherwise a transient Storage failure would turn the objects into orphaned
+ * PII that no retention run can find again. */
 async function prune(admin: ReturnType<typeof createAdminClient>, gymId: string): Promise<void> {
-  const { data: old } = await admin.from('gym_backups' as never)
-    .select('id, storage_path')
-    .eq('gym_id', gymId).eq('status', 'success')
-    .order('created_at', { ascending: false })
-    .range(KEEP_BACKUPS, KEEP_BACKUPS + 50);
-  const rows = (old ?? []) as { id: string; storage_path: string | null }[];
-  if (rows.length === 0) return;
-  const paths = rows.map((r) => r.storage_path).filter(Boolean) as string[];
-  if (paths.length) await admin.storage.from(BUCKET).remove(paths);
-  await admin.from('gym_backups' as never).delete().in('id', rows.map((r) => r.id));
+  for (const status of ['success', 'partial'] as const) {
+    const { data: old, error: listError } = await admin.from('gym_backups' as never)
+      .select('id, storage_path')
+      .eq('gym_id', gymId).eq('status', status)
+      .order('created_at', { ascending: false })
+      .range(KEEP_BACKUPS, KEEP_BACKUPS + 50);
+    if (listError) throw new Error(`could not list old ${status} backups: ${listError.message}`);
+
+    const rows = (old ?? []) as { id: string; storage_path: string | null }[];
+    if (rows.length === 0) continue;
+    const paths = rows.map((r) => r.storage_path).filter(Boolean) as string[];
+    if (paths.length) {
+      const { error: removeError } = await admin.storage.from(BUCKET).remove(paths);
+      if (removeError) throw new Error(`could not remove old ${status} backup objects: ${removeError.message}`);
+    }
+    const { error: deleteError } = await admin.from('gym_backups' as never)
+      .delete().in('id', rows.map((r) => r.id));
+    if (deleteError) throw new Error(`could not remove old ${status} backup rows: ${deleteError.message}`);
+  }
 }
 
 /**
@@ -132,9 +144,9 @@ export async function runGymBackup(
   // in the problems array. archive.failures are TABLES that couldn't be read
   // — those rows are missing from the archive; archive.warnings are per-table
   // notes like row-cap truncation, which mean the data IS in the archive.
-  // Only real failures downgrade to 'partial'; the prune() below only counts
-  // 'success' rows toward KEEP_BACKUPS so a partial cannot evict a real
-  // full backup from the retention window.
+  // Only real failures downgrade to 'partial'. prune() keeps independent
+  // windows for complete and partial archives, so useful recovery material is
+  // bounded without letting an incomplete copy evict a complete one.
   const backupStatus = archive.failures.length > 0 ? 'partial' : 'success';
   const { error: logErr } = await admin.from('gym_backups' as never).insert({
     gym_id: gymId,
@@ -156,7 +168,18 @@ export async function runGymBackup(
     return { ok: false, gymId, size: archive.bytes.byteLength, emailed: false, error: logErr.message, problems };
   }
 
-  await admin.from('gyms').update({ backup_last_run_at: now.toISOString() } as never).eq('id', gymId);
+  // Only a complete archive satisfies the schedule. Advancing this timestamp
+  // for a partial archive suppresses the retry for a week/month and describes
+  // an incomplete export as the last completed backup in Settings.
+  if (backupStatus === 'success') {
+    const { error: stampError } = await admin.from('gyms')
+      .update({ backup_last_run_at: now.toISOString() } as never).eq('id', gymId);
+    if (stampError) {
+      void captureServerEvent('gym backup completion timestamp failed', {
+        gymId, trigger: opts.trigger, error: stampError.message,
+      });
+    }
+  }
 
   // A partial run is the dangerous one: it looks like a backup, it downloads
   // like a backup, and it is missing whatever failed. Reported even though the
@@ -165,15 +188,15 @@ export async function runGymBackup(
     void captureServerEvent('gym backup completed with problems', { gymId, trigger: opts.trigger, problems });
   }
 
-  // Email is the bonus channel; the backup already exists and is listed. An
-  // archive over the attachment ceiling still gets a mail — one that points at
-  // the console instead of pretending nothing happened.
+  // Email is a notification channel only. These archives contain member PII,
+  // health notes and signatures, so never copy one into a mailbox or an email
+  // provider. Owners download from the authenticated console using the existing
+  // short-lived signed URL flow.
   let emailed = false;
   if (opts.email && process.env.RESEND_API_KEY) {
     try {
       const to = await getGymOwnerEmails(admin, gymId);
       if (to.length) {
-        const attachable = archive.bytes.byteLength <= ATTACHMENT_LIMIT;
         const counts = Object.entries(archive.rowCounts).sort((a, b) => b[1] - a[1]);
         const res = await sendPlatformEmail({
           to,
@@ -185,10 +208,8 @@ export async function runGymBackup(
             counts,
             size: humanSize(archive.bytes.byteLength),
             backupsUrl: platformAppUrl('/admin/settings?section=backups'),
-            attached: attachable,
             problems,
           }),
-          ...(attachable ? { attachments: [{ filename: archive.filename, content: archive.bytes }] } : {}),
           // One mail per stored archive, so a cron retry can't send twice.
           idempotencyKey: `gym_backup:${path}`,
         });
@@ -197,7 +218,13 @@ export async function runGymBackup(
     } catch { /* delivery is a bonus channel — the backup is already safe */ }
   }
 
-  await prune(admin, gymId).catch(() => { /* pruning is housekeeping, never a failure */ });
+  await prune(admin, gymId).catch((e) => {
+    // The archive itself is valid, but a retention failure leaves sensitive
+    // exports beyond their intended lifetime and therefore needs an alert.
+    void captureServerEvent('gym backup retention failed', {
+      gymId, trigger: opts.trigger, error: (e as Error).message,
+    });
+  });
 
   return { ok: true, gymId, size: archive.bytes.byteLength, emailed, problems };
 }

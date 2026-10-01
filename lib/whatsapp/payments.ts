@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { initTransaction } from '@/lib/paystack';
+import { reserveMemberCheckout } from '@/lib/member-checkout';
 import { gymCommission } from '@/lib/paystack-payloads';
 import { planTotalKobo, offersTrainer } from '@/lib/plan-addon';
 import { isOfflineGym } from '@/lib/gym-status';
@@ -122,8 +123,14 @@ export async function startWhatsAppCheckout(
 
   const trainerAddon = Boolean(params.withTrainer) && offersTrainer(plan);
   const amountKobo = planTotalKobo(plan, trainerAddon);
+  const checkout = await reserveMemberCheckout({
+    gymId: params.gym.id, memberId: params.memberId, planId: plan.id, amountKobo,
+    durationDays: plan.duration_days, durationMonths: plan.duration_months, trainerAddon,
+  }, admin);
+  if (!checkout.ok) return checkout;
 
   const txParams = {
+    reference: checkout.reference,
     email: params.memberEmail,
     amountKobo,
     metadata: {

@@ -22,6 +22,15 @@ export default function WalletScreen() {
 
   const { subscription: sub, months, transactions, cards } = data;
   const maxMonth = Math.max(1, ...months.map((m) => m.amount));
+  const membershipSummary = sub?.display_state === 'scheduled' && sub.start_date
+    ? `Starts ${shortDate(sub.start_date)}`
+    : sub?.display_state === 'active' && sub.end_date
+      ? `Renews ${shortDate(sub.end_date)}`
+      : sub?.display_state === 'frozen'
+        ? 'Membership frozen'
+        : sub?.display_state === 'freeze_pending'
+          ? 'Freeze pending'
+          : 'No active membership';
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -36,7 +45,7 @@ export default function WalletScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm }}>
           <Ionicons name="repeat-outline" size={15} color={c.textMuted} />
           <Body tone="muted" size={12.5}>
-            {sub && sub.days_left > 0 ? `Renews ${shortDate(sub.end_date)}` : 'No active membership'}
+            {membershipSummary}
           </Body>
         </View>
         <Button label="Renew plan" onPress={() => router.push('/renew')} style={{ marginTop: space.lg }} />
@@ -72,7 +81,7 @@ export default function WalletScreen() {
           icon={<Ionicons name="card-outline" size={18} color={c.brand} />}
           title="Renew or change plan"
           subtitle={sub?.plan_name
-            ? `${sub.plan_name} · ${sub.days_left > 0 ? `renews ${shortDate(sub.end_date)}` : 'expired'}`
+            ? `${sub.plan_name} · ${membershipSummary.toLowerCase()}`
             : 'Pick a plan to start training'}
           right={<Ionicons name="chevron-forward" size={18} color={c.textMuted} />}
           onPress={() => router.push('/renew')}

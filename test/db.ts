@@ -1,4 +1,9 @@
-import { Pool, type PoolClient } from 'pg';
+import { Pool, types, type PoolClient } from 'pg';
+
+// DATE has no timezone. pg's default local-midnight parser can move its ISO
+// day backwards on developer machines/worker runtimes east of UTC. Keep date
+// fixtures calendar-stable; timestamptz retains pg's normal instant parser.
+types.setTypeParser(1082, (value: string) => new Date(`${value}T00:00:00Z`));
 
 // Shared connection pool for the test database. TEST_DATABASE_URL is set by
 // `npm run test:setup` (creates the DB and applies migrations) and passed

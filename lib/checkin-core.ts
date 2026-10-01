@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isOfflineGym } from '@/lib/gym-status';
-import { watDateISO, watDayStartUtc } from '@/lib/format';
+import { daysLeft, watDateISO } from '@/lib/format';
 
 // Door logic for a member: are they allowed in, are they already inside, and
 // what happens when they tap check in / check out / "give me a front-desk code".
@@ -43,7 +43,6 @@ export async function openVisit(supabase: Sb, gymId: string, memberId: string) {
     .from('check_ins').select('id, checked_in_at')
     .eq('member_id', memberId).eq('gym_id', gymId)
     .eq('status', 'active').is('checked_out_at', null)
-    .gte('checked_in_at', watDayStartUtc(watDateISO()))
     .order('checked_in_at', { ascending: false })
     .limit(1).maybeSingle();
   return data as { id: string; checked_in_at: string | null } | null;
@@ -56,7 +55,7 @@ async function linkSuspended(supabase: Sb, gymId: string, memberId: string): Pro
     .from('gym_member_links').select('is_active')
     .eq('gym_id', gymId).or(`member_id.eq.${memberId},user_id.eq.${memberId}`)
     .maybeSingle();
-  return Boolean(link) && (link as { is_active: boolean | null }).is_active === false;
+  return !link || (link as { is_active: boolean | null }).is_active !== true;
 }
 
 /**
@@ -73,6 +72,7 @@ async function currentEntitlement(supabase: Sb, gymId: string, memberId: string)
     .from('member_subscriptions')
     .select('end_date')
     .eq('member_id', memberId).eq('gym_id', gymId).in('status', ['active', 'past_due'])
+    .lte('start_date', todayStr)
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
   const row = sub as { end_date: string | null } | null;
   if (!row || (row.end_date ?? '') < todayStr) return null;
@@ -80,7 +80,7 @@ async function currentEntitlement(supabase: Sb, gymId: string, memberId: string)
 }
 
 function daysLeftOf(endDate: string | null): number | null {
-  return endDate ? Math.max(0, Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000)) : null;
+  return endDate ? daysLeft(endDate) : null;
 }
 
 /**
@@ -118,7 +118,12 @@ export async function checkInCore(supabase: Sb, memberId: string, gym: GymRef): 
     checked_in_at: new Date().toISOString(),
     status: 'active',
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    // A simultaneous check-in can win after openVisit was read. The database
+    // permits one open visit, so return the same successful outcome on retry.
+    if (error.code === '23505' && await openVisit(supabase, gym.id, memberId)) return { ok: true, daysLeft };
+    return { ok: false, error: error.message };
+  }
 
   return { ok: true, daysLeft };
 }

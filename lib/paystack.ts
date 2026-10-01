@@ -36,6 +36,7 @@ export type InitResult =
 // of "the old arrangement still applied", which is recoverable and visible in
 // what gets recorded on the payment.
 export async function initTransaction(params: {
+  reference?: string;
   email: string;
   amountKobo: number;
   metadata: Record<string, unknown>;
@@ -64,6 +65,7 @@ export async function initTransaction(params: {
       headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: params.email,
+        reference: params.reference,
         amount: params.amountKobo,
         currency: 'NGN',
         metadata,
@@ -95,6 +97,7 @@ export async function initTransaction(params: {
 // initialize requires it, and omitting it failed every plan checkout with
 // "Invalid Amount Sent". Paystack charges the plan's amount regardless.
 export async function initSubscription(params: {
+  reference?: string;
   email: string;
   planCode: string;
   /** The plan's price in kobo. Required by /transaction/initialize even when a
@@ -111,13 +114,13 @@ export async function initSubscription(params: {
     const res = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscriptionInitBody({
+      body: JSON.stringify({ ...subscriptionInitBody({
         email: params.email,
         planCode: params.planCode,
         amountKobo: params.amountKobo,
         metadata: params.metadata,
         callbackUrl: params.callbackUrl,
-      })),
+      }), ...(params.reference ? { reference: params.reference } : {}) }),
       cache: 'no-store',
     });
     const json = await res.json();
@@ -542,7 +545,7 @@ export async function getBalance(): Promise<BalanceResult> {
 }
 
 export type VerifyResult =
-  | { ok: true; status: string; amountKobo: number; reference: string; metadata: Record<string, unknown>; channel: string | null; split: SplitRecord }
+  | { ok: true; status: string; amountKobo: number; currency: string; reference: string; metadata: Record<string, unknown>; channel: string | null; split: SplitRecord; memberEventData: Record<string, unknown> }
   | { ok: false; error: string };
 
 export async function verifyTransaction(reference: string): Promise<VerifyResult> {
@@ -558,7 +561,15 @@ export async function verifyTransaction(reference: string): Promise<VerifyResult
     // webhook body, so the split has to survive the round trip too — otherwise
     // whichever of the two races in first decides whether commission is
     // recorded at all.
-    return { ok: true, status: d.status, amountKobo: d.amount, reference: d.reference, metadata: d.metadata ?? {}, channel: d.channel ?? null, split: readSplit(d) };
+    // Keep just the fields needed for recurring fulfillment. Authorization
+    // tokens and complete provider/customer responses never reach callbacks.
+    const memberEventData = {
+      reference: d.reference, amount: d.amount, currency: d.currency, metadata: d.metadata ?? {},
+      plan: d.plan_object ?? d.plan, customer: { customer_code: d.customer?.customer_code },
+      subscription: { subscription_code: d.subscription?.subscription_code },
+      subscription_code: d.subscription_code, subaccount: d.subaccount, fees_split: d.fees_split,
+    };
+    return { ok: true, status: d.status, amountKobo: d.amount, currency: typeof d.currency === 'string' ? d.currency : '', reference: d.reference, metadata: d.metadata ?? {}, channel: d.channel ?? null, split: readSplit(d), memberEventData };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

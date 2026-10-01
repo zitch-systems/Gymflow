@@ -4,8 +4,12 @@
 deployment, or Paystack configuration. Written against the repo at the commit
 that ships it; the repo is the recovery source of truth.
 
-**RTO target:** ≤ 4 hours for a full rebuild. **RPO:** bounded by Supabase's
-backup cadence (daily on free/pro tiers; PITR if enabled) — see §5.
+**Planning targets, not yet proven:** RTO ≤ 4 hours for a full rebuild; RPO ≤
+24 hours only when a paid project's daily backups are verified, or the actual
+PITR recovery window when PITR is enabled. Free projects do not receive the
+paid daily-backup entitlement and require operator-managed off-site dumps.
+No full restore rehearsal is recorded in §7 yet, so do not present either
+target as achieved until one measures it.
 
 ---
 
@@ -20,7 +24,7 @@ backup cadence (daily on free/pro tiers; PITR if enabled) — see §5.
 | **Data** (rows: gyms, members, payments…) | ❌ | Supabase backups only (§5). Note the per-gym backup product (`gym_backups`, `/api/cron/backups`) is a tenant-facing export, not a DR asset — and it skips gyms whose status is `suspended`/`terminated`, so a switched-off tenant stops accumulating extracts from the moment it goes off. Loading one back is a manual operator procedure with real hazards (no credentials in the file, ids that collide): `docs/RESTORE.md`. |
 | **Secrets** (service-role key, Paystack keys, CRON_SECRET) | ❌ | Vercel env + password manager (§4) |
 | Paystack objects (plans, subaccounts, subscriptions, recipients) | ❌ | live in Paystack; codes are cached in DB columns and recoverable from the Paystack dashboard |
-| `gym-assets` storage bucket contents | ❌ | Supabase storage backups |
+| `gym-assets` storage bucket contents | ❌ | Operator-managed off-site object copy. Supabase database backups preserve Storage metadata, not the objects; none is implemented in this repo. |
 
 The schema-restore path below is exercised **on every CI run**: the test
 harness (`test/setup/global.ts`) rebuilds a database from the baseline + all
@@ -76,9 +80,12 @@ incrementals before any test executes. If CI is green, the rebuild path works.
   use Supabase Dashboard → Database → Backups → restore, or PITR to a
   timestamp just before the incident. Nothing else to do — schema and data
   restore together.
-- **New-project recovery**: restore the latest logical backup
-  (`supabase db dump --data-only` artifact if you keep them, else the
-  dashboard backup download) **after** §1, with triggers disabled during load:
+- **New-project recovery**: restore the latest operator-managed logical backup
+  (`supabase db dump --data-only` / `pg_dump` artifact) **after** §1, with
+  triggers disabled during load. Do not assume a dashboard backup is
+  downloadable: current physical backups and PITR restores are restored by the
+  platform, while a portable new-project artifact must be created and retained
+  separately.
 
   ```bash
   psql "$NEW_DB_URL" -c 'set session_replication_role = replica;' \
@@ -187,9 +194,9 @@ file per date and silently treat its siblings as applied. The CLI's own
 Locally / by hand:
 
 ```
-npm run db:migrate:dry     # show the plan, change nothing
-npm run db:migrate         # apply pending migrations
-npm run db:baseline        # record every migration as applied WITHOUT running
+pnpm db:migrate:dry        # show the plan, change nothing
+pnpm db:migrate            # apply pending migrations
+pnpm db:baseline           # record every migration as applied WITHOUT running
                            # it — only for a database already at head
 ```
 
@@ -254,7 +261,7 @@ Supabase dashboard:
       login and a shared password, and no longer does. If you reach for a gym
       that is `suspended`/`terminated`, you will meet the wall rather than the
       console (`lib/gym-status.ts`); pick a trading gym for this step.
-- [ ] `npm test` against a branch DB (or trust CI) — tenant isolation green
+- [ ] `pnpm test` against a branch DB (or trust CI) — tenant isolation green
 - [ ] Paystack test-mode charge end-to-end: renew → checkout → webhook →
       `payments` row + `member_subscriptions.end_date` extended
 - [ ] `/api/cron` responds 401 without `CRON_SECRET`, 200 with it

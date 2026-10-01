@@ -127,8 +127,10 @@ export default function RenewScreen() {
             date rather than starting today. Naming that date is the difference
             between a member who understands what they bought and one who
             expects their new month to start this morning. */}
-        {current && current.days_left > 0
-          ? `You’re covered for another ${plural(current.days_left, 'day')}${current.end_date ? `, through ${shortDate(current.end_date)}` : ''}. Paying now is a renewal — the days are added on top of that date, so nothing you’ve already paid for is lost.`
+        {current?.display_state === 'scheduled'
+          ? `Your ${current.plan_name ?? 'membership'} starts ${shortDate(current.start_date)}${current.end_date ? ` and is already set up through ${shortDate(current.end_date)}` : ''}. Paying now adds another period after that.`
+          : current?.display_state === 'active'
+            ? `You’re covered for another ${plural(current.days_left, 'day')}${current.end_date ? `, through ${shortDate(current.end_date)}` : ''}. Paying now is a renewal — the days are added on top of that date, so nothing you’ve already paid for is lost.`
           : 'Pick a plan to start training.'}
       </Body>
 
@@ -152,7 +154,7 @@ export default function RenewScreen() {
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
                       <Body weight="700" size={16}>{p.name}</Body>
-                      {p.is_current ? <Badge label="Current" tone="brand" /> : null}
+                      {p.is_current ? <Badge label="Current" tone="brand" /> : p.is_scheduled ? <Badge label="Scheduled" tone="info" /> : null}
                     </View>
                     {p.description ? (
                       <Body tone="secondary" size={12.5} style={{ marginTop: 4, lineHeight: 18 }}>{p.description}</Body>
