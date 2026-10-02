@@ -34,7 +34,7 @@ describe('needsSession covers every gated surface', () => {
   });
 
   it('covers the auth routes that read a session', () => {
-    for (const p of ['/login', '/signup', '/forgot-password', '/reset-password', '/launch']) {
+    for (const p of ['/login', '/signup', '/forgot-password', '/reset-password', '/launch', '/account/delete']) {
       expect(needsSession(p)).toBe(true);
     }
   });

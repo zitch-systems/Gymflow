@@ -1,140 +1,72 @@
-# GymFlow — Data Erasure Procedure (NDPR / GDPR)
+# GymFlow account deletion operations
 
-**Scope:** an operator has to remove a person — a member, an instructor, or a
-staffer — from production, either because a gym asked for it or because the
-person filed an erasure request under the NDPR (Nigeria) or the GDPR.
+## Request and service target
 
-**The one rule:** never delete the auth user.
+Every account holder can initiate account deletion from the native app's Profile → Delete account, or from **https://www.gymflow.ng/account/delete**. The web form verifies the account directly and works without an active membership or a paid gym plan. No phone call or support email is required to submit a request.
 
----
+Requests cover the person's **whole GymFlow account across all gyms**, not just the currently selected membership. `POST /api/app/account-deletion` requires a verified bearer identity and the exact confirmation `DELETE`; callers cannot supply a subject or gym identifier. `GET` returns only the caller's receipt. Duplicate requests preserve the original request, status and due date.
 
-## 0. Why deleting the auth user is the wrong move
+The product displays a **30-day processing target**. Platform operators must review **Platform console → Account deletion** daily and prioritize overdue requests. This target does not override a shorter applicable deadline. If an exceptional lawful delay is necessary, contact the person with the reason and expected date before the target expires; keep the request open and the restricted case record current. Never silently reset its due date.
 
-`public.profiles.id` references `auth.users(id)` with `ON DELETE CASCADE`, and
-most of the schema hangs off `profiles(id)` the same way. Deleting one row in
-**Authentication → Users** used to take the person's entire payment history,
-their signed waivers and (for an instructor) their payout history with it — no
-warning, no undo, and the audit log does not stand in for any of it because it
-records the actor, not the subject.
+The request itself does not delete the account, cancel billing, issue refunds or suspend access. The app and website disclose this. Processing must actually remove the account and associated personal data that is not required to be retained; a suspended account alone is **not** a completed deletion.
 
-Since `20260822090000_protect_financial_records_from_user_delete.sql` that
-delete no longer succeeds for anyone with financial or legal history. It raises:
+Apple permits a manual process when the user is told how long it takes and receives completion confirmation: https://developer.apple.com/support/offering-account-deletion-in-your-app/.
 
-```
-ERROR:  update or delete on table "profiles" violates foreign key constraint
-        "payments_member_id_fkey" on table "payments"  (SQLSTATE 23503)
-```
+## 1. Claim and assess the request
 
-That is the guard working, not a bug to route around. The restricted
-constraints are `payments_member_id_fkey`, `instructor_payouts_instructor_id_fkey`,
-`waiver_signatures_member_id_fkey` and `salary_payments_staff_link_id_fkey`.
+Use **Start processing** in the platform queue. The action requires an active platform administrator and a current privileged-session proof. Request state and its audit event change atomically. Stale or duplicate operator forms cannot overwrite newer work.
 
-**Do not** drop or weaken a constraint to force the delete through. Financial
-records (tax, Paystack reconciliation, chargeback defence) and signed waivers
-(liability defence) carry a retention obligation that outranks the erasure
-right — both the NDPR and the GDPR (Art. 17(3)(b)) exempt processing required
-to comply with a legal obligation. What must go is the *identifying* data, and
-that is what step 2 removes.
+Create a restricted case record using the request UUID. Verify the subject UUID against the verified request, not a name search. Inventory all gyms, member/staff/instructor links, gym ownership, subscriptions, provider mandates, personal content, files and third-party processors associated with the subject. Ownership transfer may be needed before removing an owner; coordinate it without denying deletion solely because the account is an owner.
 
-## 1. Cut off access first
+Preserve a verified delivery address temporarily in that restricted case only so a completion notice can be delivered after Auth removal. Do not copy identities, health data, bank details or payment credentials into the queue's evidence fields or ordinary logs.
 
-This is reversible and buys time while the request is assessed.
+For every category proposed for retention, record its specific legal or contractual basis, purpose, access restriction, review date and deletion deadline. A foreign-key constraint, a business preference, a general reference to tax law, or the mere existence of a payment is **not by itself** a legal retention decision. Obtain the responsible privacy/legal owner's decision where necessary.
 
-- Member: **Admin → Members → the member → Suspend** (`setMemberActive`, flips
-  `gym_member_links.is_active`).
-- Staff / instructor: **Admin → Staff → Deactivate** (`setStaffActive`, flips
-  `gym_staff_links.is_active`).
+## 2. Stop future use and billing safely
 
-Neither deletes anything. A deactivated person cannot sign in to a gym context,
-cannot check in, and stops receiving reminders.
+Before erasure, cancel each recurring mandate/subscription with the payment provider and confirm cancellation there. Reconcile pending charges and refunds so deleting a local saved-card row cannot leave provider billing running. A deletion request does not automatically entitle the person to a refund; resolve any actual refund through the normal reconciled payment workflow.
 
-## 2. Anonymise the profile
+Deactivate gym member/staff/instructor links and revoke active Auth sessions and refresh tokens. Remove trusted devices, recovery material, pending sign-in challenges and API access associated with the subject. If a retained technical identity row is necessary, disable sign-in permanently and remove authenticating credentials and provider identities using the supported Auth administration flow. An email replacement alone does not disable password, phone, OAuth, MFA or existing access tokens.
 
-Run as service role in the SQL editor. Replace `:subject` with the profile id.
+Deleting an Auth user does not immediately invalidate every previously issued JWT. Confirm that sensitive operations reject the removed or disabled identity and allow remaining token lifetimes to expire; never mistake a local sign-out for full revocation.
 
-```sql
-begin;
+Supabase documentation: https://supabase.com/docs/guides/auth/managing-user-data#deleting-users.
 
--- The person's identity. Keep the row: the ledger points at it.
--- full_name and member_id are GENERATED columns — do not list them; full_name
--- follows first_name/last_name on its own.
-update public.profiles
-   set first_name   = 'Deleted',
-       last_name    = 'user',
-       email        = null,
-       phone        = null,
-       avatar_url   = null,
-       photo_url    = null,
-       date_of_birth = null,
-       gender       = null,
-       address      = null,
-       health_notes = null,
-       bio          = null,
-       emergency_contact_name  = null,
-       emergency_contact_phone = null,
-       nok_name = null, nok_relationship = null, nok_phone = null, nok_address = null
- where id = :subject;
+## 3. Erase non-retained personal data
 
--- Health notes moved out of profiles into a protected profile-level table.
--- Remove the note and its subject audit trail; if the erased person acted on
--- somebody else's note, detach their actor id as well.
-delete from public.profile_health_note_audit where member_id = :subject;
-update public.profile_health_note_audit set actor_id = null where actor_id = :subject;
-delete from public.profile_health_notes where member_id = :subject;
+Use a reviewed, subject-scoped operational script against the current schema. Rehearse it on disposable fixtures first. Run database changes transactionally where possible, check affected counts and keep the before/after evidence in the restricted case. Do not use the old blanket SQL recipe: it did not cover all identifiers or processors and could leave a sign-in-capable account behind.
 
--- Stored card tokens — no retention basis once the person is gone.
-delete from public.saved_cards where member_id = :subject;
+The inventory must include at least:
 
--- WhatsApp identity (the phone number is the identifier here).
-update public.whatsapp_contacts set profile_id = null where profile_id = :subject;
+- Profile identity and contact fields, emergency/next-of-kin details, avatar/photo URLs and files, biography, health notes and their separate `profile_health_notes` / `profile_health_note_audit` data.
+- Gym/member/staff/instructor links, bookings, attendance/check-ins, membership/subscription details, member notifications, personal content and any exports or backups subject to the retention schedule.
+- Saved payment authorizations and cards, recurring intents and checkouts, provider customer metadata and outstanding mandate state. Preserve only the approved financial evidence.
+- WhatsApp contact identifiers and message/content records, email delivery/customer records and other processor-held personal data. Setting `whatsapp_contacts.profile_id` to null does not remove a stored phone number or conversation.
+- Auth email/phone, user metadata, linked identities, sessions, MFA factors, recovery tokens and trusted-device records. Remove Storage objects before deleting an Auth identity that still owns them; use Storage APIs so object bytes and metadata remain consistent.
+- Audit and telemetry records containing personal information. Remove or restrict unnecessary identifying payloads while preserving the minimal approved security/financial evidence.
 
--- Auth-side identifiers. Leaves the row so the FK holds, but the person can no
--- longer sign in and the address is no longer stored.
-update auth.users
-   set email = concat('erased+', id, '@invalid.local'),
-       phone = null,
-       raw_user_meta_data = '{}'::jsonb
- where id = :subject;
+The inventory is a minimum, not proof that the current schema contains no other personal data. Check current database columns, foreign keys, Storage buckets, processor integrations and logs on each operation. Do not publish raw customer rows or backup files as evidence.
 
-commit;
-```
+## 4. Financial and legal records
 
-Check the column list against the live `profiles` table before running — this
-document is only accurate as of the commit that ships it.
+The schema deliberately restricts cascades from profiles/auth into payment, payroll, payout and waiver evidence. **Do not drop or weaken those foreign keys to force an Auth delete.** The four historical restricted tables are not a complete dependency or retention inventory.
 
-## 3. What survives, and why
+If records need lawful retention, remove unnecessary identifiers and segregate access. A stable UUID, payment reference, signature, IP address or linkable ledger can still be personal data after names and emails are removed. Describe such records as retained or pseudonymized, not anonymous without evidence of irreversibility.
 
-| Kept | Reason |
-|---|---|
-| `payments` rows (amount, date, Paystack reference) | Tax and Paystack reconciliation; chargeback defence |
-| `instructor_payouts`, `salary_payments` | Payroll / payout records |
-| `waiver_signatures` (signature, IP, timestamp) | Liability defence for the gym |
-| `memberships`, `member_subscriptions`, `check_ins` | Attached to the now-anonymous profile; deleted only if the money rows are gone (see §4) |
-| `audit_logs` | Tamper-evidence for the erasure itself |
+Where an approved retained record requires a technical tombstone identity, keep the minimum non-authenticating row and its documented basis. The person's usable account, credentials and non-retained personal information must still be removed. Schedule the retained record and tombstone for deletion when their retention basis expires.
 
-After step 2 those rows point at a profile with no name, no email and no phone.
-They are financial records, not personal ones.
+If no retention basis applies, remove all associated data and delete the Auth account using supported administration tools after checking every relevant dependency. Four zero counts in selected financial tables are insufficient to declare the deletion safe or complete.
 
-## 4. The person genuinely has no financial or legal history
+## 5. Verify and confirm completion
 
-A lead who signed up and never paid, never signed a waiver and was never paid
-out is not caught by any restricted constraint. Deleting their `auth.users` row
-succeeds and cascades cleanly, and that is the right outcome. Confirm first:
+Verify that sign-in/access is disabled, provider renewals are stopped, non-retained rows and stored objects are gone, remaining data matches the approved retention inventory, and processor requests have completed or have a documented lawful disposition. A queued processor erasure with no confirmed outcome is still open work.
 
-```sql
-select
-  (select count(*) from public.payments           where member_id     = :subject) as payments,
-  (select count(*) from public.waiver_signatures  where member_id     = :subject) as waivers,
-  (select count(*) from public.instructor_payouts where instructor_id = :subject) as payouts,
-  (select count(*) from public.salary_payments sp
-     join public.gym_staff_links l on l.id = sp.staff_link_id
-    where l.user_id = :subject)                                                   as salaries;
-```
+Send the person a completion notice through the verified channel. State what was deleted, completion date, and any retained categories, purpose and retention period. Then remove the temporary contact information from the restricted case unless its continued retention has a documented basis. This deployment's automated tests never send this notice and never erase a real customer.
 
-All four zero → delete is safe. Any non-zero → use step 2 instead.
+Only now choose **Record completed deletion**. Both attestations are required: actual account/data/renewal processing is complete, and completion has been confirmed to the person. Record the restricted evidence reference and a brief retention outcome without personal data. The action does not itself erase data or send messages.
 
-## 5. Record it
+`account_deletion_requests` has no cascading subject FK, so the minimal request receipt survives actual Auth erasure. Only the subject can read receipt columns through RLS; internal completion evidence is not granted to client roles. `account_deletion_events` is service-only audit history, and operator transitions are enforced through the private verified-session function. Include these minimal accountability records in the retention schedule too.
 
-Log the request, the date, who approved it and which route (anonymise vs.
-delete) was taken. Keep that record outside the tenant's data — the erasure
-itself has to be provable to a regulator after the subject's data is gone.
+## Operational boundary
+
+This release implements authenticated initiation, durable receipt/status, protected operator processing and completion accountability. It does **not** claim that an automated universal erasure engine exists or that all historical customer data has been erased. Operators remain responsible for executing and verifying the current-schema, provider and retention work above for each real request.

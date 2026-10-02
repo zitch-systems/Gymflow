@@ -31,6 +31,7 @@ const NAV: { sub: string; label: string; icon: LucideIcon; section: 'Platform' |
   { sub: '/onboard', label: 'Onboard', icon: UserPlus, section: 'Operations' },
   { sub: '/payout-approvals', label: 'Payout approvals', icon: Banknote, section: 'Operations' },
   { sub: '/operations', label: 'Job health', icon: Activity, section: 'Operations' },
+  { sub: '/account-deletions', label: 'Account deletion', icon: Users, section: 'Operations' },
   { sub: '/audit', label: 'Audit log', icon: ScrollText, section: 'Operations' },
   { sub: '/support', label: 'Support', icon: LifeBuoy, section: 'Operations' },
   { sub: '/settings', label: 'Settings', icon: Settings, section: 'Operations' },

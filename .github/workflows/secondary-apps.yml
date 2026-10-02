@@ -7,7 +7,7 @@ on:
       - 'gymflow-meta-connector/**'
       - '.github/workflows/secondary-apps.yml'
   push:
-    branches: [main, native/gymflow-mobile-20261002]
+    branches: [main, native/gymflow-mobile-20261002, native/gymflow-mobile-final-20261002]
     paths:
       - 'mobile/**'
       - 'gymflow-meta-connector/**'
@@ -38,6 +38,8 @@ jobs:
         run: npm run test:router-compat
       - name: Verify native release configuration contract
         run: npm run test:native-config
+      - name: Verify API client auth and refresh contract
+        run: npm run test:api-client
       - name: Audit production graph against reviewed residual advisories
         run: npm run audit:production
       - run: npm run type-check

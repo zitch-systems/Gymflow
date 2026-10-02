@@ -95,6 +95,11 @@ export default function SignInScreen() {
       >
         <Body tone="muted" size={13}>Forgot your password?</Body>
       </Pressable>
+      <Button
+        label="Delete an account"
+        variant="ghost"
+        onPress={() => void Linking.openURL(`${API_BASE_URL}/account/delete`)}
+      />
     </Screen>
   );
 }

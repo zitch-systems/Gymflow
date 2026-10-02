@@ -14,7 +14,7 @@ import { SUPERADMIN_ROUTE } from '@/lib/superadmin-path';
 // the middleware immediately and pays no auth round-trip.
 
 /** Exact paths (no children) that read the session. */
-export const SESSION_EXACT = ['/login', '/signup', '/forgot-password', '/reset-password', '/launch'] as const;
+export const SESSION_EXACT = ['/login', '/signup', '/forgot-password', '/reset-password', '/launch', '/account/delete'] as const;
 
 /**
  * Gated surfaces: the root itself and everything beneath it.

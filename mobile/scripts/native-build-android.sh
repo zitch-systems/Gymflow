@@ -4,11 +4,14 @@ set -euo pipefail
 export EXPO_NO_GIT_STATUS=1
 export EXPO_PUBLIC_API_URL="${EXPO_PUBLIC_API_URL:-https://www.gymflow.ng}"
 
-npx expo prebuild --platform android --clean --no-install
-(
-  cd android
-  ./gradlew --no-daemon assembleRelease bundleRelease
-)
+mkdir -p artifacts/android
+{
+  npx expo prebuild --platform android --clean --no-install
+  (
+    cd android
+    ./gradlew --no-daemon assembleRelease bundleRelease
+  )
+} 2>&1 | tee artifacts/android/build.log
 
 apk=android/app/build/outputs/apk/release/app-release.apk
 aab=android/app/build/outputs/bundle/release/app-release.aab
@@ -30,6 +33,5 @@ if command -v apksigner >/dev/null 2>&1; then
   apksigner verify "$apk"
 fi
 
-mkdir -p artifacts/android
 cp "$apk" artifacts/android/gymflow-internal-debug-signed-release.apk
 cp "$aab" artifacts/android/gymflow-internal-debug-signed-release.aab

@@ -13,7 +13,7 @@ assert.equal(app.ios.config.usesNonExemptEncryption, false);
 assert.deepEqual(app.android.permissions, ['android.permission.CAMERA']);
 assert.ok(app.android.blockedPermissions.includes('android.permission.RECORD_AUDIO'));
 
-for (const profile of ['development', 'preview', 'simulator', 'production']) {
+for (const profile of ['preview', 'simulator', 'production']) {
   assert.equal(eas.build[profile].env.EXPO_PUBLIC_API_URL, expectedApi, `${profile} API URL`);
 }
 assert.equal(eas.build.preview.android.buildType, 'apk');

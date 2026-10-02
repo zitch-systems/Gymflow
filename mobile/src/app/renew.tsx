@@ -46,7 +46,6 @@ function membershipVersion(plans: Plans | null): string {
     plan: current?.plan_name ?? null,
     start: current?.start_date ?? null,
     end: current?.end_date ?? null,
-    days: current?.days_left ?? null,
     state: current?.display_state ?? null,
     scheduled: plans?.plans.filter((p) => p.is_scheduled).map((p) => p.id).sort() ?? [],
   });
@@ -86,7 +85,8 @@ export default function RenewScreen() {
 
       const callback = result.type === 'success' ? checkoutReturn(result.url) : null;
       const returnedReference = callback?.searchParams.get('reference') ?? null;
-      const verified = callback?.hostname === 'pay'
+      const verified = callback?.protocol === 'gymflow:'
+        && callback.hostname === 'pay'
         && callback.pathname === '/callback'
         && callback.searchParams.get('status') === 'success'
         && Boolean(res.reference)

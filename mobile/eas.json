@@ -4,13 +4,6 @@
     "appVersionSource": "remote"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "android": { "buildType": "apk", "image": "sdk-57" },
-      "ios": { "image": "sdk-57" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://www.gymflow.ng" }
-    },
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk", "image": "sdk-57" },

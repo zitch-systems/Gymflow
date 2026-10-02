@@ -2,7 +2,7 @@ import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Avatar, Badge, Body, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, Title, c, StaleDataNotice } from '@/components/ui';
+import { Avatar, Badge, Body, Button, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { useAuth } from '@/auth/context';
 import { API_BASE_URL } from '@/api/client';
@@ -32,7 +32,12 @@ export default function ProfileScreen() {
   };
 
   if (loading && !data) return <Screen><Loading /></Screen>;
-  if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;
+  if (error && !data) return (
+    <Screen refreshing={refreshing} onRefresh={refresh}>
+      <ErrorState message={error} onRetry={refresh} />
+      <Button label="Account deletion" variant="secondary" onPress={() => router.push('/account-deletion')} />
+    </Screen>
+  );
   if (!data) return <Screen><EmptyState title="Nothing to show" /></Screen>;
 
   const { profile, gym, stats, membership } = data;
@@ -107,6 +112,13 @@ export default function ProfileScreen() {
           right={<Ionicons name="chevron-forward" size={18} color={c.textMuted} />}
           onPress={() => router.push('/notifications')}
         />
+        <Row
+          icon={<Ionicons name="settings-outline" size={18} color={c.brand} />}
+          title="Account deletion"
+          subtitle="Request deletion and check its status"
+          right={<Ionicons name="chevron-forward" size={18} color={c.textMuted} />}
+          onPress={() => router.push('/account-deletion')}
+        />
         {/* Freezes, waivers and documents are staff-mediated or need a signature,
             and both live on the web portal. Linking out beats a half-flow. */}
         <Row
@@ -125,6 +137,13 @@ export default function ProfileScreen() {
             onPress={() => void Linking.openURL(`${API_BASE_URL}/dashboard/profile`)}
           />
         ) : null}
+        <Row
+          icon={<Ionicons name="help-buoy-outline" size={18} color={c.brand} />}
+          title="Privacy & terms"
+          subtitle="How GymFlow handles your information"
+          right={<Ionicons name="open-outline" size={16} color={c.textMuted} />}
+          onPress={() => void Linking.openURL(`${API_BASE_URL}/legal`)}
+        />
         <Row
           icon={<Ionicons name="help-buoy-outline" size={18} color={c.brand} />}
           title="Help & support"

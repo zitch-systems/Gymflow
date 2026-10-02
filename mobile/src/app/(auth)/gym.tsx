@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
 import { Body, Button, Field, Notice, Title, c } from '@/components/ui';
 import { useAuth } from '@/auth/context';
 import { storage } from '@/auth/storage';
 import { space } from '@/theme';
+import { API_BASE_URL } from '@/api/client';
 
 // Step one of sign-in: which gym?
 //
@@ -74,6 +75,18 @@ export default function GymCodeScreen() {
       />
 
       <Button label="Continue" onPress={submit} loading={busy} />
+      <Button
+        label="Privacy & terms"
+        variant="ghost"
+        onPress={() => void Linking.openURL(`${API_BASE_URL}/legal`)}
+        style={{ marginTop: space.md }}
+      />
+      <Button
+        label="Delete an existing account"
+        variant="ghost"
+        onPress={() => void Linking.openURL(`${API_BASE_URL}/account/delete`)}
+        style={{ marginTop: space.md }}
+      />
     </Screen>
   );
 }

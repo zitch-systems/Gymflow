@@ -1,5 +1,5 @@
 import { createApiAuthClient } from '@/lib/gym-signup';
-import { json, corsPreflight, readJson, sessionPayload } from '@/lib/api-app';
+import { authFailure, json, corsPreflight, readJson, sessionPayload } from '@/lib/api-app';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +31,8 @@ export async function POST(req: Request) {
   try {
     const auth = createApiAuthClient();
     const { data, error } = await auth.auth.refreshSession({ refresh_token: refreshToken });
-    if (error || !data.session) {
+    if (error) return authFailure(error);
+    if (!data.session) {
       // 401 rather than 400: this is the app's signal to drop the stored
       // session and send the member back to sign-in.
       return json({ error: 'Your session has expired. Please sign in again.', code: 'expired' }, 401);
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
       session: sessionPayload(data.session),
       user: data.user ? { id: data.user.id, email: data.user.email ?? null } : null,
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return authFailure(null);
   }
 }

@@ -6,7 +6,7 @@ on:
       - 'mobile/**'
       - '.github/workflows/native-builds.yml'
   push:
-    branches: [main, native/gymflow-mobile-20261002]
+    branches: [main, native/gymflow-mobile-20261002, native/gymflow-mobile-final-20261002]
     paths:
       - 'mobile/**'
       - '.github/workflows/native-builds.yml'
@@ -69,7 +69,17 @@ jobs:
           timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 2; done'
           adb install -r artifacts/android/gymflow-internal-debug-signed-release.apk
           adb shell am start -W -n ng.gymflow.member/.MainActivity | tee artifacts/android/launch.txt
-          sleep 10
+          rendered=false
+          for attempt in $(seq 1 30); do
+            sleep 2
+            adb shell uiautomator dump /sdcard/gymflow-window.xml >/dev/null
+            adb shell cat /sdcard/gymflow-window.xml > artifacts/android/window.xml
+            if grep -q 'Welcome to GymFlow' artifacts/android/window.xml; then
+              rendered=true
+              break
+            fi
+          done
+          test "$rendered" = true
           adb shell pidof ng.gymflow.member | tee artifacts/android/pid.txt
           test -s artifacts/android/pid.txt
           adb exec-out screencap -p > artifacts/android/launch.png
