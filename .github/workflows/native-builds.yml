@@ -59,37 +59,108 @@ jobs:
       - run: npm ci
       - name: Build internal release artifacts
         run: npm run build:native:android
+      - name: Split installables into downloadable verified chunks
+        run: |
+          mkdir -p artifacts/android/delivery
+          apk=artifacts/android/gymflow-internal-debug-signed-release.apk
+          aab=artifacts/android/gymflow-internal-debug-signed-release.aab
+          sha256sum "$apk" "$aab" | sed 's#artifacts/android/##' > artifacts/android/delivery/SHA256SUMS
+          split -b 24m -d -a 2 "$apk" artifacts/android/delivery/apk-part-
+          split -b 24m -d -a 2 "$aab" artifacts/android/delivery/aab-part-
+      - name: Upload delivery checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-android-delivery-checksums, path: mobile/artifacts/android/delivery/SHA256SUMS, if-no-files-found: error, retention-days: 14 }
+      - name: Upload APK part 00
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-00, path: mobile/artifacts/android/delivery/apk-part-00, if-no-files-found: error, retention-days: 14 }
+      - name: Upload APK part 01
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/apk-part-01') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-01, path: mobile/artifacts/android/delivery/apk-part-01, retention-days: 14 }
+      - name: Upload APK part 02
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/apk-part-02') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-02, path: mobile/artifacts/android/delivery/apk-part-02, retention-days: 14 }
+      - name: Upload APK part 03
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/apk-part-03') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-03, path: mobile/artifacts/android/delivery/apk-part-03, retention-days: 14 }
+      - name: Upload AAB part 00
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-00, path: mobile/artifacts/android/delivery/aab-part-00, if-no-files-found: error, retention-days: 14 }
+      - name: Upload AAB part 01
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/aab-part-01') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-01, path: mobile/artifacts/android/delivery/aab-part-01, retention-days: 14 }
+      - name: Upload AAB part 02
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/aab-part-02') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-02, path: mobile/artifacts/android/delivery/aab-part-02, retention-days: 14 }
+      - name: Upload AAB part 03
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/aab-part-03') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-03, path: mobile/artifacts/android/delivery/aab-part-03, retention-days: 14 }
       - name: Boot emulator and launch bundled app without Metro
         run: |
-          sdkmanager 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
-          echo no | avdmanager create avd --force --name gymflow-smoke --package 'system-images;android-35;google_apis;x86_64'
+          sdkmanager_bin=$(find -L "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)
+          avdmanager_bin=$(find -L "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -1)
+          adb_bin="$ANDROID_HOME/platform-tools/adb"
+          emulator_bin="$ANDROID_HOME/emulator/emulator"
+          test -x "$sdkmanager_bin" && test -x "$avdmanager_bin"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/gymflow-android-user"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          "$sdkmanager_bin" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          test -x "$adb_bin" && test -x "$emulator_bin"
+          printf 'no\n' | "$avdmanager_bin" create avd --force --name gymflow-smoke --package 'system-images;android-35;google_apis;x86_64' --path "$ANDROID_AVD_HOME/gymflow-smoke.avd"
+          test -f "$ANDROID_AVD_HOME/gymflow-smoke.ini"
+          "$emulator_bin" -list-avds | grep -Fx 'gymflow-smoke'
           sudo chmod 666 /dev/kvm
-          nohup emulator -avd gymflow-smoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > artifacts/android/emulator.log 2>&1 &
-          adb wait-for-device
-          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 2; done'
-          adb install -r artifacts/android/gymflow-internal-debug-signed-release.apk
-          adb shell am start -W -n ng.gymflow.member/.MainActivity | tee artifacts/android/launch.txt
+          nohup "$emulator_bin" -avd gymflow-smoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > artifacts/android/emulator.log 2>&1 &
+          timeout 180 "$adb_bin" wait-for-device
+          export GYMFLOW_ADB="$adb_bin"
+          timeout 300 bash -c 'until [ "$($GYMFLOW_ADB shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 2; done'
+          "$adb_bin" install -r artifacts/android/gymflow-internal-debug-signed-release.apk
+          "$adb_bin" shell am start -W -n ng.gymflow.member/.MainActivity | tee artifacts/android/launch.txt
           rendered=false
           for attempt in $(seq 1 30); do
             sleep 2
-            adb shell uiautomator dump /sdcard/gymflow-window.xml >/dev/null
-            adb shell cat /sdcard/gymflow-window.xml > artifacts/android/window.xml
+            "$adb_bin" shell uiautomator dump /sdcard/gymflow-window.xml >/dev/null || continue
+            "$adb_bin" shell cat /sdcard/gymflow-window.xml > artifacts/android/window.xml
             if grep -q 'Welcome to GymFlow' artifacts/android/window.xml; then
               rendered=true
               break
             fi
           done
           test "$rendered" = true
-          adb shell pidof ng.gymflow.member | tee artifacts/android/pid.txt
+          "$adb_bin" shell pidof ng.gymflow.member | tee artifacts/android/pid.txt
           test -s artifacts/android/pid.txt
-          adb exec-out screencap -p > artifacts/android/launch.png
-          adb logcat -d -t 1000 > artifacts/android/logcat.txt
+          "$adb_bin" exec-out screencap -p > artifacts/android/launch.png
+          "$adb_bin" logcat -d -t 1000 > artifacts/android/logcat.txt
       - name: Upload Android build evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gymflow-android-internal-release
-          path: mobile/artifacts/android/
+          path: |
+            mobile/artifacts/android/gymflow-internal-debug-signed-release.apk
+            mobile/artifacts/android/gymflow-internal-debug-signed-release.aab
+            mobile/artifacts/android/build.log
+            mobile/artifacts/android/build-info.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Android smoke evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gymflow-android-smoke-evidence
+          path: |
+            mobile/artifacts/android/*.txt
+            mobile/artifacts/android/*.png
+            mobile/artifacts/android/*.xml
+            mobile/artifacts/android/*.log
+            !mobile/artifacts/android/build.log
+            !mobile/artifacts/android/build-info.txt
           if-no-files-found: error
           retention-days: 14
 
@@ -112,6 +183,7 @@ jobs:
       - name: Build unsigned Release simulator app
         run: npm run build:native:ios-simulator
       - name: Boot simulator and launch bundled app without Metro
+        timeout-minutes: 20
         run: |
           # Device types are newest-first. Let CoreSimulator choose the newest
           # compatible installed iOS runtime instead of pairing unrelated IDs.

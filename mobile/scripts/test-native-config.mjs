@@ -11,7 +11,16 @@ assert.equal(app.scheme, 'gymflow');
 assert.equal(app.extra.apiBaseUrl, expectedApi);
 assert.equal(app.ios.config.usesNonExemptEncryption, false);
 assert.deepEqual(app.android.permissions, ['android.permission.CAMERA']);
-assert.ok(app.android.blockedPermissions.includes('android.permission.RECORD_AUDIO'));
+for (const permission of [
+  'android.permission.RECORD_AUDIO',
+  'android.permission.READ_MEDIA_IMAGES',
+  'android.permission.READ_MEDIA_VIDEO',
+  'android.permission.READ_EXTERNAL_STORAGE',
+  'android.permission.WRITE_EXTERNAL_STORAGE',
+  'android.permission.SYSTEM_ALERT_WINDOW',
+]) {
+  assert.ok(app.android.blockedPermissions.includes(permission), `${permission} must remain blocked`);
+}
 
 for (const profile of ['preview', 'simulator', 'production']) {
   assert.equal(eas.build[profile].env.EXPO_PUBLIC_API_URL, expectedApi, `${profile} API URL`);

@@ -1,0 +1,166 @@
+name: Android artifact smoke
+
+on:
+  push:
+    branches: [verify/gymflow-android-20261002]
+    paths: ['.github/workflows/android-artifact-smoke.yml']
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Native-build run containing the Android artifact
+        required: true
+        default: '37068901423'
+        type: string
+      expected_sha:
+        description: Exact source commit used by the native build
+        required: true
+        default: '601b854edd12a713abaaec8031e62cc238108736'
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOURCE_RUN_ID: ${{ inputs.run_id || '37068901423' }}
+      EXPECTED_SOURCE_SHA: ${{ inputs.expected_sha || '601b854edd12a713abaaec8031e62cc238108736' }}
+    steps:
+      - name: Download and authenticate the already-compiled artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p artifact
+          node <<'NODE'
+          (async () => {
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const headers = {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+            'X-GitHub-Api-Version': '2022-11-28',
+          };
+          const api = `https://api.github.com/repos/${process.env.REPOSITORY}`;
+          async function json(url) {
+            const response = await fetch(url, { headers });
+            if (!response.ok) throw new Error(`GitHub API ${response.status}`);
+            return response.json();
+          }
+          const run = await json(`${api}/actions/runs/${process.env.SOURCE_RUN_ID}`);
+          if (run.head_sha !== process.env.EXPECTED_SOURCE_SHA) throw new Error(`Source SHA mismatch: expected ${process.env.EXPECTED_SOURCE_SHA}, received ${run.head_sha}`);
+          const listing = await json(`${api}/actions/runs/${process.env.SOURCE_RUN_ID}/artifacts?name=gymflow-android-internal-release`);
+          const artifact = listing.artifacts.find((item) => item.name === 'gymflow-android-internal-release' && !item.expired);
+          if (!artifact?.digest?.startsWith('sha256:')) throw new Error('Artifact or SHA-256 digest missing');
+          const response = await fetch(artifact.archive_download_url, { headers, redirect: 'follow' });
+          if (!response.ok) throw new Error(`Artifact download ${response.status}`);
+          const bytes = Buffer.from(await response.arrayBuffer());
+          const digest = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+          if (digest !== artifact.digest) throw new Error(`Artifact digest mismatch: expected ${artifact.digest}, received ${digest}`);
+          fs.writeFileSync('artifact.zip', bytes);
+          fs.writeFileSync('artifact/source-verification.txt', `run_id=${run.id}\nhead_sha=${run.head_sha}\nartifact_id=${artifact.id}\ndigest=${digest}\n`);
+          })().catch((error) => { console.error(error.message); process.exitCode = 1; });
+          NODE
+          unzip -q artifact.zip -d artifact
+      - name: Split installables into downloadable verified chunks
+        run: |
+          mkdir -p artifact/delivery
+          apk=artifact/gymflow-internal-debug-signed-release.apk
+          aab=artifact/gymflow-internal-debug-signed-release.aab
+          test -s "$apk" && test -s "$aab"
+          sha256sum "$apk" "$aab" | sed 's#artifact/##' > artifact/delivery/SHA256SUMS
+          split -b 24m -d -a 2 "$apk" artifact/delivery/apk-part-
+          split -b 24m -d -a 2 "$aab" artifact/delivery/aab-part-
+      - name: Upload delivery checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gymflow-android-delivery-checksums-${{ env.SOURCE_RUN_ID }}
+          path: artifact/delivery/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload APK part 00
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-00, path: artifact/delivery/apk-part-00, if-no-files-found: error, retention-days: 14 }
+      - name: Upload APK part 01
+        if: ${{ hashFiles('artifact/delivery/apk-part-01') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-01, path: artifact/delivery/apk-part-01, retention-days: 14 }
+      - name: Upload APK part 02
+        if: ${{ hashFiles('artifact/delivery/apk-part-02') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-02, path: artifact/delivery/apk-part-02, retention-days: 14 }
+      - name: Upload APK part 03
+        if: ${{ hashFiles('artifact/delivery/apk-part-03') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-03, path: artifact/delivery/apk-part-03, retention-days: 14 }
+      - name: Upload AAB part 00
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-00, path: artifact/delivery/aab-part-00, if-no-files-found: error, retention-days: 14 }
+      - name: Upload AAB part 01
+        if: ${{ hashFiles('artifact/delivery/aab-part-01') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-01, path: artifact/delivery/aab-part-01, retention-days: 14 }
+      - name: Upload AAB part 02
+        if: ${{ hashFiles('artifact/delivery/aab-part-02') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-02, path: artifact/delivery/aab-part-02, retention-days: 14 }
+      - name: Upload AAB part 03
+        if: ${{ hashFiles('artifact/delivery/aab-part-03') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-03, path: artifact/delivery/aab-part-03, retention-days: 14 }
+      - name: Boot emulator and verify rendered GymFlow UI
+        run: |
+          sdkmanager_bin=$(find -L "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)
+          avdmanager_bin=$(find -L "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -1)
+          adb_bin="$ANDROID_HOME/platform-tools/adb"
+          emulator_bin="$ANDROID_HOME/emulator/emulator"
+          test -x "$sdkmanager_bin" && test -x "$avdmanager_bin"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/gymflow-android-user"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          collect_evidence() {
+            if "$adb_bin" get-state >/dev/null 2>&1; then
+              "$adb_bin" exec-out screencap -p > artifact/launch.png 2>/dev/null || true
+              "$adb_bin" logcat -d -t 1000 > artifact/logcat.txt 2>&1 || true
+            fi
+          }
+          trap collect_evidence EXIT
+          "$sdkmanager_bin" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          test -x "$adb_bin" && test -x "$emulator_bin"
+          printf 'no\n' | "$avdmanager_bin" create avd --force --name gymflow-smoke --package 'system-images;android-35;google_apis;x86_64' --path "$ANDROID_AVD_HOME/gymflow-smoke.avd"
+          test -f "$ANDROID_AVD_HOME/gymflow-smoke.ini"
+          "$emulator_bin" -list-avds | grep -Fx 'gymflow-smoke'
+          sudo chmod 666 /dev/kvm
+          nohup "$emulator_bin" -avd gymflow-smoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > artifact/emulator.log 2>&1 &
+          timeout 180 "$adb_bin" wait-for-device
+          export GYMFLOW_ADB="$adb_bin"
+          timeout 300 bash -c 'until [ "$($GYMFLOW_ADB shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 2; done'
+          "$adb_bin" install -r artifact/gymflow-internal-debug-signed-release.apk
+          "$adb_bin" shell am start -W -n ng.gymflow.member/.MainActivity | tee artifact/launch.txt
+          rendered=false
+          for attempt in $(seq 1 30); do
+            sleep 2
+            "$adb_bin" shell uiautomator dump /sdcard/gymflow-window.xml >/dev/null || continue
+            "$adb_bin" shell cat /sdcard/gymflow-window.xml > artifact/window.xml
+            if grep -q 'Welcome to GymFlow' artifact/window.xml; then rendered=true; break; fi
+          done
+          test "$rendered" = true
+          "$adb_bin" shell pidof ng.gymflow.member | tee artifact/pid.txt
+          test -s artifact/pid.txt
+          collect_evidence
+          trap - EXIT
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gymflow-android-smoke-${{ env.SOURCE_RUN_ID }}
+          path: |
+            artifact/*.txt
+            artifact/*.png
+            artifact/*.xml
+            artifact/*.log
+          if-no-files-found: error
+          retention-days: 14
