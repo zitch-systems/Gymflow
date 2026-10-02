@@ -118,6 +118,9 @@ jobs:
           adb_bin="$ANDROID_HOME/platform-tools/adb"
           emulator_bin="$ANDROID_HOME/emulator/emulator"
           test -x "$sdkmanager_bin" && test -x "$avdmanager_bin"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/gymflow-android-user"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           collect_evidence() {
             if "$adb_bin" get-state >/dev/null 2>&1; then
               "$adb_bin" exec-out screencap -p > artifact/launch.png 2>/dev/null || true
@@ -127,7 +130,9 @@ jobs:
           trap collect_evidence EXIT
           "$sdkmanager_bin" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
           test -x "$adb_bin" && test -x "$emulator_bin"
-          echo no | "$avdmanager_bin" create avd --force --name gymflow-smoke --package 'system-images;android-35;google_apis;x86_64'
+          printf 'no\n' | "$avdmanager_bin" create avd --force --name gymflow-smoke --package 'system-images;android-35;google_apis;x86_64' --path "$ANDROID_AVD_HOME/gymflow-smoke.avd"
+          test -f "$ANDROID_AVD_HOME/gymflow-smoke.ini"
+          "$emulator_bin" -list-avds | grep -Fx 'gymflow-smoke'
           sudo chmod 666 /dev/kvm
           nohup "$emulator_bin" -avd gymflow-smoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > artifact/emulator.log 2>&1 &
           timeout 180 "$adb_bin" wait-for-device
