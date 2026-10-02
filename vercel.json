@@ -8,6 +8,8 @@
   },
   "crons": [
     { "path": "/api/cron", "schedule": "0 8 * * *" },
-    { "path": "/api/cron/backups", "schedule": "20 2 * * *" }
+    { "path": "/api/cron/backups", "schedule": "20 * * * *" },
+    { "path": "/api/cron/reconcile", "schedule": "7,22,37,52 * * * *" },
+    { "path": "/api/cron/webhook-recovery", "schedule": "*/5 * * * *" }
   ]
 }

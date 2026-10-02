@@ -340,72 +340,45 @@ export async function denyFreeze(_prev: ActionState, formData: FormData): Promis
   }
 }
 
-// Days to credit a resuming membership: whole days from the freeze start up to
-// the resume moment, but never past the planned window end. Falls back to the
-// paused_at wall-clock for legacy rows with no explicit window.
-function creditDays(sub: { pause_start: string | null; pause_end: string | null; paused_at: string | null }): number {
-  if (sub.pause_start) {
-    const startMs = Date.parse(sub.pause_start + 'T00:00:00Z');
-    const plannedEndMs = sub.pause_end ? Date.parse(sub.pause_end + 'T00:00:00Z') : Number.POSITIVE_INFINITY;
-    const endMs = Math.min(Date.now(), plannedEndMs);
-    return Math.max(0, Math.ceil((endMs - startMs) / 86_400_000));
-  }
-  const pausedAt = sub.paused_at ? new Date(sub.paused_at) : null;
-  return pausedAt ? Math.max(0, Math.ceil((Date.now() - pausedAt.getTime()) / 86_400_000)) : 0;
-}
-
 // Resume a paused membership. Compensates the member by adding the frozen days
 // (capped at the planned window) to end_date so no time is lost.
 export async function resumeFreeze(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const subId = String(formData.get('subId') ?? '');
   if (!UUID_RE.test(subId)) return { ok: false, error: 'Invalid subscription id.' };
   try {
-    const { user, gym } = await requireStaff(ADMIN_ROLES);
+    const { gym } = await requireStaff(ADMIN_ROLES);
     const supabase = await createClient();
-    const { data: sub } = await supabase
-      .from('member_subscriptions').select('id, status, member_id, end_date, paused_at, pause_start, pause_end')
-      .eq('id', subId).eq('gym_id', gym.id).maybeSingle();
-    if (!sub) return { ok: false, error: 'Subscription not found in this gym.' };
-    if (sub.status !== 'paused') return { ok: false, error: 'Membership is not currently paused.' };
-
-    const days = creditDays(sub);
-    const baseIso = sub.end_date ?? todayIso();
-    const base = new Date(baseIso + 'T00:00:00Z');
-    base.setUTCDate(base.getUTCDate() + days);
-    const newEnd = base.toISOString().slice(0, 10);
-
-    // Compare-and-swap on status: two concurrent resumes (cron + staff, or
-    // two staff windows) would each read Date.now() a tick apart, compute
-    // slightly different credits, and each write end_date — the second write
-    // silently stamps an extra day on top of the first. Guarding on
-    // status='paused' turns the second UPDATE into 0 rows; we then treat it
-    // as "already resumed by another path" and return ok without re-crediting.
-    const { data: swapped, error } = await supabase
-      .from('member_subscriptions')
-      .update({ status: 'active', paused_at: null, pause_reason: null, pause_start: null, pause_end: null, end_date: newEnd })
-      .eq('id', sub.id).eq('status', 'paused').select('id').maybeSingle();
+    const { data, error } = await supabase.rpc('resume_member_freeze' as never, {
+      p_gym_id: gym.id,
+      p_subscription_id: subId,
+    } as never);
     if (error) return { ok: false, error: error.message };
-    if (!swapped) return { ok: true, error: null, message: 'Already resumed.' };
-
-    void logAudit({
-      action: 'membership_freeze_resumed',
-      table: 'member_subscriptions',
-      actorId: user.id, gymId: gym.id, recordId: sub.id,
-      values: { member_id: sub.member_id, days_credited: days, new_end_date: newEnd },
-    });
+    const resumed = data as unknown as {
+      created: boolean; member_id: string; end_date: string;
+      days_credited: number; status: string;
+    } | null;
+    if (!resumed) return { ok: false, error: 'Membership resume was not confirmed.' };
+    if (!resumed.created) return { ok: true, error: null, message: 'Already resumed.' };
 
     // The credited days are the point of the whole flow — a member who was never
     // told how many they got back has no way to check the gym kept its word.
-    await mailMember(supabase, gym, sub.member_id, MEMBER_TEMPLATES.freezeResumed, (name) => freezeResumed({
+    await mailMember(supabase, gym, resumed.member_id, MEMBER_TEMPLATES.freezeResumed, (name) => freezeResumed({
       gymName: gym.name,
       firstName: name,
-      daysCredited: days,
-      newEndDate: fmtDate(newEnd),
+      daysCredited: resumed.days_credited,
+      newEndDate: fmtDate(resumed.end_date),
       classesUrl: memberAppUrl(gym, '/classes'),
     }));
 
-    revalidatePath(`/admin/members/${sub.member_id}`);
-    return { ok: true, error: null, message: `Resumed. Added ${days} day${days === 1 ? '' : 's'}.` };
+    revalidatePath(`/admin/members/${resumed.member_id}`);
+    const days = resumed.days_credited;
+    return {
+      ok: true,
+      error: null,
+      message: days > 0
+        ? `Resumed. Added ${days} day${days === 1 ? '' : 's'}.`
+        : 'Resumed. No paid days were available to restore.',
+    };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

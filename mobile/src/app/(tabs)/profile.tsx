@@ -2,7 +2,7 @@ import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Avatar, Badge, Body, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, Title, c } from '@/components/ui';
+import { Avatar, Badge, Body, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { useAuth } from '@/auth/context';
 import { API_BASE_URL } from '@/api/client';
@@ -22,7 +22,7 @@ const STATUS: Record<string, { label: string; tone: 'success' | 'info' | 'warnin
 export default function ProfileScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
-  const { data, error, loading, refreshing, refresh } = useResource<ProfilePayload>('/api/app/profile');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<ProfilePayload>('/api/app/profile');
 
   const confirmSignOut = () => {
     Alert.alert('Sign out?', 'You’ll need your gym code and password to sign back in.', [
@@ -49,6 +49,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       <View style={styles.hero}>
         <Avatar label={initial(profile.full_name, profile.email)} size={78} />
         <Title style={{ marginTop: space.lg, textAlign: 'center' }}>{name}</Title>

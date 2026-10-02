@@ -19,6 +19,8 @@ const BUCKET = 'gym-backups';
 
 export type BackupRunResult = {
   ok: boolean;
+  /** True only when every requested table was read and the schedule advanced. */
+  complete: boolean;
   gymId: string;
   /** Bytes of the produced archive, 0 on failure. */
   size: number;
@@ -98,13 +100,13 @@ export async function runGymBackup(
 ): Promise<BackupRunResult> {
   let admin: ReturnType<typeof createAdminClient>;
   try { admin = createAdminClient(); } catch (e) {
-    return { ok: false, gymId, size: 0, emailed: false, error: (e as Error).message, problems: [] };
+    return { ok: false, complete: false, gymId, size: 0, emailed: false, error: (e as Error).message, problems: [] };
   }
 
   const now = new Date();
   const { data: gym } = await admin.from('gyms').select('id, name, slug').eq('id', gymId).maybeSingle();
   if (!gym) {
-    return { ok: false, gymId, size: 0, emailed: false, error: 'gym not found', problems: [] };
+    return { ok: false, complete: false, gymId, size: 0, emailed: false, error: 'gym not found', problems: [] };
   }
   const gymName = (gym.name ?? '').trim() || 'Your gym';
 
@@ -114,7 +116,7 @@ export async function runGymBackup(
   } catch (e) {
     const msg = (e as Error).message;
     await logFailure(admin, gymId, opts.trigger, msg);
-    return { ok: false, gymId, size: 0, emailed: false, error: msg, problems: [] };
+    return { ok: false, complete: false, gymId, size: 0, emailed: false, error: msg, problems: [] };
   }
   const problems = [...archive.failures, ...archive.warnings];
 
@@ -127,7 +129,7 @@ export async function runGymBackup(
   if (archive.failures.length > 0 && Object.keys(archive.rowCounts).length === 0) {
     const msg = `no table could be read: ${archive.failures.join('; ')}`;
     await logFailure(admin, gymId, opts.trigger, msg, problems);
-    return { ok: false, gymId, size: 0, emailed: false, error: msg, problems };
+    return { ok: false, complete: false, gymId, size: 0, emailed: false, error: msg, problems };
   }
 
   // Store first — see the note at the top of this file.
@@ -137,7 +139,7 @@ export async function runGymBackup(
   });
   if (upErr) {
     await logFailure(admin, gymId, opts.trigger, `upload failed: ${upErr.message}`, problems);
-    return { ok: false, gymId, size: archive.bytes.byteLength, emailed: false, error: upErr.message, problems };
+    return { ok: false, complete: false, gymId, size: archive.bytes.byteLength, emailed: false, error: upErr.message, problems };
   }
 
   // Distinguish a complete run from a partial one at the row level, not just
@@ -165,7 +167,7 @@ export async function runGymBackup(
     // rather than leave an orphan nothing points at.
     await admin.storage.from(BUCKET).remove([path]);
     void captureServerEvent('gym backup could not be logged', { gymId, trigger: opts.trigger, error: logErr.message });
-    return { ok: false, gymId, size: archive.bytes.byteLength, emailed: false, error: logErr.message, problems };
+    return { ok: false, complete: false, gymId, size: archive.bytes.byteLength, emailed: false, error: logErr.message, problems };
   }
 
   // Only a complete archive satisfies the schedule. Advancing this timestamp
@@ -226,5 +228,5 @@ export async function runGymBackup(
     });
   });
 
-  return { ok: true, gymId, size: archive.bytes.byteLength, emailed, problems };
+  return { ok: true, complete: backupStatus === 'success', gymId, size: archive.bytes.byteLength, emailed, problems };
 }

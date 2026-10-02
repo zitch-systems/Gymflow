@@ -2,19 +2,15 @@ import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Badge, Body, Button, Card, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, Title, c } from '@/components/ui';
+import { Badge, Body, Button, Card, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { naira, shortDate } from '@/lib/format';
 import { radius, space } from '@/theme';
 import type { Wallet } from '@/api/types';
 
-const STATUS_LABEL: Record<string, string> = {
-  successful: 'Successful', pending: 'Pending', failed: 'Failed', refunded: 'Refunded',
-};
-
 export default function WalletScreen() {
   const router = useRouter();
-  const { data, error, loading, refreshing, refresh } = useResource<Wallet>('/api/app/wallet');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<Wallet>('/api/app/wallet');
 
   if (loading && !data) return <Screen><Loading label="Loading your wallet…" /></Screen>;
   if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;
@@ -34,12 +30,13 @@ export default function WalletScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       <Title>Wallet</Title>
 
       <Card style={{ marginTop: space.lg }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
           <Ionicons name="wallet-outline" size={16} color={c.textSecondary} />
-          <Body tone="secondary" size={13}>Total spent</Body>
+          <Body tone="secondary" size={13}>Net spent</Body>
         </View>
         <Body size={32} weight="800" style={{ marginTop: space.sm }}>{naira(data.total_spent)}</Body>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm }}>
@@ -55,7 +52,7 @@ export default function WalletScreen() {
       {months.some((m) => m.amount > 0) ? (
         <Card style={{ marginTop: space.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <Body weight="700">{naira(data.this_month)} <Body tone="secondary" size={12}>spent this month</Body></Body>
+            <Body weight="700">{naira(data.this_month)} <Body tone="secondary" size={12}>net spent this month</Body></Body>
             <Body tone="muted" size={11}>Last 6 months</Body>
           </View>
           <View style={styles.bars}>
@@ -113,7 +110,8 @@ export default function WalletScreen() {
       <SectionTitle>Transactions</SectionTitle>
       <Group>
         {transactions.length > 0 ? transactions.map((t, i) => {
-          const refund = t.status === 'refunded';
+          const refund = t.refund_state !== 'none';
+          const fullRefund = t.refund_state === 'full';
           return (
             <Row
               key={t.id}
@@ -122,10 +120,10 @@ export default function WalletScreen() {
               subtitle={`${shortDate(t.date)} · ${t.method}`}
               right={
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Body weight="700" size={14} tone={refund ? 'success' : 'default'}>
-                    {refund ? '+' : '−'}{naira(t.amount)}
+                  <Body weight="700" size={14} tone={fullRefund ? 'success' : 'default'}>
+                    {fullRefund ? '+' : '−'}{naira(fullRefund ? t.refunded_amount : t.amount)}
                   </Body>
-                  <Body tone="muted" size={11}>{STATUS_LABEL[t.status ?? ''] ?? t.status}</Body>
+                  <Body tone="muted" size={11}>{t.status_label}{refund ? ` · ${naira(t.refunded_amount)} returned` : ''}</Body>
                 </View>
               }
               onPress={() => router.push(`/receipt/${t.id}`)}

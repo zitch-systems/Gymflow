@@ -1517,6 +1517,7 @@ export type Database = {
           paystack_authorization_code: string | null
           paystack_reference: string | null
           plan_id: string | null
+          refunded_amount: number
           status: string | null
         }
         Insert: {
@@ -1533,6 +1534,7 @@ export type Database = {
           paystack_authorization_code?: string | null
           paystack_reference?: string | null
           plan_id?: string | null
+          refunded_amount?: number
           status?: string | null
         }
         Update: {
@@ -1549,6 +1551,7 @@ export type Database = {
           paystack_authorization_code?: string | null
           paystack_reference?: string | null
           plan_id?: string | null
+          refunded_amount?: number
           status?: string | null
         }
         Relationships: [
@@ -1624,6 +1627,7 @@ export type Database = {
           payment_status: Database["public"]["Enums"]["payment_status"]
           paystack_reference: string | null
           plan: string | null
+          refunded_amount: number
           updated_at: string
         }
         Insert: {
@@ -1637,6 +1641,7 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"]
           paystack_reference?: string | null
           plan?: string | null
+          refunded_amount?: number
           updated_at?: string
         }
         Update: {
@@ -1650,7 +1655,32 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"]
           paystack_reference?: string | null
           plan?: string | null
+          refunded_amount?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      profile_health_notes: {
+        Row: {
+          member_id: string
+          notes: string | null
+          update_source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          member_id: string
+          notes?: string | null
+          update_source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          member_id?: string
+          notes?: string | null
+          update_source?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -2675,6 +2705,30 @@ export type Database = {
     }
     Functions: {
       can_see_profile: { Args: { target_user_id: string }; Returns: boolean }
+      consume_whatsapp_email_otp: {
+        Args: {
+          p_email: string
+          p_wa_id: string
+          p_code_hash: string
+          p_max_attempts?: number
+        }
+        Returns: {
+          status: string
+          otp_id: string | null
+          user_id: string | null
+          gym_id: string | null
+          attempts_remaining: number
+        }[]
+      }
+      set_profile_health_note: {
+        Args: {
+          p_gym_id: string
+          p_member_id: string
+          p_notes: string | null
+          p_reason?: string | null
+        }
+        Returns: undefined
+      }
       rate_limit_hit: {
         Args: { p_key: string; p_max: number; p_window_seconds: number }
         Returns: boolean

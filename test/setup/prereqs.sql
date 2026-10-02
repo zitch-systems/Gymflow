@@ -34,7 +34,20 @@ on conflict do nothing;
 create table if not exists auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,
-  raw_user_meta_data jsonb
+  raw_user_meta_data jsonb,
+  banned_until timestamptz
+);
+
+-- GoTrue session rows are the server-side half of the signed `session_id`
+-- claim. Privileged authorization deliberately requires both: a claim alone
+-- is not enough after sign-out/revocation, and a row alone cannot be selected
+-- by a caller whose JWT names a different session.
+create table if not exists auth.sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  not_after timestamptz
 );
 
 -- auth.uid() / auth.role(): read the JWT sub / role from GUCs, exactly as real
@@ -47,6 +60,11 @@ $$;
 create or replace function auth.role() returns text
   language sql stable as $$
     select nullif(current_setting('request.jwt.claim.role', true), '')::text
+$$;
+
+create or replace function auth.jwt() returns jsonb
+  language sql stable as $$
+    select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb)
 $$;
 
 -- Roles referenced by policies + grants.
@@ -67,6 +85,13 @@ grant anon, authenticated, service_role to current_user;
 -- can_see_profile() invoked by the user, fails with "permission denied for
 -- schema auth" here while working in production. Match production.
 grant usage on schema auth to anon, authenticated, service_role;
+
+-- Supabase Storage grants Data API roles table privileges and relies on RLS
+-- for object authorization. Match that hosted surface so migration policies
+-- can be exercised on plain PostgreSQL.
+grant usage on schema storage to anon, authenticated, service_role;
+grant select, insert, update, delete on storage.objects to authenticated;
+grant all on storage.objects to service_role;
 
 -- Hosted Supabase also ships ALTER DEFAULT PRIVILEGES that grant EXECUTE on
 -- every newly created function in `public` to these three roles BY NAME

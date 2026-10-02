@@ -10,8 +10,9 @@ import { provisionOwner } from '@/lib/provision';
 import { createApiAuthClient } from '@/lib/gym-signup';
 import { validatePassword } from '@/lib/auth/password';
 import {
-  clearPendingChallenge, establishSession, hasTrustedDevice, issueChallenge, readPendingChallenge,
-  rememberDevice, twoFactorRequiredForUser, twoFactorTargetByEmail, verifyPendingCode,
+  clearPendingChallenge, establishSession, grantTrustedSession, issueChallenge, readPendingChallenge,
+  rememberDevice, revokeCurrentPrivilegedSession, trustedDeviceForUser,
+  twoFactorRequiredForUser, twoFactorTargetByEmail, verifyPendingCode,
 } from '@/lib/auth/two-factor';
 import { isWellFormedCode } from '@/lib/two-factor';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
@@ -65,7 +66,8 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   // for a wrong password, so this can't be used to enumerate staff accounts.
   const target = await twoFactorTargetByEmail(email);
 
-  if (target?.required && !(await hasTrustedDevice(target.userId))) {
+  const precheckedDeviceId = target?.required ? await trustedDeviceForUser(target.userId) : null;
+  if (target?.required && !precheckedDeviceId) {
     // Verify the password WITHOUT establishing cookies. A session created
     // before the second factor is a session an attacker holding the password
     // could lift straight out of their own browser and use against PostgREST,
@@ -81,7 +83,7 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signedIn, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return friendlySignInError(error.message);
 
   // Safety net: the pre-check resolves the account by profiles.email, so an
@@ -89,12 +91,26 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   // slip past it. Now that the user id is known for certain, ask again — and
   // if the answer is yes, drop the session we just created and challenge.
   const { data: { user } } = await supabase.auth.getUser();
-  if (user && !target?.required && await twoFactorRequiredForUser(user.id)) {
-    if (!(await hasTrustedDevice(user.id))) {
+  if (!user) {
+    await supabase.auth.signOut();
+    return { error: 'Could not validate this sign-in. Please try again.' };
+  }
+  if (user && await twoFactorRequiredForUser(user.id)) {
+    const trustedDeviceId = precheckedDeviceId ?? await trustedDeviceForUser(user.id);
+    if (!trustedDeviceId) {
       await supabase.auth.signOut();
       const issued = await issueChallenge({ userId: user.id, email: user.email ?? email });
       if (!issued.ok) return { error: issued.error ?? 'Could not send your sign-in code.' };
       redirect('/verify');
+    }
+    if (!signedIn.session) {
+      await supabase.auth.signOut();
+      return { error: 'Could not verify this sign-in session. Please sign in again.' };
+    }
+    const proof = await grantTrustedSession(supabase, user.id, signedIn.session, trustedDeviceId);
+    if (!proof.ok) {
+      await supabase.auth.signOut();
+      return { error: proof.error ?? 'Could not complete two-factor verification.' };
     }
   }
 
@@ -181,7 +197,7 @@ export async function verifyTwoFactor(_prev: TwoFactorState, formData: FormData)
   const result = await verifyPendingCode(code);
   if (!result.ok) return { error: result.error };
 
-  const session = await establishSession(result.email);
+  const session = await establishSession(result.userId, result.email);
   if (!session.ok) return { error: session.error ?? 'Could not complete sign-in.' };
 
   if (trust) await rememberDevice(result.userId);
@@ -304,6 +320,7 @@ export async function signOut() {
   // itself throws NEXT_REDIRECT by design, so it stays OUTSIDE the try/catch.
   try {
     const supabase = await createClient();
+    await revokeCurrentPrivilegedSession();
     await supabase.auth.signOut();
   } catch { /* revoke is best-effort; the cookie clear below still signs them out */ }
   try {

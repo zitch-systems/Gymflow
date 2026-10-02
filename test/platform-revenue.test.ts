@@ -49,6 +49,19 @@ beforeAll(async () => {
               ($1, 60000, 'successful', $2::date - 400, $2::date - 370)`,
       [IDS.gymA, watMonthStartISO()],
     );
+
+    await c.query(
+      `insert into public.payments
+         (gym_id, amount, refunded_amount, currency, status, payment_status, paystack_reference)
+       values ($1, 1000, 250, 'NGN', 'success', 'successful', 'rev-partial')`,
+      [IDS.gymA],
+    );
+    await c.query(
+      `insert into public.platform_payments
+         (gym_id, amount, refunded_amount, payment_status, billing_period_start, billing_period_end)
+       values ($1, 10000, 2500, 'successful', $2::date, $2::date + 30)`,
+      [IDS.gymA, watMonthStartISO()],
+    );
   });
 });
 
@@ -57,8 +70,16 @@ describe('platform_revenue_summary', () => {
     const s = await summaryAs(ADMIN);
     const rows = await superSum(`select count(*) as n from public.payments where payment_status = 'successful'`);
     expect(rows).toBeGreaterThan(1000);
-    expect(s.memberGmv).toBe(await superSum(`select coalesce(sum(amount), 0) as n from public.payments where payment_status = 'successful'`));
-    expect(s.platformAllTime).toBe(await superSum(`select coalesce(sum(amount), 0) as n from public.platform_payments where payment_status = 'successful'`));
+    expect(s.memberGmv).toBe(await superSum(`select coalesce(sum(amount-refunded_amount), 0) as n from public.payments where payment_status = 'successful'`));
+    expect(s.platformAllTime).toBe(await superSum(`select coalesce(sum(amount-refunded_amount), 0) as n from public.platform_payments where payment_status = 'successful'`));
+  });
+
+  it('subtracts partial refunds while leaving gross charges immutable', async () => {
+    const s = await summaryAs(ADMIN);
+    const memberGross = await superSum(`select coalesce(sum(amount), 0) as n from public.payments where payment_status = 'successful'`);
+    const platformGross = await superSum(`select coalesce(sum(amount), 0) as n from public.platform_payments where payment_status = 'successful'`);
+    expect(memberGross - s.memberGmv).toBe(250);
+    expect(platformGross - s.platformAllTime).toBe(2500);
   });
 
   it('buckets by WAT month, ending with the current one', async () => {
@@ -69,7 +90,7 @@ describe('platform_revenue_summary', () => {
     expect(s.memberMonthly.at(-1)?.month).toBe(current);
 
     const thisMonth = await superSum(
-      `select coalesce(sum(amount), 0) as n from public.payments
+      `select coalesce(sum(amount-refunded_amount), 0) as n from public.payments
        where status = any (array['success','successful','completed','paid'])
          and payment_date >= ($1::date::timestamp at time zone 'Africa/Lagos')`,
       [watMonthStartISO()],
@@ -79,7 +100,7 @@ describe('platform_revenue_summary', () => {
 
     // The 400-day-old platform charge is outside the 12 buckets but inside all-time.
     expect(s.platformThisMonth).toBe(await superSum(
-      `select coalesce(sum(amount), 0) as n from public.platform_payments
+      `select coalesce(sum(amount-refunded_amount), 0) as n from public.platform_payments
        where payment_status = 'successful' and billing_period_start >= $1::date`,
       [watMonthStartISO()],
     ));
@@ -89,10 +110,10 @@ describe('platform_revenue_summary', () => {
   it('runs as the caller: a gym owner only sees their own gym through RLS', async () => {
     const s = await summaryAs(IDS.ownerA);
     expect(s.memberGmv).toBe(await superSum(
-      `select coalesce(sum(amount), 0) as n from public.payments where payment_status = 'successful' and gym_id = $1`,
+      `select coalesce(sum(amount-refunded_amount), 0) as n from public.payments where payment_status = 'successful' and gym_id = $1`,
       [IDS.gymA],
     ));
-    const all = await superSum(`select coalesce(sum(amount), 0) as n from public.payments where payment_status = 'successful'`);
+    const all = await superSum(`select coalesce(sum(amount-refunded_amount), 0) as n from public.payments where payment_status = 'successful'`);
     expect(s.memberGmv).toBeLessThan(all);
   });
 

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
 import { csvFilename, toCsv } from '@/lib/csv';
 import { chunksOf, readBoundedPages } from '@/lib/paged-query';
+import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -16,7 +17,7 @@ const EXPORT_LIMIT = 5000;
 const VAT_RATE = 0.075;
 
 type Payment = {
-  id: string; amount: number | null; currency: string | null; paystack_reference: string | null;
+  id: string; amount: number | null; refunded_amount: number | null; currency: string | null; paystack_reference: string | null;
   payment_method: string | null; payment_date: string | null; created_at: string | null;
   payment_status: string | null; plan_id: string | null; member_id: string | null;
 };
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
 
   const page = await readBoundedPages((pageFrom, pageTo) => {
     let q = supabase.from('payments')
-      .select('id, amount, currency, paystack_reference, payment_method, payment_date, created_at, payment_status, plan_id, member_id')
+      .select('id, amount, refunded_amount, currency, paystack_reference, payment_method, payment_date, created_at, payment_status, plan_id, member_id')
       .eq('gym_id', gym.id)
       .order('payment_date', { ascending: false }).order('id', { ascending: false });
     if (status) q = q.eq('payment_status', status);
@@ -69,15 +70,15 @@ export async function GET(req: Request) {
   const planById = new Map((plans ?? []).map((p) => [p.id, p.name]));
 
   const money = (n: number) => n.toFixed(2);
-  const header = ['Date', 'Reference', 'Member', 'Email', 'Description', 'Method', 'Currency', 'Amount (gross)', 'Net (ex 7.5% VAT)', 'VAT (7.5%)', 'Status'];
+  const header = ['Date', 'Reference', 'Member', 'Email', 'Description', 'Method', 'Currency', 'Amount (gross)', 'Refunded amount', 'Revenue after refunds (VAT incl.)', 'Net revenue (ex 7.5% VAT)', 'VAT on net revenue (7.5%)', 'Status'];
   const body = payments.map((p) => {
     const prof = p.member_id ? profById.get(p.member_id) : undefined;
-    const gross = Number(p.amount ?? 0);
-    const settled = p.payment_status === 'successful';
+    const amounts = paymentAmounts(p);
+    const settled = p.payment_status === 'successful' || p.payment_status === 'refunded';
     // Only realised (settled) revenue carries a VAT breakdown; pending/failed
     // rows leave those columns blank so totals aren't overstated.
-    const net = settled ? gross / (1 + VAT_RATE) : null;
-    const vat = settled && net != null ? gross - net : null;
+    const exVat = settled ? amounts.net / (1 + VAT_RATE) : null;
+    const vat = settled && exVat != null ? amounts.net - exVat : null;
     return [
       (p.payment_date ?? p.created_at ?? '').slice(0, 10),
       p.paystack_reference ?? '',
@@ -86,10 +87,12 @@ export async function GET(req: Request) {
       (p.plan_id && planById.get(p.plan_id)) || 'Payment',
       p.payment_method ?? 'Paystack',
       p.currency ?? 'NGN',
-      money(gross),
-      net == null ? '' : money(net),
+      money(amounts.gross),
+      money(amounts.refunded),
+      settled ? money(amounts.net) : '',
+      exVat == null ? '' : money(exVat),
       vat == null ? '' : money(vat),
-      p.payment_status ?? '',
+      paymentStatusLabel(p),
     ];
   });
 
@@ -102,7 +105,7 @@ export async function GET(req: Request) {
     body.push([
       '', '', '', '',
       `EXPORT TRUNCATED — only the most recent ${EXPORT_LIMIT} payments are included. Narrow the range with ?from=YYYY-MM-DD&to=YYYY-MM-DD to export the rest.`,
-      '', '', '', '', '', '',
+      '', '', '', '', '', '', '', '',
     ]);
   }
 

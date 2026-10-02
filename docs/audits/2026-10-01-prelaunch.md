@@ -1,3 +1,5 @@
+> **Follow-up, 2 October 2026:** This document preserves the original critical audit. The approved remediation is described in [the release notes](2026-10-02-release.md); [the issue register](2026-10-01-issues.csv) now records the fixes and remaining verification. Original open-status statements below describe the audited baseline.
+
 # GymFlow critical prelaunch audit
 
 **Audit date:** 1 October 2026 (UTC; membership calendar Africa/Lagos / WAT).  

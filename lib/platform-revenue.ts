@@ -1,5 +1,6 @@
-// Totals from public.platform_revenue_summary, aggregated in Postgres so they
-// are not capped by PostgREST's max-rows the way summing fetched rows was.
+// Net totals (immutable gross minus refunded_amount) from
+// public.platform_revenue_summary, aggregated in Postgres so they are not
+// capped by PostgREST's max-rows the way summing fetched rows was.
 
 export type MonthTotal = { month: string; total: number };
 

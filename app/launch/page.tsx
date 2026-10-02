@@ -6,6 +6,7 @@ import { healJoin } from '@/lib/actions/join';
 import { sa } from '@/lib/superadmin-path';
 import { gymLaunchUrl, memberBelongsOnGymSite } from '@/lib/web-signin';
 import { FinishSetup } from './finish-setup';
+import { requirePrivilegedSession } from '@/lib/auth/dal';
 
 // Post-login role router. signIn redirects here after a successful sign-in.
 // Uses ONE Supabase client for both auth and the role lookups so the queries
@@ -35,9 +36,15 @@ export default async function Launch() {
 
   // The console's URL is configured per deployment, so this is the one place a
   // platform admin learns it — and only after they've proved they are one.
-  if (pa) redirect(sa());
+  if (pa) {
+    await requirePrivilegedSession(user);
+    redirect(sa());
+  }
   const staffRoles = ((staffLinks ?? []) as { role: string | null }[]).map((l) => l.role);
-  if (staffRoles.length > 0) redirect(staffRoles.some((r) => r && r !== 'instructor') ? '/admin' : '/coach');
+  if (staffRoles.length > 0) {
+    await requirePrivilegedSession(user);
+    redirect(staffRoles.some((r) => r && r !== 'instructor') ? '/admin' : '/coach');
+  }
 
   if (member) {
     // Members belong on their gym's page, not on GymFlow's website. This covers

@@ -954,9 +954,10 @@ body { font-family: var(--gf-font-body); background: var(--gf-bg); color: var(--
     position: fixed; top: 0; left: 0; bottom: 0; height: 100dvh;
     width: min(300px, 84vw); z-index: 70;
     transform: translateX(-105%); transition: transform 0.25s ease;
+    visibility: hidden; pointer-events: none;
     box-shadow: var(--gf-shadow-lg);
   }
-  .app.nav-open > .gf-sidebar { transform: translateX(0); }
+  .app.nav-open > .gf-sidebar { transform: translateX(0); visibility: visible; pointer-events: auto; }
   .nav-burger {
     display: inline-flex; align-items: center; justify-content: center;
     width: 38px; height: 38px; flex-shrink: 0;

@@ -6,14 +6,13 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate } from '@/lib/format';
 import { sa } from '@/lib/superadmin-path';
 import { monthLabel, parseRevenueSummary } from '@/lib/platform-revenue';
+import { parsePlatformGymSummary, type ReportingRpcClient } from '@/lib/reporting';
 
 export const metadata = { title: 'Platform overview' };
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const PAID = ['success', 'successful', 'completed', 'paid'];
-
-type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
 
 const GYM_FILTERS = [['all', 'All'], ['active', 'Active'], ['trial', 'Trial'], ['past_due', 'Past due']] as const;
 
@@ -23,20 +22,15 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
   const gymFilter = GYM_FILTERS.find(([k]) => k === sp.f)?.[0] ?? 'all';
   const supabase = await createClient();
 
-  const [{ count: members }, { count: activeSubs }, { data: gymRows }, revenueRes, { data: recent }] = await Promise.all([
-    supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('is_active', true),
-    supabase.from('member_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-    supabase.from('gyms').select('id, name, subscription_status'),
-    (supabase as unknown as RpcClient).rpc('platform_revenue_summary', { p_months: 12 }),
-    supabase.from('payments').select('amount, payment_date, gym_id, status').in('status', PAID).order('payment_date', { ascending: false }).limit(5),
+  const rpc = supabase as unknown as ReportingRpcClient;
+  const [gymSummaryRes, revenueRes, { data: recent }] = await Promise.all([
+    rpc.rpc('platform_gym_summary'),
+    rpc.rpc('platform_revenue_summary', { p_months: 12 }),
+    supabase.from('payments').select('amount, payment_date, gym_id, status, gyms(name)').in('status', PAID).order('payment_date', { ascending: false }).limit(5),
   ]);
-
-  const gymList = gymRows ?? [];
-  const gymName = new Map(gymList.map((g) => [g.id, g.name]));
-  const gyms = gymList.length;
-  const activeGyms = gymList.filter((g) => (g.subscription_status ?? 'trial') === 'active').length;
-  const trial = gymList.filter((g) => (g.subscription_status ?? 'trial') === 'trial').length;
-  const pastDue = gymList.filter((g) => g.subscription_status === 'past_due').length;
+  if (gymSummaryRes.error) throw new Error(`platform_gym_summary failed: ${gymSummaryRes.error.message}`);
+  const gymSummary = parsePlatformGymSummary(gymSummaryRes.data);
+  const { gyms, activeGyms, trialGyms: trial, pastDueGyms: pastDue, members, activeSubscriptions: activeSubs } = gymSummary;
 
   // Trailing-12-month revenue series, summed in Postgres (a fetched row list is
   // capped at PostgREST's max-rows).
@@ -84,7 +78,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
           {(recent ?? []).length === 0 ? (
             <div className="empty sm"><h3>No activity yet</h3><p>Payments across gyms will appear here.</p></div>
           ) : (recent ?? []).map((a, i) => (
-            <div className="act-row" key={i}><div className="ic" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)' }}><Banknote strokeWidth={1.9} /></div><div className="m"><strong>{fmtNaira(Number(a.amount ?? 0))} received</strong><small>{gymName.get(a.gym_id ?? '') ?? 'Gym'}</small></div><span className="t">{fmtDate(a.payment_date)}</span></div>
+            <div className="act-row" key={i}><div className="ic" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)' }}><Banknote strokeWidth={1.9} /></div><div className="m"><strong>{fmtNaira(Number(a.amount ?? 0))} received</strong><small>{(a as unknown as { gyms: { name: string } | null }).gyms?.name ?? 'Gym'}</small></div><span className="t">{fmtDate(a.payment_date)}</span></div>
           ))}
         </div>
       </section>

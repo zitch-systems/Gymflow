@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { watDateISO } from '@/lib/format';
-import { extendDate, renewalBase, type PlanDuration } from '@/lib/plan-duration';
+import { coverageEnd, type PlanDuration } from '@/lib/plan-duration';
 
 // The shared rules for a member's subscription row: which statuses count as
 // live, whether a standing card mandate already exists, and the ONE way to add
@@ -68,8 +68,11 @@ export function hasLiveMandate(subs: MandateRow[] | null | undefined): boolean {
  * auto-renew off (the disable call can never succeed) nor turn it back on (the
  * guard sees a live mandate) — a permanent dead end with no self-serve way out.
  */
-export function mandateGoneAtPaystack(res: { status?: number }): boolean {
-  return typeof res.status === 'number' && res.status >= 400 && res.status < 500;
+export function mandateGoneAtPaystack(res: { status?: number; error?: string }): boolean {
+  // Authentication, rate limiting and other 4xx responses do not prove that
+  // the card mandate has ended. Only an explicit missing-subscription response does.
+  return (res.status === 400 || res.status === 404) &&
+    /(?:subscription.*(?:not found|does not exist|invalid code)|(?:not found|does not exist).*subscription)/i.test(res.error ?? '');
 }
 
 export type ExtendResult = { ok: true; endDate: string } | { ok: false; error: string; code?: string };
@@ -154,10 +157,10 @@ export async function grantMemberPeriod(
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
   if (sub) return extendMemberSub(sb, sub.id, period, fields);
 
-  // Nothing live to stack onto — start the period today. renewalBase(null) is
-  // today, so this is the same rule the RPC applies with nothing to stack on.
+  // Nothing live to stack onto — start the period on today's WAT calendar
+  // date. end_date is inclusive, so a one-day plan also ends today.
   const today = new Date(`${watDateISO()}T00:00:00Z`);
-  const endIso = extendDate(renewalBase(null, today), period).toISOString().slice(0, 10);
+  const endIso = coverageEnd(today, period).toISOString().slice(0, 10);
   const { error } = await sb.from('member_subscriptions').insert({
     gym_id: who.gymId, member_id: who.memberId, plan_id: fields.planId ?? null,
     status: 'active', trainer_addon: fields.trainerAddon ?? false,

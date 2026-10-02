@@ -193,14 +193,27 @@ describe('a mandate Paystack has already dropped', () => {
   // email_token we can no longer produce) could neither cancel — the disable
   // call can never succeed — nor opt back in. Permanent, with no self-serve way
   // out, and the refusal copy told them to do the one thing that cannot work.
-  it('is what a 4xx from Paystack means, and only a 4xx', () => {
-    for (const status of [400, 404, 422]) {
-      expect(mandateGoneAtPaystack({ status }), `${status} means Paystack has nothing to disable`).toBe(true);
+  it('requires an explicit missing-subscription response, not merely a 4xx', () => {
+    for (const res of [
+      { status: 400, error: 'Subscription not found' },
+      { status: 404, error: 'Subscription has invalid code' },
+      { status: 404, error: 'The requested subscription does not exist' },
+    ]) {
+      expect(mandateGoneAtPaystack(res), JSON.stringify(res)).toBe(true);
     }
-    // 5xx and a dropped connection are the opposite case: Paystack may well
-    // still be billing that card, so the local flag must NOT be cleared on the
-    // strength of them.
-    for (const res of [{ status: 500 }, { status: 502 }, {}]) {
+    // Authentication, authorization, throttling, validation, server failures,
+    // and a dropped connection never prove that Paystack stopped the mandate.
+    for (const res of [
+      { status: 400, error: 'Bad request' },
+      { status: 401, error: 'Subscription not found' },
+      { status: 403, error: 'Subscription not found' },
+      { status: 404, error: 'Route not found' },
+      { status: 422, error: 'Subscription not found' },
+      { status: 429, error: 'Subscription not found' },
+      { status: 500, error: 'Subscription not found' },
+      { status: 502 },
+      {},
+    ]) {
       expect(mandateGoneAtPaystack(res), `${JSON.stringify(res)} must stay a loud failure`).toBe(false);
     }
   });
@@ -224,12 +237,14 @@ describe('the auto-renew opt-in refuses a second mandate', () => {
   const src = readFileSync(resolve(__dirname, '..', 'lib/actions/member-billing.ts'), 'utf8');
 
   it('checks for an existing mandate before it asks Paystack for a new one', () => {
-    // Order is the whole property: a check after initSubscription would be a
-    // subscription Paystack has already created and will already bill.
+    // Order is the whole property: both the existing-mandate check and the
+    // durable reservation must happen before Paystack can create a mandate.
     const guard = src.indexOf('hasLiveMandate(');
+    const reserve = src.indexOf('await reserveAutoRenewalCheckout(');
     const init = src.indexOf('await initSubscription(');
     expect(guard).toBeGreaterThan(-1);
-    expect(init).toBeGreaterThan(guard);
+    expect(reserve).toBeGreaterThan(guard);
+    expect(init).toBeGreaterThan(reserve);
   });
 
   it('answers it from the member’s own live subscription rows', () => {

@@ -3,7 +3,7 @@ import { commissionColumns, type SplitRecord } from '@/lib/paystack-split';
 import type { PlanDuration } from '@/lib/plan-duration';
 
 type RpcClient = { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
-export type MemberChargeResult = { ok: true; created: boolean; paymentId: string; endDate: string | null }
+export type MemberChargeResult = { ok: true; created: boolean; paymentId: string; endDate: string | null; refunded?: boolean }
   | { ok: false; error: string };
 
 // Payment and paid access commit together. A duplicate reference can only see
@@ -21,9 +21,9 @@ export async function settleMemberCharge(sb: SupabaseClient, input: {
     p_commission: commissionColumns(input.split ?? null), p_subscription_id: input.subscriptionId ?? null,
   });
   if (error) return { ok: false, error: error.message };
-  const row = data as { created?: unknown; payment_id?: unknown; end_date?: unknown } | null;
+  const row = data as { created?: unknown; payment_id?: unknown; end_date?: unknown; refunded?: unknown } | null;
   if (!row || typeof row.created !== 'boolean' || typeof row.payment_id !== 'string') {
     return { ok: false, error: 'Payment fulfillment returned no confirmed result.' };
   }
-  return { ok: true, created: row.created, paymentId: row.payment_id, endDate: typeof row.end_date === 'string' ? row.end_date : null };
+  return { ok: true, created: row.created, paymentId: row.payment_id, endDate: typeof row.end_date === 'string' ? row.end_date : null, refunded: row.refunded === true };
 }

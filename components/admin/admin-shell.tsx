@@ -60,7 +60,7 @@ type Identity = {
 
 export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, userRole, userInitial, roleKey = '', gyms = [], activeGymId = '', pendingFreezes = 0 }: { children: React.ReactNode } & Identity) {
   const pathname = usePathname() ?? '';
-  const nav = useMobileNav(pathname);
+  const { open, drawerOpen, drawerClosed, sidebarRef, burgerRef, toggle, close } = useMobileNav(pathname);
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
   const canSee = (n: Item) => !n.roles || n.roles.includes(roleKey);
   const main = NAV.filter((n) => n.section === 'Main' && canSee(n));
@@ -91,8 +91,17 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
   };
 
   return (
-    <div className={`ds-admin app${nav.open ? ' nav-open' : ''}`}>
-      <aside className="gf-sidebar">
+    <div className={`ds-admin app${open ? ' nav-open' : ''}`}>
+      <aside
+        id="console-navigation"
+        ref={sidebarRef}
+        className="gf-sidebar"
+        role={drawerOpen ? 'dialog' : undefined}
+        aria-modal={drawerOpen || undefined}
+        aria-label="Console navigation"
+        inert={drawerClosed}
+        aria-hidden={drawerClosed || undefined}
+      >
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
             <LogoMark size={28} className="mark-sm" />
@@ -129,11 +138,11 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
         </div>
       </aside>
 
-      <NavBackdrop open={nav.open} onClose={nav.close} />
+      <NavBackdrop open={open} onClose={close} />
 
       <div className="main">
         <header className="top">
-          <NavBurger open={nav.open} onClick={nav.toggle} />
+          <NavBurger open={open} onClick={toggle} buttonRef={burgerRef} />
           {/* A real form, not a decorative input: this box sat on every admin
               page doing nothing at all. GET → /admin/search, which searches
               members, classes and plans for the active gym. */}
@@ -184,8 +193,8 @@ export function AdminShell({ children, gymName, gymMeta, gymInitial, userName, u
             : { href: '/admin/classes', label: 'Classes', icon: CalendarDays },
           { href: '/admin/operations', label: 'Facility', icon: Wrench },
         ] satisfies ConsoleTab[]}
-        moreOpen={nav.open}
-        onMore={nav.toggle}
+        moreOpen={open}
+        onMore={toggle}
       />
     </div>
   );

@@ -1,4 +1,7 @@
-// Rolling per-gym commission rows up into what the platform console shows.
+// Rolling per-gym refund-adjusted commission estimates up into what the
+// platform console shows. Paystack's actual commission reversal is not
+// independently verified; both percentage and flat recorded commission use
+// the explicit proportional policy: original commission × net / gross.
 //
 // Deliberately NOT 'server-only': the arithmetic is the part that has been wrong
 // before (today's rate × all historical volume; platform_only float counted as
@@ -49,7 +52,7 @@ export type GymCommission = {
 };
 
 export type CommissionBreakdown = {
-  /** Commission actually kept, across every gym in the window. */
+  /** Proportional refund-adjusted commission estimate across the window. */
   total: number;
   fromPercentage: number;
   fromFlat: number;
@@ -120,9 +123,17 @@ export function rateLabel(row: Pick<GymCommissionRow, 'commission_mode' | 'commi
  * quoting the fallback rate against the gym's whole GMV, which on a ₦10m book
  * overstated a ₦500-per-payment deal by more than double.
  */
-export function estimatedCommission(a: Arrangement, volume: { gmv: number; payments: number }): number {
-  if (a.mode === 'fixed') return num(a.fixed) * volume.payments;
+export function estimatedCommission(a: Arrangement, volume: { gmv: number; payments: number; paymentEquivalents?: number }): number {
+  if (a.mode === 'fixed') return num(a.fixed) * (volume.paymentEquivalents ?? volume.payments);
   return volume.gmv * (num(a.pct) / 100);
+}
+
+/** Apply the reporting policy to a recorded commission after a refund. */
+export function refundAdjustedCommission(recorded: number | string | null, gross: number | string | null, refunded: number | string | null): number {
+  const grossAmount = num(gross);
+  if (grossAmount <= 0) return 0;
+  const netAmount = Math.max(grossAmount - Math.min(Math.max(num(refunded), 0), grossAmount), 0);
+  return num(recorded) * (netAmount / grossAmount);
 }
 
 /**
@@ -140,7 +151,7 @@ export function isDefaultArrangement(a: Arrangement, defaultPct: number): boolea
 /**
  * Roll the per-gym rows up into the console's breakdown.
  *
- * `limit` caps the rendered list only. Every total is summed over ALL rows and
+ * `limit` caps the rendered list only. Every estimate is summed over ALL rows and
  * the omitted ones are reported (hiddenGyms / hiddenCommission) so a shortened
  * table can never be mistaken for the whole book.
  */

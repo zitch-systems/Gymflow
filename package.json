@@ -12,7 +12,10 @@
     "test:watch": "vitest",
     "db:migrate": "node scripts/migrate.mjs",
     "db:migrate:dry": "node scripts/migrate.mjs --dry-run",
-    "db:baseline": "node scripts/migrate.mjs --baseline"
+    "db:baseline": "node scripts/migrate.mjs --baseline",
+    "dr:backup": "node scripts/dr-backup.mjs",
+    "dr:verify": "node scripts/dr-restore.mjs",
+    "dr:restore": "node scripts/dr-restore.mjs --restore"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

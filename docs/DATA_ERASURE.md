@@ -75,6 +75,13 @@ update public.profiles
        nok_name = null, nok_relationship = null, nok_phone = null, nok_address = null
  where id = :subject;
 
+-- Health notes moved out of profiles into a protected profile-level table.
+-- Remove the note and its subject audit trail; if the erased person acted on
+-- somebody else's note, detach their actor id as well.
+delete from public.profile_health_note_audit where member_id = :subject;
+update public.profile_health_note_audit set actor_id = null where actor_id = :subject;
+delete from public.profile_health_notes where member_id = :subject;
+
 -- Stored card tokens — no retention basis once the person is gone.
 delete from public.saved_cards where member_id = :subject;
 

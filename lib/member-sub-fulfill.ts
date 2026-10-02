@@ -359,6 +359,7 @@ async function onRecurringCharge(admin: Admin, data: Json): Promise<Result> {
   if (paidSubError || !paidSub) return { ok: false, handled: true, error: 'Could not bind paid member mandate' };
   const { error: codeErr } = await admin.from('member_subscriptions').update(codePatch).eq('id', paidSub.id);
   if (codeErr) return { ok: false, handled: true, error: `subscription code bind failed: ${codeErr.message}` };
+  if (settled.refunded) return { ok: false, handled: true, permanent: true, error: 'Charge was already refunded; verify and stop the provider mandate before resuming renewal' };
   if (!settled.created) return { ok: true, handled: true };
   const newEnd = settled.endDate!;
 

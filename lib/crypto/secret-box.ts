@@ -64,7 +64,9 @@ export function secretHint(plaintext: string): string {
 }
 
 // ── One-way codes ──────────────────────────────────────────────────────────
-// Email OTPs are stored as SHA-256 and compared in constant time. They are
+// Email OTPs are stored as SHA-256. Browser OTP paths compare in constant time;
+// the WhatsApp path submits the hash to an atomic database consume function.
+// They are
 // short-lived, single-use, six digits, and rate-limited by an attempt counter,
 // so a fast hash is the right choice — a slow KDF here would only add latency
 // to every verification without changing what an attacker can do.

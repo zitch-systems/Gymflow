@@ -17,14 +17,14 @@ target as achieved until one measures it.
 
 | Asset | Restorable from repo? | Source |
 |---|---|---|
-| Database schema (35 tables, enums, functions, triggers, view) | ✅ | `supabase/migrations/00000000000000_baseline_schema.sql` |
+| Database schema (tables, enums, functions, triggers, views) | ✅ | baseline plus ordered `supabase/migrations/*` |
 | RLS policies (95) + role grants | ✅ | same baseline + incremental migrations |
 | Incremental schema changes | ✅ | `supabase/migrations/2026*.sql`, sorted order |
 | App code + config | ✅ | this repo (`main`) |
-| **Data** (rows: gyms, members, payments…) | ❌ | Supabase backups only (§5). Note the per-gym backup product (`gym_backups`, `/api/cron/backups`) is a tenant-facing export, not a DR asset — and it skips gyms whose status is `suspended`/`terminated`, so a switched-off tenant stops accumulating extracts from the moment it goes off. Loading one back is a manual operator procedure with real hazards (no credentials in the file, ids that collide): `docs/RESTORE.md`. |
+| **Data + Auth identities** (public/auth/storage rows) | ✅ when an encrypted operator artifact exists | `pnpm dr:backup` creates a portable, encrypted data-only dump (§2a). Dashboard backups/PITR remain the primary same-project recovery path. |
 | **Secrets** (service-role key, Paystack keys, CRON_SECRET) | ❌ | Vercel env + password manager (§4) |
 | Paystack objects (plans, subaccounts, subscriptions, recipients) | ❌ | live in Paystack; codes are cached in DB columns and recoverable from the Paystack dashboard |
-| `gym-assets` storage bucket contents | ❌ | Operator-managed off-site object copy. Supabase database backups preserve Storage metadata, not the objects; none is implemented in this repo. |
+| Storage bucket objects | ✅ when an encrypted operator artifact exists | `pnpm dr:backup` downloads every object into the encrypted artifact; the database dump carries Storage metadata. |
 
 The schema-restore path below is exercised **on every CI run**: the test
 harness (`test/setup/global.ts`) rebuilds a database from the baseline + all
@@ -80,28 +80,60 @@ incrementals before any test executes. If CI is green, the rebuild path works.
   use Supabase Dashboard → Database → Backups → restore, or PITR to a
   timestamp just before the incident. Nothing else to do — schema and data
   restore together.
-- **New-project recovery**: restore the latest operator-managed logical backup
-  (`supabase db dump --data-only` / `pg_dump` artifact) **after** §1, with
-  triggers disabled during load. Do not assume a dashboard backup is
-  downloadable: current physical backups and PITR restores are restored by the
-  platform, while a portable new-project artifact must be created and retained
-  separately.
-
-  ```bash
-  psql "$NEW_DB_URL" -c 'set session_replication_role = replica;' \
-       -f data_dump.sql
-  ```
-
-  `session_replication_role = replica` prevents the membership-sync and
-  audit triggers from double-firing while rows are replayed.
+- **New-project recovery**: apply the schema from §1, then use the encrypted,
+  isolated restore in §2a. Do not assume a dashboard backup is downloadable:
+  current physical backups and PITR restore within the platform, while a
+  portable new-project artifact must be created and retained separately.
 - **From a per-gym backup zip** (one tenant lost their data, the project is
   fine): follow `docs/RESTORE.md`. It is not a substitute for either path
   above — the archive carries no credentials and no storage objects, and its
   ids need handling before anything is loaded.
-- `auth.users` is managed by Supabase Auth — use the dashboard's auth backup
-  or ask users to re-register with the same email (profiles rows survive and
-  re-link by `profiles_id_fkey` only if auth UIDs are preserved; a plain SQL
-  dump of `auth.users` keeps UIDs stable).
+- The portable artifact includes `auth.users` rows so UIDs remain stable. A
+  per-gym CSV archive does not include Auth and cannot reconstruct identities.
+
+### 2a. Portable encrypted backup and isolated restore
+
+The repository now provides a runnable portable path for the database, Auth
+rows, Storage metadata and Storage objects. It does not copy secret values;
+the artifact manifest records only whether each required secret was configured,
+plus safe public URLs. Install PostgreSQL client tools (`pg_dump`/`pg_restore`)
+and keep the passphrase in the credential manager, separate from the artifact.
+
+```bash
+export SUPABASE_DB_URL='postgresql://…'
+export NEXT_PUBLIC_SUPABASE_URL='https://<source-ref>.supabase.co'
+export SUPABASE_SERVICE_ROLE_KEY='…'
+export DR_BACKUP_PASSPHRASE='at-least-20-characters-from-the-vault'
+pnpm dr:backup -- --output ./gymflow-dr-$(date +%F).tgz.enc
+
+# Read/decrypt/authenticate the artifact and inspect its manifest. No writes.
+pnpm dr:verify -- --archive ./gymflow-dr-2026-10-02.tgz.enc
+```
+
+The artifact format is `GFDR0001`: a gzip tar encrypted with AES-256-GCM. The
+key is derived with scrypt (`N=131072, r=8, p=1`), with a fresh 16-byte salt and
+12-byte IV per artifact; the 16-byte GCM tag authenticates the full archive.
+There is no plaintext fallback. Rotating the passphrase means creating and
+verifying a fresh artifact; retain an old passphrase until every artifact under
+it has expired.
+
+Restore defaults to verification. Mutation needs a different target project,
+the exact `ISOLATED_ONLY` acknowledgement, and separate target credentials:
+
+```bash
+# Apply this commit's migrations to a fresh, isolated project first.
+export DR_RESTORE_DB_URL='postgresql://…isolated target…'
+export DR_RESTORE_SUPABASE_URL='https://<different-ref>.supabase.co'
+export DR_RESTORE_SERVICE_ROLE_KEY='…target only…'
+export DR_RESTORE_ACK=ISOLATED_ONLY
+pnpm dr:restore -- --archive ./gymflow-dr-2026-10-02.tgz.enc
+```
+
+The restore refuses the source API host and fails on row collisions instead of
+upserting older data over a live tenant. It restores rows and objects, then
+prints the remaining project settings/secrets checklist. This tooling makes a
+rehearsal runnable; it does **not** certify the RTO/RPO. Record a timed isolated
+restore plus the §6 checks in §7 before claiming either target.
 
 ## 3. Redeploy the app
 
@@ -132,6 +164,8 @@ the repo:
 | `SUPABASE_AUTH_HOOK_SECRET` / `RESEND_WEBHOOK_SECRET` | branded auth mail, bounce ledger | hook 501s and Supabase's default templates take over; bounces stop being suppressed |
 | `TERMII_API_KEY` | WhatsApp/SMS reminders (Growth+) | WhatsApp sends skipped (fail-open) |
 | `SENTRY_DSN` | server error forwarding + CSP reports | errors land in `client_errors` only |
+| `SECRETS_ENCRYPTION_KEY` | encrypts provider keys and queued webhook bodies | webhook ingestion returns 503 rather than persist replay credentials in plaintext |
+| `DR_BACKUP_PASSPHRASE` | encrypts portable DR artifacts (operator environment) | `dr:backup`/`dr:verify` refuse to run |
 
 Repo-side (GitHub → Settings → Secrets → Actions), not Vercel:
 

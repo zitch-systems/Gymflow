@@ -92,6 +92,7 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
     trainerAddon, method: d.channel ?? 'paystack', split: d.split,
   });
   if (!settled.ok) return { ok: false, created: false, error: settled.error };
+  if (settled.refunded) return { ok: true, created: false };
   if (!settled.created) return { ok: true, created: false };
   const payRow = { id: settled.paymentId };
   const endIso = settled.endDate!;

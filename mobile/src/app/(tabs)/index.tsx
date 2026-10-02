@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Avatar, Badge, Body, Button, Card, EmptyState, ErrorState, Group, Heading, Loading, Row, SectionTitle, c } from '@/components/ui';
+import { Avatar, Badge, Body, Button, Card, EmptyState, ErrorState, Group, Heading, Loading, Row, SectionTitle, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { dayMonth, firstName, initial, plural, shortDate, time12 } from '@/lib/format';
 import { radius, space } from '@/theme';
@@ -15,7 +15,7 @@ const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // Mon..Sun, as on the w
 // quick actions, then the week, then the numbers.
 export default function HomeScreen() {
   const router = useRouter();
-  const { data, error, loading, refreshing, refresh } = useResource<Home>('/api/app/me');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<Home>('/api/app/me');
 
   if (loading && !data) return <Screen><Loading label="Loading your gym…" /></Screen>;
   if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;
@@ -34,6 +34,7 @@ export default function HomeScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       {/* Header */}
       <View style={styles.header}>
         <Avatar label={initial(member.full_name, member.email)} />
@@ -196,7 +197,13 @@ export default function HomeScreen() {
 
 function QuickAction({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={styles.quickItem} android_ripple={{ color: 'rgba(255,255,255,0.06)', borderless: false }}>
+    <Pressable
+      onPress={onPress}
+      style={styles.quickItem}
+      android_ripple={{ color: 'rgba(255,255,255,0.06)', borderless: false }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <View style={styles.quickTile}><Ionicons name={icon} size={20} color={c.brand} /></View>
       <Body size={11.5} tone="secondary">{label}</Body>
     </Pressable>

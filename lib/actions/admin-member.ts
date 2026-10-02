@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAudit } from '@/lib/audit';
 import { splitName, normalizeNgPhone, firstName, fmtDate, daysLeft, watDateISO } from '@/lib/format';
-import { grantMemberPeriod } from '@/lib/member-sub-core';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
 import { deliverDoorEvent } from '@/lib/notify';
 import {
@@ -73,28 +72,6 @@ async function planFor(supabase: SupabaseClient, gymId: string, planId: string |
   const { data } = await supabase
     .from('membership_plans').select('name, price').eq('id', planId).eq('gym_id', gymId).maybeSingle();
   return data ? { name: (data.name as string | null) ?? null, price: Number(data.price ?? 0) } : null;
-}
-
-// Extend the member's latest subscription by the plan duration (or create one).
-// Returns the new end date (YYYY-MM-DD): the member-facing mail these callers
-// send has to state what the member actually bought, and re-reading the row to
-// find out invites a race with a concurrent renewal.
-async function extendSubscription(supabase: SupabaseClient, gymId: string, memberId: string, planId: string): Promise<string> {
-  // Scope the plan to THIS gym — never trust a plan_id from the form to belong
-  // to the caller's gym. A foreign plan id would otherwise leak another gym's
-  // plan duration into this member's subscription.
-  const { data: plan } = await supabase.from('membership_plans').select('duration_days, duration_months').eq('id', planId).eq('gym_id', gymId).maybeSingle();
-  if (!plan) throw new Error('Plan not found in this gym.');
-  const dur = { duration_days: plan?.duration_days ?? null, duration_months: plan?.duration_months ?? null };
-  // Extends the latest ACTIVE sub, or starts one. The period is added inside
-  // the UPDATE (see lib/member-sub-core.ts): a cash renewal taken at the desk
-  // while the member's card charge is settling used to overwrite whichever
-  // period was written first, so the gym had two payments and the member had
-  // one month. Still the caller's own RLS client — msub_update_staff decides
-  // whether this staff member may write this gym's rows, not the function.
-  const extended = await grantMemberPeriod(supabase, { gymId, memberId }, dur, { planId });
-  if (!extended.ok) throw new Error(extended.error);
-  return extended.endDate;
 }
 
 // True when the member has an active subscription that hasn't expired today
@@ -259,7 +236,14 @@ export async function redeemCheckinCode(_prev: ActionState, formData: FormData):
       gym_id: gym.id, member_id: memberId,
       checked_in_at: nowIso, status: 'active', check_in_method: 'code',
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (error.code === '23505' && await openVisit(supabase, gym.id, memberId)) {
+        revalidatePath('/admin/staff-checkin');
+        revalidatePath(`/admin/members/${memberId}`);
+        return { ok: true, error: null, message: `${name} is already checked in.` };
+      }
+      return { ok: false, error: error.message };
+    }
     // This is the path the member asked for by reading out a code, so the
     // confirmation closes the loop they opened in the WhatsApp thread.
     deliverDoorEvent({ memberId, gymId: gym.id, action: 'checked_in', daysLeft: await daysLeftFor(supabase, gym.id, memberId) });
@@ -271,144 +255,74 @@ export async function redeemCheckinCode(_prev: ActionState, formData: FormData):
   }
 }
 
-export async function recordPayment(_prev: ActionState, formData: FormData): Promise<ActionState> {
+// One RPC commits the ledger, coverage, receipt identity and audit together.
+// Retrying after an ambiguous network response uses the same receipt and UUID.
+async function saveStaffPayment(formData: FormData, renewal: boolean): Promise<ActionState> {
   const memberId = String(formData.get('memberId') ?? '');
-  const amount = Number(formData.get('amount') ?? 0);
-  const method = String(formData.get('method') ?? 'cash');
   const planId = String(formData.get('planId') ?? '') || null;
-  const extend = formData.get('extend') === 'on';
-  if (!amount || amount <= 0) return { ok: false, error: 'Enter a valid amount.' };
+  const operationId = String(formData.get('operationId') ?? '');
+  const receiptReference = String(formData.get('receiptReference') ?? '').trim();
+  const reason = String(formData.get('reason') ?? '').trim();
+  const method = String(formData.get('method') ?? 'cash');
+  const extend = renewal || formData.get('extend') === 'on';
+  const amount = renewal ? null : Number(formData.get('amount'));
+  if (!UUID_RE.test(operationId) || !receiptReference || receiptReference.length > 120)
+    return { ok: false, error: 'Enter the receipt number or bank reference for this payment.' };
+  if (reason.length < 3 || reason.length > 500) return { ok: false, error: 'Enter a short payment reason.' };
   if (!PAYMENT_METHODS.has(method)) return { ok: false, error: 'Invalid payment method.' };
+  if (extend && !planId) return { ok: false, error: 'Choose a plan to extend membership.' };
+  if (amount !== null && (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount * 100))))
+    return { ok: false, error: 'Enter a valid amount.' };
   try {
-    const { gymId, gym, supabase, actorId } = await ctx(memberId);
-    // 'offline': cash or a transfer taken at the desk. The platform never
-    // touched this money and earns no commission on it, which is a different
-    // thing from earning zero — so the settlement is stated and the commission
-    // figures stay null. Staff cannot write those figures at all (the migration
-    // revokes the column privilege), so this can't be used to inflate what the
-    // platform appears to have earned from a gym.
-    // `as never`: the commission columns postdate database.types.ts.
-    const { data: paymentRow, error } = await supabase.from('payments').insert({
-      gym_id: gymId, member_id: memberId, plan_id: planId, amount, currency: 'NGN',
-      payment_method: method, status: 'success', payment_status: 'successful',
-      payment_date: new Date().toISOString(), paystack_reference: `MANUAL-${Date.now()}-${(globalThis.crypto as Crypto).randomUUID()}`,
-      platform_settlement: 'offline',
-    } as never).select('id').single();
-    if (error) return { ok: false, error: error.message };
-    // Atomic-ish "payment + extend": if extend throws (transient RPC error /
-    // RLS quirk / 42883 mid-deploy) we roll back the payment row we just
-    // inserted, so a staff retry doesn't end up with TWO payments recorded
-    // for one real receipt (each attempt was minting a fresh MANUAL-…
-    // reference, so the unique index couldn't catch it). Payments-then-extend
-    // stays in that order because extend needs the paying member's live sub
-    // present; on failure we delete by the just-returned id, not by
-    // reference, so an unrelated concurrent insert can't be collateral.
-    let newEnd: string | null = null;
-    if (extend && planId) {
-      try {
-        newEnd = await extendSubscription(supabase, gymId, memberId, planId);
-      } catch (e) {
-        const rowId = (paymentRow as { id: string } | null)?.id;
-        if (rowId) {
-          // Use the service-role client: the ledger-integrity migration
-          // revokes DELETE on public.payments from authenticated (no app
-          // code should reach that verb through a user session), so an
-          // authenticated-session delete would fail with 42501 and leave
-          // the orphan row behind. The insert we're reversing is scoped
-          // by id — we're not opening a broader delete surface here.
-          const admin = createAdminClient();
-          const { error: undoErr } = await admin.from('payments').delete().eq('id', rowId).eq('gym_id', gymId);
-          if (undoErr) console.warn(`[recordPayment] extend failed AND rollback failed for ${rowId}: ${undoErr.message}`);
-        }
-        return { ok: false, error: `Could not extend the membership — payment not recorded. ${(e as Error).message}` };
-      }
+    const { gymId, gym, supabase } = await ctx(memberId);
+    const { data, error } = await supabase.rpc('record_staff_payment' as never, {
+      p_operation_id: operationId, p_gym_id: gymId, p_member_id: memberId,
+      p_receipt: receiptReference, p_amount_kobo: amount === null ? null : Math.round(amount * 100),
+      p_method: method, p_plan_id: planId, p_extend: extend, p_reason: reason,
+    } as never);
+    if (error) {
+      console.error('[staff-payment] save not confirmed:', error.code);
+      const rejected = ['22023', '42501', '23503'].includes(error.code ?? '');
+      return { ok: false, error: rejected ? error.message : 'We could not confirm the save. Retry with the same receipt number; do not take another payment.' };
     }
-    const { error: nErr } = await supabase.from('notifications').insert({
-      gym_id: gymId, user_id: memberId, type: 'payment', channel: 'in_app',
-      title: 'Payment received', body: `₦${amount.toLocaleString('en-NG')} payment recorded. Thank you!`,
-    });
-    if (nErr) console.warn(`[recordPayment] notification failed: ${nErr.message}`); // payment itself recorded
-    logAudit({ action: 'payment_recorded', table: 'payments', actorId: actorId, gymId, recordId: memberId, values: { amount, method, planId, extend } });
-
-    // Cash and bank transfer are how most Nigerian gyms actually get paid, and
-    // until now those payments left the member with nothing at all — every
-    // emailed receipt on the platform came from a Paystack charge. Best-effort:
-    // the money is already recorded and a mail failure must not undo it.
+    const saved = data as unknown as { created: boolean; payment_id: string; end_date: string | null; amount_kobo: number };
+    if (!saved || typeof saved.created !== 'boolean' || !saved.payment_id || !Number.isSafeInteger(Number(saved.amount_kobo)))
+      return { ok: false, error: 'We could not confirm the save. Retry with the same receipt number; do not take another payment.' };
+    revalidatePath(`/admin/members/${memberId}`);
+    revalidatePath('/admin/analytics');
+    if (!saved.created) return { ok: true, error: null, message: 'This receipt is already recorded. Membership was not extended again.' };
+    const paid = Number(saved.amount_kobo) / 100;
+    // Delivery is supplementary. The durable receipt/audit already committed.
     try {
+      const { error: notificationError } = await supabase.from('notifications').insert({
+        gym_id: gymId, user_id: memberId, type: 'payment', channel: 'in_app',
+        title: 'Payment received', body: `₦${paid.toLocaleString('en-NG')} payment recorded. Receipt: ${receiptReference}.`,
+      });
+      if (notificationError) console.warn('[staff-payment] receipt notification failed:', notificationError.code);
       const to = await mailTarget(supabase, memberId);
       if (to) {
         const plan = await planFor(supabase, gymId, planId);
         const spec = MEMBER_TEMPLATES.receipt;
-        await sendGymEmail({
-          gym, to, template: spec.template, category: spec.category,
-          ...receipt({
-            gymName: gym.name,
-            firstName: firstName(to.fullName),
-            amountNaira: amount,
-            method: RECEIPT_METHOD[method] ?? 'cash',
-            planName: plan?.name ?? null,
-            // Dated from the WAT calendar day, not the UTC server one: a payment
-            // taken at 00:30 in Lagos is not yesterday's on the member's receipt.
-            paidOn: fmtDate(watDateISO()),
-            endDate: newEnd ? fmtDate(newEnd) : null,
-            // paystack_reference here is an internal idempotency key
-            // (MANUAL-<epoch>-<uuid>) — nobody reads that off a receipt, and the
-            // amount and date are what identify the payment at the desk.
-            reference: null,
-            dashboardUrl: memberAppUrl(gym),
-          }),
+        await sendGymEmail({ gym, to, template: spec.template, category: spec.category,
+          ...receipt({ gymName: gym.name, firstName: firstName(to.fullName), amountNaira: paid,
+            method: RECEIPT_METHOD[method] ?? 'cash', planName: plan?.name ?? null,
+            paidOn: fmtDate(watDateISO()), endDate: saved.end_date ? fmtDate(saved.end_date) : null,
+            reference: receiptReference, dashboardUrl: memberAppUrl(gym) }),
         });
       }
-    } catch { /* receipt is a bonus channel — never fails the payment */ }
-
-    revalidatePath(`/admin/members/${memberId}`);
-    return { ok: true, error: null, message: extend && planId ? 'Payment recorded and membership extended.' : 'Payment recorded.' };
+    } catch { /* committed money must never be undone by delivery failure */ }
+    return { ok: true, error: null, message: extend ? 'Payment recorded and membership extended.' : 'Payment recorded.' };
   } catch (e) {
-    return { ok: false, error: (e as Error).message };
+    console.error('[staff-payment] save interrupted:', (e as Error).name);
+    return { ok: false, error: 'We could not confirm the save. Retry with the same receipt number; do not take another payment.' };
   }
 }
 
+export async function recordPayment(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return saveStaffPayment(formData, false);
+}
 export async function renewMembership(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const memberId = String(formData.get('memberId') ?? '');
-  const planId = String(formData.get('planId') ?? '');
-  if (!planId) return { ok: false, error: 'Choose a plan.' };
-  try {
-    const { gymId, gym, supabase, actorId } = await ctx(memberId);
-    const newEnd = await extendSubscription(supabase, gymId, memberId, planId);
-    logAudit({ action: 'membership_renewed', table: 'member_subscriptions', actorId, gymId, recordId: memberId, values: { planId } });
-
-    // A front-desk renewal: staff picked a priced plan and confirmed it, which
-    // in this market means the member handed over the money at the counter. The
-    // receipt states the plan price and — the part they actually want — the date
-    // their membership now runs to. Method is the desk default: staff who took a
-    // card or a transfer record it through Record payment, which carries the
-    // real one. Best-effort; the membership is already extended.
-    try {
-      const to = await mailTarget(supabase, memberId);
-      if (to) {
-        const plan = await planFor(supabase, gymId, planId);
-        const spec = MEMBER_TEMPLATES.receipt;
-        await sendGymEmail({
-          gym, to, template: spec.template, category: spec.category,
-          ...receipt({
-            gymName: gym.name,
-            firstName: firstName(to.fullName),
-            amountNaira: plan?.price ?? 0,
-            method: 'cash',
-            planName: plan?.name ?? null,
-            paidOn: fmtDate(watDateISO()),
-            endDate: fmtDate(newEnd),
-            dashboardUrl: memberAppUrl(gym),
-          }),
-        });
-      }
-    } catch { /* receipt is a bonus channel — never fails the renewal */ }
-
-    revalidatePath(`/admin/members/${memberId}`);
-    return { ok: true, error: null, message: 'Membership renewed.' };
-  } catch (e) {
-    return { ok: false, error: (e as Error).message };
-  }
+  return saveStaffPayment(formData, true);
 }
 
 export async function setMemberActive(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -469,7 +383,6 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
   const fullName = String(formData.get('full_name') ?? '').trim().slice(0, 120);
   const email = String(formData.get('email') ?? '').trim().slice(0, 254) || null;
   const phone = normalizeNgPhone(String(formData.get('phone') ?? ''));
-  const planId = String(formData.get('planId') ?? '') || null;
   if (!fullName) return { ok: false, error: 'Enter the member’s name.' };
   if (!phone) return { ok: false, error: 'Enter a valid phone number (e.g. 080 1234 5678).' };
 
@@ -489,8 +402,7 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
     });
     if (lErr) return { ok: false, error: lErr.message };
 
-    const newEnd = planId ? await extendSubscription(supabase, gym.id, newId, planId) : null;
-    logAudit({ action: 'member_added', table: 'profiles', actorId: user.id, gymId: gym.id, recordId: newId, values: { planId } });
+    logAudit({ action: 'member_added', table: 'profiles', actorId: user.id, gymId: gym.id, recordId: newId });
 
     // Email is the ONLY channel that reaches a managed member. Their profiles.id
     // is a UUID we minted above, not an auth.users id, so there is no account to
@@ -500,7 +412,6 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
     // Best-effort, and last: the member exists either way.
     try {
       if (email && process.env.RESEND_API_KEY) {
-        const plan = planId ? await planFor(supabase, gym.id, planId) : null;
         const spec = MEMBER_TEMPLATES.welcome;
         await sendGymEmail({
           gym,
@@ -514,8 +425,8 @@ export async function addMember(_prev: ActionState, formData: FormData): Promise
             firstName: firstName(fullName),
             dashboardUrl: memberAppUrl(gym),
             memberCode: gym.member_code,
-            planName: plan?.name ?? null,
-            endDate: newEnd ? fmtDate(newEnd) : null,
+            planName: null,
+            endDate: null,
           }),
         });
       }

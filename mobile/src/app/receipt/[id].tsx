@@ -3,19 +3,15 @@ import { useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Body, Button, Card, ErrorState, Group, Loading, Row, c } from '@/components/ui';
+import { Body, Button, Card, ErrorState, Group, Loading, Row, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { naira, shortDate } from '@/lib/format';
 import { space } from '@/theme';
 import type { Receipt } from '@/api/types';
 
-const STATUS_LABEL: Record<string, string> = {
-  successful: 'Successful', pending: 'Pending', failed: 'Failed', refunded: 'Refunded',
-};
-
 export default function ReceiptScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data, error, loading, refreshing, refresh } = useResource<{ receipt: Receipt }>(`/api/app/wallet/${id}`);
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<{ receipt: Receipt }>(`/api/app/wallet/${id}`);
 
   if (loading && !data) return <Screen><Loading /></Screen>;
   if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;
@@ -24,12 +20,14 @@ export default function ReceiptScreen() {
   const r = data.receipt;
   const ok = r.status === 'successful';
   const pending = r.status === 'pending';
+  const refund = r.refund_state !== 'none';
 
   const share = () => {
     void Share.share({
       message: [
         `${r.gym} — payment receipt`,
-        `${naira(r.amount)} · ${r.plan}`,
+        `${naira(r.amount)} net · ${r.plan}`,
+        ...(refund ? [`${naira(r.refunded_amount)} refunded from ${naira(r.gross_amount)}`] : []),
         `${shortDate(r.date)} · ${r.method}`,
         `Reference: ${r.reference}`,
       ].join('\n'),
@@ -38,16 +36,18 @@ export default function ReceiptScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       <Card style={styles.hero}>
         <View style={[
           styles.ring,
-          !ok && !pending && { backgroundColor: c.dangerSoft, borderColor: c.danger },
+          !ok && !pending && !refund && { backgroundColor: c.dangerSoft, borderColor: c.danger },
+          refund && { backgroundColor: c.warningSoft, borderColor: c.warning },
           pending && { backgroundColor: c.warningSoft, borderColor: c.warning },
         ]}>
           <Ionicons
-            name={ok ? 'checkmark' : pending ? 'time-outline' : 'close'}
+            name={refund ? 'arrow-down-outline' : ok ? 'checkmark' : pending ? 'time-outline' : 'close'}
             size={36}
-            color={ok ? c.brand : pending ? c.warning : c.danger}
+            color={refund ? c.warning : ok ? c.brand : pending ? c.warning : c.danger}
           />
         </View>
         <Body size={30} weight="800" style={{ marginTop: space.lg }}>{naira(r.amount)}</Body>
@@ -56,7 +56,10 @@ export default function ReceiptScreen() {
 
       <View style={{ marginTop: space.lg }}>
         <Group>
-          <Row title="Status" right={<Body weight="600" tone={ok ? 'success' : pending ? 'warning' : 'danger'}>{STATUS_LABEL[r.status ?? ''] ?? r.status ?? '—'}</Body>} />
+          <Row title="Status" right={<Body weight="600" tone={refund || pending ? 'warning' : ok ? 'success' : 'danger'}>{r.status_label}</Body>} />
+          {refund ? <Row title="Original charge" right={<Body weight="600">{naira(r.gross_amount)}</Body>} /> : null}
+          {refund ? <Row title="Refunded" right={<Body weight="600" tone="warning">{naira(r.refunded_amount)}</Body>} /> : null}
+          {refund ? <Row title="Net paid" right={<Body weight="600">{naira(r.amount)}</Body>} /> : null}
           <Row title="Date" right={<Body weight="600">{shortDate(r.date)}</Body>} />
           <Row title="Method" right={<Body weight="600">{r.method}</Body>} />
           <Row title="Gym" right={<Body weight="600">{r.gym}</Body>} />

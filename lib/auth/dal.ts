@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { gymLaunchUrl, memberBelongsOnGymSite } from '@/lib/web-signin';
 import { sa } from '@/lib/superadmin-path';
 import type { Database } from '@/lib/database.types';
+import { issueChallenge, readPendingChallenge } from '@/lib/auth/two-factor';
 
 type Gym = Database['public']['Tables']['gyms']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -41,6 +42,22 @@ export async function requireAuth() {
   if (!user) redirect('/login');
   return user;
 }
+
+/** Require the current exact Auth session to carry a recent server-side proof.
+ * Call only after an own-link lookup has established that this is staff/admin;
+ * members must not receive staff challenges merely for visiting a wrong URL. */
+export const requirePrivilegedSession = cache(async (user: NonNullable<Awaited<ReturnType<typeof getUser>>>) => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('privileged_session_verified' as never);
+  if (!error && data === true) return;
+
+  const pending = await readPendingChallenge();
+  if (!pending || pending.userId !== user.id) {
+    const issued = await issueChallenge({ userId: user.id, email: user.email ?? '' });
+    if (!issued.ok) throw new Error(issued.error ?? 'Two-factor verification is unavailable.');
+  }
+  redirect('/verify');
+});
 
 // ── Role gates ───────────────────────────────────────────────────────────
 // Routes are flat (no /[slug]); we resolve the user's gym from their links.
@@ -129,6 +146,7 @@ const resolveStaff = cache(async (roles?: readonly string[]): Promise<{ user: No
   // Signed-in but not staff (or wrong role here) → /launch picks their real
   // surface; bouncing to /login used to trap signed-in users in a redirect loop.
   if (eligible.length === 0) redirect('/launch');
+  await requirePrivilegedSession(user);
   // Honour the active-gym cookie when it points at an eligible gym; else first.
   const activeId = await readActiveGymCookie();
   const chosen = eligible.find((l) => l.gym_id === activeId) ?? eligible[0];
@@ -161,6 +179,7 @@ export const getStaffGyms = cache(async (roles?: readonly string[]): Promise<{ g
   const ids = (roles ? all.filter((l) => roles.includes(l.role ?? '')) : all)
     .map((l) => l.gym_id).filter((id): id is string => !!id);
   if (ids.length === 0) return { gyms: [], activeId: '' };
+  await requirePrivilegedSession(user);
   const { data: gymRows } = await supabase.from('gyms').select('id, name').in('id', ids);
   const nameById = new Map((gymRows ?? []).map((g) => [g.id, g.name]));
   const gyms = ids.map((id) => ({ id, name: nameById.get(id) ?? 'Gym' }));
@@ -219,5 +238,6 @@ export const requirePlatformAdmin = cache(async () => {
   // to do with a platform-admin account. Landing there reads as "you've been
   // thrown out of the console back to the normal site".
   if (!data) redirect(sa('/login?denied=platform'));
+  await requirePrivilegedSession(user);
   return user;
 });

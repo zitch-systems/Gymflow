@@ -1,6 +1,6 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { listTransactions, getTransfer, getSubaccount, updateSubaccountCommission } from '@/lib/paystack';
+import { listTransactionsPage, getTransfer, getSubaccount, updateSubaccountCommission } from '@/lib/paystack';
 import { missingLocally, unknownAtPaystack, chunk, planGymSplitFix, type SubaccountLookupStatus } from '@/lib/reconcile-core';
 import { ensureSubaccount, syncGymFromActive, type PayoutAccount } from '@/lib/payout-sync';
 import { logAudit } from '@/lib/audit';
@@ -11,6 +11,7 @@ import type { EmailContent } from '@/lib/email';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
 import { getContact, type EmailContact } from '@/lib/email/recipients';
 import { payoutCompleted, payoutFailed } from '@/lib/email/templates/platform';
+import { enqueueReconciledCharges } from '@/lib/webhook-recovery';
 
 // Daily Paystack ↔ DB reconciliation (called from the cron). Webhooks are the
 // primary delivery channel and Paystack retries them, but retries are finite —
@@ -45,70 +46,174 @@ export type ReconcileSummary = {
   unknownAtPaystack: number;
   payoutsResolved: number;
   gymSplitsFixed: number;
+  complete?: boolean;
+  phase?: 'provider' | 'local';
   error?: string;
 };
 
-const WINDOW_MS = 48 * 60 * 60 * 1000; // catch anything the last two runs missed
 const LOG_CAP = 25; // per-run audit-entry cap so a systemic outage can't flood audit_logs
+const PROVIDER_PAGES_PER_RUN = 4;
+const LOCAL_PAGES_PER_RUN = 5;
+const PAGE_SIZE = 200;
 const GYM_SPLIT_RECHECK_MS = 7 * 24 * 60 * 60 * 1000; // revisit every subaccount gym at least weekly
 const GYM_SPLIT_CAP = 25; // bounded — each candidate costs a Paystack round-trip, shares the cron's 60s budget
 
+type ReconcileCursor = {
+  from: string;
+  to: string;
+  phase: 'provider' | 'local';
+  providerPage: number;
+  localTable: 'payments' | 'platform_payments';
+  localAfterId: string | null;
+};
+
+async function readReconcileCursor(admin: Admin): Promise<ReconcileCursor> {
+  const { data, error } = await admin.from('operational_job_state' as never)
+    .select('cursor, watermark').eq('job_name', 'paystack_reconciliation').maybeSingle();
+  if (error) throw new Error(`could not read reconciliation checkpoint: ${error.message}`);
+  const row = data as unknown as { cursor?: Partial<ReconcileCursor>; watermark?: string | null } | null;
+  const cursor = row?.cursor;
+  if (cursor?.from && cursor?.to && (cursor.phase === 'provider' || cursor.phase === 'local')) {
+    return {
+      from: cursor.from,
+      to: cursor.to,
+      phase: cursor.phase,
+      providerPage: Math.max(1, Number(cursor.providerPage ?? 1)),
+      localTable: cursor.localTable === 'platform_payments' ? 'platform_payments' : 'payments',
+      localAfterId: typeof cursor.localAfterId === 'string' ? cursor.localAfterId : null,
+    };
+  }
+  // The initial pass deliberately starts before Paystack existed. It may take
+  // several bounded invocations, but there is no hidden 48-hour launch gap.
+  return {
+    from: row?.watermark ?? '2000-01-01T00:00:00.000Z',
+    to: new Date(Date.now() - 5 * 60_000).toISOString(),
+    phase: 'provider',
+    providerPage: 1,
+    localTable: 'payments',
+    localAfterId: null,
+  };
+}
+
+async function saveReconcileCursor(admin: Admin, cursor: ReconcileCursor, watermark?: string): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await admin.from('operational_job_state' as never).upsert({
+    job_name: 'paystack_reconciliation', cursor,
+    ...(watermark ? { watermark } : {}),
+    last_heartbeat_at: now, updated_at: now,
+  } as never, { onConflict: 'job_name' });
+  if (error) throw new Error(`could not save reconciliation checkpoint: ${error.message}`);
+}
+
 export async function reconcilePayments(admin: Admin): Promise<ReconcileSummary> {
-  const from = new Date(Date.now() - WINDOW_MS);
-  const listed = await listTransactions({ from, status: 'success' });
-  if (!listed.ok) return { ran: false, checked: 0, missingLocally: 0, unknownAtPaystack: 0, payoutsResolved: 0, gymSplitsFixed: 0, error: listed.error };
+  const cursor = await readReconcileCursor(admin);
+  let checked = 0;
+  let missingCount = 0;
+  let unknownCount = 0;
 
-  const paystackRefs = listed.transactions.map((t) => t.reference);
-  const amounts = new Map(listed.transactions.map((t) => [t.reference, t.amountKobo]));
+  if (cursor.phase === 'provider') {
+    for (let pass = 0; pass < PROVIDER_PAGES_PER_RUN; pass++) {
+      const listed = await listTransactionsPage({
+        from: new Date(cursor.from), to: new Date(cursor.to), status: 'success',
+        page: cursor.providerPage, perPage: PAGE_SIZE,
+      });
+      if (!listed.ok) return { ran: false, checked, missingLocally: missingCount, unknownAtPaystack: 0, payoutsResolved: 0, gymSplitsFixed: 0, phase: 'provider', error: listed.error };
 
-  // Match precisely by reference (chunked .in()) instead of by a parallel time
-  // window — local recording time and Paystack paid_at can straddle the edge.
-  const localRefs = new Set<string>();
-  for (const slice of chunk(paystackRefs, 150)) {
-    const [{ data: mem }, { data: plat }] = await Promise.all([
-      admin.from('payments').select('paystack_reference').in('paystack_reference', slice),
-      admin.from('platform_payments').select('paystack_reference').in('paystack_reference', slice),
-    ]);
-    for (const r of mem ?? []) if (r.paystack_reference) localRefs.add(r.paystack_reference);
-    for (const r of plat ?? []) if (r.paystack_reference) localRefs.add(r.paystack_reference);
+      const paystackRefs = listed.transactions.map((t) => t.reference);
+      checked += paystackRefs.length;
+      if (listed.transactions.length) {
+        const { error: seenError } = await admin.from('paystack_reconciliation_refs' as never).upsert(
+          listed.transactions.map((t) => ({ reference: t.reference, paid_at: t.paidAt, observed_at: new Date().toISOString() })) as never,
+          { onConflict: 'reference' },
+        );
+        if (seenError) throw new Error(`could not persist provider references: ${seenError.message}`);
+      }
+
+      const localRefs = new Set<string>();
+      for (const slice of chunk(paystackRefs, 150)) {
+        const [{ data: mem, error: memError }, { data: plat, error: platError }] = await Promise.all([
+          admin.from('payments').select('paystack_reference').in('paystack_reference', slice),
+          admin.from('platform_payments').select('paystack_reference').in('paystack_reference', slice),
+        ]);
+        if (memError || platError) throw new Error(`local reference lookup failed: ${(memError ?? platError)?.message}`);
+        for (const r of mem ?? []) if (r.paystack_reference) localRefs.add(r.paystack_reference);
+        for (const r of plat ?? []) if (r.paystack_reference) localRefs.add(r.paystack_reference);
+      }
+
+      const missing = missingLocally(paystackRefs, localRefs);
+      missingCount += missing.length;
+      if (missing.length) {
+        await enqueueReconciledCharges(admin, missing);
+        for (const ref of missing.slice(0, LOG_CAP)) {
+          void logAudit({ action: 'reconciliation_missing_payment', table: 'payments', values: { paystack_reference: ref } });
+        }
+        await captureServerEvent('reconciliation: Paystack charges missing locally', { count: missing.length, reference: missing[0] });
+      }
+
+      cursor.providerPage++;
+      if (listed.complete) {
+        cursor.phase = 'local';
+        cursor.localTable = 'payments';
+        cursor.localAfterId = null;
+        await saveReconcileCursor(admin, cursor);
+        break;
+      }
+      await saveReconcileCursor(admin, cursor);
+    }
+    if (cursor.phase === 'provider') {
+      return { ran: true, checked, missingLocally: missingCount, unknownAtPaystack: 0, payoutsResolved: 0, gymSplitsFixed: 0, complete: false, phase: 'provider' };
+    }
   }
 
-  const missing = missingLocally(paystackRefs, localRefs);
-  for (const ref of missing.slice(0, LOG_CAP)) {
-    void logAudit({
-      action: 'reconciliation_missing_payment',
-      table: 'payments',
-      values: { paystack_reference: ref, amount_kobo: amounts.get(ref) ?? null },
-    });
-  }
-  if (missing.length) {
-    void captureServerEvent('reconciliation: Paystack charges missing locally', {
-      count: missing.length, sample: missing.slice(0, 10),
-    });
+  for (let pass = 0; pass < LOCAL_PAGES_PER_RUN; pass++) {
+    const table = cursor.localTable;
+    let query = admin.from(table).select('id, paystack_reference')
+      .gte('created_at', cursor.from).lte('created_at', cursor.to)
+      .not('paystack_reference', 'is', null).order('id', { ascending: true }).limit(PAGE_SIZE);
+    if (cursor.localAfterId) query = query.gt('id', cursor.localAfterId);
+    const { data, error } = await query;
+    if (error) throw new Error(`could not page ${table}: ${error.message}`);
+    const rows = (data ?? []) as Array<{ id: string; paystack_reference: string | null }>;
+    const refs = rows.map((r) => r.paystack_reference).filter((r): r is string => Boolean(r));
+    const seen = new Set<string>();
+    for (const slice of chunk(refs, 150)) {
+      const { data: known, error: knownError } = await admin.from('paystack_reconciliation_refs' as never)
+        .select('reference').in('reference', slice);
+      if (knownError) throw new Error(`could not compare local references: ${knownError.message}`);
+      for (const row of (known ?? []) as unknown as Array<{ reference: string }>) seen.add(row.reference);
+    }
+    const unknown = unknownAtPaystack(refs, seen);
+    unknownCount += unknown.length;
+    for (const ref of unknown.slice(0, LOG_CAP)) {
+      void logAudit({ action: 'reconciliation_unknown_reference', table, values: { paystack_reference: ref } });
+    }
+    if (unknown.length) await captureServerEvent('reconciliation: local references unknown at Paystack', { count: unknown.length, reference: unknown[0] });
+
+    if (rows.length === PAGE_SIZE) {
+      cursor.localAfterId = rows[rows.length - 1].id;
+      await saveReconcileCursor(admin, cursor);
+      continue;
+    }
+    if (table === 'payments') {
+      cursor.localTable = 'platform_payments';
+      cursor.localAfterId = null;
+      await saveReconcileCursor(admin, cursor);
+      continue;
+    }
+
+    const completedTo = cursor.to;
+    const next: ReconcileCursor = {
+      from: completedTo,
+      to: new Date(Date.now() - 5 * 60_000).toISOString(),
+      phase: 'provider', providerPage: 1, localTable: 'payments', localAfterId: null,
+    };
+    await saveReconcileCursor(admin, next, completedTo);
+    const stale = new Date(Date.now() - 14 * 86_400_000).toISOString();
+    await admin.from('paystack_reconciliation_refs' as never).delete().lt('observed_at', stale);
+    return { ran: true, checked, missingLocally: missingCount, unknownAtPaystack: unknownCount, payoutsResolved: 0, gymSplitsFixed: 0, complete: true, phase: 'local' };
   }
 
-  // Direction 2: local rows claiming a Paystack reference the window doesn't
-  // know. Query slightly INSIDE the Paystack window so edge-of-window rows
-  // can't false-positive. MANUAL-* (cash) rows are excluded in the matcher.
-  const localFrom = new Date(from.getTime() + 6 * 60 * 60 * 1000).toISOString();
-  const { data: recentLocal } = await admin.from('payments')
-    .select('paystack_reference')
-    .gte('payment_date', localFrom)
-    .not('paystack_reference', 'is', null)
-    .limit(1000);
-  const unknown = unknownAtPaystack(
-    (recentLocal ?? []).map((r) => r.paystack_reference as string),
-    new Set(paystackRefs),
-  );
-  for (const ref of unknown.slice(0, LOG_CAP)) {
-    void logAudit({
-      action: 'reconciliation_unknown_reference',
-      table: 'payments',
-      values: { paystack_reference: ref },
-    });
-  }
-
-  return { ran: true, checked: paystackRefs.length, missingLocally: missing.length, unknownAtPaystack: unknown.length, payoutsResolved: 0, gymSplitsFixed: 0 };
+  return { ran: true, checked, missingLocally: missingCount, unknownAtPaystack: unknownCount, payoutsResolved: 0, gymSplitsFixed: 0, complete: false, phase: 'local' };
 }
 
 type StuckPayout = {
@@ -389,9 +494,9 @@ export async function reconcileGymSplits(admin: Admin): Promise<number> {
 // next daily run covers the gap (the window is 2× the cadence).
 export async function runReconciliation(): Promise<ReconcileSummary> {
   const empty: ReconcileSummary = { ran: false, checked: 0, missingLocally: 0, unknownAtPaystack: 0, payoutsResolved: 0, gymSplitsFixed: 0 };
-  if (!process.env.PAYSTACK_SECRET_KEY) return empty;
+  if (!process.env.PAYSTACK_SECRET_KEY) return { ...empty, error: 'PAYSTACK_SECRET_KEY is not set' };
   let admin: Admin;
-  try { admin = createAdminClient(); } catch { return empty; }
+  try { admin = createAdminClient(); } catch (e) { return { ...empty, error: (e as Error).message }; }
 
   try {
     const summary = await reconcilePayments(admin);

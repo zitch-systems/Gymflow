@@ -9,6 +9,9 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: lint · type-check · test · build
@@ -31,13 +34,13 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 10.34.6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -103,7 +106,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Gate on secret presence
         id: gate
@@ -115,12 +118,12 @@ jobs:
           # without the secret.
           echo '::warning::SUPABASE_DB_URL is not set — the schema-drift gate did NOT run. Live schema is unverified against the checked-in migrations.'
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         if: steps.gate.outputs.on == 'true'
         with:
           version: 10.34.6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: steps.gate.outputs.on == 'true'
         with:
           node-version: 22
@@ -138,11 +141,11 @@ jobs:
       - name: Diff schema fingerprints (shadow vs live)
         if: steps.gate.outputs.on == 'true'
         env:
-          SHADOW_URL: ${{ steps.shadow.outputs.url }}
-          LIVE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SHADOW_DB_URL: ${{ steps.shadow.outputs.url }}
+          LIVE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          psql "$SHADOW_URL" -X -q -f scripts/schema-fingerprint.sql > shadow.txt
-          psql "$LIVE_URL" -X -q -f scripts/schema-fingerprint.sql > live.txt
+          FINGERPRINT_DB_URL="$SHADOW_DB_URL" FINGERPRINT_OUTPUT=shadow.txt node scripts/release-audit.mjs fingerprint
+          FINGERPRINT_DB_URL="$LIVE_DB_URL" FINGERPRINT_OUTPUT=live.txt node scripts/release-audit.mjs fingerprint
           if ! diff -u shadow.txt live.txt; then
             echo '::warning::Live schema differs from this branch'"'"'s migrations. If this PR adds a migration that is expected — the migrate job applies it on merge. Otherwise the live database has drifted.'
             exit 0
@@ -189,20 +192,22 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Require the database secret
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
+          if [ -z "$SUPABASE_DB_URL" ]; then
             echo '::error::SUPABASE_DB_URL is not set, so migrations cannot be applied to production. Add the project'"'"'s direct Postgres connection string in Settings → Secrets → Actions → SUPABASE_DB_URL.'
             exit 1
           fi
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 10.34.6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -229,16 +234,21 @@ jobs:
 
       - name: Verify live now matches the migrations
         env:
-          SHADOW_URL: ${{ steps.shadow.outputs.url }}
-          LIVE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SHADOW_DB_URL: ${{ steps.shadow.outputs.url }}
+          LIVE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          psql "$SHADOW_URL" -X -q -f scripts/schema-fingerprint.sql > shadow.txt
-          psql "$LIVE_URL" -X -q -f scripts/schema-fingerprint.sql > live.txt
+          FINGERPRINT_DB_URL="$SHADOW_DB_URL" FINGERPRINT_OUTPUT=shadow.txt node scripts/release-audit.mjs fingerprint
+          FINGERPRINT_DB_URL="$LIVE_DB_URL" FINGERPRINT_OUTPUT=live.txt node scripts/release-audit.mjs fingerprint
           if ! diff -u shadow.txt live.txt; then
             echo '::error::Migrations applied but the live schema still differs from the checked-in migrations (see diff above).'
             exit 1
           fi
           echo "Live schema matches the migrations."
+
+      - name: Audit live authorization and storage invariants
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/release-audit.mjs database
 
   # Production deploy — the step that makes migrations GATE the release.
   #
@@ -271,7 +281,7 @@ jobs:
       group: deploy-live
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # Fail loudly and by name. With the Git trigger off, a missing secret
       # means production simply stops receiving deploys — the one failure mode
@@ -291,11 +301,11 @@ jobs:
             exit 1
           fi
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 10.34.6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -306,41 +316,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # `vercel pull` answers every one of "token scoped to the wrong account",
-      # "wrong org/project id" and "whitespace pasted into a secret" with the
-      # same unhelpful line: "Could not retrieve Project Settings." Rather than
-      # guess between them one re-run at a time, print exactly enough to tell
-      # them apart — and nothing that could expose a secret.
-      #
-      # The ids are not secrets in any meaningful sense (they identify a
-      # project, they do not authorise anything), but they are stored as
-      # secrets, so only their LENGTH and non-secret prefix are printed. A value
-      # pasted with a trailing newline reads one longer than it looks:
-      #   VERCEL_ORG_ID     expected length 29, prefix "team_"
-      #   VERCEL_PROJECT_ID expected length 32, prefix "prj_"
-      # whoami/teams/projects then show what the TOKEN can actually reach: if
-      # the org the ids name is absent from that list, the token is scoped to
-      # the wrong account, whatever the ids say.
-      #
-      # continue-on-error so this never becomes the thing that fails the deploy;
-      # the real gate is the pull below.
-      - name: Diagnose Vercel access
-        continue-on-error: true
-        env:
-          ORG: ${{ secrets.VERCEL_ORG_ID }}
-          PROJ: ${{ secrets.VERCEL_PROJECT_ID }}
-          TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          echo "VERCEL_ORG_ID     length=${#ORG}  prefix=${ORG:0:5}   (expect 29 / team_)"
-          echo "VERCEL_PROJECT_ID length=${#PROJ} prefix=${PROJ:0:4}  (expect 32 / prj_)"
-          echo "VERCEL_TOKEN      length=${#TOKEN}"
-          echo "--- whoami (who the token is) ---"
-          pnpm exec vercel whoami --token="$TOKEN" || true
-          echo "--- scopes this token can reach ---"
-          pnpm exec vercel teams ls --token="$TOKEN" || true
-          echo "--- projects visible under VERCEL_ORG_ID ---"
-          pnpm exec vercel projects ls --token="$TOKEN" || true
-
       # `vercel pull` fetches the project's REAL production environment from
       # Vercel, so this build sees the same variables the Git-triggered build
       # saw. The placeholder NEXT_PUBLIC_* values used by the verify job are
@@ -350,16 +325,33 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: pnpm exec vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: pnpm exec vercel pull --yes --environment=production
+
+      # Validate the pulled values before a production artifact is built. The
+      # script emits booleans only; secret values never enter command arguments
+      # or logs, and it never creates or rotates a key.
+      - name: Validate the production environment
+        run: node --env-file=.vercel/.env.production.local scripts/release-audit.mjs environment
 
       - name: Build
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: pnpm exec vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: pnpm exec vercel build --prod
 
       - name: Deploy
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: pnpm exec vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: pnpm exec vercel deploy --prebuilt --prod
+
+      # Node loads the pulled production variables without a shell expansion,
+      # so CRON_SECRET never enters the command line or logs. The audit calls
+      # only the two idempotent recovery workers; backup routes are excluded.
+      - name: Smoke test production and authorized recovery workers
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: node --env-file=.vercel/.env.production.local scripts/release-audit.mjs http

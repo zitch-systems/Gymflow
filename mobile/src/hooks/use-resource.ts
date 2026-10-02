@@ -17,6 +17,12 @@ export type Resource<T> = {
   loading: boolean;
   /** A pull-to-refresh in flight over data that is already rendered. */
   refreshing: boolean;
+  /** When the currently rendered server payload was last fetched successfully. */
+  lastRefreshedAt: number | null;
+  /** True when a refresh failed and `data` is retained only as stale context. */
+  stale: boolean;
+  /** True when the latest request failed before receiving an HTTP response. */
+  offline: boolean;
   refresh: () => void;
   /** Replace the data locally after a mutation, without a round-trip. */
   set: (updater: (current: T) => T) => void;
@@ -27,6 +33,8 @@ export function useResource<T>(path: string): Resource<T> {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+  const [offline, setOffline] = useState(false);
 
   // Guards against a slow response landing after the screen has gone.
   const alive = useRef(true);
@@ -41,6 +49,8 @@ export function useResource<T>(path: string): Resource<T> {
       const next = await api.get<T>(path);
       if (!alive.current) return;
       setData(next);
+      setLastRefreshedAt(Date.now());
+      setOffline(false);
       setError(null);
     } catch (e) {
       if (!alive.current) return;
@@ -48,6 +58,7 @@ export function useResource<T>(path: string): Resource<T> {
       // is about to swap this screen out for sign-in. Showing an error under it
       // would just flash red on the way out.
       if (!(e instanceof ApiError && e.code === 'expired')) {
+        setOffline(e instanceof ApiError && e.code === 'offline');
         setError(e instanceof Error ? e.message : 'Something went wrong.');
       }
     } finally {
@@ -70,5 +81,15 @@ export function useResource<T>(path: string): Resource<T> {
     setData((cur) => (cur === null ? cur : updater(cur)));
   }, []);
 
-  return { data, error, loading, refreshing, refresh, set };
+  return {
+    data,
+    error,
+    loading,
+    refreshing,
+    lastRefreshedAt,
+    stale: data !== null && error !== null,
+    offline,
+    refresh,
+    set,
+  };
 }

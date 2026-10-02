@@ -75,7 +75,11 @@ const TABLES: { table: string; label: string; columns: string; order?: string; p
 // No column here may share a name with a column of either link table, or the
 // merge below would silently overwrite the link's value — which is why
 // profiles' own `is_active`, `role`, `user_id` and `member_id` are absent.
-const PEOPLE_COLUMNS = 'id, first_name, last_name, full_name, email, phone, date_of_birth, gender, address, emergency_contact_name, emergency_contact_phone, nok_name, nok_relationship, nok_phone, nok_address, health_notes, bio, specialisation, certifications, photo_url, avatar_url, waiver_signed_at';
+// Health notes are deliberately absent. This builder runs scheduled and
+// manager-accessible backups without an owner actor. A future health export
+// must be a separate owner-only, audited artifact rather than silently putting
+// sensitive notes in every general archive.
+const PEOPLE_COLUMNS = 'id, first_name, last_name, full_name, email, phone, date_of_birth, gender, address, emergency_contact_name, emergency_contact_phone, nok_name, nok_relationship, nok_phone, nok_address, bio, specialisation, certifications, photo_url, avatar_url, waiver_signed_at';
 
 // The merged shape, minus the join key. Written onto every row whether or not a
 // profile was found, so a member without one doesn't shorten the CSV header —

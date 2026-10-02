@@ -1,0 +1,67 @@
+name: Secondary apps
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - 'gymflow-meta-connector/**'
+      - '.github/workflows/secondary-apps.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'gymflow-meta-connector/**'
+      - '.github/workflows/secondary-apps.yml'
+
+concurrency:
+  group: secondary-apps-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mobile:
+    name: Mobile · locked install, audit, type, lint, Android export
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Verify Expo SDK compatibility matrix
+        run: EXPO_OFFLINE=1 npx expo install --check
+      - name: Verify Expo Router patched query compatibility
+        run: npm run test:router-compat
+      - name: Audit production graph against reviewed residual advisories
+        run: npm run audit:production
+      - run: npm run type-check
+      - run: npm run lint
+      - name: Export Android bundle
+        env:
+          EXPO_PUBLIC_API_URL: https://gymflow.ng
+        run: npx expo export --platform android --output-dir dist-ci --source-maps
+      - name: Verify Node-only build packages are absent from Android bundle
+        run: npm run audit:android-bundle
+
+  meta-connector:
+    name: Meta connector · locked install, audit, type, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gymflow-meta-connector
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gymflow-meta-connector/package-lock.json
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=moderate
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

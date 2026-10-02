@@ -1,112 +1,77 @@
-import { createHash, timingSafeEqual } from 'crypto';
-import { adminOrNull } from '@/lib/email/recipients';
-import { backupDue, rotatingDailyBatch } from '@/lib/backup-plan';
+import { cronAuthorized } from '@/lib/cron-auth';
 import { runGymBackup } from '@/lib/backup-run';
+import { backupQueueHealth, claimDueBackupJobs, finishBackupJob } from '@/lib/backup-queue';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { captureServerEvent } from '@/lib/server-error';
+import { markJobFailed, markJobStarted, markJobSucceeded } from '@/lib/operational-jobs';
+import { redactOperationalText } from '@/lib/operational-core';
 import { isOfflineGym } from '@/lib/gym-status';
 
 export const dynamic = 'force-dynamic';
-// Backups read a gym's whole operating record and zip it. That is far heavier
-// than the reminder fan-out in /api/cron, which is why this has its own route
-// and its own schedule rather than sharing that route's budget.
 export const maxDuration = 300;
 
-// How many gyms one invocation will process. The rest are picked up on the next
-// run — backupDue() compares against the last COMPLETED run, so a gym deferred
-// today is still due tomorrow rather than skipped. Without this bound a growing
-// tenant list would eventually time out mid-loop and back up nobody.
+// One archive holds an entire gym in memory. Sequential processing plus a
+// durable oldest-first queue bounds memory and lets later invocations resume.
 const MAX_PER_RUN = 20;
-const GYM_PAGE_SIZE = 1000;
 
-type BackupGym = {
-  id: string; name: string | null; backup_frequency: string | null;
-  backup_email: boolean | null; backup_last_run_at: string | null; status: string | null;
-};
-
-/** PostgREST projects commonly cap one response at 1,000 rows. Page explicitly
- * so tenants beyond that server-side cap do not silently disappear from the
- * scheduler. Ordering by the primary key makes the rotating batch stable. */
-async function enabledGyms(admin: NonNullable<ReturnType<typeof adminOrNull>>): Promise<{
-  gyms: BackupGym[]; error: { message: string } | null;
-}> {
-  const gyms: BackupGym[] = [];
-  for (let from = 0; ; from += GYM_PAGE_SIZE) {
-    const { data, error } = await admin
-      .from('gyms')
-      .select('id, name, backup_frequency, backup_email, backup_last_run_at, status')
-      .neq('backup_frequency', 'off')
-      .order('id', { ascending: true })
-      .range(from, from + GYM_PAGE_SIZE - 1);
-    if (error) return { gyms: [], error };
-    const page = (data ?? []) as BackupGym[];
-    gyms.push(...page);
-    if (page.length < GYM_PAGE_SIZE) return { gyms, error: null };
-  }
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const ha = createHash('sha256').update(a).digest();
-  const hb = createHash('sha256').update(b).digest();
-  return timingSafeEqual(ha, hb);
-}
-
-// Same contract as /api/cron: CRON_SECRET as a Bearer token, no ?secret=
-// fallback — query strings leak into access logs.
-function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const auth = req.headers.get('authorization');
-  return auth != null && safeEqual(auth, `Bearer ${secret}`);
-}
-
-/**
- * Run every gym whose backup schedule is due.
- *
- * Sequential, not parallel: each run holds a whole gym's data in memory while
- * zipping it, and several at once is how this route runs out of memory and
- * backs up nobody. Backups are not latency-sensitive.
- */
 export async function GET(req: Request) {
-  if (!authorized(req)) return new Response('Unauthorized', { status: 401 });
+  if (!cronAuthorized(req)) return new Response('Unauthorized', { status: 401 });
 
-  const admin = adminOrNull();
-  // No service-role key (preview deploys) — nothing to do, and 200 so the
-  // scheduler doesn't retry a configuration state that won't change.
-  if (!admin) return Response.json({ ok: true, skipped: 'no service role key' });
+  let admin: ReturnType<typeof createAdminClient>;
+  try { admin = createAdminClient(); }
+  catch { return Response.json({ ok: false, error: 'service role unavailable' }, { status: 503 }); }
 
-  const { gyms, error } = await enabledGyms(admin);
-  if (error) return Response.json({ ok: false, error: error.message }, { status: 500 });
+  try {
+    await markJobStarted(admin, 'gym_backups');
+    const { lockToken, jobs } = await claimDueBackupJobs(admin, MAX_PER_RUN);
+    const results = [];
+    for (const job of jobs) {
+      // The gym may be suspended after it was enqueued. The claim returns the
+      // current status so the worker does not create or email a stale archive.
+      if (isOfflineGym({ status: job.gym_status })) {
+        await finishBackupJob(admin, job, lockToken, { complete: true });
+        continue;
+      }
+      const result = await runGymBackup(job.gym_id, {
+        trigger: 'scheduled', cadence: job.backup_frequency,
+        email: job.backup_email !== false,
+      });
+      await finishBackupJob(admin, job, lockToken, {
+        complete: result.complete,
+        error: result.error ?? (result.complete ? undefined : result.problems.join('; ') || 'backup was incomplete'),
+      });
+      results.push(result);
+    }
 
-  const now = new Date();
-  const due = gyms
-    // A gym GymFlow has suspended keeps its data but stops being processed —
-    // emailing an extract to an account we've taken offline is not our call to
-    // make on their behalf.
-    .filter((g) => !isOfflineGym(g))
-    .filter((g) => backupDue(g.backup_frequency, g.backup_last_run_at, now));
+    const queue = await backupQueueHealth(admin);
+    const oldestAgeHours = queue.oldestDueAt
+      ? Math.max(0, (Date.now() - new Date(queue.oldestDueAt).getTime()) / 3_600_000)
+      : 0;
+    if (oldestAgeHours >= 48) {
+      await captureServerEvent('gym backup queue is overdue', {
+        job: 'gym_backups', count: queue.queued, status: 'overdue',
+      });
+    }
 
-  // Rotate instead of always taking the first 20. A tenant whose backup fails
-  // stays due; without rotation it can repeatedly occupy a slot and starve a
-  // later tenant forever.
-  const batch = rotatingDailyBatch(due, MAX_PER_RUN, now);
-  const results = [];
-  for (const gym of batch) {
-    results.push(await runGymBackup(gym.id, {
-      trigger: 'scheduled',
-      cadence: gym.backup_frequency ?? 'scheduled',
-      email: gym.backup_email !== false,
-    }));
+    const incomplete = results.filter((r) => !r.complete);
+    if (incomplete.length) {
+      await markJobFailed(admin, 'gym_backups', `${incomplete.length} scheduled backups remain incomplete`);
+      return Response.json({
+        ok: false, claimed: jobs.length,
+        completed: results.length - incomplete.length,
+        retrying: incomplete.map((r) => ({ gym: r.gymId, error: redactOperationalText(r.error ?? r.problems[0] ?? 'incomplete', 300) })),
+        queue: { ...queue, oldestAgeHours: Math.round(oldestAgeHours * 10) / 10 },
+      }, { status: 500 });
+    }
+
+    await markJobSucceeded(admin, 'gym_backups');
+    return Response.json({
+      ok: true, claimed: jobs.length, completed: results.length,
+      emailed: results.filter((r) => r.emailed).length,
+      queue: { ...queue, oldestAgeHours: Math.round(oldestAgeHours * 10) / 10 },
+    });
+  } catch (e) {
+    await markJobFailed(admin, 'gym_backups', e).catch(() => undefined);
+    return Response.json({ ok: false, error: 'backup worker failed' }, { status: 500 });
   }
-
-  const failed = results.filter((r) => !r.ok);
-  return Response.json({
-    ok: true,
-    due: due.length,
-    ran: results.length,
-    // Named rather than counted: a silent partial failure is the thing this
-    // whole feature exists to prevent.
-    deferred: Math.max(0, due.length - batch.length),
-    succeeded: results.filter((r) => r.ok).length,
-    failed: failed.map((r) => ({ gym: r.gymId, error: r.error })),
-    emailed: results.filter((r) => r.emailed).length,
-  });
 }

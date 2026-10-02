@@ -110,11 +110,16 @@ export type Wallet = {
     exp_month: string | number | null; exp_year: string | number | null;
     bank: string | null; is_default: boolean | null;
   }[];
-  transactions: { id: string; amount: number; status: string | null; date: string | null; method: string }[];
+  transactions: {
+    id: string; amount: number; gross_amount: number; refunded_amount: number;
+    refund_state: 'none' | 'partial' | 'full'; status: string | null;
+    status_label: string; date: string | null; method: string;
+  }[];
 };
 
 export type Receipt = {
-  id: string; amount: number; status: string | null; date: string | null;
+  id: string; amount: number; gross_amount: number; refunded_amount: number;
+  refund_state: 'none' | 'partial' | 'full'; status: string | null; status_label: string; date: string | null;
   method: string; reference: string; plan: string; gym: string;
 };
 

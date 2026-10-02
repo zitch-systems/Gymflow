@@ -205,12 +205,12 @@ describe('payment confirmations', () => {
   });
 
   it('are handed the member and gym by the webhook', () => {
-    const hook = read('app/api/paystack/webhook/route.ts');
+    const hook = read('lib/paystack-webhook.ts');
     expect(hook).toMatch(/confirmWhatsAppPayment\([\s\S]{0,400}memberId:/);
     expect(hook).toMatch(/confirmWhatsAppPayment\([\s\S]{0,400}gymId:/);
     // Still gated on `created`, so the webhook and the callback — which fire
     // near-simultaneously — cannot both message the member.
-    expect(hook).toMatch(/if \(result\.ok && result\.created\)/);
+    expect(hook).toMatch(/if \(result\.created\)/);
   });
 
   it('read as a subscription confirmation, with the details a member would want', () => {

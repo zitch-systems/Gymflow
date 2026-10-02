@@ -4,7 +4,8 @@ import {
 } from 'lucide-react';
 import { requireStaff, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, fmtDate, daysLeft, firstName, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
+import { fmtNaira, fmtDate, daysLeft, firstName, watNow } from '@/lib/format';
+import { parseGymReportingSummary, parseRosterPage, type ReportingRpcClient } from '@/lib/reporting';
 
 export const metadata = { title: 'Overview' };
 export const dynamic = 'force-dynamic';
@@ -18,82 +19,66 @@ export default async function AdminDashboard() {
   const [{ gym }, profile] = await Promise.all([requireStaff(), getProfile()]);
   const supabase = await createClient();
 
-  // Day boundaries follow WAT (UTC+1), not the server's UTC — otherwise "today"
-  // gates (check-ins count, expiring window) and the per-day revenue buckets drift
-  // for activity between 00:00–01:00 WAT. See lib/format.ts.
-  const today = watDateISO();
-  const todayStartIso = watDayStartUtc(today); // UTC instant of WAT midnight — lower bound for today's check-ins
-  const weekAhead = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
-  // 7 WAT day keys, oldest → today, one per revenue bar.
-  const dayKeys = Array.from({ length: 7 }, (_, i) => watDateISO(new Date(Date.now() - (6 - i) * 86_400_000)));
-  const revSinceIso = watDayStartUtc(dayKeys[0]); // fetch from the start of the earliest WAT bucket day
-
-  const [
-    { count: members }, { count: checkins }, { data: expiring }, { data: pay },
-    { data: links }, { data: feed }, { data: schedules },
-  ] = await Promise.all([
-    supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('is_active', true),
-    supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).gte('checked_in_at', todayStartIso),
-    supabase.from('member_subscriptions').select('id, member_id, end_date, membership_plans(name)').eq('gym_id', gym.id).eq('status', 'active').gte('end_date', today).lte('end_date', weekAhead).order('end_date', { ascending: true }).limit(5),
-    supabase.from('payments').select('amount, payment_date').eq('gym_id', gym.id).eq('payment_status', 'successful').gte('payment_date', revSinceIso),
-    supabase.from('gym_member_links').select('user_id, member_id, joined_at').eq('gym_id', gym.id).order('joined_at', { ascending: false }).limit(4),
+  const rpc = supabase as unknown as ReportingRpcClient;
+  const [summaryRes, recentRes, expiringRes, { data: feed }, { data: schedules }] = await Promise.all([
+    rpc.rpc('gym_reporting_summary', { p_gym_id: gym.id }),
+    rpc.rpc('gym_member_roster', { p_gym_id: gym.id, p_filter: 'all', p_offset: 0, p_limit: 4 }),
+    rpc.rpc('gym_member_roster', { p_gym_id: gym.id, p_filter: 'expiring', p_offset: 0, p_limit: 5 }),
     supabase.from('check_ins').select('member_id, check_in_method, checked_in_at').eq('gym_id', gym.id).order('checked_in_at', { ascending: false }).limit(3),
     supabase.from('class_schedules').select('id, start_time, room, classes(name, instructor, max_capacity)').eq('gym_id', gym.id).eq('is_active', true).eq('day_of_week', watNow().getUTCDay()).order('start_time', { ascending: true }), // day_of_week in WAT, not server UTC
   ]);
+  if (summaryRes.error) throw new Error(`gym_reporting_summary failed: ${summaryRes.error.message}`);
+  if (recentRes.error) throw new Error(`gym_member_roster failed: ${recentRes.error.message}`);
+  if (expiringRes.error) throw new Error(`gym_member_roster failed: ${expiringRes.error.message}`);
+  const summary = parseGymReportingSummary(summaryRes.data);
+  const recent = parseRosterPage(recentRes.data).rows;
+  const expiring = parseRosterPage(expiringRes.data).rows;
+  const members = summary.activeAccess;
+  const checkins = summary.checkinsToday;
 
   // ── Revenue · trailing 7 days, one bar per WAT day ──
-  // Bucket each payment by its WAT calendar day (was the UTC date via slice(0,10),
-  // which mis-buckets 00:00–01:00 WAT payments onto the previous day).
-  const revByDay = dayKeys.map((key) =>
-    (pay ?? [])
-      .filter((p) => p.payment_date && watDateISO(new Date(p.payment_date)) === key)
-      .reduce((s, p) => s + Number(p.amount ?? 0), 0),
-  );
+  // Already bucketed in Postgres on WAT calendar days, over the complete
+  // payment set rather than a capped PostgREST response.
+  const revenueDays = summary.revenueDaily.slice(-7);
+  const dayKeys = revenueDays.map((d) => d.day);
+  const revByDay = revenueDays.map((d) => d.total);
   const revTotal = revByDay.reduce((s, v) => s + v, 0);
   const revMax = Math.max(...revByDay, 1);
 
-  // ── Names for recent members, the check-in feed and the expiring list ──
-  const recentIds = (links ?? []).map((l) => (l.member_id ?? l.user_id) as string).filter(Boolean);
+  // ── Names for the check-in feed ──
   const feedIds = (feed ?? []).map((f) => f.member_id).filter(Boolean) as string[];
-  const expIds = (expiring ?? []).map((e) => e.member_id).filter(Boolean) as string[];
-  const allIds = [...new Set([...recentIds, ...feedIds, ...expIds])];
-  // Second batch in one round-trip set: names, recent subscriptions and plans
-  // only depend on the first batch (previously three sequential awaits).
-  const [{ data: profiles }, { data: recentSubs }, { data: plans }] = await Promise.all([
-    allIds.length
-      ? supabase.from('profiles').select('id, full_name, first_name, last_name, email').in('id', allIds)
-      : Promise.resolve({ data: [] as { id: string; full_name: string | null; first_name: string | null; last_name: string | null; email: string | null }[] }),
-    recentIds.length
-      ? supabase.from('member_subscriptions').select('member_id, plan_id, status, end_date').eq('gym_id', gym.id).in('member_id', recentIds)
-      : Promise.resolve({ data: [] as { member_id: string; plan_id: string | null; status: string | null; end_date: string | null }[] }),
-    supabase.from('membership_plans').select('id, name, price').eq('gym_id', gym.id),
-  ]);
+  const { data: profiles } = feedIds.length
+    ? await supabase.from('profiles').select('id, full_name, first_name, last_name, email').in('id', [...new Set(feedIds)])
+    : { data: [] as { id: string; full_name: string | null; first_name: string | null; last_name: string | null; email: string | null }[] };
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Member']));
-  const emailById = new Map((profiles ?? []).map((p) => [p.id, p.email ?? '—']));
 
-  // ── Recent members table (plan/status via their latest subscription) ──
-  const planById = new Map((plans ?? []).map((p) => [p.id, p]));
-  const subByMember = new Map((recentSubs ?? []).map((s) => [s.member_id, s]));
-
-  const memberRows = recentIds.map((id) => {
-    const name = nameById.get(id) ?? 'Member';
-    const sub = subByMember.get(id);
-    const plan = sub?.plan_id ? planById.get(sub.plan_id) : null;
-    const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
-    const isActive = sub?.status === 'active' && (sub.end_date ?? '') >= today;
-    const status: [string, string] = isActive && remaining <= 7 ? ['gf-badge-warning', 'Expiring'] : isActive ? ['gf-badge-success', 'Active'] : ['gf-badge-danger', 'Expired'];
+  // The roster RPC deterministically chooses the live subscription before any
+  // historical row and applies the same WAT access window as check-in.
+  const memberRows = recent.map((member) => {
+    const name = member.fullName || [member.firstName, member.lastName].filter(Boolean).join(' ') || member.email || 'Member';
+    const remaining = member.endDate ? daysLeft(member.endDate) : 0;
+    let status: [string, string];
+    if (member.displayState === 'freeze_pending') status = ['gf-badge-warning', 'Freeze pending'];
+    else if (member.displayState === 'frozen') status = ['gf-badge-neutral', 'Frozen'];
+    else if (member.displayState === 'scheduled') status = ['gf-badge-neutral', 'Scheduled'];
+    else if (member.displayState === 'active' && remaining <= 7) status = ['gf-badge-warning', 'Expiring'];
+    else if (member.displayState === 'active' && member.subscriptionStatus === 'past_due') status = ['gf-badge-warning', 'Payment due'];
+    else if (member.displayState === 'active') status = ['gf-badge-success', 'Active'];
+    else status = ['gf-badge-danger', 'Expired'];
     return {
-      id, name, initial: initialOf(name), email: emailById.get(id) ?? '—',
-      plan: plan?.name ?? '—', status,
-      renews: isActive ? (remaining <= 7 ? `in ${remaining} day${remaining === 1 ? '' : 's'}` : fmtDate(sub!.end_date)) : '—',
-      value: plan ? fmtNaira(Number(plan.price)) : '—',
+      id: member.memberId, name, initial: initialOf(name), email: member.email ?? '—',
+      plan: member.planName ?? '—', status,
+      renews: member.displayState === 'active' && member.endDate
+        ? (remaining <= 7 ? `in ${remaining} day${remaining === 1 ? '' : 's'}` : fmtDate(member.endDate))
+        : member.displayState === 'scheduled' && member.startDate ? `starts ${fmtDate(member.startDate)}` : '—',
+      value: member.planPrice !== null ? fmtNaira(member.planPrice) : '—',
     };
   });
 
   const KPIS = [
-    { icon: Users, fg: '#11d18b', bg: 'rgba(17,209,139,0.12)', val: String(members ?? 0), lbl: 'Active members' },
-    { icon: ScanLine, fg: '#4080ff', bg: 'rgba(64,128,255,0.12)', val: String(checkins ?? 0), lbl: 'Check-ins today' },
-    { icon: Clock, fg: '#ffb020', bg: 'rgba(255,176,32,0.12)', val: String((expiring ?? []).length), lbl: 'Expiring this week' },
+    { icon: Users, fg: '#11d18b', bg: 'rgba(17,209,139,0.12)', val: String(members), lbl: 'Active members' },
+    { icon: ScanLine, fg: '#4080ff', bg: 'rgba(64,128,255,0.12)', val: String(checkins), lbl: 'Check-ins today' },
+    { icon: Clock, fg: '#ffb020', bg: 'rgba(255,176,32,0.12)', val: String(summary.expiring), lbl: 'Expiring this week' },
     { icon: Wallet, fg: '#a8d92e', bg: 'rgba(198,242,78,0.12)', val: fmtNaira(revTotal), lbl: 'Revenue · 7 days' },
   ];
 
@@ -111,7 +96,7 @@ export default async function AdminDashboard() {
       <div className="hdr">
         <div>
           <h1>{greet}, <span>{ownerName}</span></h1>
-          <p>{gym.name} · {checkins ?? 0} check-in{checkins === 1 ? '' : 's'} today · {(expiring ?? []).length} membership{(expiring ?? []).length === 1 ? '' : 's'} expiring this week</p>
+          <p>{gym.name} · {checkins} check-in{checkins === 1 ? '' : 's'} today · {summary.expiring} membership{summary.expiring === 1 ? '' : 's'} expiring this week</p>
         </div>
       </div>
 
@@ -149,7 +134,7 @@ export default async function AdminDashboard() {
 
           <div className="panel">
             <div className="panel-h">
-              <div><h3>Members</h3><div className="sub">{members ?? 0} active · {(expiring ?? []).length} expiring this week</div></div>
+              <div><h3>Members</h3><div className="sub">{members} active · {summary.expiring} expiring this week</div></div>
               <Link className="link" href="/admin/members">All members <ArrowRight strokeWidth={2} /></Link>
             </div>
             {memberRows.length === 0 ? (
@@ -204,16 +189,16 @@ export default async function AdminDashboard() {
 
           <div className="panel">
             <div className="panel-h"><div><h3>Needs attention</h3><div className="sub">Memberships expiring soon</div></div></div>
-            {(expiring ?? []).length === 0 ? (
+            {expiring.length === 0 ? (
               <div className="empty"><div className="eic"><Inbox strokeWidth={1.6} /></div><h3>All clear</h3><p>Nothing lapses in the next 7 days.</p></div>
             ) : (
               <div className="att">
-                {(expiring ?? []).map((e) => {
-                  const nm = e.member_id ? (nameById.get(e.member_id) ?? 'Member') : 'Member';
-                  const plan = (e as unknown as { membership_plans: { name: string } | null }).membership_plans?.name ?? 'Membership';
-                  const left = daysLeft(e.end_date);
+                {expiring.map((e) => {
+                  const nm = e.fullName || [e.firstName, e.lastName].filter(Boolean).join(' ') || e.email || 'Member';
+                  const plan = e.planName ?? 'Membership';
+                  const left = e.endDate ? daysLeft(e.endDate) : 0;
                   return (
-                    <div className="att-row" key={e.id}>
+                    <div className="att-row" key={e.memberId}>
                       <span className="gf-avatar gf-avatar-sm">{initialOf(nm)}</span>
                       <span className="att-meta"><strong>{nm}</strong><small>{plan} expires {left === 0 ? 'today' : left === 1 ? 'tomorrow' : `in ${left} days`}</small></span>
                     </div>

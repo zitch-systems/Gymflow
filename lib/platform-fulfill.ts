@@ -1,7 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isPlanTier, normalizeCycle, planAmountKobo, PLATFORM_PLANS } from '@/lib/platform-plans';
-import { planFromCharge, periodEndFor } from '@/lib/platform-charge';
+import { planFromCharge } from '@/lib/platform-charge';
 import { fmtDate } from '@/lib/format';
 import type { EmailContent } from '@/lib/email';
 import { sendPlatformEmail, platformAppUrl } from '@/lib/email/send';
@@ -70,16 +70,23 @@ async function gymIdByColumn(admin: Admin, column: 'paystack_subscription_code' 
 // the (possibly shared) customer code. Recurring charges and subscription.* events
 // don't carry our metadata, so the codes are the fallback.
 async function resolveGymId(admin: Admin, hints: { metaGymId?: string | null; subscriptionCode?: string | null; customerCode?: string | null }): Promise<string | null> {
-  if (hints.metaGymId) return hints.metaGymId;
+  let subscriptionGym: string | null = null;
   if (hints.subscriptionCode) {
-    const id = await gymIdByColumn(admin, 'paystack_subscription_code', hints.subscriptionCode);
-    if (id) return id;
+    subscriptionGym = await gymIdByColumn(admin, 'paystack_subscription_code', hints.subscriptionCode);
   }
+  let customerGym: string | null = null;
   if (hints.customerCode) {
-    const id = await gymIdByColumn(admin, 'paystack_customer_code', hints.customerCode);
-    if (id) return id;
+    customerGym = await gymIdByColumn(admin, 'paystack_customer_code', hints.customerCode);
   }
-  return null;
+  // Provider-held mandate/customer mappings outrank event metadata. If they
+  // disagree, refuse the charge instead of applying it to the metadata gym.
+  const mapped = subscriptionGym ?? customerGym;
+  if (mapped && hints.metaGymId && mapped !== hints.metaGymId) return null;
+  if (subscriptionGym && customerGym && subscriptionGym !== customerGym) return null;
+  if (mapped) return mapped;
+  if (!hints.metaGymId) return null;
+  const { data } = await admin.from('gyms').select('id').eq('id', hints.metaGymId).limit(1);
+  return data?.length === 1 ? data[0].id : null;
 }
 
 // ── Owner mail ───────────────────────────────────────────────────────────────
@@ -155,16 +162,12 @@ async function mailOwners(
  * carrying a different subscription code is the first moment the replacement
  * is known to be live, so there is neither a gap (an abandoned checkout never
  * reaches this code, and the existing mandate keeps billing untouched) nor an
- * overlap. It also runs BEFORE the gyms row is overwritten with the new code,
- * because that column is the only place the old one is recorded — a disable we
- * could not complete is audit-logged with the code first, so the mandate is
- * never orphaned beyond a human's reach.
+ * overlap. The atomic settlement allocation preserves the old code before the
+ * gym row changes, so retries and incidents retain the provider handle.
  */
-async function retireSupersededMandate(admin: Admin, gymId: string, newCode: string): Promise<void> {
-  const { data: gym } = await admin.from('gyms').select('paystack_subscription_code').eq('id', gymId).maybeSingle();
-  const oldCode = gym?.paystack_subscription_code ?? null;
+async function retireSupersededMandate(admin: Admin, gymId: string, oldCode: string | null, newCode: string): Promise<boolean> {
   // No mandate yet (first subscription), or this is the same one renewing.
-  if (!oldCode || oldCode === newCode) return;
+  if (!oldCode || oldCode === newCode) return true;
 
   // A 4xx from either call means Paystack has nothing live under the old code —
   // already disabled, or unknown (see mandateGoneAtPaystack). That is the state
@@ -178,7 +181,7 @@ async function retireSupersededMandate(admin: Admin, gymId: string, newCode: str
     const disabled = await disableSubscription(oldCode, sub.data.emailToken);
     if (!disabled.ok && !mandateGoneAtPaystack(disabled)) failure = disabled.error ?? 'Disable failed';
   }
-  if (!failure) return;
+  if (!failure) return true;
 
   // Same posture as the reconciliation sweep (lib/reconcile.ts): a money event
   // we could not complete unattended is recorded for a human rather than
@@ -192,8 +195,9 @@ async function retireSupersededMandate(admin: Admin, gymId: string, newCode: str
     values: { old_subscription_code: oldCode, new_subscription_code: newCode, error: failure },
   });
   void captureServerEvent('platform billing: superseded Paystack subscription could not be disabled', {
-    gymId, oldSubscriptionCode: oldCode, newSubscriptionCode: newCode, error: failure,
+    gymId, reference: oldCode, error: failure,
   });
+  return false;
 }
 
 // charge.success for a platform subscription: record the payment (idempotent on
@@ -223,54 +227,62 @@ async function fulfillCharge(admin: Admin, data: Json): Promise<PlatformResult> 
     return { ok: false, handled: true, error: 'platform charge amount does not match plan', permanent: true };
   }
 
-  const paidAt = str(data.paid_at) ? new Date(String(data.paid_at)) : new Date();
-  const periodEnd = periodEndFor(paidAt, charged.months);
-
-  // Idempotency: fast-path pre-check, then the unique-index 23505 catch is the
-  // real guard. Crucially, ONLY the writer that records the payment advances the
-  // gym's period — the webhook and the /billing/callback self-heal fire for the
-  // same charge and would otherwise each push a different period-end (they derive
-  // paid_at differently). Whoever loses the race no-ops here.
-  const { data: existing } = await admin.from('platform_payments').select('id').eq('paystack_reference', reference).maybeSingle();
-  if (existing) return { ok: true, handled: true };
-
-  const { error: payErr } = await admin.from('platform_payments').insert({
-    gym_id: gymId,
-    amount: amountKobo / 100,
-    currency: 'NGN',
-    payment_status: 'successful',
-    paystack_reference: reference,
-    plan: tier,
-    billing_period_start: paidAt.toISOString().slice(0, 10),
-    billing_period_end: periodEnd.toISOString().slice(0, 10),
-  });
-  if (payErr) {
-    if (payErr.code === '23505') return { ok: true, handled: true }; // concurrent fulfiller won — no-op
-    return { ok: false, handled: true, error: payErr.message };
+  const paidAtText = str(data.paid_at);
+  const paidAt = paidAtText ? new Date(paidAtText) : null;
+  if (!paidAt || !Number.isFinite(paidAt.getTime())) {
+    return { ok: false, handled: true, error: 'platform charge has no valid paid_at', permanent: true };
   }
 
-  // We recorded the payment, so this charge's subscription is confirmed live.
-  // If it replaces a different mandate, that one goes now — before the column
-  // naming it is overwritten below.
-  if (subscriptionCode) await retireSupersededMandate(admin, gymId, subscriptionCode);
-
-  // We recorded the payment → activate / extend the gym's subscription once.
-  const patch: GymUpdate = {
-    subscription_status: 'active',
-    subscription_current_period_end: periodEnd.toISOString(),
-    updated_at: new Date().toISOString(),
+  // The RPC owns the reference lock, gym lock, ledger insert, immutable period
+  // allocation, entitlement update and audit row in one transaction.
+  const { data: committed, error: commitError } = await admin.rpc('settle_platform_charge' as never, {
+    p_reference: reference,
+    p_gym_id: gymId,
+    p_amount_kobo: amountKobo,
+    p_currency: typeof data.currency === 'string' ? data.currency : 'NGN',
+    p_plan: tier,
+    p_billing_cycle: charged.cycle,
+    p_paid_at: paidAt.toISOString(),
+    p_customer_code: customerCode,
+    p_subscription_code: subscriptionCode,
+  } as never);
+  if (commitError || !committed) return { ok: false, handled: true, error: commitError?.message ?? 'platform charge commit failed' };
+  const settlement = committed as unknown as {
+    created: boolean;
+    payment_id: string;
+    coverage_end: string;
+    old_subscription_code: string | null;
+    new_subscription_code: string | null;
+    superseded_retired_at: string | null;
+    fully_refunded: boolean;
   };
-  patch.subscription_plan = tier;
-  patch.subscription_billing_cycle = charged.cycle;
-  if (customerCode) patch.paystack_customer_code = customerCode;
-  if (subscriptionCode) patch.paystack_subscription_code = subscriptionCode;
-  const { error: gymErr } = await admin.from('gyms').update(patch).eq('id', gymId);
-  if (gymErr) {
-    // Roll back the idempotency lock so a retry can re-attempt the activation,
-    // mirroring the member-flow compensation.
-    await admin.from('platform_payments').delete().eq('paystack_reference', reference);
-    return { ok: false, handled: true, error: gymErr.message };
+
+  if (settlement.fully_refunded) {
+    await captureServerEvent('platform billing: settled charge was already fully refunded', {
+      gymId, reference, status: 'mandate_review_required',
+    });
+    return {
+      ok: false, handled: true, permanent: true,
+      error: 'platform charge was fully refunded before fulfillment; mandate review required',
+    };
   }
+
+  // External mandate retirement starts only after the database transaction has
+  // committed. The immutable allocation retains the old code so a replay can
+  // retry a provider failure without losing the only handle to that mandate.
+  if (settlement.old_subscription_code && settlement.new_subscription_code && !settlement.superseded_retired_at) {
+    const retired = await retireSupersededMandate(
+      admin, gymId, settlement.old_subscription_code, settlement.new_subscription_code,
+    );
+    if (retired) {
+      await admin.from('platform_payment_coverage' as never)
+        .update({ superseded_retired_at: new Date().toISOString() } as never)
+        .eq('payment_id', settlement.payment_id);
+    }
+  }
+
+  if (!settlement.created) return { ok: true, handled: true };
+  const periodEnd = new Date(settlement.coverage_end);
 
   // Only the writer that recorded the payment gets here, so the receipt is sent
   // once per charge; the reference keys it so a Resend-side retry can't double

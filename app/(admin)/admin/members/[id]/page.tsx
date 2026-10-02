@@ -11,6 +11,7 @@ import { MemberActions } from '@/components/admin/member-actions';
 import { FreezeActions } from '@/components/admin/freeze-actions';
 import { AutoRenewAction } from '@/components/admin/auto-renew-action';
 import { TrainerAssign, type TrainerOption } from '@/components/admin/trainer-assign';
+import { paymentAmounts, paymentStatusLabel, type RefundAwarePayment } from '@/lib/payment-display';
 
 export const metadata = { title: 'Member' };
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,9 @@ export const maxDuration = 60;
 
 const PAID = new Set(['success', 'successful', 'completed', 'paid']);
 
-function payBadge(status: string): [string, string] {
+function payBadge(payment: RefundAwarePayment & { status?: string | null }): [string, string] {
+  if (paymentAmounts(payment).refundState !== 'none') return ['gf-badge-brand', paymentStatusLabel(payment)];
+  const status = String(payment.status ?? payment.payment_status ?? '');
   const s = status.toLowerCase();
   if (PAID.has(s)) return ['gf-badge-success', 'Paid'];
   if (s === 'pending') return ['gf-badge-warning', 'Pending'];
@@ -54,11 +57,15 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
   const { gym } = await requireStaff();
   const supabase = await createClient();
 
-  const [{ data: profile }, { data: link }] = await Promise.all([
+  const [{ data: profile }, { data: link }, { data: health }] = await Promise.all([
     // Narrowed from select('*') to the columns rendered on this page (header,
     // contact + personal details); nothing here is passed wholesale to a child.
-    supabase.from('profiles').select('full_name, first_name, last_name, email, member_id, phone, date_of_birth, gender, address, emergency_contact_name, emergency_contact_phone, nok_name, nok_phone, nok_relationship, waiver_signed_at, health_notes').eq('id', id).maybeSingle(),
+    supabase.from('profiles').select('full_name, first_name, last_name, email, member_id, phone, date_of_birth, gender, address, emergency_contact_name, emergency_contact_phone, nok_name, nok_phone, nok_relationship, waiver_signed_at').eq('id', id).maybeSingle(),
     supabase.from('gym_member_links').select('joined_at, is_active').eq('gym_id', gym.id).or(`member_id.eq.${id},user_id.eq.${id}`).maybeSingle(),
+    // Health notes live outside profiles so broad profile visibility cannot
+    // expose them. RLS returns a row only to the member or a verified owner /
+    // manager of a gym where this member has an active link.
+    supabase.from('profile_health_notes').select('notes').eq('member_id', id).maybeSingle(),
   ]);
   if (!profile || !link) notFound();
 
@@ -66,7 +73,7 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
     // Narrowed from select('*') to the columns consumed below — including the
     // fields handed to FreezeActions/AutoRenewAction (subs) — see each render site.
     supabase.from('member_subscriptions').select('id, status, start_date, end_date, plan_id, payment_method, auto_debit_enabled, paystack_subscription_code, paused_at, pause_reason, pause_start, pause_end, trainer_addon').eq('gym_id', gym.id).eq('member_id', id).order('end_date', { ascending: false }),
-    supabase.from('payments').select('id, amount, status, payment_status, payment_date, created_at, paystack_reference, plan_id, payment_method').eq('gym_id', gym.id).eq('member_id', id).order('payment_date', { ascending: false }).limit(100),
+    supabase.from('payments').select('id, amount, refunded_amount, status, payment_status, payment_date, created_at, paystack_reference, plan_id, payment_method').eq('gym_id', gym.id).eq('member_id', id).order('payment_date', { ascending: false }).limit(100),
     supabase.from('check_ins').select('id, status, checked_in_at, checked_out_at, check_in_method').eq('gym_id', gym.id).eq('member_id', id).order('checked_in_at', { ascending: false }).limit(60),
     supabase.from('membership_plans').select('id, name, price').eq('gym_id', gym.id),
     supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('member_id', id),
@@ -113,12 +120,12 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  const totalSpent = pays.filter((p) => PAID.has(String(p.status ?? p.payment_status ?? '').toLowerCase())).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const totalSpent = pays.filter((p) => PAID.has(String(p.status ?? p.payment_status ?? '').toLowerCase())).reduce((s, p) => s + paymentAmounts(p).net, 0);
   const visits = visitCount ?? cins.length;
   const memberNo = profile.member_id || `#${id.slice(0, 8).toUpperCase()}`;
 
   const STATS = [
-    { icon: Wallet, fg: '#11d18b', bg: '#11d18b1f', val: fmtNaira(totalSpent), lbl: 'Total spent' },
+    { icon: Wallet, fg: '#11d18b', bg: '#11d18b1f', val: fmtNaira(totalSpent), lbl: 'Net spent' },
     { icon: Activity, fg: '#4080ff', bg: '#4080ff1f', val: String(visits), lbl: 'Total visits' },
     { icon: CreditCard, fg: '#c6f24e', bg: '#c6f24e24', val: String(pays.length), lbl: 'Payments' },
     { icon: CalendarDays, fg: '#ffb020', bg: '#ffb0201f', val: link.joined_at ? fmtDate(link.joined_at) : '—', lbl: 'Member since' },
@@ -132,7 +139,7 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
     { icon: MapPin, label: 'Address', value: profile.address },
     { icon: HeartPulse, label: 'Emergency contact', value: profile.emergency_contact_name ? `${profile.emergency_contact_name}${profile.emergency_contact_phone ? ` · ${profile.emergency_contact_phone}` : ''}` : (profile.nok_name ? `${profile.nok_name}${profile.nok_phone ? ` · ${profile.nok_phone}` : ''}${profile.nok_relationship ? ` (${profile.nok_relationship})` : ''}` : null) },
     { icon: ShieldCheck, label: 'Waiver', value: profile.waiver_signed_at ? `Signed ${fmtDate(profile.waiver_signed_at)}` : 'Not signed' },
-    { icon: HeartPulse, label: 'Health notes', value: profile.health_notes },
+    { icon: HeartPulse, label: 'Health notes', value: health?.notes ?? null },
   ];
   const shownDetails = details.filter((d) => d.value);
 
@@ -240,7 +247,7 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
 
         <div className="md-col">
           <div className="panel">
-            <div className="panel-h"><h3>Payment history</h3><span className="sub">{pays.length} payment{pays.length === 1 ? '' : 's'} · {fmtNaira(totalSpent)} collected</span></div>
+            <div className="panel-h"><h3>Payment history</h3><span className="sub">{pays.length} payment{pays.length === 1 ? '' : 's'} · {fmtNaira(totalSpent)} net collected</span></div>
             {pays.length ? (
               // .tbl-scroll: without it the table stretches the page sideways
               // on phones (same fix as the dashboard Members table).
@@ -249,14 +256,15 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
                 <thead><tr><th>Date</th><th>Plan</th><th>Method</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
                 <tbody>
                   {pays.map((p) => {
-                    const badge = payBadge(String(p.status ?? p.payment_status ?? ''));
+                    const badge = payBadge(p);
+                    const amounts = paymentAmounts(p);
                     return (
                       <tr key={p.id}>
                         <td><div className="cell-2"><strong>{fmtDate(p.payment_date ?? p.created_at)}</strong><small>{p.paystack_reference ?? '—'}</small></div></td>
                         <td>{p.plan_id ? planById.get(p.plan_id)?.name ?? '—' : '—'}</td>
                         <td style={{ color: 'var(--gf-text-secondary)' }}>{p.payment_method ? (methodLabel[p.payment_method] ?? p.payment_method) : '—'}</td>
                         <td><span className={`gf-badge ${badge[0]}`}>{badge[1]}</span></td>
-                        <td className="naira" style={{ textAlign: 'right' }}>{fmtNaira(Number(p.amount ?? 0))}</td>
+                        <td className="naira" style={{ textAlign: 'right' }}><div className="cell-2" style={{ alignItems: 'flex-end' }}><strong>{fmtNaira(amounts.net)}</strong>{amounts.refunded > 0 && <small>{fmtNaira(amounts.refunded)} refunded</small>}</div></td>
                       </tr>
                     );
                   })}

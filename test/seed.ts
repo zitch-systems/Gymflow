@@ -27,11 +27,14 @@ export async function reset() {
     // 20260828100000_ledger_integrity), so it must be deleted BEFORE gyms.
     // Same reason payments/instructor_payouts/member_subscriptions do.
     for (const t of [
-      'public.member_payment_checkouts', 'public.payments', 'public.platform_payments', 'public.member_subscriptions', 'public.memberships',
+      'public.payment_refund_events', 'public.payment_coverage_allocations', 'public.platform_payment_coverage', 'public.staff_financial_operations',
+      'public.member_auto_renewal_intents', 'public.member_payment_checkouts', 'public.payments', 'public.platform_payments', 'public.member_subscriptions', 'public.memberships',
       'public.waiver_signatures', 'public.waivers', 'public.instructor_payouts', 'public.salary_payments',
       'public.checkin_codes', 'public.check_ins', 'public.gym_member_links', 'public.gym_staff_links',
       'public.membership_plans', 'public.profiles', 'public.gyms',
     ]) await c.query(`delete from ${t}`);
+    await c.query(`delete from private.privileged_session_verifications`);
+    await c.query(`delete from auth.sessions`);
     await c.query(`delete from auth.users`);
   });
 }

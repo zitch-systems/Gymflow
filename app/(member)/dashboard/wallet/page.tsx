@@ -4,10 +4,9 @@ import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, daysLeft, watDateISO } from '@/lib/format';
 import { membershipDisplayState } from '@/lib/membership-display';
+import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
 
 export const metadata = { title: 'Wallet' };
-
-const STATUS_LABEL: Record<string, string> = { successful: 'Successful', pending: 'Pending', failed: 'Failed', refunded: 'Refunded' };
 
 export default async function WalletPage() {
   const { user, gym } = await requireMember();
@@ -15,7 +14,7 @@ export default async function WalletPage() {
 
   const [{ data: payments }, { data: sub }, { data: cards }, { count: unread }] = await Promise.all([
     supabase.from('payments')
-      .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id')
+      .select('id, amount, refunded_amount, payment_status, payment_date, created_at, payment_method, plan_id')
       .eq('member_id', user.id).eq('gym_id', gym.id)
       .order('payment_date', { ascending: false }).limit(40),
     supabase.from('member_subscriptions')
@@ -32,7 +31,7 @@ export default async function WalletPage() {
   const eff = (p: { payment_date: string | null; created_at: string | null }) => p.payment_date ?? p.created_at;
   const txns = payments ?? [];
   const successful = txns.filter((p) => p.payment_status === 'successful');
-  const totalSpent = successful.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const totalSpent = successful.reduce((s, p) => s + paymentAmounts(p).net, 0);
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
   const displayState = sub ? membershipDisplayState({
     status: sub.status, startDate: sub.start_date, daysRemaining: remaining, today: watDateISO(),
@@ -58,7 +57,7 @@ export default async function WalletPage() {
   for (const p of successful) {
     const e = eff(p); if (!e) continue;
     const d = new Date(e); const k = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
-    const m = months.find((mo) => mo.key === k); if (m) m.amount += Number(p.amount ?? 0);
+    const m = months.find((mo) => mo.key === k); if (m) m.amount += paymentAmounts(p).net;
   }
   const max = Math.max(1, ...months.map((m) => m.amount));
   const thisMonth = months[months.length - 1].amount;
@@ -73,7 +72,7 @@ export default async function WalletPage() {
       </div>
 
       <div className="wcard">
-        <div className="wlabel"><Wallet strokeWidth={1.9} /> Total spent</div>
+        <div className="wlabel"><Wallet strokeWidth={1.9} /> Net spent</div>
         <div className="wbal">{fmtNaira(totalSpent)}</div>
         <div className="wnext"><Repeat strokeWidth={1.9} /> {membershipSummary}</div>
         <div className="wbtns">
@@ -83,7 +82,7 @@ export default async function WalletPage() {
 
       {successful.length > 0 && (
         <div className="spend">
-          <div className="sh"><div><b>{fmtNaira(thisMonth)}</b> <small>spent this month</small></div><small>Last 6 months</small></div>
+          <div className="sh"><div><b>{fmtNaira(thisMonth)}</b> <small>net spent this month</small></div><small>Last 6 months</small></div>
           <div className="bars">
             {months.map((m, i) => (
               <div key={m.key} className={`bcol${i === months.length - 1 ? ' now' : ''}`}>
@@ -122,12 +121,17 @@ export default async function WalletPage() {
       <div className="sect-t">Transactions</div>
       <div className="group">
         {txns.length > 0 ? txns.map((p) => {
-          const refund = p.payment_status === 'refunded';
+          const amounts = paymentAmounts(p);
+          const refund = amounts.refundState !== 'none';
+          const fullRefund = amounts.refundState === 'full';
           return (
             <Link key={p.id} href={`/dashboard/wallet/${p.id}`} className="txn" style={{ textDecoration: 'none', color: 'inherit' }}>
               <span className={`tic ${refund ? 'in' : 'out'}`}>{refund ? <ArrowDownLeft strokeWidth={1.9} /> : <CreditCard strokeWidth={1.9} />}</span>
               <div className="m"><strong>Membership payment</strong><small>{fmtDate(eff(p))} · {p.payment_method ?? 'Paystack'}</small></div>
-              <span className={`amt${refund ? ' credit' : ''}`}>{refund ? '+' : '−'}{fmtNaira(Number(p.amount ?? 0)).replace('−', '')}<small>{STATUS_LABEL[p.payment_status ?? ''] ?? p.payment_status}</small></span>
+              <span className={`amt${fullRefund ? ' credit' : ''}`}>
+                {fullRefund ? '+' : '−'}{fmtNaira(fullRefund ? amounts.refunded : amounts.net).replace('−', '')}
+                <small>{paymentStatusLabel(p)}{refund ? ` · ${fmtNaira(amounts.refunded)} returned` : ''}</small>
+              </span>
             </Link>
           );
         }) : (
