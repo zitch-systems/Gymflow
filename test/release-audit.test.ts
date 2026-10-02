@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  redact, validateDatabaseSnapshot, validateHttpSnapshot, validateProductionEnvironment, validateProductionUrl,
+  httpSnapshot, redact, remoteSnapshot, resolveProductionOrigin, validateDatabaseSnapshot, validateHttpSnapshot,
+  validateProductionEnvironment, validateProductionUrl,
   type DatabaseSnapshot, type HttpSnapshot,
 } from '../scripts/release-audit.mjs';
 
@@ -45,6 +46,100 @@ const goodHttp = (): HttpSnapshot => ({
   unsignedWebhook: { status: 401 },
   crons: [{ name: 'webhook recovery', status: 200 }, { name: 'Paystack reconciliation', status: 200 }],
   serviceSettings: { available: true, authStatus: 200, platformStatus: 200, platformRows: 1 },
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe('production HTTP origin', () => {
+  it('resolves apex/www redirects and rejects another origin before sending credentials', () => {
+    const base = new URL('https://gymflow.ng');
+    expect(resolveProductionOrigin(base, 'https://www.gymflow.ng/').origin).toBe('https://www.gymflow.ng');
+    expect(resolveProductionOrigin(new URL('https://www.gymflow.ng'), 'https://gymflow.ng/').origin)
+      .toBe('https://gymflow.ng');
+    for (const url of ['https://attacker.example/', 'https://tenant.gymflow.ng/', 'https://gymflow.ng:8443/', 'http://gymflow.ng/']) {
+      expect(() => resolveProductionOrigin(base, url)).toThrow();
+    }
+  });
+
+  it('sends the worker bearer directly to the canonical origin and forbids redirects', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+    const publicResponse = new Response('<html>GymFlow</html>', {
+      status: 200, headers: { 'content-type': 'text/html' },
+    });
+    Object.defineProperty(publicResponse, 'url', { value: 'https://www.gymflow.ng/' });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(publicResponse)
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetch);
+
+    const snapshot = await httpSnapshot(new URL('https://gymflow.ng'), 'test-cron-credential');
+    expect(validateHttpSnapshot(snapshot)).toEqual([]);
+    expect(snapshot.publicPage.canonicalOrigin).toBe('https://www.gymflow.ng');
+    expect(fetch.mock.calls[0][1].headers).toBeUndefined();
+    expect(fetch.mock.calls.slice(1).map(([url]) => url.origin))
+      .toEqual(['https://www.gymflow.ng', 'https://www.gymflow.ng', 'https://www.gymflow.ng']);
+    for (const [, init] of fetch.mock.calls.slice(2)) {
+      expect(init).toMatchObject({ redirect: 'error', headers: { authorization: 'Bearer test-cron-credential' } });
+    }
+  });
+
+  it('does not send worker credentials after a redirect to an untrusted domain', async () => {
+    const response = new Response('<html>GymFlow</html>', { status: 200 });
+    Object.defineProperty(response, 'url', { value: 'https://attacker.example/' });
+    const fetch = vi.fn().mockResolvedValue(response);
+    vi.stubGlobal('fetch', fetch);
+    await expect(httpSnapshot(new URL('https://gymflow.ng'), 'test-cron-credential'))
+      .rejects.toThrow(/outside the configured production domain/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][1].headers).toBeUndefined();
+  });
+
+  it('checks service settings with a new secret API key without treating it as a JWT', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'sb_secret_test-never-print');
+    const publicResponse = new Response('<html>GymFlow</html>', {
+      status: 200, headers: { 'content-type': 'text/html' },
+    });
+    Object.defineProperty(publicResponse, 'url', { value: 'https://www.gymflow.ng/' });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(publicResponse)
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(Response.json({ disable_signup: false }))
+      .mockResolvedValueOnce(Response.json([{ default_commission_pct: 5, default_trial_days: 14 }]));
+    vi.stubGlobal('fetch', fetch);
+    const snapshot = await httpSnapshot(new URL('https://gymflow.ng'), 'test-cron-credential');
+    expect(validateHttpSnapshot(snapshot)).toEqual([]);
+    for (const [, init] of fetch.mock.calls.slice(4)) {
+      expect(init).toMatchObject({ redirect: 'error', headers: { apikey: 'sb_secret_test-never-print' } });
+      expect(init.headers.authorization).toBeUndefined();
+    }
+  });
+
+  it('preserves safe runtime diagnostics when environment validation returns 503 without HTTP results', async () => {
+    const releaseCommit = 'a'.repeat(40);
+    const publicResponse = new Response('<html>GymFlow</html>', { status: 200 });
+    Object.defineProperty(publicResponse, 'url', { value: 'https://www.gymflow.ng/' });
+    const fetch = vi.fn().mockResolvedValueOnce(publicResponse).mockResolvedValueOnce(Response.json({
+      releaseCommit,
+      environment: { secretsEncryptionKey: false, cronSecret: true, siteUrl: true, supabaseUrl: true, supabaseAnonKey: true, supabaseServiceRoleKey: true },
+      errors: ['SECRETS_ENCRYPTION_KEY must be canonical base64 encoding exactly 32 bytes'],
+    }, { status: 503 }));
+    vi.stubGlobal('fetch', fetch);
+    const result = await remoteSnapshot(new URL('https://gymflow.ng'), 'release-credential', releaseCommit);
+    expect(result.errors).toEqual([
+      'SECRETS_ENCRYPTION_KEY must be canonical base64 encoding exactly 32 bytes',
+      'runtime production environment validation failed',
+    ]);
+    expect(fetch.mock.calls[1][1]).toMatchObject({ redirect: 'error', headers: { authorization: 'Bearer release-credential' } });
+  });
 });
 
 describe('release-audit redaction', () => {
@@ -105,6 +200,15 @@ describe('release-audit validation', () => {
     expect(Object.values(snapshot.checks)).toEqual([false, false, false, false, false, false]);
     expect(snapshot.errors).toHaveLength(6);
     expect(snapshot.errors.join(' ')).not.toContain(Buffer.alloc(31).toString('base64'));
+  });
+
+  it('rejects protected-value placeholders and surrounding whitespace', () => {
+    for (const value of ['[SENSITIVE]', '[REDACTED]', ' credential ', 'credential\n']) {
+      const snapshot = validateProductionEnvironment({ CRON_SECRET: value, SUPABASE_SERVICE_ROLE_KEY: value });
+      expect(snapshot.checks.cronSecret).toBe(false);
+      expect(snapshot.checks.supabaseServiceRoleKey).toBe(false);
+      expect(snapshot.errors.join(' ')).not.toContain(value);
+    }
   });
 
   it('accepts the complete catalog snapshot', () => {

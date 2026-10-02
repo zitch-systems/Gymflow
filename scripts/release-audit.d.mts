@@ -4,6 +4,17 @@ export const EXPECTED_RLS_TABLES: readonly string[];
 
 export function redact(value: unknown, secrets?: readonly unknown[]): string;
 export function validateProductionUrl(raw: unknown): URL;
+export function resolveProductionOrigin(baseUrl: URL, responseUrl: string): URL;
+export function httpSnapshot(baseUrl: URL, cronSecret: string): Promise<HttpSnapshot>;
+export type RuntimeSnapshot = {
+  releaseCommit: string;
+  environment: ProductionEnvironmentSnapshot['checks'];
+  http?: HttpSnapshot;
+  errors: string[];
+};
+export function remoteSnapshot(baseUrl: URL, releaseSecret: string | undefined, releaseCommit: string | undefined): Promise<{
+  snapshot: RuntimeSnapshot; errors: string[];
+}>;
 export type ProductionEnvironmentSnapshot = {
   checks: {
     secretsEncryptionKey: boolean;
@@ -33,7 +44,7 @@ export type DatabaseSnapshot = {
 
 export type HttpSnapshot = {
   releaseCommit?: string;
-  publicPage: { status: number; html: boolean; gymFlowMarker: boolean };
+  publicPage: { status: number; canonicalOrigin?: string; html: boolean; gymFlowMarker: boolean };
   unsignedWebhook: { status: number };
   crons: Array<{ name: string; status: number }>;
   serviceSettings: {

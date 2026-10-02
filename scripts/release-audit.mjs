@@ -95,7 +95,7 @@ const SERVICE_ONLY_FUNCTIONS = [
   'public.finish_member_auto_renewal_initialization(text,text,boolean,text)',
 ];
 
-const LATEST_RELEASE_MIGRATION = '20261002102547_restrictive_gym_storage_guards.sql';
+const LATEST_RELEASE_MIGRATION = '20261002105049_preserve_full_freeze_interval.sql';
 
 export function redact(value, secrets = []) {
   let out = String(value ?? '');
@@ -134,8 +134,9 @@ function validateHttpsUrl(raw, name) {
 
 function configuredSecret(value) {
   return typeof value === 'string'
+    && value === value.trim()
     && value.trim().length > 0
-    && !/^(placeholder|change[-_ ]?me|undefined|null)$/i.test(value.trim());
+    && !/^(\[(?:SENSITIVE|REDACTED)\]|placeholder|change[-_ ]?me|undefined|null)$/i.test(value.trim());
 }
 
 function isCanonical32ByteBase64(value) {
@@ -354,11 +355,11 @@ async function optionalServiceSettings() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key) return { available: false };
   const supabase = validateProductionUrl(base);
-  const headers = { apikey: key, authorization: `Bearer ${key}` };
-  const authResponse = await fetchStatus(new URL('/auth/v1/settings', supabase), { headers });
+  const headers = { apikey: key, ...(!key.startsWith('sb_secret_') ? { authorization: `Bearer ${key}` } : {}) };
+  const authResponse = await fetchStatus(new URL('/auth/v1/settings', supabase), { headers, redirect: 'error' });
   const platformResponse = await fetchStatus(
     new URL('/rest/v1/platform_settings?select=default_commission_pct,default_trial_days&limit=2', supabase),
-    { headers },
+    { headers, redirect: 'error' },
   );
   let auth = {};
   let platform = [];
@@ -382,19 +383,32 @@ async function optionalServiceSettings() {
   };
 }
 
-async function httpSnapshot(baseUrl, cronSecret) {
+export function resolveProductionOrigin(baseUrl, responseUrl) {
+  const canonical = validateProductionUrl(responseUrl);
+  const hostname = (url) => url.hostname.replace(/^www\./, '');
+  if (hostname(canonical) !== hostname(baseUrl) || canonical.port !== baseUrl.port) {
+    throw new Error('public application redirected outside the configured production domain');
+  }
+  return new URL(canonical.origin);
+}
+
+export async function httpSnapshot(baseUrl, cronSecret) {
   const publicResponse = await fetchStatus(new URL('/', baseUrl));
   const publicBody = await publicResponse.text();
-  const webhookResponse = await fetchStatus(new URL('/api/paystack/webhook', baseUrl), {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+  // Resolve the public apex/www redirect without credentials. Fetch strips
+  // Authorization across origins, so call the trusted final origin directly
+  // and reject any further redirects on authenticated worker requests.
+  const origin = resolveProductionOrigin(baseUrl, publicResponse.url);
+  const webhookResponse = await fetchStatus(new URL('/api/paystack/webhook', origin), {
+    method: 'POST', redirect: 'error', headers: { 'content-type': 'application/json' }, body: '{}',
   });
   const crons = [];
   for (const [name, path] of [
     ['webhook recovery', '/api/cron/webhook-recovery'],
     ['Paystack reconciliation', '/api/cron/reconcile'],
   ]) {
-    const response = await fetchStatus(new URL(path, baseUrl), {
-      headers: { authorization: `Bearer ${cronSecret}` },
+    const response = await fetchStatus(new URL(path, origin), {
+      redirect: 'error', headers: { authorization: `Bearer ${cronSecret}` },
     });
     crons.push({ name, status: response.status });
   }
@@ -402,6 +416,7 @@ async function httpSnapshot(baseUrl, cronSecret) {
     releaseCommit: process.env.RELEASE_SHA?.slice(0, 12) || undefined,
     publicPage: {
       status: publicResponse.status,
+      canonicalOrigin: origin.origin,
       html: publicResponse.headers.get('content-type')?.toLowerCase().includes('text/html') === true,
       gymFlowMarker: publicBody.includes('GymFlow'),
     },
@@ -409,6 +424,32 @@ async function httpSnapshot(baseUrl, cronSecret) {
     crons,
     serviceSettings: await optionalServiceSettings(),
   };
+}
+
+export async function remoteSnapshot(baseUrl, releaseSecret, releaseCommit) {
+  if (!configuredSecret(releaseSecret) || !/^[0-9a-f]{40}$/.test(releaseCommit ?? '')) {
+    throw new Error('a release audit credential and exact release commit are required');
+  }
+  const publicResponse = await fetchStatus(new URL('/', baseUrl));
+  const origin = resolveProductionOrigin(baseUrl, publicResponse.url);
+  const response = await fetchStatus(new URL('/api/internal/release-audit', origin), {
+    method: 'POST', redirect: 'error', signal: AbortSignal.timeout(240_000),
+    headers: { authorization: `Bearer ${releaseSecret}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ releaseCommit }),
+  });
+  if (response.status !== 200 && response.status !== 503) {
+    throw new Error(`runtime release audit returned HTTP ${response.status}`);
+  }
+  const snapshot = await response.json();
+  if (snapshot.releaseCommit !== releaseCommit) throw new Error('runtime release commit does not match the verified release');
+  const errors = [...(snapshot.errors ?? []), ...(snapshot.http ? validateHttpSnapshot(snapshot.http) : [])];
+  if (!snapshot.http && !errors.length) errors.push('runtime HTTP audit snapshot is missing');
+  if (!Object.values(snapshot.environment ?? {}).every((passed) => passed === true)
+    || Object.keys(snapshot.environment ?? {}).length !== 6) {
+    errors.push('runtime production environment validation failed');
+  }
+  if (response.status !== 200 && !errors.length) errors.push('runtime release audit failed');
+  return { snapshot, errors: [...new Set(errors)] };
 }
 
 function printReport(kind, snapshot) {
@@ -483,11 +524,26 @@ async function main() {
     if (!cronSecret) throw new Error('CRON_SECRET is required for authorized recovery checks');
     const snapshot = await httpSnapshot(baseUrl, cronSecret);
     const errors = validateHttpSnapshot(snapshot);
-    if (errors.length) throw new Error(errors.join('; '));
+    if (errors.length) {
+      console.error('Production HTTP release audit snapshot (statuses and configuration summaries only)');
+      console.error(JSON.stringify(snapshot, null, 2));
+      throw new Error(errors.join('; '));
+    }
     printReport('Production HTTP', snapshot);
     return;
   }
-  throw new Error('usage: node scripts/release-audit.mjs <database|environment|fingerprint|http>');
+  if (mode === 'remote') {
+    const baseUrl = validateProductionUrl(process.env.NEXT_PUBLIC_SITE_URL);
+    const { snapshot, errors } = await remoteSnapshot(baseUrl, process.env.RELEASE_AUDIT_SECRET, process.env.RELEASE_SHA);
+    if (errors.length) {
+      console.error('Runtime release audit snapshot (statuses and configuration summaries only)');
+      console.error(JSON.stringify(snapshot, null, 2));
+      throw new Error(errors.join('; '));
+    }
+    printReport('Production runtime', snapshot);
+    return;
+  }
+  throw new Error('usage: node scripts/release-audit.mjs <database|environment|fingerprint|http|remote>');
 }
 
 const isMain = process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
@@ -499,6 +555,7 @@ if (isMain) {
       process.env.SECRETS_ENCRYPTION_KEY,
       process.env.CRON_SECRET,
       process.env.VERCEL_TOKEN,
+      process.env.RELEASE_AUDIT_SECRET,
       process.env.FINGERPRINT_DB_URL,
     ];
     try {

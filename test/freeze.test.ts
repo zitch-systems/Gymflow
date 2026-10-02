@@ -203,6 +203,60 @@ describe('membership freeze', () => {
     expect(state).toMatchObject({ status: 'active', days_to_end: 33, allocation_count: 0 });
   });
 
+  it('restores the full approved pause when only five paid days remained', async () => {
+    await asSuperuser((c) => c.query(
+      `update public.member_subscriptions set
+         status='paused',start_date=current_date-60,end_date=current_date-26,
+         paused_at=now()-interval '30 days',pause_start=current_date-30,
+         pause_end=current_date+7
+       where id=$1`,
+      [subId],
+    ));
+    await addPaidCoverage(subId, 'freeze-long-window', -60, -26);
+
+    const result = await resume(subId, 'resume-long-window');
+    const state = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `select s.status,s.end_date-current_date days_to_end,
+           a.coverage_end-current_date coverage_to_end,
+           a.original_end-current_date original_to_end
+         from public.member_subscriptions s
+         join public.payment_coverage_allocations a on a.subscription_id=s.id
+         where s.id=$1`,
+        [subId],
+      );
+      return rows[0];
+    });
+
+    expect(result).toMatchObject({ created: true, days_credited: 30, status: 'active' });
+    expect(state).toMatchObject({
+      status: 'active', days_to_end: 4, coverage_to_end: 4, original_to_end: -26,
+    });
+  });
+
+  it('credits zero when the frozen interval ends before a future term starts', async () => {
+    await asSuperuser((c) => c.query(
+      `update public.member_subscriptions set
+         status='paused',start_date=current_date+5,end_date=current_date+35,
+         paused_at=now()-interval '3 days',pause_start=current_date-3,
+         pause_end=current_date+7
+       where id=$1`,
+      [subId],
+    ));
+
+    const result = await resume(subId, 'resume-future-term');
+    const state = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `select status,end_date-current_date days_to_end
+         from public.member_subscriptions where id=$1`,
+        [subId],
+      );
+      return rows[0];
+    });
+    expect(result).toMatchObject({ created: true, days_credited: 0, status: 'active' });
+    expect(state).toMatchObject({ status: 'active', days_to_end: 35 });
+  });
+
   it('serializes two resume attempts and credits the paid term once', async () => {
     await pauseWithWindow(subId);
     await addPaidCoverage(subId, 'freeze-double', -10, 30);
@@ -297,6 +351,47 @@ describe('membership freeze', () => {
     });
     expect(result).toMatchObject({ created: true, days_credited: 0, status: 'expired' });
     expect(state).toMatchObject({ status: 'expired', days_to_end: -4, revoked: true, coverage_to_end: 9 });
+  });
+
+  it('preserves legacy rights when a later allocation is fully refunded during the pause', async () => {
+    await pauseWithWindow(subId, 10);
+    await asSuperuser((c) => c.query(
+      `insert into public.member_payment_checkouts
+         (reference,gym_id,member_id,plan_id,amount_kobo,duration_days,duration_months)
+       values ('freeze-mixed-modern',$1,$2,$3,1000000,10,0)`,
+      [IDS.gymA, IDS.memberA, IDS.planA],
+    ));
+    await withSession({ role: 'service_role', commit: true }, (c) => c.query(
+      `select public.settle_member_charge(
+         'freeze-mixed-modern',$1,$2,$3,1000000,'NGN',10,0,false,'card','{}'::jsonb,$4
+       )`,
+      [IDS.gymA, IDS.memberA, IDS.planA, subId],
+    ));
+    await withSession({ role: 'service_role', commit: true }, (c) => c.query(
+      `select public.apply_payment_refund(
+         'freeze-mixed-refund','freeze-mixed-modern','refund.processed',1000000,'NGN',false
+       )`,
+    ));
+
+    const result = await resume(subId, 'resume-mixed-refund');
+    const state = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `select s.status,s.end_date-current_date days_to_end,
+           a.revoked_at is not null revoked,
+           a.original_start-current_date original_start,
+           a.original_end-current_date original_end
+         from public.member_subscriptions s
+         join public.payment_coverage_allocations a on a.subscription_id=s.id
+         where s.id=$1`,
+        [subId],
+      );
+      return rows[0];
+    });
+    expect(result).toMatchObject({ created: true, days_credited: 3, status: 'active' });
+    expect(state).toMatchObject({
+      status: 'active', days_to_end: 13, revoked: true,
+      original_start: 11, original_end: 20,
+    });
   });
 
   it('requires an exact verified privileged staff session', async () => {

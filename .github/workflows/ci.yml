@@ -328,9 +328,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: pnpm exec vercel pull --yes --environment=production
 
-      # Validate the pulled values before a production artifact is built. The
-      # script emits booleans only; secret values never enter command arguments
-      # or logs, and it never creates or rotates a key.
       # Repair only an absent/invalid public origin in existing projects.
       # Credentials and already-valid site URLs remain managed in Vercel.
       - name: Configure a valid canonical production URL
@@ -344,27 +341,75 @@ jobs:
             pnpm exec vercel pull --yes --environment=production
           fi
 
-      - name: Validate the production environment
-        run: node --env-file=.vercel/.env.production.local scripts/release-audit.mjs environment
-
-      - name: Build
+      # Preserve the exact encryption/worker/service keys while marking any
+      # older readable Config copies as write-only Secrets. Already-protected
+      # placeholders are skipped; no key is generated or rotated here.
+      - name: Protect existing private production configuration
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: pnpm exec vercel build --prod
+        run: |
+          node --env-file=.vercel/.env.production.local --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          import { validateProductionEnvironment } from './scripts/release-audit.mjs';
+          const checks = validateProductionEnvironment(process.env).checks;
+          for (const [name, check] of [['SECRETS_ENCRYPTION_KEY', 'secretsEncryptionKey'], ['CRON_SECRET', 'cronSecret'], ['SUPABASE_SERVICE_ROLE_KEY', 'supabaseServiceRoleKey']]) {
+            if (checks[check]) writeFileSync(`${process.env.RUNNER_TEMP}/gymflow-protect-${name}`, process.env[name], { mode: 0o600 });
+          }
+          NODE
+          for name in SECRETS_ENCRYPTION_KEY CRON_SECRET SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -f "$RUNNER_TEMP/gymflow-protect-$name" ]; then
+              pnpm exec vercel env add "$name" production --type secret --force --yes < "$RUNNER_TEMP/gymflow-protect-$name"
+              rm -f "$RUNNER_TEMP/gymflow-protect-$name"
+            fi
+          done
 
-      - name: Deploy
+      # Sensitive values cannot be pulled: Vercel writes [SENSITIVE]. Build
+      # remotely with the real production environment and validate it there.
+      # A fresh credential scopes post-deploy probes to this release for 30m;
+      # existing application secrets are never downloaded or rotated.
+      - name: Configure the expiring runtime audit credential
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: pnpm exec vercel deploy --prebuilt --prod
+        run: |
+          node --input-type=module <<'NODE'
+          import { randomBytes } from 'node:crypto';
+          import { appendFileSync, writeFileSync } from 'node:fs';
+          const secret = randomBytes(32).toString('hex');
+          const expires = String(Date.now() + 30 * 60_000);
+          console.log(`::add-mask::${secret}`);
+          appendFileSync(process.env.GITHUB_ENV, `RELEASE_AUDIT_SECRET=${secret}\n`);
+          writeFileSync(`${process.env.RUNNER_TEMP}/gymflow-release-secret`, secret, { mode: 0o600 });
+          writeFileSync(`${process.env.RUNNER_TEMP}/gymflow-release-expiry`, expires, { mode: 0o600 });
+          NODE
+          pnpm exec vercel env add RELEASE_AUDIT_SECRET production --type secret --force --yes < "$RUNNER_TEMP/gymflow-release-secret"
+          pnpm exec vercel env add RELEASE_AUDIT_EXPIRES_AT production --type config --force --yes < "$RUNNER_TEMP/gymflow-release-expiry"
+          rm -f "$RUNNER_TEMP/gymflow-release-secret" "$RUNNER_TEMP/gymflow-release-expiry"
 
-      # Node loads the pulled production variables without a shell expansion,
-      # so CRON_SECRET never enters the command line or logs. The audit calls
-      # only the two idempotent recovery workers; backup routes are excluded.
-      - name: Smoke test production and authorized recovery workers
+      - name: Build and deploy with the protected production environment
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: pnpm exec vercel deploy --prod --yes --env RELEASE_SHA=${{ github.sha }} --build-env RELEASE_SHA=${{ github.sha }} --env GYMFLOW_PRODUCTION_RELEASE=1 --build-env GYMFLOW_PRODUCTION_RELEASE=1
+
+      # The runner sends only its short-lived audit credential. Runtime reads
+      # the real private keys and calls two bounded idempotent recovery workers.
+      - name: Verify runtime secrets, production, and authorized recovery workers
         env:
           RELEASE_SHA: ${{ github.sha }}
-        run: node --env-file=.vercel/.env.production.local scripts/release-audit.mjs http
+        run: node --env-file=.vercel/.env.production.local scripts/release-audit.mjs remote
+
+      - name: Remove temporary audit configuration
+        if: always()
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          rm -f "$RUNNER_TEMP/gymflow-release-secret" "$RUNNER_TEMP/gymflow-release-expiry" "$RUNNER_TEMP"/gymflow-protect-*
+          pnpm exec vercel env rm RELEASE_AUDIT_SECRET production --yes
+          pnpm exec vercel env rm RELEASE_AUDIT_EXPIRES_AT production --yes
