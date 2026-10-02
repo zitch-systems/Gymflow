@@ -65,8 +65,8 @@ invocations instead of being cut off after five pages or 1,000 rows.
 ## Backup capacity
 
 `enqueue_due_gym_backup_jobs()` materializes every due tenant into
-`gym_backup_jobs`. `/api/cron/backups` claims the oldest 20 sequentially each
-hour. Complete archives leave the queue; failed and partial archives remain and
+`gym_backup_jobs`. `/api/cron/backups` claims the oldest 20 sequentially every
+fifteen minutes. Complete archives leave the queue; failed and partial archives remain and
 back off. A timed-out lease becomes claimable after ten minutes. The response
 and operator page report queue depth and the oldest due timestamp; an oldest
 item overdue by 48 hours opens a durable incident.

@@ -16,6 +16,8 @@ export const EXPECTED_FUNCTIONS = [
   'private.protect_member_payment_coverage()',
   'private.audit_staff_membership_change()',
   'private.protect_platform_payment_coverage()',
+  'private.gym_storage_guard_allows(text,text,text)',
+  'private.harden_legacy_storage_policies()',
   'public.privileged_session_verified()',
   'public.grant_privileged_session_verification(uuid,uuid,text,uuid)',
   'public.revoke_privileged_session_verification(uuid,uuid)',
@@ -55,6 +57,10 @@ export const EXPECTED_POLICIES = [
   'storage.objects.gym_assets_tenant_update',
   'storage.objects.gym_assets_tenant_delete',
   'storage.objects.gym_backups_owner_manager_read',
+  'storage.objects.gym_storage_guard_select',
+  'storage.objects.gym_storage_guard_insert',
+  'storage.objects.gym_storage_guard_update',
+  'storage.objects.gym_storage_guard_delete',
 ];
 
 export const EXPECTED_RLS_TABLES = [
@@ -89,7 +95,7 @@ const SERVICE_ONLY_FUNCTIONS = [
   'public.finish_member_auto_renewal_initialization(text,text,boolean,text)',
 ];
 
-const LATEST_RELEASE_MIGRATION = '20261002094929_atomic_freeze_resume.sql';
+const LATEST_RELEASE_MIGRATION = '20261002102547_restrictive_gym_storage_guards.sql';
 
 export function redact(value, secrets = []) {
   let out = String(value ?? '');
@@ -186,6 +192,7 @@ export function validateDatabaseSnapshot(snapshot) {
   if (snapshot.storage.gymAssetsPublic !== true) errors.push('gym-assets must remain the public CDN bucket');
   if (snapshot.storage.gymBackupsPublic !== false) errors.push('gym-backups must be private');
   if (!snapshot.storage.canonicalStaffPolicies) errors.push('storage staff policies are not canonical proof-gated helpers');
+  if (!snapshot.storage.restrictiveBucketGuards) errors.push('storage bucket guards are not restrictive for anon and authenticated');
   for (const [name, count] of Object.entries(snapshot.operations)) {
     if (!Number.isSafeInteger(count) || count < 0) errors.push(`invalid aggregate metric: ${name}`);
   }
@@ -258,7 +265,9 @@ async function databaseSnapshot(connectionString) {
           and has_function_privilege('authenticated',oid,'EXECUTE')
           and not has_function_privilege('anon',oid,'EXECUTE')
           from (select to_regprocedure('public.privileged_session_verified()') as oid) status) as status_only`, [SERVICE_ONLY_FUNCTIONS]);
-    const rawPolicies = await client.query(`select count(*)::integer as count from pg_policies
+    const rawPolicies = await client.query(`select count(*)::integer as count,
+        coalesce(array_agg(schemaname || '.' || tablename || '.' || policyname
+          order by schemaname,tablename,policyname), '{}'::text[]) as identities from pg_policies
         where (coalesce(qual,'') || coalesce(with_check,'')) ~ '(gym_staff_links|platform_admins)'
           and (coalesce(qual,'') || coalesce(with_check,'')) not like '%privileged_session_verified%'
           and policyname not in ('gym_staff_links_select_own','pa_select_self')`);
@@ -274,6 +283,16 @@ async function databaseSnapshot(connectionString) {
         where schemaname='storage' and tablename='objects'
           and policyname in ('gym_assets_tenant_select','gym_assets_tenant_insert','gym_assets_tenant_update','gym_assets_tenant_delete','gym_backups_owner_manager_read')
           and (coalesce(qual,'') || coalesce(with_check,'')) like '%private.has_gym_role%'`);
+    const storageGuards = await client.query(`select count(*)::integer as count
+        from pg_policy p where p.polrelid='storage.objects'::regclass
+          and not p.polpermissive
+          and (select oid from pg_roles where rolname='anon') = any(p.polroles)
+          and (select oid from pg_roles where rolname='authenticated') = any(p.polroles)
+          and (p.polname,p.polcmd) in (
+            ('gym_storage_guard_select','r'),('gym_storage_guard_insert','a'),
+            ('gym_storage_guard_update','w'),('gym_storage_guard_delete','d'))
+          and (coalesce(pg_get_expr(p.polqual,p.polrelid),'') ||
+               coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'')) like '%private.gym_storage_guard_allows%'`);
     const operations = await client.query(`select
         (select count(*) from public.operational_job_state) as monitored_jobs,
         (select count(*) from public.operational_job_state where last_heartbeat_at is not null) as jobs_with_heartbeat,
@@ -311,11 +330,12 @@ async function databaseSnapshot(connectionString) {
         mutationsServiceOnly: acl.rows[0].service_only === true,
         authenticatedStatusOnly: acl.rows[0].status_only === true,
       },
-      rawPrivilegeLeaks: { policyCount: rawPolicies.rows[0].count, functionCount: rawFunctions.rows[0].count },
+      rawPrivilegeLeaks: { policyCount: rawPolicies.rows[0].count, policyIdentities: rawPolicies.rows[0].identities, functionCount: rawFunctions.rows[0].count },
       storage: {
         gymAssetsPublic: bucketMap['gym-assets'],
         gymBackupsPublic: bucketMap['gym-backups'],
         canonicalStaffPolicies: storagePolicies.rows[0].count === 5,
+        restrictiveBucketGuards: storageGuards.rows[0].count === 4,
       },
       operations: Object.fromEntries(Object.entries(operations.rows[0]).map(([name, count]) => [name, Number(count)])),
     };
@@ -443,7 +463,11 @@ async function main() {
     if (!connectionString) throw new Error('SUPABASE_DB_URL is required');
     const snapshot = await databaseSnapshot(connectionString);
     const errors = validateDatabaseSnapshot(snapshot);
-    if (errors.length) throw new Error(errors.join('; '));
+    if (errors.length) {
+      console.error('Database release audit snapshot (catalog and aggregates only)');
+      console.error(JSON.stringify(snapshot, null, 2));
+      throw new Error(errors.join('; '));
+    }
     printReport('Database', snapshot);
     return;
   }

@@ -111,3 +111,21 @@ select line from (
     and p.prokind = 'f'
     and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
 ) s order by line collate "C";
+
+-- Managed Storage policies are part of the release contract. Legacy policies
+-- may remain for other buckets, but these restrictive guards must dominate
+-- every permissive policy for GymFlow assets and backups.
+select line from (
+  select 'STORAGEPOLICY ' || p.policyname || ' cmd=' || p.cmd ||
+         ' mode=' || p.permissive || ' roles=' || array_to_string(p.roles, ',') || ' ' ||
+         md5(regexp_replace(replace(coalesce(p.qual,'') || '|' ||
+              coalesce(p.with_check,''), E'\r',''), '\s+', ' ', 'g')) as line
+  from pg_policies p
+  where p.schemaname='storage' and p.tablename='objects'
+    and p.policyname in (
+      'gym_assets_tenant_select','gym_assets_tenant_insert',
+      'gym_assets_tenant_update','gym_assets_tenant_delete',
+      'gym_backups_owner_manager_read',
+      'gym_storage_guard_select','gym_storage_guard_insert',
+      'gym_storage_guard_update','gym_storage_guard_delete')
+) s order by line collate "C";

@@ -21,7 +21,7 @@ const goodDatabase = (): DatabaseSnapshot => ({
   healthNotes: { legacyProfileValuesCleared: true, privateTablesRls: true },
   privilegedProof: { directGrantCount: 0, mutationsServiceOnly: true, authenticatedStatusOnly: true },
   rawPrivilegeLeaks: { policyCount: 0, functionCount: 0 },
-  storage: { gymAssetsPublic: true, gymBackupsPublic: false, canonicalStaffPolicies: true },
+  storage: { gymAssetsPublic: true, gymBackupsPublic: false, canonicalStaffPolicies: true, restrictiveBucketGuards: true },
   operations: {
     monitored_jobs: 4,
     jobs_with_heartbeat: 4,
@@ -122,6 +122,14 @@ describe('release-audit validation', () => {
       'RLS disabled: public.profile_health_notes',
       'privileged proof table has a direct Data API grant',
       'gym-backups must be private',
+    ]);
+  });
+
+  it('rejects permissive or missing bucket guards even when canonical policies exist', () => {
+    const snapshot = goodDatabase();
+    snapshot.storage.restrictiveBucketGuards = false;
+    expect(validateDatabaseSnapshot(snapshot)).toEqual([
+      'storage bucket guards are not restrictive for anon and authenticated',
     ]);
   });
 

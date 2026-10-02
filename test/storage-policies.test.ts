@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { asSuperuser, withSession } from './db';
 import { IDS, seed } from './seed';
 
@@ -8,6 +8,52 @@ const STAFF = {
   frontDesk: 'e3333333-3333-4333-8333-333333333333',
   accountant: 'e4444444-4444-4444-8444-444444444444',
 } as const;
+
+const LEGACY_POLICIES = [
+  'test_legacy_storage_select_all',
+  'test_legacy_storage_insert_all',
+  'test_legacy_storage_update_all',
+  'test_legacy_storage_delete_all',
+  'test_legacy_raw_staff_select',
+  'test_legacy_raw_staff_update',
+] as const;
+
+beforeAll(async () => {
+  await asSuperuser(async (c) => {
+    // Model the live risk: old dashboard policies plus public table grants.
+    // The four broad policies remain intentionally permissive so every denial
+    // in this file depends on the forward migration's restrictive guards.
+    await c.query(`grant select,insert,update,delete on storage.objects to anon`);
+    await c.query(`create role legacy_storage_policy_test nologin`);
+    await c.query(`create policy test_legacy_storage_select_all on storage.objects
+      for select to anon,authenticated using (true)`);
+    await c.query(`create policy test_legacy_storage_insert_all on storage.objects
+      for insert to anon,authenticated with check (true)`);
+    await c.query(`create policy test_legacy_storage_update_all on storage.objects
+      for update to anon,authenticated using (true) with check (true)`);
+    await c.query(`create policy test_legacy_storage_delete_all on storage.objects
+      for delete to anon,authenticated using (true)`);
+    await c.query(`create policy test_legacy_raw_staff_select on storage.objects
+      for select to legacy_storage_policy_test using (exists (
+        select 1 from public.gym_staff_links s where s.user_id=auth.uid()
+      ))`);
+    await c.query(`create policy test_legacy_raw_staff_update on storage.objects
+      for update to legacy_storage_policy_test
+      using (exists (select 1 from public.gym_staff_links s where s.user_id=auth.uid()))
+      with check (exists (select 1 from public.platform_admins p where p.user_id=auth.uid()))`);
+    expect((await c.query(`select private.harden_legacy_storage_policies() changed`)).rows[0].changed).toBe(2);
+  });
+});
+
+afterAll(async () => {
+  await asSuperuser(async (c) => {
+    for (const policy of LEGACY_POLICIES) {
+      await c.query(`drop policy ${policy} on storage.objects`);
+    }
+    await c.query(`revoke select,insert,update,delete on storage.objects from anon`);
+    await c.query(`drop role legacy_storage_policy_test`);
+  });
+});
 
 beforeEach(async () => {
   await seed();
@@ -45,6 +91,88 @@ async function names(uid: string, bucket: string, verified = true): Promise<stri
     return rows.map((r) => r.name);
   });
 }
+
+async function anonNames(bucket: string): Promise<string[]> {
+  return withSession({ role: 'anon' }, async (c) => {
+    const { rows } = await c.query<{ name: string }>(
+      `select name from storage.objects where bucket_id=$1 order by name`, [bucket],
+    );
+    return rows.map((r) => r.name);
+  });
+}
+
+describe('restrictive legacy-policy containment', () => {
+  it('installs four restrictive guards for anon and authenticated', async () => {
+    const policies = await asSuperuser((c) => c.query(
+      `select polname,polpermissive,
+         (select array_agg(r.rolname::text order by r.rolname)::text[]
+          from unnest(polroles) as role_ids(oid) join pg_roles r on r.oid=role_ids.oid) roles
+       from pg_policy where polrelid='storage.objects'::regclass
+         and polname like 'gym_storage_guard_%' order by polname`,
+    ));
+    expect(policies.rows).toEqual([
+      { polname: 'gym_storage_guard_delete', polpermissive: false, roles: ['anon', 'authenticated'] },
+      { polname: 'gym_storage_guard_insert', polpermissive: false, roles: ['anon', 'authenticated'] },
+      { polname: 'gym_storage_guard_select', polpermissive: false, roles: ['anon', 'authenticated'] },
+      { polname: 'gym_storage_guard_update', polpermissive: false, roles: ['anon', 'authenticated'] },
+    ]);
+  });
+
+  it('adds a protected-bucket proof gate to exact raw legacy staff predicates', async () => {
+    const policies = await asSuperuser((c) => c.query(
+      `select polname,pg_get_expr(polqual,polrelid) qualify,
+         pg_get_expr(polwithcheck,polrelid) check_expr
+       from pg_policy where polrelid='storage.objects'::regclass
+         and polname in ('test_legacy_raw_staff_select','test_legacy_raw_staff_update')
+       order by polname`,
+    ));
+    expect(policies.rows).toHaveLength(2);
+    for (const row of policies.rows) {
+      expect(row.qualify).toContain('gym_staff_links');
+      expect(row.qualify).toContain('privileged_session_verified');
+      expect(row.qualify).toContain('gym-backups');
+    }
+    expect(policies.rows[1].check_expr).toContain('platform_admins');
+    expect(policies.rows[1].check_expr).toContain('privileged_session_verified');
+    expect(policies.rows[1].check_expr).toContain('gym-assets');
+  });
+
+  it('defeats broad public/authenticated policies on both protected buckets', async () => {
+    expect(await anonNames('gym-assets')).toEqual([]);
+    expect(await anonNames('gym-backups')).toEqual([]);
+    expect(await names(IDS.ownerA, 'gym-assets', false)).toEqual([]);
+    expect(await names(IDS.memberA, 'gym-assets')).toEqual([]);
+    await expect(withSession({ role: 'authenticated', uid: IDS.memberA }, (c) => c.query(
+      `insert into storage.objects(bucket_id,name) values('gym-assets',$1)`,
+      [`${IDS.gymA}/gallery/permissive-bypass.png`],
+    ))).rejects.toMatchObject({ code: '42501' });
+    await expect(withSession({ role: 'anon' }, (c) => c.query(
+      `insert into storage.objects(bucket_id,name) values('gym-backups',$1)`,
+      [`${IDS.gymA}/public-forged.zip`],
+    ))).rejects.toMatchObject({ code: '42501' });
+  });
+
+  it('preserves broad legacy behavior for unrelated buckets and service bypass', async () => {
+    await withSession({ role: 'anon', commit: true }, (c) =>
+      c.query(`insert into storage.objects(bucket_id,name) values('public-legacy','anonymous.txt')`),
+    );
+    expect(await anonNames('public-legacy')).toEqual(['anonymous.txt']);
+    await withSession({ role: 'anon', commit: true }, (c) =>
+      c.query(`delete from storage.objects where bucket_id='public-legacy'`),
+    );
+    await withSession({ role: 'authenticated', uid: IDS.memberA }, async (c) => {
+      await c.query(`insert into storage.objects(bucket_id,name) values('unrelated','member.txt')`);
+      expect((await c.query(`select name from storage.objects where bucket_id='unrelated'`)).rows)
+        .toEqual([{ name: 'member.txt' }]);
+      expect((await c.query(`update storage.objects set name='renamed.txt' where bucket_id='unrelated'`)).rowCount).toBe(1);
+      expect((await c.query(`delete from storage.objects where bucket_id='unrelated'`)).rowCount).toBe(1);
+    });
+    await withSession({ role: 'service_role' }, async (c) => {
+      await c.query(`insert into storage.objects(bucket_id,name) values('gym-backups',$1)`, [`${IDS.gymA}/service.zip`]);
+      expect((await c.query(`select name from storage.objects where name=$1`, [`${IDS.gymA}/service.zip`])).rowCount).toBe(1);
+    });
+  });
+});
 
 describe('gym-assets tenant prefix policies', () => {
   it('lets verified owners/managers see only their gym prefix', async () => {

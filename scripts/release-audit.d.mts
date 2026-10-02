@@ -26,8 +26,8 @@ export type DatabaseSnapshot = {
   authPrerequisites: Record<string, boolean>;
   healthNotes: { legacyProfileValuesCleared: boolean; privateTablesRls: boolean };
   privilegedProof: { directGrantCount: number; mutationsServiceOnly: boolean; authenticatedStatusOnly: boolean };
-  rawPrivilegeLeaks: { policyCount: number; functionCount: number };
-  storage: { gymAssetsPublic?: boolean; gymBackupsPublic?: boolean; canonicalStaffPolicies: boolean };
+  rawPrivilegeLeaks: { policyCount: number; policyIdentities?: string[]; functionCount: number };
+  storage: { gymAssetsPublic?: boolean; gymBackupsPublic?: boolean; canonicalStaffPolicies: boolean; restrictiveBucketGuards: boolean };
   operations: Record<string, number>;
 };
 
