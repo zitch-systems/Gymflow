@@ -10,9 +10,12 @@
     "audit:production": "node scripts/audit-production.mjs",
     "audit:android-bundle": "node scripts/audit-android-bundle.mjs dist-ci",
     "test:router-compat": "node scripts/test-router-compat.mjs",
+    "test:native-config": "node scripts/test-native-config.mjs",
     "type-check": "tsc --noEmit",
     "lint": "expo lint",
     "prebuild:android": "expo prebuild --platform android --clean",
+    "build:native:android": "bash scripts/native-build-android.sh",
+    "build:native:ios-simulator": "bash scripts/native-build-ios-simulator.sh",
     "build:android:preview": "eas build --platform android --profile preview",
     "build:android:production": "eas build --platform android --profile production"
   },

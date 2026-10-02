@@ -7,7 +7,7 @@ on:
       - 'gymflow-meta-connector/**'
       - '.github/workflows/secondary-apps.yml'
   push:
-    branches: [main]
+    branches: [main, native/gymflow-mobile-20261002]
     paths:
       - 'mobile/**'
       - 'gymflow-meta-connector/**'
@@ -36,13 +36,15 @@ jobs:
         run: EXPO_OFFLINE=1 npx expo install --check
       - name: Verify Expo Router patched query compatibility
         run: npm run test:router-compat
+      - name: Verify native release configuration contract
+        run: npm run test:native-config
       - name: Audit production graph against reviewed residual advisories
         run: npm run audit:production
       - run: npm run type-check
       - run: npm run lint
       - name: Export Android bundle
         env:
-          EXPO_PUBLIC_API_URL: https://gymflow.ng
+          EXPO_PUBLIC_API_URL: https://www.gymflow.ng
         run: npx expo export --platform android --output-dir dist-ci --source-maps
       - name: Verify Node-only build packages are absent from Android bundle
         run: npm run audit:android-bundle

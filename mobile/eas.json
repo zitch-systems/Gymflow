@@ -7,18 +7,26 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://gymflow.ng" }
+      "android": { "buildType": "apk", "image": "sdk-57" },
+      "ios": { "image": "sdk-57" },
+      "env": { "EXPO_PUBLIC_API_URL": "https://www.gymflow.ng" }
     },
     "preview": {
       "distribution": "internal",
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://gymflow.ng" }
+      "android": { "buildType": "apk", "image": "sdk-57" },
+      "ios": { "simulator": true, "image": "sdk-57" },
+      "env": { "EXPO_PUBLIC_API_URL": "https://www.gymflow.ng" }
+    },
+    "simulator": {
+      "distribution": "internal",
+      "ios": { "simulator": true, "image": "sdk-57" },
+      "env": { "EXPO_PUBLIC_API_URL": "https://www.gymflow.ng" }
     },
     "production": {
       "autoIncrement": true,
-      "android": { "buildType": "app-bundle" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://gymflow.ng" }
+      "android": { "buildType": "app-bundle", "image": "sdk-57" },
+      "ios": { "image": "sdk-57" },
+      "env": { "EXPO_PUBLIC_API_URL": "https://www.gymflow.ng" }
     }
   },
   "submit": {

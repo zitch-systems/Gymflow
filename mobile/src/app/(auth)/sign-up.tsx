@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
@@ -19,7 +19,12 @@ export default function SignUpScreen() {
   const [error, setError] = useState<string | null>(null);
   const [confirmationRequired, setConfirmationRequired] = useState(false);
 
+  useEffect(() => {
+    if (!String(code).trim()) router.replace('/(auth)/gym');
+  }, [code, router]);
+
   const submit = async () => {
+    if (!String(code).trim()) { router.replace('/(auth)/gym'); return; }
     if (!fullName.trim()) { setError('Enter your name.'); return; }
     if (!email.trim()) { setError('Enter your email address.'); return; }
     if (!password) { setError('Choose a password.'); return; }
@@ -39,6 +44,8 @@ export default function SignUpScreen() {
       setBusy(false);
     }
   };
+
+  if (!String(code).trim()) return <Screen><View /></Screen>;
 
   if (confirmationRequired) {
     return (

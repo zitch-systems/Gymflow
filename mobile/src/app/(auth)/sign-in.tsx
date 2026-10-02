@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
@@ -17,7 +17,15 @@ export default function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // These parameters normally come from the verified gym-code screen. A stale
+  // bookmark or hand-written deep link must not submit credentials without a
+  // tenant, so send it back to gym selection before the form can be used.
+  useEffect(() => {
+    if (!String(code).trim()) router.replace('/(auth)/gym');
+  }, [code, router]);
+
   const submit = async () => {
+    if (!String(code).trim()) { router.replace('/(auth)/gym'); return; }
     if (!email.trim() || !password) { setError('Enter your email and password.'); return; }
     setBusy(true);
     setError(null);
@@ -30,6 +38,8 @@ export default function SignInScreen() {
       setBusy(false);
     }
   };
+
+  if (!String(code).trim()) return <Screen><View /></Screen>;
 
   return (
     <Screen>

@@ -6,7 +6,7 @@ import { Screen } from '@/components/screen';
 import { Body, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { api } from '@/api/client';
-import { inboxTime } from '@/lib/format';
+import { inboxTime, sameWatDay } from '@/lib/format';
 import { space } from '@/theme';
 import type { AppNotification, Inbox } from '@/api/types';
 
@@ -37,7 +37,7 @@ function groupOf(iso: string | null, now: number): 'Today' | 'This week' | 'Earl
   if (!iso) return 'Earlier';
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return 'Earlier';
-  if (new Date(t).toDateString() === new Date(now).toDateString()) return 'Today';
+  if (sameWatDay(new Date(t), new Date(now))) return 'Today';
   return now - t < 7 * DAY ? 'This week' : 'Earlier';
 }
 

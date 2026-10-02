@@ -34,6 +34,14 @@
         }
       ]
     },
+    "ios": {
+      "bundleIdentifier": "ng.gymflow.member",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
@@ -56,7 +64,7 @@
     "extra": {
       "router": {},
       "eas": {},
-      "apiBaseUrl": "https://gymflow.ng"
+      "apiBaseUrl": "https://www.gymflow.ng"
     },
     "experiments": {
       "typedRoutes": false,

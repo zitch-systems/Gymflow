@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Screen } from '@/components/screen';
 import { Badge, Body, Button, Card, EmptyState, ErrorState, Loading, Notice, Title, c, StaleDataNotice } from '@/components/ui';
@@ -15,13 +15,17 @@ const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export default function ClassesScreen() {
   const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<Classes>('/api/app/classes');
   const [tab, setTab] = useState<'schedule' | 'bookings'>('schedule');
-  const [selectedDow, setSelectedDow] = useState(() => new Date().getDay());
+  const [selectedDow, setSelectedDow] = useState<number | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'danger' } | null>(null);
 
-  // This week, Monday first — the strip along the top.
-  const week = useMemo(() => {
-    const today = new Date();
+  const serverToday = data?.today ?? new Date().toISOString().slice(0, 10);
+  const today = new Date(`${serverToday}T12:00:00`);
+  const activeDow = selectedDow ?? today.getDay();
+
+  // This week, Monday first. Anchor it to the server's Nigerian calendar date
+  // so a device set to another timezone doesn't show or book the wrong week.
+  const week = (() => {
     const monday = new Date(today);
     monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
     return Array.from({ length: 7 }, (_, i) => {
@@ -37,7 +41,7 @@ export default function ClassesScreen() {
         isToday: d.toDateString() === today.toDateString(),
       };
     });
-  }, []);
+  })();
 
   const book = useCallback(async (scheduleId: string) => {
     setPending(scheduleId);
@@ -84,7 +88,7 @@ export default function ClassesScreen() {
   if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;
   if (!data) return <Screen><EmptyState title="No timetable yet" /></Screen>;
 
-  const daySlots = data.schedule.filter((s) => s.day_of_week === selectedDow);
+  const daySlots = data.schedule.filter((s) => s.day_of_week === activeDow);
   const bookedScheduleIds = new Set(
     data.bookings.filter((b) => (b.booking_date ?? '') >= data.today).map((b) => b.class_schedule_id),
   );
@@ -111,7 +115,7 @@ export default function ClassesScreen() {
         <>
           <View style={styles.strip}>
             {week.map((d) => {
-              const on = d.dow === selectedDow;
+              const on = d.dow === activeDow;
               return (
                 <Pressable
                   key={d.dow}

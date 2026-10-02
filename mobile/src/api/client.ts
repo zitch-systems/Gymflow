@@ -8,11 +8,26 @@ import type { Session } from '@/api/types';
 // an ApiError with a sentence they can show a member — never a raw status code.
 
 /** Where the Next.js app lives. Override per build with EXPO_PUBLIC_API_URL. */
-export const API_BASE_URL: string = (
+function canonicalApiOrigin(value: string): string {
+  const trimmed = value.trim().replace(/\/+$/, '');
+  try {
+    const url = new URL(trimmed);
+    // Production redirects the apex to www. Following that redirect can strip
+    // Authorization on a cross-origin fetch, so authenticated API calls must
+    // start on the canonical host. Preserve localhost and gym subdomains used
+    // by development and tenant previews.
+    if (url.hostname === 'gymflow.ng') url.hostname = 'www.gymflow.ng';
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return trimmed;
+  }
+}
+
+export const API_BASE_URL: string = canonicalApiOrigin(
   process.env.EXPO_PUBLIC_API_URL ??
   (Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined)?.apiBaseUrl ??
-  'https://gymflow.ng'
-).replace(/\/+$/, '');
+  'https://www.gymflow.ng',
+);
 
 export class ApiError extends Error {
   status: number;
@@ -54,7 +69,8 @@ async function refreshSession(): Promise<Session | null> {
   if (!bridge) return null;
   if (refreshInFlight) return refreshInFlight;
 
-  const current = bridge.getSession();
+  const auth = bridge;
+  const current = auth.getSession();
   if (!current?.refresh_token) return null;
 
   refreshInFlight = (async () => {
@@ -65,14 +81,21 @@ async function refreshSession(): Promise<Session | null> {
         body: JSON.stringify({ refresh_token: current.refresh_token }),
       });
       const body = (await res.json().catch(() => ({}))) as { session?: Session | null };
-      if (!res.ok || !body.session) return null;
-      await bridge!.saveSession(body.session);
+      if (res.status === 400 || res.status === 401 || res.status === 403) return null;
+      if (!res.ok) {
+        throw new ApiError('GymFlow couldn’t refresh your session. Please try again.', res.status, 'session_unavailable');
+      }
+      if (!body.session) return null;
+      // A sign-out can happen while the refresh request is in flight. Never
+      // let that old response write a new bearer token back into storage.
+      if (bridge !== auth || auth.getSession()?.refresh_token !== current.refresh_token) return null;
+      await auth.saveSession(body.session);
       return body.session;
-    } catch {
-      // A refresh that fails on the network is not a dead session — the member
-      // is on a bad connection. Returning null lets the caller surface a
-      // connection error instead of signing them out.
-      return null;
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
+      // Keep the stored session on a transient connection failure. Callers
+      // surface offline state instead of treating it as invalid credentials.
+      throw new ApiError('Can’t reach GymFlow. Check your connection and try again.', 0, 'offline');
     } finally {
       refreshInFlight = null;
     }

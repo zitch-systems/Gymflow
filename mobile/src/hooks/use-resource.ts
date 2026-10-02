@@ -35,25 +35,40 @@ export function useResource<T>(path: string): Resource<T> {
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [offline, setOffline] = useState(false);
+  const requestId = useRef(0);
+  const controller = useRef<AbortController | null>(null);
+  const loadedOnce = useRef(false);
 
   // Guards against a slow response landing after the screen has gone.
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
-    return () => { alive.current = false; };
+    return () => {
+      alive.current = false;
+      controller.current?.abort();
+    };
   }, []);
 
   const load = useCallback(async (mode: 'initial' | 'refresh') => {
+    const id = ++requestId.current;
+    controller.current?.abort();
+    if (!path) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    const nextController = new AbortController();
+    controller.current = nextController;
     if (mode === 'refresh') setRefreshing(true);
     try {
-      const next = await api.get<T>(path);
-      if (!alive.current) return;
+      const next = await api.get<T>(path, nextController.signal);
+      if (!alive.current || id !== requestId.current) return;
       setData(next);
       setLastRefreshedAt(Date.now());
       setOffline(false);
       setError(null);
     } catch (e) {
-      if (!alive.current) return;
+      if (!alive.current || id !== requestId.current || (e as Error).name === 'AbortError') return;
       // An expired session is already being handled by the auth provider, which
       // is about to swap this screen out for sign-in. Showing an error under it
       // would just flash red on the way out.
@@ -62,16 +77,19 @@ export function useResource<T>(path: string): Resource<T> {
         setError(e instanceof Error ? e.message : 'Something went wrong.');
       }
     } finally {
-      if (alive.current) { setLoading(false); setRefreshing(false); }
+      if (alive.current && id === requestId.current) {
+        loadedOnce.current = true;
+        setLoading(false);
+        setRefreshing(false);
+        controller.current = null;
+      }
     }
   }, [path]);
 
   useFocusEffect(
     useCallback(() => {
-      void load(alive.current && !loading ? 'refresh' : 'initial');
-      // `loading` is deliberately not a dependency: including it would re-run
-      // the effect the moment the first load finishes, fetching twice.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      void load(loadedOnce.current ? 'refresh' : 'initial');
+      return () => controller.current?.abort();
     }, [load]),
   );
 

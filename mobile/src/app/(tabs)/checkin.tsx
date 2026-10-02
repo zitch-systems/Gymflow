@@ -100,7 +100,12 @@ export default function CheckinScreen() {
         // and the next tick tries again.
       }
     }, CODE_POLL_MS);
-    return () => { clearInterval(tick); clearInterval(poll); };
+    const expire = setTimeout(() => {
+      setNow(code.expiresAt);
+      clearInterval(tick);
+      clearInterval(poll);
+    }, Math.max(0, code.expiresAt - Date.now()));
+    return () => { clearInterval(tick); clearInterval(poll); clearTimeout(expire); };
   }, [code, checkedIn, refresh, set]);
 
   const openScanner = useCallback(async () => {

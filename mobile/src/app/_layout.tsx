@@ -43,6 +43,7 @@ function Gate() {
       <Stack.Screen name="renew" options={{ title: 'Membership plans' }} />
       <Stack.Screen name="receipt/[id]" options={{ title: 'Receipt' }} />
       <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
+      <Stack.Screen name="pay/callback" options={{ title: 'Payment' }} />
     </Stack>
   );
 }
