@@ -23,3 +23,11 @@ mkdir -p artifacts/ios
 app=build/ios/Build/Products/Release-iphonesimulator/GymFlow.app
 test -d "$app"
 ditto -c -k --sequesterRsrc --keepParent "$app" artifacts/ios/GymFlow-ios-simulator.zip
+{
+  echo "git_sha=${GITHUB_SHA:-local}"
+  echo "api_url=$EXPO_PUBLIC_API_URL"
+  echo "simulator_arch=$(uname -m)"
+  echo "node=$(node --version)"
+  xcodebuild -version | tr '\n' ' '
+  echo
+} > artifacts/ios/build-info.txt

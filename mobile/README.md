@@ -140,6 +140,7 @@ cd mobile
 npm ci
 EXPO_PUBLIC_API_URL=https://www.gymflow.ng npm run build:native:android
 EXPO_PUBLIC_API_URL=https://www.gymflow.ng npm run build:native:ios-simulator
+EXPO_PUBLIC_API_URL=https://www.gymflow.ng npm run build:native:ios-device-unsigned
 ```
 
 The Android command emits a non-debuggable, standalone Release APK and AAB under
@@ -148,6 +149,16 @@ generated development keystore makes the APK installable for review, but those
 artifacts must not be submitted to Google Play. The iOS command emits a zipped,
 unsigned Release simulator `.app` under `artifacts/ios/`; simulator builds cannot
 run on physical devices or be submitted to App Store Connect.
+
+The unsigned iPhoneOS command compiles the real physical-device target and emits
+an `.xcarchive` plus an unsigned `.ipa` under `artifacts/ios-device/`. These prove
+that device code compiles, but cannot be installed or submitted until an Apple
+distribution certificate and matching provisioning profile sign the archive.
+
+The internal Android build contains `arm64-v8a` for current physical devices and
+`x86_64` for the CI emulator. Add other ABIs only when a supported distribution
+target requires them. Each platform artifact includes `build-info.txt` with the
+source commit, public API URL, architecture, and native toolchain versions.
 
 `.github/workflows/native-builds.yml` boots a clean emulator and simulator,
 installs each compiled app, launches it without Metro, checks that its process

@@ -113,11 +113,11 @@ jobs:
         run: npm run build:native:ios-simulator
       - name: Boot simulator and launch bundled app without Metro
         run: |
-          device_type=$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devicetypes"]; print(next(x["identifier"] for x in reversed(d) if x["name"].startswith("iPhone")))')
-          runtime=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["runtimes"]; print(next(x["identifier"] for x in reversed(d) if x["isAvailable"] and x["name"].startswith("iOS")))')
-          udid=$(xcrun simctl create GymFlowSmoke "$device_type" "$runtime")
+          # Device types are newest-first. Let CoreSimulator choose the newest
+          # compatible installed iOS runtime instead of pairing unrelated IDs.
+          device_type=$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devicetypes"]; print(next(x["identifier"] for x in d if x["name"].startswith("iPhone")))')
+          udid=$(xcrun simctl create GymFlowSmoke "$device_type")
           xcrun simctl boot "$udid"
-          open -a Simulator
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl install "$udid" build/ios/Build/Products/Release-iphonesimulator/GymFlow.app
           xcrun simctl launch "$udid" ng.gymflow.member | tee artifacts/ios/launch.txt
@@ -131,5 +131,32 @@ jobs:
         with:
           name: gymflow-ios-simulator-release
           path: mobile/artifacts/ios/
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-device-unsigned:
+    name: iOS · unsigned physical-device archive
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Select Expo SDK 57 reference Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+      - run: npm ci
+      - name: Compile unsigned iPhoneOS archive and IPA
+        run: npm run build:native:ios-device-unsigned
+      - name: Upload unsigned iPhoneOS build evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gymflow-ios-device-unsigned-release
+          path: mobile/artifacts/ios-device/
           if-no-files-found: error
           retention-days: 14
