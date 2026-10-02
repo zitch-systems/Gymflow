@@ -61,29 +61,36 @@ jobs:
         run: npm run build:native:android
       - name: Boot emulator and launch bundled app without Metro
         run: |
-          sdkmanager 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
-          echo no | avdmanager create avd --force --name gymflow-smoke --package 'system-images;android-35;google_apis;x86_64'
+          sdkmanager_bin=$(find -L "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)
+          avdmanager_bin=$(find -L "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -1)
+          adb_bin="$ANDROID_HOME/platform-tools/adb"
+          emulator_bin="$ANDROID_HOME/emulator/emulator"
+          test -x "$sdkmanager_bin" && test -x "$avdmanager_bin"
+          "$sdkmanager_bin" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          test -x "$adb_bin" && test -x "$emulator_bin"
+          echo no | "$avdmanager_bin" create avd --force --name gymflow-smoke --package 'system-images;android-35;google_apis;x86_64'
           sudo chmod 666 /dev/kvm
-          nohup emulator -avd gymflow-smoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > artifacts/android/emulator.log 2>&1 &
-          adb wait-for-device
-          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 2; done'
-          adb install -r artifacts/android/gymflow-internal-debug-signed-release.apk
-          adb shell am start -W -n ng.gymflow.member/.MainActivity | tee artifacts/android/launch.txt
+          nohup "$emulator_bin" -avd gymflow-smoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > artifacts/android/emulator.log 2>&1 &
+          timeout 180 "$adb_bin" wait-for-device
+          export GYMFLOW_ADB="$adb_bin"
+          timeout 300 bash -c 'until [ "$($GYMFLOW_ADB shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 2; done'
+          "$adb_bin" install -r artifacts/android/gymflow-internal-debug-signed-release.apk
+          "$adb_bin" shell am start -W -n ng.gymflow.member/.MainActivity | tee artifacts/android/launch.txt
           rendered=false
           for attempt in $(seq 1 30); do
             sleep 2
-            adb shell uiautomator dump /sdcard/gymflow-window.xml >/dev/null
-            adb shell cat /sdcard/gymflow-window.xml > artifacts/android/window.xml
+            "$adb_bin" shell uiautomator dump /sdcard/gymflow-window.xml >/dev/null || continue
+            "$adb_bin" shell cat /sdcard/gymflow-window.xml > artifacts/android/window.xml
             if grep -q 'Welcome to GymFlow' artifacts/android/window.xml; then
               rendered=true
               break
             fi
           done
           test "$rendered" = true
-          adb shell pidof ng.gymflow.member | tee artifacts/android/pid.txt
+          "$adb_bin" shell pidof ng.gymflow.member | tee artifacts/android/pid.txt
           test -s artifacts/android/pid.txt
-          adb exec-out screencap -p > artifacts/android/launch.png
-          adb logcat -d -t 1000 > artifacts/android/logcat.txt
+          "$adb_bin" exec-out screencap -p > artifacts/android/launch.png
+          "$adb_bin" logcat -d -t 1000 > artifacts/android/logcat.txt
       - name: Upload Android build evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
