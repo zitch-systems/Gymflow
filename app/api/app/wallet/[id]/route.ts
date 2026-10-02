@@ -1,4 +1,5 @@
 import { requireApiMember, json, corsPreflight } from '@/lib/api-app';
+import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -22,7 +23,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { data: p } = await supabase
       .from('payments')
-      .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id, paystack_reference')
+      .select('id, amount, refunded_amount, payment_status, payment_date, created_at, payment_method, plan_id, paystack_reference')
       .eq('id', id).eq('member_id', user.id).eq('gym_id', gym.id)
       .maybeSingle();
     if (!p) return json({ error: 'Receipt not found.' }, 404);
@@ -33,11 +34,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       if (plan?.name) planLabel = plan.name;
     }
 
+    const amounts = paymentAmounts(p);
     return json({
       receipt: {
         id: p.id,
-        amount: Number(p.amount ?? 0),
+        amount: amounts.net,
+        gross_amount: amounts.gross,
+        refunded_amount: amounts.refunded,
+        refund_state: amounts.refundState,
         status: p.payment_status,
+        status_label: paymentStatusLabel(p),
         date: p.payment_date ?? p.created_at,
         method: p.payment_method || 'Paystack',
         reference: p.paystack_reference || p.id,

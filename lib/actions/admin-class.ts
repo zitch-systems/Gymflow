@@ -97,8 +97,12 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
       // (lib/paystack.ts). Only the price moves the base total, so the add-on
       // columns don't clear it.
       const { data: before } = await supabase.from('membership_plans')
-        .select('price, trainer_addon_enabled, trainer_addon_price').eq('id', id).eq('gym_id', gym.id).maybeSingle();
+        .select('price, duration_days, duration_months, trainer_addon_enabled, trainer_addon_price').eq('id', id).eq('gym_id', gym.id).maybeSingle();
       const priceChanged = before != null && Number(before.price) !== price;
+      const periodChanged = before != null && (
+        Number(before.duration_days ?? 0) !== Number(duration_days ?? 0)
+        || Number(before.duration_months ?? 0) !== Number(duration_months ?? 0)
+      );
       const totalChanged = priceChanged || (before != null && (
         Boolean(before.trainer_addon_enabled) !== trainerEnabled
         || Number(before.trainer_addon_price ?? 0) !== trainerPrice
@@ -106,8 +110,8 @@ export async function savePlan(_prev: CState, formData: FormData): Promise<CStat
       const { error } = await supabase.from('membership_plans')
         .update({
           name, price, duration_days, duration_months, is_active: isActive, ...addon,
-          ...(totalChanged ? { paystack_plan_code_trainer: null } : {}),
-          ...(priceChanged ? { paystack_plan_code: null } : {}),
+          ...(totalChanged || periodChanged ? { paystack_plan_code_trainer: null } : {}),
+          ...(priceChanged || periodChanged ? { paystack_plan_code: null } : {}),
         }).eq('id', id).eq('gym_id', gym.id);
       if (error) return { ok: false, error: error.message };
     } else {

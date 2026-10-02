@@ -27,6 +27,7 @@ export type AuthResponse = {
 
 export type Subscription = {
   status: string | null;
+  display_state: 'active' | 'scheduled' | 'expired' | 'frozen' | 'freeze_pending';
   plan_name: string;
   start_date: string | null;
   end_date: string | null;
@@ -96,17 +97,29 @@ export type Wallet = {
   total_spent: number;
   this_month: number;
   months: { label: string; amount: number }[];
-  subscription: { plan_name: string | null; end_date: string | null; days_left: number; status: string | null } | null;
+  subscription: {
+    plan_name: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    days_left: number;
+    status: string | null;
+    display_state: Subscription['display_state'];
+  } | null;
   cards: {
     id: string; brand: string | null; last4: string | null;
     exp_month: string | number | null; exp_year: string | number | null;
     bank: string | null; is_default: boolean | null;
   }[];
-  transactions: { id: string; amount: number; status: string | null; date: string | null; method: string }[];
+  transactions: {
+    id: string; amount: number; gross_amount: number; refunded_amount: number;
+    refund_state: 'none' | 'partial' | 'full'; status: string | null;
+    status_label: string; date: string | null; method: string;
+  }[];
 };
 
 export type Receipt = {
-  id: string; amount: number; status: string | null; date: string | null;
+  id: string; amount: number; gross_amount: number; refunded_amount: number;
+  refund_state: 'none' | 'partial' | 'full'; status: string | null; status_label: string; date: string | null;
   method: string; reference: string; plan: string; gym: string;
 };
 
@@ -131,11 +144,18 @@ export type Plan = {
   duration_months: number | null;
   trainer_addon: { available: boolean; price: number; total_with_trainer: number };
   is_current: boolean;
+  is_scheduled: boolean;
 };
 
 export type Plans = {
   plans: Plan[];
-  current: { plan_name: string | null; end_date: string | null; days_left: number } | null;
+  current: {
+    plan_name: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    days_left: number;
+    display_state: Subscription['display_state'];
+  } | null;
 };
 
 export type ProfilePayload = {
@@ -154,6 +174,12 @@ export type ProfilePayload = {
     joined_at: string | null;
   };
   stats: { visits: number; classes_attended: number };
-  membership: { status: string | null; end_date: string | null; auto_renew: boolean } | null;
+  membership: {
+    status: string | null;
+    display_state: Subscription['display_state'];
+    start_date: string | null;
+    end_date: string | null;
+    auto_renew: boolean;
+  } | null;
   freeze_enabled: boolean;
 };

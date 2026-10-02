@@ -1,0 +1,16 @@
+{
+  "name": "query-string",
+  "version": "9.5.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "types": "./index.d.ts",
+    "default": "./index.js"
+  },
+  "dependencies": {
+    "decode-uri-component": "0.5.0",
+    "filter-obj": "5.1.0",
+    "split-on-first": "3.0.0"
+  }
+}

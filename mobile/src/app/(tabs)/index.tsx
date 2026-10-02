@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Avatar, Badge, Body, Button, Card, EmptyState, ErrorState, Group, Heading, Loading, Row, SectionTitle, c } from '@/components/ui';
+import { Avatar, Badge, Body, Button, Card, EmptyState, ErrorState, Group, Heading, Loading, Row, SectionTitle, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { dayMonth, firstName, initial, plural, shortDate, time12 } from '@/lib/format';
 import { radius, space } from '@/theme';
@@ -15,7 +15,7 @@ const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']; // Mon..Sun, as on the w
 // quick actions, then the week, then the numbers.
 export default function HomeScreen() {
   const router = useRouter();
-  const { data, error, loading, refreshing, refresh } = useResource<Home>('/api/app/me');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<Home>('/api/app/me');
 
   if (loading && !data) return <Screen><Loading label="Loading your gym…" /></Screen>;
   if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;
@@ -23,16 +23,18 @@ export default function HomeScreen() {
 
   const { gym, member, subscription: sub, stats, week, next_class: next, recent_checkins: recent, unread_notifications: unread } = data;
 
-  const frozen = sub?.status === 'paused';
-  const freezePending = sub?.status === 'pause_requested';
+  const frozen = sub?.display_state === 'frozen';
+  const freezePending = sub?.display_state === 'freeze_pending';
+  const scheduled = sub?.display_state === 'scheduled';
   const pastDue = sub?.status === 'past_due';
-  const active = Boolean(sub) && !frozen && !freezePending && (sub?.days_left ?? 0) > 0;
+  const active = sub?.display_state === 'active';
 
-  const statusLabel = frozen ? 'Frozen' : freezePending ? 'Freeze pending' : active ? 'Active' : sub ? 'Expired' : 'No plan';
-  const statusTone = frozen || freezePending ? 'info' : active ? 'success' : 'warning';
+  const statusLabel = frozen ? 'Frozen' : freezePending ? 'Freeze pending' : scheduled ? 'Scheduled' : active ? 'Active' : sub ? 'Expired' : 'No plan';
+  const statusTone = frozen || freezePending || scheduled ? 'info' : active ? 'success' : 'warning';
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       {/* Header */}
       <View style={styles.header}>
         <Avatar label={initial(member.full_name, member.email)} />
@@ -79,7 +81,9 @@ export default function HomeScreen() {
       <Card style={styles.status}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Badge label={statusLabel} tone={statusTone} />
-          {sub?.end_date && active ? <Body tone="secondary" size={12}>Renews {shortDate(sub.end_date)}</Body> : null}
+          {scheduled && sub?.start_date
+            ? <Body tone="secondary" size={12}>Starts {shortDate(sub.start_date)}</Body>
+            : sub?.end_date && active ? <Body tone="secondary" size={12}>Renews {shortDate(sub.end_date)}</Body> : null}
         </View>
         <Heading style={{ marginTop: space.md }}>{sub ? sub.plan_name : 'No membership'}</Heading>
         <View style={styles.bar}>
@@ -87,13 +91,13 @@ export default function HomeScreen() {
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: space.sm }}>
           <Body tone="muted" size={12}>{sub?.start_date ? shortDate(sub.start_date) : '—'}</Body>
-          <Body tone="muted" size={12}>{sub ? `${plural(sub.days_left, 'day')} left` : 'Not subscribed'}</Body>
+          <Body tone="muted" size={12}>{scheduled && sub?.start_date ? `Starts ${shortDate(sub.start_date)}` : sub ? `${plural(sub.days_left, 'day')} left` : 'Not subscribed'}</Body>
         </View>
         <Button
           // A member who has never subscribed is starting a membership, not
           // renewing one.
-          label={active || frozen || freezePending ? 'Manage membership' : sub ? 'Renew membership' : 'Choose a plan'}
-          onPress={() => router.push(active || frozen || freezePending ? '/(tabs)/wallet' : '/renew')}
+          label={active || scheduled || frozen || freezePending ? 'Manage membership' : sub ? 'Renew membership' : 'Choose a plan'}
+          onPress={() => router.push(active || scheduled || frozen || freezePending ? '/(tabs)/wallet' : '/renew')}
           style={{ marginTop: space.lg }}
         />
       </Card>
@@ -193,7 +197,13 @@ export default function HomeScreen() {
 
 function QuickAction({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={styles.quickItem} android_ripple={{ color: 'rgba(255,255,255,0.06)', borderless: false }}>
+    <Pressable
+      onPress={onPress}
+      style={styles.quickItem}
+      android_ripple={{ color: 'rgba(255,255,255,0.06)', borderless: false }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <View style={styles.quickTile}><Ionicons name={icon} size={20} color={c.brand} /></View>
       <Body size={11.5} tone="secondary">{label}</Body>
     </Pressable>

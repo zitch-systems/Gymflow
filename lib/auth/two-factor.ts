@@ -6,10 +6,11 @@ import { createClient } from '@/lib/supabase/server';
 import { sendPlatformEmail } from '@/lib/email/send';
 import { twoFactorCode as twoFactorCodeEmail } from '@/lib/email/templates/auth';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import {
   CODE_TTL_SECONDS, MAX_ATTEMPTS, TRUST_DAYS,
-  type ChallengeRow, deviceLabel, generateCode, generateDeviceToken,
-  hashCode, hashDeviceToken, judgeChallenge, platformAdminTwoFactorDisabled, verdictMessage,
+  deviceLabel, generateCode, generateDeviceToken,
+  hashCode, hashDeviceToken, verdictMessage,
 } from '@/lib/two-factor';
 
 // Server half of email two-factor for gym staff. The rules live in
@@ -35,16 +36,15 @@ const COOKIE_BASE = {
 export type TwoFactorTarget = { userId: string; email: string; required: boolean };
 
 /**
- * Does this email belong to gym staff whose gym requires a second factor?
+ * Does this email belong to any privileged staff/platform account?
  *
  * Runs BEFORE the password is checked so the no-2FA path keeps its single
  * sign-in round-trip. It reveals nothing to the caller — the result only
  * decides which internal branch runs, and both branches answer a wrong
  * password identically.
  *
- * A staff member linked to several gyms is challenged if ANY of them requires
- * it: the stricter gym's policy wins, because the same session reaches both
- * consoles.
+ * Every active staff role requires it. Tenant settings cannot downgrade the
+ * database authorization boundary.
  */
 export async function twoFactorTargetByEmail(email: string): Promise<TwoFactorTarget | null> {
   let admin: ReturnType<typeof createAdminClient>;
@@ -54,9 +54,9 @@ export async function twoFactorTargetByEmail(email: string): Promise<TwoFactorTa
   // % and _ escaped: unescaped, a submitted "%@%" would be a wildcard that
   // matches an unrelated account and resolves the wrong user id.
   const pattern = email.trim().replace(/[\\%_]/g, (ch) => `\\${ch}`);
-  const { data: profile } = await admin
+  const { data: profile, error } = await admin
     .from('profiles').select('id, email').ilike('email', pattern).limit(1).maybeSingle();
-  if (!profile?.id) return null;
+  if (error || !profile?.id) return null;
 
   const required = await twoFactorRequiredForUser(profile.id);
   return { userId: profile.id, email: profile.email ?? email, required };
@@ -66,7 +66,7 @@ export async function twoFactorTargetByEmail(email: string): Promise<TwoFactorTa
  *  safety net after a no-challenge sign-in in case the email lookup missed. */
 export async function twoFactorRequiredForUser(userId: string): Promise<boolean> {
   let admin: ReturnType<typeof createAdminClient>;
-  try { admin = createAdminClient(); } catch { return false; }
+  try { admin = createAdminClient(); } catch { return true; }
 
   // Platform admins need a second factor, and this clause is the only thing
   // that gives them one. The requirement used to be derived purely from
@@ -77,47 +77,26 @@ export async function twoFactorRequiredForUser(userId: string): Promise<boolean>
   // it. There is no per-gym toggle here on purpose — this one is not the
   // tenants' setting to make.
   //
-  // PLATFORM_ADMIN_2FA=off suspends it. That is a real downgrade — it leaves a
-  // password as the only thing in front of every tenant's data — so it is
-  // deliberately awkward: an env var, changed by a deploy, logged loudly on
-  // every check, and unreachable from inside the product. Note the fall-THROUGH
-  // rather than an early false: a platform admin who is also gym staff still
-  // answers to their gym's policy, which is stricter than nothing.
-  const { data: platformAdmin } = await admin
+  // There is deliberately no environment or tenant switch. The database proof
+  // gate is mandatory for every privileged account.
+  const { data: platformAdmin, error: platformError } = await admin
     .from('platform_admins')
     .select('id')
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle();
-  if (platformAdmin) {
-    const raw = process.env.PLATFORM_ADMIN_2FA;
-    if (!platformAdminTwoFactorDisabled(raw)) {
-      // Says WHY the challenge is happening, with the value actually visible to
-      // the running deployment. "It still asks for a code" is otherwise
-      // indistinguishable between: never set, set on the wrong environment, set
-      // but never redeployed (a running deployment keeps the env it was built
-      // with), and set to something that doesn't parse as off — e.g. quotes
-      // included, which fail-secure turns into ON. The variable is not a secret,
-      // so logging it costs nothing and answers the question in one line.
-      console.warn(
-        `[two-factor] challenging platform admin — PLATFORM_ADMIN_2FA=${raw === undefined ? '(unset)' : JSON.stringify(raw)}. ` +
-        'Set it to exactly `off` (no quotes) for this environment and REDEPLOY to suspend the second factor.',
-      );
-      return true;
-    }
-    console.warn('[two-factor] PLATFORM_ADMIN_2FA is off — platform-admin sign-in is password-only. Unset it to restore the second factor.');
-  }
+  if (platformError) return true;
+  if (platformAdmin) return true;
 
-  const { data: links } = await admin
+  const { data: links, error: linksError } = await admin
     .from('gym_staff_links')
-    .select('gym_id, gyms(two_factor_required)')
+    .select('id')
     .eq('user_id', userId)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .limit(1);
 
-  const rows = (links ?? []) as Array<{ gym_id: string | null; gyms: { two_factor_required?: boolean | null } | null }>;
-  // Default to required when the flag is null (a gym row written before the
-  // column existed): the secure reading of "unknown" is "yes".
-  return rows.some((l) => l.gyms?.two_factor_required !== false);
+  if (linksError) return true;
+  return (links?.length ?? 0) > 0;
 }
 
 export type IssueResult = { ok: boolean; error?: string };
@@ -232,45 +211,39 @@ export async function verifyPendingCode(code: string): Promise<VerifyResult> {
     return { ok: false, error: 'Two-factor verification is unavailable right now. Contact support.' };
   }
 
-  const { data } = await admin
-    .from('auth_challenges' as never)
-    .select('id, user_id, email, code_hash, attempts, expires_at, consumed_at')
-    .eq('id', id)
-    .maybeSingle();
-  const row = data as (ChallengeRow & { user_id: string; email: string }) | null;
-  if (!row) return { ok: false, error: 'Your verification session expired. Sign in again.' };
-
-  const verdict = judgeChallenge(row, code, new Date());
-  if (!verdict.ok) {
-    if (verdict.reason === 'mismatch') {
-      await admin.from('auth_challenges' as never).update({ attempts: row.attempts + 1 } as never).eq('id', row.id);
-      const left = MAX_ATTEMPTS - (row.attempts + 1);
-      return {
-        ok: false,
-        error: left > 0
-          ? `${verdictMessage('mismatch')} ${left} ${left === 1 ? 'attempt' : 'attempts'} left.`
-          : verdictMessage('locked'),
-      };
+  const { data, error } = await admin.rpc('verify_staff_email_challenge' as never, {
+    p_challenge_id: id,
+    p_expected_hash: hashCode(id, code),
+  } as never);
+  if (error) return { ok: false, error: 'Two-factor verification is unavailable right now. Please try again.' };
+  const row = (Array.isArray(data) ? data[0] : data) as {
+    accepted?: boolean; reason?: string; user_id?: string | null; email?: string | null; attempts?: number;
+  } | null;
+  if (!row?.accepted || !row.user_id || !row.email) {
+    const reason = row?.reason === 'expired' ? 'expired'
+      : row?.reason === 'consumed' ? 'consumed'
+        : row?.reason === 'locked' ? 'locked' : 'mismatch';
+    if (reason === 'mismatch') {
+      const left = Math.max(0, MAX_ATTEMPTS - Number(row?.attempts ?? MAX_ATTEMPTS));
+      return { ok: false, error: left > 0
+        ? `${verdictMessage('mismatch')} ${left} ${left === 1 ? 'attempt' : 'attempts'} left.`
+        : verdictMessage('locked') };
     }
-    return { ok: false, error: verdictMessage(verdict.reason) };
+    return { ok: false, error: verdictMessage(reason) };
   }
-
-  // Single-use: burn it before the session is established, so a replay of the
-  // same code (or a second tab) can't produce a second session.
-  await admin.from('auth_challenges' as never).update({ consumed_at: new Date().toISOString() } as never).eq('id', row.id);
   jar.delete(CHALLENGE_COOKIE);
   return { ok: true, userId: row.user_id, email: row.email };
 }
 
 /** Is this browser already trusted for the user? Refreshes last_used_at so an
  *  admin reviewing the list can tell live devices from forgotten ones. */
-export async function hasTrustedDevice(userId: string): Promise<boolean> {
+export async function trustedDeviceForUser(userId: string): Promise<string | null> {
   const jar = await cookies();
   const token = jar.get(DEVICE_COOKIE)?.value;
-  if (!token) return false;
+  if (!token) return null;
 
   let admin: ReturnType<typeof createAdminClient>;
-  try { admin = createAdminClient(); } catch { return false; }
+  try { admin = createAdminClient(); } catch { return null; }
   const { data } = await admin
     .from('trusted_devices' as never)
     .select('id, expires_at')
@@ -279,10 +252,14 @@ export async function hasTrustedDevice(userId: string): Promise<boolean> {
     .gt('expires_at', new Date().toISOString())
     .maybeSingle();
   const row = data as { id: string } | null;
-  if (!row) return false;
+  if (!row) return null;
 
   await admin.from('trusted_devices' as never).update({ last_used_at: new Date().toISOString() } as never).eq('id', row.id);
-  return true;
+  return row.id;
+}
+
+export async function hasTrustedDevice(userId: string): Promise<boolean> {
+  return Boolean(await trustedDeviceForUser(userId));
 }
 
 /** Remember this browser for TRUST_DAYS. */
@@ -315,7 +292,68 @@ export async function rememberDevice(userId: string): Promise<void> {
  * cookie-bound client redeems it, which is the same verifyOtp path
  * /auth/confirm already uses.
  */
-export async function establishSession(email: string): Promise<{ ok: boolean; error?: string }> {
+function sessionIdFromAccessToken(accessToken: string): string | null {
+  try {
+    const payload = JSON.parse(Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString('utf8')) as { session_id?: unknown };
+    const value = typeof payload.session_id === 'string' ? payload.session_id : '';
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+async function grantSessionProof(
+  supabase: SupabaseClient,
+  expectedUserId: string,
+  session: Session,
+  method: 'email_code' | 'trusted_device',
+  trustedDeviceId: string | null = null,
+): Promise<{ ok: boolean; error?: string }> {
+  const sessionId = sessionIdFromAccessToken(session.access_token);
+  if (!sessionId || session.user.id !== expectedUserId) {
+    return { ok: false, error: 'Could not verify this sign-in session. Please sign in again.' };
+  }
+
+  // getUser validates the JWT with GoTrue; parsing the token alone is never
+  // accepted as identity. The DB RPC then independently checks that the same
+  // session id is live in auth.sessions and belongs to this user.
+  const { data: { user }, error: userError } = await supabase.auth.getUser(session.access_token);
+  if (userError || !user || user.id !== expectedUserId) {
+    return { ok: false, error: 'Could not verify this sign-in session. Please sign in again.' };
+  }
+
+  let admin: ReturnType<typeof createAdminClient>;
+  try { admin = createAdminClient(); } catch {
+    return { ok: false, error: 'Could not complete two-factor verification. Contact support.' };
+  }
+  const { error } = await admin.rpc('grant_privileged_session_verification' as never, {
+    p_session_id: sessionId,
+    p_user_id: expectedUserId,
+    p_method: method,
+    p_trusted_device_id: trustedDeviceId,
+  } as never);
+  if (error) return { ok: false, error: 'Could not complete two-factor verification. Please try again.' };
+  return { ok: true };
+}
+
+export async function grantTrustedSession(
+  supabase: SupabaseClient,
+  userId: string,
+  session: Session,
+  trustedDeviceId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  return grantSessionProof(supabase, userId, session, 'trusted_device', trustedDeviceId);
+}
+
+export async function establishSession(userId: string, email: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { data: { session: existing } } = await supabase.auth.getSession();
+  if (existing) {
+    // Safe rollout for password sessions minted before this migration: keep the
+    // session, challenge its account inbox, then prove that exact session.
+    return grantSessionProof(supabase, userId, existing, 'email_code');
+  }
+
   let admin: ReturnType<typeof createAdminClient>;
   try { admin = createAdminClient(); } catch {
     return { ok: false, error: 'Could not complete sign-in. Contact support.' };
@@ -325,8 +363,26 @@ export async function establishSession(email: string): Promise<{ ok: boolean; er
   const tokenHash = data?.properties?.hashed_token;
   if (error || !tokenHash) return { ok: false, error: 'Could not complete sign-in. Please try again.' };
 
-  const supabase = await createClient();
-  const { error: otpErr } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
-  if (otpErr) return { ok: false, error: 'Could not complete sign-in. Please try again.' };
-  return { ok: true };
+  const { data: verified, error: otpErr } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+  if (otpErr || !verified.user || !verified.session || verified.user.id !== userId) {
+    return { ok: false, error: 'Could not complete sign-in. Please try again.' };
+  }
+  return grantSessionProof(supabase, userId, verified.session, 'email_code');
+}
+
+export async function revokeCurrentPrivilegedSession(): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const sessionId = session ? sessionIdFromAccessToken(session.access_token) : null;
+    if (!session || !sessionId) return;
+    const admin = createAdminClient();
+    await admin.rpc('revoke_privileged_session_verification' as never, {
+      p_session_id: sessionId,
+      p_user_id: session.user.id,
+    } as never);
+  } catch {
+    // Auth session deletion cascades the row; this is best-effort immediate
+    // revocation for providers that delete GoTrue sessions asynchronously.
+  }
 }

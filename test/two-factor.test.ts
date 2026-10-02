@@ -5,8 +5,7 @@ import { asSuperuser } from './db';
 import {
   CODE_TTL_SECONDS, MAX_ATTEMPTS,
   deviceLabel, generateCode, generateDeviceToken, hashCode, hashDeviceToken,
-  hashesMatch, isWellFormedCode, judgeChallenge, normalizeCode,
-  platformAdminTwoFactorDisabled, verdictMessage,
+  hashesMatch, isWellFormedCode, judgeChallenge, normalizeCode, verdictMessage,
 } from '@/lib/two-factor';
 
 // The rules that decide whether an emailed second factor is accepted. These
@@ -186,40 +185,6 @@ describe('schema (20260729_gym_two_factor)', () => {
   });
 });
 
-// Who the second factor actually covers. Both assertions below are source-level
-// because `lib/auth/two-factor.ts` and the mobile route talk to PostgREST with
-// the service role, which the throwaway Postgres in these tests does not serve.
-// They are still worth having: each one pins a hole that was open in
-// production, and the failure mode in both cases is a line quietly going away.
-// The temporary off switch for the platform admin's second factor. It reads an
-// env var, so the thing worth testing is what counts as "off" — and, much more
-// importantly, what doesn't. Anything ambiguous has to mean ON: a typo here
-// would silently leave a password as the only thing in front of every tenant's
-// data, and nothing about the app would look different.
-describe('platformAdminTwoFactorDisabled', () => {
-  it('is off only for an explicit, unambiguous value', () => {
-    for (const v of ['off', 'OFF', ' off ', 'false', '0', 'no', 'disabled']) {
-      expect(platformAdminTwoFactorDisabled(v)).toBe(true);
-    }
-  });
-
-  it('defaults to ON when unset', () => {
-    expect(platformAdminTwoFactorDisabled(undefined)).toBe(false);
-    expect(platformAdminTwoFactorDisabled(null)).toBe(false);
-    expect(platformAdminTwoFactorDisabled('')).toBe(false);
-    expect(platformAdminTwoFactorDisabled('   ')).toBe(false);
-  });
-
-  it('reads anything it does not recognise as ON', () => {
-    // Fail-secure: "offf", "of", "nope", a pasted comment — none of these are
-    // an instruction to remove the second factor, and guessing that they might
-    // be is how the guard disappears without anyone deciding it should.
-    for (const v of ['offf', 'of', 'nope', 'true', '1', 'on', 'enabled', 'null', 'undefined', 'skip']) {
-      expect(platformAdminTwoFactorDisabled(v)).toBe(false);
-    }
-  });
-});
-
 describe('two-factor coverage', () => {
   const read = (p: string) => readFileSync(resolve(__dirname, '..', p), 'utf8');
 
@@ -231,19 +196,10 @@ describe('two-factor coverage', () => {
     const src = read('lib/auth/two-factor.ts');
     const fn = src.slice(src.indexOf('export async function twoFactorRequiredForUser'));
     expect(fn).toContain("from('platform_admins')");
-    // Required unless the env switch is explicitly off — that is the ONLY way
-    // past this clause, and it lives outside the product by design. Pinned as
-    // "negated check, then return true" rather than one literal line, so adding
-    // a log line between them doesn't fail a test that isn't about logging.
-    expect(fn).toContain('const raw = process.env.PLATFORM_ADMIN_2FA;');
-    // Positional rather than one literal line: the clause must read "unless the
-    // switch parses as off, return true", and it must do so before the
-    // staff-links lookup. Pinning the exact line meant a log statement added
-    // between the check and the return failed a test that isn't about logging.
-    const gate = fn.indexOf('if (!platformAdminTwoFactorDisabled(raw))');
-    expect(gate).toBeGreaterThan(-1);
-    const returnsTrue = fn.indexOf('return true;', gate);
-    expect(returnsTrue).toBeGreaterThan(gate);
+    expect(fn).not.toContain('PLATFORM_ADMIN_2FA');
+    expect(fn).not.toContain('two_factor_required');
+    const returnsTrue = fn.indexOf('if (platformAdmin) return true;');
+    expect(returnsTrue).toBeGreaterThan(-1);
     expect(returnsTrue).toBeLessThan(fn.indexOf("from('gym_staff_links')"));
     // Ahead of the staff-links lookup, or a platform admin who is also staff
     // somewhere would be answered by the gym's toggle instead.
@@ -253,7 +209,7 @@ describe('two-factor coverage', () => {
   it('does not let the mobile sign-in endpoint hand out a session that skips it', () => {
     // POST /api/app/signin returns a Supabase session straight from a password
     // and is reachable by any account, not just members — so with no check here
-    // it was a blanket bypass of every gym's two_factor_required.
+    // it was a blanket bypass of mandatory staff session verification.
     const src = read('app/api/app/signin/route.ts');
     expect(src).toContain('twoFactorRequiredForUser');
     // The session minted a moment earlier has to be revoked, not just withheld.

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
 import { Body, Button, Field, Notice, Title } from '@/components/ui';
 import { useAuth } from '@/auth/context';
 import { space } from '@/theme';
 
 export default function SignUpScreen() {
+  const router = useRouter();
   const { signUp } = useAuth();
   const { code = '', gymName = '' } = useLocalSearchParams<{ code?: string; gymName?: string }>();
 
@@ -16,6 +17,7 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmationRequired, setConfirmationRequired] = useState(false);
 
   const submit = async () => {
     if (!fullName.trim()) { setError('Enter your name.'); return; }
@@ -24,7 +26,11 @@ export default function SignUpScreen() {
     setBusy(true);
     setError(null);
     try {
-      await signUp({ code: String(code), email: email.trim(), password, fullName: fullName.trim(), phone: phone.trim() });
+      const result = await signUp({ code: String(code), email: email.trim(), password, fullName: fullName.trim(), phone: phone.trim() });
+      if (result === 'confirmation-required') {
+        setConfirmationRequired(true);
+        setBusy(false);
+      }
     } catch (e) {
       // The password rules are the server's (lib/auth/password.ts) and it
       // returns them as a sentence — showing that verbatim beats keeping a
@@ -33,6 +39,28 @@ export default function SignUpScreen() {
       setBusy(false);
     }
   };
+
+  if (confirmationRequired) {
+    return (
+      <Screen>
+        <View style={{ paddingTop: space.xxxl }}>
+          <Title>Check your email</Title>
+          <Body tone="secondary" style={{ marginTop: space.sm, lineHeight: 21 }}>
+            Your account was created for {gymName || 'your gym'}. Open the confirmation
+            link sent to {email.trim()}, then sign in.
+          </Body>
+          <View style={{ marginTop: space.xl }}>
+            <Notice message="Account created. Confirm your email to finish signing up." tone="success" />
+          </View>
+          <Button
+            label="Back to sign in"
+            variant="secondary"
+            onPress={() => router.replace({ pathname: '/(auth)/sign-in', params: { code, gymName } })}
+          />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>

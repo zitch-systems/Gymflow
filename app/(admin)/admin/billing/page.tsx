@@ -9,6 +9,7 @@ import {
 import { tierOf, tierHasFeature, requiredTier, type Feature } from '@/lib/entitlements';
 import { PlanCards } from '@/components/admin/plan-cards';
 import { CancelSubscription } from './cancel-subscription';
+import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
 
 // Human labels for the entitlements panel — mirror the pricing page wording.
 const FEATURE_LABELS: Record<Feature, string> = {
@@ -70,7 +71,7 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
 
   const { data: history } = await supabase
     .from('platform_payments')
-    .select('id, amount, plan, payment_status, paystack_reference, billing_period_start, billing_period_end, created_at')
+    .select('id, amount, refunded_amount, plan, payment_status, paystack_reference, billing_period_start, billing_period_end, created_at')
     .eq('gym_id', gym.id)
     .order('created_at', { ascending: false })
     .limit(24);
@@ -160,15 +161,16 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
               <table className="tbl" style={{ width: '100%' }}>
                 <thead><tr><th>Date</th><th>Plan</th><th>Period</th><th>Amount</th><th>Status</th></tr></thead>
                 <tbody>
-                  {history.map((h) => (
-                    <tr key={h.id}>
+                  {history.map((h) => {
+                    const amounts = paymentAmounts(h);
+                    return <tr key={h.id}>
                       <td>{fmtDate(h.created_at)}</td>
                       <td style={{ textTransform: 'capitalize' }}>{h.plan ?? '—'}</td>
                       <td>{fmtDate(h.billing_period_start)} – {fmtDate(h.billing_period_end)}</td>
-                      <td>{fmtNaira(Number(h.amount))}</td>
-                      <td style={{ textTransform: 'capitalize' }}>{h.payment_status}</td>
-                    </tr>
-                  ))}
+                      <td><div className="cell-2"><strong>{fmtNaira(amounts.net)}</strong>{amounts.refunded > 0 && <small>{fmtNaira(amounts.refunded)} refunded from {fmtNaira(amounts.gross)}</small>}</div></td>
+                      <td>{paymentStatusLabel(h)}</td>
+                    </tr>;
+                  })}
                 </tbody>
               </table>
             </div>

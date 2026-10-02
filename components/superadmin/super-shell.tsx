@@ -10,7 +10,7 @@ import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
   LayoutDashboard, Building2, Users, TrendingUp, UserPlus, ScrollText, LifeBuoy, Settings, LogOut, Globe, Banknote,
-  Bot, MessageCircle,
+  Bot, MessageCircle, Activity,
 } from 'lucide-react';
 import { LogoMark } from '@/components/ui/logo';
 
@@ -30,6 +30,7 @@ const NAV: { sub: string; label: string; icon: LucideIcon; section: 'Platform' |
   { sub: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, section: 'Platform' },
   { sub: '/onboard', label: 'Onboard', icon: UserPlus, section: 'Operations' },
   { sub: '/payout-approvals', label: 'Payout approvals', icon: Banknote, section: 'Operations' },
+  { sub: '/operations', label: 'Job health', icon: Activity, section: 'Operations' },
   { sub: '/audit', label: 'Audit log', icon: ScrollText, section: 'Operations' },
   { sub: '/support', label: 'Support', icon: LifeBuoy, section: 'Operations' },
   { sub: '/settings', label: 'Settings', icon: Settings, section: 'Operations' },
@@ -41,7 +42,7 @@ export function SuperShell({ children, base, userName, userEmail, userInitial }:
   // usePathname() returns what the browser shows — the secret path — not the
   // internal route the middleware rewrote to, so it lines up with `base`.
   const pathname = usePathname() ?? '';
-  const nav = useMobileNav(pathname);
+  const { open, drawerOpen, drawerClosed, sidebarRef, burgerRef, toggle, close } = useMobileNav(pathname);
   const href = (sub: string) => `${base}${sub}` as Route;
   const isActive = (sub: string) => (sub === '' ? pathname === base : pathname.startsWith(`${base}${sub}`));
   const platform = NAV.filter((n) => n.section === 'Platform');
@@ -57,8 +58,17 @@ export function SuperShell({ children, base, userName, userEmail, userInitial }:
   };
 
   return (
-    <div className={`ds-admin app${nav.open ? ' nav-open' : ''}`}>
-      <aside className="gf-sidebar">
+    <div className={`ds-admin app${open ? ' nav-open' : ''}`}>
+      <aside
+        id="console-navigation"
+        ref={sidebarRef}
+        className="gf-sidebar"
+        role={drawerOpen ? 'dialog' : undefined}
+        aria-modal={drawerOpen || undefined}
+        aria-label="Console navigation"
+        inert={drawerClosed}
+        aria-hidden={drawerClosed || undefined}
+      >
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
             <LogoMark size={28} className="mark-sm" />
@@ -94,11 +104,11 @@ export function SuperShell({ children, base, userName, userEmail, userInitial }:
         </div>
       </aside>
 
-      <NavBackdrop open={nav.open} onClose={nav.close} />
+      <NavBackdrop open={open} onClose={close} />
 
       <div className="main">
         <header className="top">
-          <NavBurger open={nav.open} onClick={nav.toggle} />
+          <NavBurger open={open} onClick={toggle} buttonRef={burgerRef} />
           <span className="gf-topbar-title" style={{ fontFamily: 'var(--gf-font-display)' }}>Platform console</span>
           <div className="top-spacer" />
           <ThemeToggle />
@@ -116,8 +126,8 @@ export function SuperShell({ children, base, userName, userEmail, userInitial }:
           { href: href('/revenue'), label: 'Revenue', icon: TrendingUp },
           { href: href('/audit'), label: 'Activity', icon: ScrollText },
         ] satisfies ConsoleTab[]}
-        moreOpen={nav.open}
-        onMore={nav.toggle}
+        moreOpen={open}
+        onMore={toggle}
       />
     </div>
   );

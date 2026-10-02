@@ -247,8 +247,7 @@ export function LoginClient({ initialMode = 'in', notice = null, gym = null }: {
               </div>
             )}
             {!up && (
-              <div className="row">
-                <label><input type="checkbox" defaultChecked style={{ accentColor: 'var(--gf-brand)' }} /> Remember me</label>
+              <div className="row" style={{ justifyContent: 'flex-end' }}>
                 <Link href="/forgot-password">Forgot password?</Link>
               </div>
             )}

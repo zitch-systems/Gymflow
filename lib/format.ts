@@ -70,9 +70,18 @@ export function watDayStartUtc(watDate: string): string {
 }
 
 // Whole days from now until `iso` (clamped at 0).
-export function daysLeft(iso: string | null | undefined): number {
+export function daysLeft(iso: string | null | undefined, now: Date = new Date()): number {
   if (!iso) return 0;
-  const ms = new Date(iso).getTime() - Date.now();
+  // Membership dates include their entire final WAT day. UTC midnight is not
+  // expiry: at noon on the final day the member still has paid access.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const end = Date.parse(`${iso}T00:00:00Z`);
+    if (!Number.isFinite(end) || new Date(end).toISOString().slice(0, 10) !== iso) return 0;
+    const today = Date.parse(`${watDateISO(now)}T00:00:00Z`);
+    return Math.max(0, Math.round((end - today) / 86_400_000) + 1);
+  }
+  const ms = new Date(iso).getTime() - now.getTime();
+  if (!Number.isFinite(ms)) return 0;
   return Math.max(0, Math.ceil(ms / 86_400_000));
 }
 

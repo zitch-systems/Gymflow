@@ -77,13 +77,48 @@ npx expo run:android           # or: npm run build:android:preview (EAS)
 Checks:
 
 ```bash
+npm ci
+EXPO_OFFLINE=1 npx expo install --check
+npm run test:router-compat
+npm run audit:production
 npm run type-check
 npm run lint
+npx expo export --platform android --output-dir dist-ci --source-maps
+npm run audit:android-bundle
 ```
 
-The repo's root CI does not build this app — root `tsconfig.json` and
-`eslint.config.mjs` both exclude `mobile/`, since Next.js rules don't apply to
-React Native. Run the two commands above before pushing changes here.
+The root Next.js checks exclude `mobile/`, since its TypeScript and ESLint rules
+are different. `.github/workflows/secondary-apps.yml` runs the commands above
+against the locked mobile graph on every relevant pull request and main push.
+
+### Dependency audit scope
+
+The October 2026 update moved every direct Expo package to the latest patch in
+the Expo SDK 57 compatibility matrix. Targeted lockfile overrides move Metro's
+`image-size` to 2.0.4 and Xcode's `uuid` helper to 11.1.1; their exercised APIs
+remain compatible. Expo Router's query parser is locked to the reviewed local
+compatibility entry point in `vendor/query-string-compat`: it re-exports the
+unaltered official `query-string` 9.5.1 named API and uses the patched official
+`decode-uri-component` 0.5.0. Upstream license, tarball integrity, and per-file
+hashes are recorded in the vendor directory. A real Router deep-link
+parse/stringify test guards the small export adapter.
+
+The residual `npm audit --omit=dev` result is 4 high and no moderate or critical
+findings:
+
+- The four high entries (`node-forge`, `@expo/code-signing-certificates`,
+  `@expo/cli`, and `expo`) all roll up to node-forge advisory
+  `GHSA-86w9-cpqp-85rv`. Version 1.4.0 is both the newest published node-forge
+  release and still affected. Expo uses it for Node-side certificate creation,
+  verification, and local iOS code-signing discovery. Android CI exports source
+  maps and rejects a bundle containing `node-forge`, the certificate helper, or
+  the other reviewed Node-only build packages. Expo's Metro require bootstrap is
+  the only `@expo/cli` source present and does not import the affected chain.
+
+`npm run audit:production` fails on any critical finding, new advisory URL,
+unexpected package chain, or changed severity. Upgrade the reviewed node-forge
+root when Expo publishes compatible dependencies; do not use npm's force
+downgrade.
 
 ## Release notes
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
-import { Body, Button, ErrorState, Field, Loading, Notice } from '@/components/ui';
+import { Body, Button, ErrorState, Field, Loading, Notice, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { api } from '@/api/client';
 import { space } from '@/theme';
@@ -18,7 +18,7 @@ type Form = {
 // app shows whatever sentence comes back rather than keeping its own copy of
 // the rules.
 export default function EditProfileScreen() {
-  const { data, error, loading } = useResource<ProfilePayload>('/api/app/profile');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<ProfilePayload>('/api/app/profile');
 
   if (loading && !data) return <Screen><Loading /></Screen>;
   if (error && !data) return <Screen><ErrorState message={error} /></Screen>;
@@ -28,7 +28,16 @@ export default function EditProfileScreen() {
   // initialised once, on mount, from data that already exists. Filling it from
   // an effect instead would overwrite whatever the member is halfway through
   // typing every time the screen refetched.
-  return <ProfileForm initial={toForm(data)} />;
+  return (
+    <ProfileForm
+      initial={toForm(data)}
+      stale={stale}
+      lastRefreshedAt={lastRefreshedAt}
+      offline={offline}
+      refreshing={refreshing}
+      refresh={refresh}
+    />
+  );
 }
 
 function toForm(data: ProfilePayload): Form {
@@ -44,7 +53,16 @@ function toForm(data: ProfilePayload): Form {
   };
 }
 
-function ProfileForm({ initial }: { initial: Form }) {
+function ProfileForm({
+  initial, stale, lastRefreshedAt, offline, refreshing, refresh,
+}: {
+  initial: Form;
+  stale: boolean;
+  lastRefreshedAt: number | null;
+  offline: boolean;
+  refreshing: boolean;
+  refresh: () => void;
+}) {
   const router = useRouter();
   const [form, setForm] = useState<Form>(initial);
   const [busy, setBusy] = useState(false);
@@ -70,7 +88,8 @@ function ProfileForm({ initial }: { initial: Form }) {
   };
 
   return (
-    <Screen>
+    <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       {errorMessage ? <Notice message={errorMessage} /> : null}
 
       <Field label="Full name" placeholder="Ada Obi" autoCapitalize="words" {...field('full_name')} />

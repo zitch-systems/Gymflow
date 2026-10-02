@@ -163,9 +163,6 @@ export default async function AdminSettings({ searchParams }: { searchParams: Pr
         notif_payment_receipts:   (gym as { notif_payment_receipts?: boolean }).notif_payment_receipts !== false,
         notif_membership_updates: (gym as { notif_membership_updates?: boolean }).notif_membership_updates !== false,
         cac_number: (gym as { cac_number?: string | null }).cac_number ?? null,
-        // `!== false` like the rest: a gym row that predates the column reads
-        // as required, which is the same default the sign-in check applies.
-        two_factor_required: (gym as { two_factor_required?: boolean }).two_factor_required !== false,
       }}
       staffCount={count ?? 0}
       providers={{

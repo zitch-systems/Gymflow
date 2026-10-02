@@ -1,19 +1,19 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { grantMemberPeriod } from '@/lib/member-sub-core';
+import { settleMemberCharge } from '@/lib/member-charge';
 import { logAudit } from '@/lib/audit';
 import { deliverReceipt, type NotifyGym } from '@/lib/notify';
 import { GYM_EMAIL_COLUMNS } from '@/lib/email/recipients';
 import { captureServerEvent } from '@/lib/server-error';
 import { settledAmountMatches } from '@/lib/paystack-event-state';
 import { planTotalKobo, resolveTrainerOptIn } from '@/lib/plan-addon';
-import { commissionColumns, type SplitRecord } from '@/lib/paystack-split';
+import type { SplitRecord } from '@/lib/paystack-split';
 
 // `split` is what Paystack reported about the settlement — passed in rather
 // than re-derived here, because the webhook and the post-checkout callback see
 // it in different shapes (event body vs verify response) and only the caller
 // knows which it holds. Null means the caller had nothing to say, which is
 // recorded as "not recorded" rather than as zero commission.
-export type ChargeData = { reference: string; amountKobo: number; channel: string | null; metadata: Record<string, unknown>; split?: SplitRecord | null };
+export type ChargeData = { reference: string; amountKobo: number; currency: string; channel: string | null; metadata: Record<string, unknown>; split?: SplitRecord | null };
 // `permanent` marks a failure that won't succeed on retry (e.g. unusable
 // metadata) so the webhook can ack instead of asking Paystack to resend.
 export type FulfillResult = { ok: boolean; created: boolean; error?: string; permanent?: boolean };
@@ -21,10 +21,8 @@ export type FulfillResult = { ok: boolean; created: boolean; error?: string; per
 // Idempotently record a successful Paystack charge and extend the member's
 // subscription. Shared by the webhook AND the post-checkout callback — and
 // Paystack fires both near-simultaneously for the same transaction, so this
-// MUST be race-safe. Idempotency rests on a UNIQUE(paystack_reference) index
-// (supabase/migrations/20260609_payments_paystack_reference_unique.sql): the
-// pre-check is a fast path, the unique-violation catch is the real guard that
-// stops a concurrent fulfiller from recording the payment / extending twice.
+// MUST be race-safe. The database locks the reference and commits the payment
+// and entitlement together. Duplicate requests can only see committed access.
 // Requires the service-role key (payments / member_subscriptions are RLS-locked).
 export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const meta = d.metadata ?? {};
@@ -41,6 +39,7 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   if (!d.reference || typeof d.reference !== 'string' || d.reference.length > 200) {
     return { ok: false, created: false, error: 'missing/invalid reference', permanent: true };
   }
+  if (d.currency !== 'NGN') return { ok: false, created: false, error: 'unexpected charge currency', permanent: true };
   if (!Number.isSafeInteger(d.amountKobo) || d.amountKobo <= 0) {
     return { ok: false, created: false, error: 'missing/invalid settled amount', permanent: true };
   }
@@ -48,14 +47,6 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
     return { ok: false, created: false, error: 'settled amount does not match checkout', permanent: true };
   }
 
-  // Clamp to a sane whole-month range. In the normal flow duration_months is
-  // server-set at init (renew.ts) from the plan, but this helper is keyed only
-  // on metadata — clamp so a tampered/garbage value can't extend a sub by years.
-  const monthsRaw = Math.floor(Number(meta.duration_months ?? 1));
-  const months = Number.isFinite(monthsRaw) ? Math.min(Math.max(monthsRaw, 1), 36) : 1;
-  // Daily/weekly plans carry duration_days (clamped) — it wins over months.
-  const daysRaw = meta.duration_days != null ? Math.floor(Number(meta.duration_days)) : 0;
-  const durationDays = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.min(daysRaw, 366) : null;
   if (!memberId || !gymId || !planId) {
     return { ok: false, created: false, error: 'missing member_id/gym_id/plan_id in metadata', permanent: true };
   }
@@ -72,18 +63,9 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   if (memberLinkErr) return { ok: false, created: false, error: memberLinkErr.message };
   if (!memberLink) return { ok: false, created: false, error: 'member is not active in gym', permanent: true };
 
-  // Fast path: already recorded (the common case when the webhook wins the race
-  // before the callback runs, or vice versa).
-  const { data: existing } = await admin.from('payments').select('id').eq('paystack_reference', d.reference).maybeSingle();
-  if (existing) return { ok: true, created: false };
-
-  // Metadata carries the checkout snapshot, but the plan row is still the
-  // authority for duration and tenant ownership. This prevents a malformed
-  // event from turning a short plan into years of access. Price may legitimately
-  // change after checkout; expected_amount_kobo above pins the settled amount
-  // to what the member actually authorized at initialization.
-  let planMonths = months;
-  let planDays = durationDays;
+  // The database checks tenant ownership and the server-owned checkout's
+  // immutable amount/term. Current plan values are used only for legacy
+  // validation and a price-drift audit; metadata cannot authorize access.
   let planPriceKobo: number | null = null;
   const { data: plan, error: planErr } = await admin.from('membership_plans')
     .select('duration_days, duration_months, price, trainer_addon_enabled, trainer_addon_price')
@@ -93,8 +75,8 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
 
   const pm = Math.floor(Number(plan.duration_months ?? 0));
   const pd = plan.duration_days != null ? Math.floor(Number(plan.duration_days)) : 0;
-  planDays = Number.isFinite(pd) && pd > 0 ? Math.min(pd, 366) : null;
-  planMonths = planDays ? 0 : (Number.isFinite(pm) && pm > 0 ? Math.min(pm, 36) : 1);
+  const planDays = Number.isFinite(pd) && pd > 0 ? Math.min(pd, 366) : null;
+  const planMonths = planDays ? 0 : (Number.isFinite(pm) && pm > 0 ? Math.min(pm, 36) : 1);
   // The plan row is the authority on whether the add-on exists, so a metadata
   // flag alone can't award trainer time on a plan that never offered it.
   const trainerAddon = resolveTrainerOptIn(plan, meta.trainer_addon);
@@ -104,56 +86,16 @@ export async function fulfillCharge(d: ChargeData): Promise<FulfillResult> {
   const pp = Number(plan.price ?? 0);
   if (Number.isFinite(pp) && pp > 0) planPriceKobo = planTotalKobo(plan, trainerAddon);
 
-  // Commission is stamped on the row at fulfilment because it is not
-  // recoverable afterwards: the rate lives on the Paystack subaccount, an
-  // operator can change it at any time, and Paystack keeps no per-charge
-  // history we can read back. Without this the console could only ever
-  // multiply TODAY's rate by all historical GMV — so editing a gym from 5% to
-  // 10% silently repriced every payment it had ever taken.
-  // `as never`: these columns postdate the generated database.types.ts, same
-  // pattern as webhook_events in the webhook route.
-  const { data: payRow, error: payErr } = await admin.from('payments').insert({
-    member_id: memberId, gym_id: gymId, plan_id: planId,
-    amount: d.amountKobo / 100, currency: 'NGN',
-    status: 'success', payment_status: 'successful',
-    payment_method: d.channel ?? 'paystack', paystack_reference: d.reference,
-    payment_date: new Date().toISOString(),
-    ...commissionColumns(d.split ?? null),
-  } as never).select('id').single();
-  if (payErr) {
-    // 23505 = unique_violation: a concurrent fulfiller recorded this reference
-    // between our pre-check and insert. Idempotent no-op, not a failure — and
-    // crucially, we must NOT fall through to extend the subscription again.
-    if (payErr.code === '23505') return { ok: true, created: false };
-    return { ok: false, created: false, error: payErr.message };
-  }
-
-  // We are the writer that recorded the payment → extend (or create) the sub once.
-  // Stack onto the current period when one is still running (buy = next
-  // period), else start today — the shared rule, applied inside the database so
-  // the webhook and the post-checkout callback fulfilling two DIFFERENT
-  // references at the same instant can no longer overwrite each other's period.
-  //
-  // trainer_addon tracks what the member paid for THIS period, so it's written
-  // on every renewal — including back to false when they renew without the
-  // trainer they took last time. Leaving a stale true would keep the gym owing
-  // trainer time nobody paid for.
-  const extended = await grantMemberPeriod(
-    admin,
-    { gymId, memberId },
-    { duration_days: planDays, duration_months: planMonths },
-    { planId, trainerAddon },
-  );
-  if (!extended.ok) {
-    // The member paid but the extension failed. The payment row we just
-    // inserted is the idempotency lock — if we left it, every retry would
-    // no-op at the pre-check and the member would stay unextended. Compensate:
-    // remove the payment row and report failure so the webhook 500s and
-    // Paystack retries the whole fulfillment.
-    await admin.from('payments').delete().eq('paystack_reference', d.reference);
-    return { ok: false, created: false, error: `subscription extend failed: ${extended.error}` };
-  }
-  const endIso = extended.endDate;
+  const settled = await settleMemberCharge(admin, {
+    reference: d.reference, gymId, memberId, planId, amountKobo: d.amountKobo,
+    currency: d.currency, period: { duration_days: planDays, duration_months: planMonths },
+    trainerAddon, method: d.channel ?? 'paystack', split: d.split,
+  });
+  if (!settled.ok) return { ok: false, created: false, error: settled.error };
+  if (settled.refunded) return { ok: true, created: false };
+  if (!settled.created) return { ok: true, created: false };
+  const payRow = { id: settled.paymentId };
+  const endIso = settled.endDate!;
 
   // The signed checkout snapshot already matched the settled charge. A
   // difference from the plan's CURRENT price therefore normally means staff

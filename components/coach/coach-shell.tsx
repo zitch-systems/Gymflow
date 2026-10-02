@@ -10,7 +10,7 @@ import { GymSwitcher } from '@/components/gym-switcher';
 import { useMobileNav, NavBurger, NavBackdrop } from '@/components/mobile-nav';
 import { ConsoleTabBar, type ConsoleTab } from '@/components/console-tabbar';
 import {
-  CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut, Bell,
+  CalendarCheck, CalendarDays, Users, ClipboardCheck, Wallet, Banknote, Settings, LogOut,
 } from 'lucide-react';
 import { LogoMark } from '@/components/ui/logo';
 
@@ -29,12 +29,21 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
   gyms?: { id: string; name: string }[]; activeGymId?: string;
 }) {
   const pathname = usePathname() ?? '';
-  const nav = useMobileNav(pathname);
+  const { open, drawerOpen, drawerClosed, sidebarRef, burgerRef, toggle, close } = useMobileNav(pathname);
   const isActive = (href: string) => (href === '/coach' ? pathname === '/coach' : pathname.startsWith(href));
 
   return (
-    <div className={`ds-admin app${nav.open ? ' nav-open' : ''}`}>
-      <aside className="gf-sidebar">
+    <div className={`ds-admin app${open ? ' nav-open' : ''}`}>
+      <aside
+        id="console-navigation"
+        ref={sidebarRef}
+        className="gf-sidebar"
+        role={drawerOpen ? 'dialog' : undefined}
+        aria-modal={drawerOpen || undefined}
+        aria-label="Console navigation"
+        inert={drawerClosed}
+        aria-hidden={drawerClosed || undefined}
+      >
         <div className="gf-sidebar-header">
           <Link className="brand" href="/" style={{ textDecoration: 'none' }}>
             <LogoMark size={28} className="mark-sm" />
@@ -76,15 +85,15 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
         </div>
       </aside>
 
-      <NavBackdrop open={nav.open} onClose={nav.close} />
+      <NavBackdrop open={open} onClose={close} />
 
       <div className="main">
         <header className="top">
-          <NavBurger open={nav.open} onClick={nav.toggle} />
+          <NavBurger open={open} onClick={toggle} buttonRef={burgerRef} />
           <span className="gf-topbar-title" style={{ fontFamily: 'var(--gf-font-display)' }}>Instructor portal</span>
           <div className="top-spacer" />
           <ThemeToggle />
-          <Link href="/coach/settings" className="icon-btn bell" title="Notifications" aria-label="Notifications"><Bell strokeWidth={1.75} /></Link>
+          <Link href="/coach/settings" className="icon-btn bell" title="Settings" aria-label="Settings"><Settings strokeWidth={1.75} /></Link>
         </header>
         <main id="main-content" className="content">{children}</main>
       </div>
@@ -98,8 +107,8 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
           { href: '/coach/clients', label: 'Clients', icon: Users },
           { href: '/coach/attendance', label: 'Attendance', icon: ClipboardCheck },
         ] satisfies ConsoleTab[]}
-        moreOpen={nav.open}
-        onMore={nav.toggle}
+        moreOpen={open}
+        onMore={toggle}
       />
     </div>
   );

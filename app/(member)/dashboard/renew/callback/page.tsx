@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { XCircle, ArrowRight } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { verifyTransaction } from '@/lib/paystack';
-import { fulfillCharge } from '@/lib/paystack-fulfill';
+import { fulfillVerifiedMemberCharge } from '@/lib/member-payment-callback';
 
 export const metadata = { title: 'Payment' };
 export const dynamic = 'force-dynamic';
@@ -42,7 +42,7 @@ export default async function RenewCallback({ searchParams }: { searchParams: Pr
       if (v.metadata?.member_id && v.metadata.member_id !== user.id) {
         console.warn(`[renew/callback] viewer ${user.id} != payer ${String(v.metadata.member_id)} for ${v.reference}; fulfilling per metadata`);
       }
-      const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata, split: v.split });
+      const f = await fulfillVerifiedMemberCharge(v);
       if (!f.ok) console.error(`[renew/callback] fulfill failed for ${v.reference}: ${f.error}`);
       // Success belongs in the member's own portal, not on a standalone page
       // that reads like part of the payment processor. The dashboard raises a

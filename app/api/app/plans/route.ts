@@ -1,5 +1,6 @@
 import { requireApiMember, json, corsPreflight } from '@/lib/api-app';
-import { daysLeft } from '@/lib/format';
+import { daysLeft, watDateISO } from '@/lib/format';
+import { membershipDisplayState } from '@/lib/membership-display';
 import { offersTrainer, trainerAddonPrice, planTotalPrice } from '@/lib/plan-addon';
 
 export const dynamic = 'force-dynamic';
@@ -31,12 +32,15 @@ export async function GET(req: Request) {
         .select('id, name, price, duration_days, duration_months, description, trainer_addon_enabled, trainer_addon_price')
         .eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
       supabase.from('member_subscriptions')
-        .select('end_date, plan_id, status, membership_plans(name)')
-        .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+        .select('start_date, end_date, plan_id, status, membership_plans(name)')
+        .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due', 'paused', 'pause_requested'])
         .order('end_date', { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
+    const displayState = sub ? membershipDisplayState({
+      status: sub.status, startDate: sub.start_date, daysRemaining: remaining, today: watDateISO(),
+    }) : null;
 
     return json({
       plans: ((plans ?? []) as Plan[]).map((p) => ({
@@ -49,13 +53,16 @@ export async function GET(req: Request) {
         trainer_addon: offersTrainer(p)
           ? { available: true, price: trainerAddonPrice(p), total_with_trainer: planTotalPrice(p, true) }
           : { available: false, price: 0, total_with_trainer: Number(p.price ?? 0) },
-        is_current: sub?.plan_id === p.id,
+        is_current: displayState === 'active' && sub?.plan_id === p.id,
+        is_scheduled: displayState === 'scheduled' && sub?.plan_id === p.id,
       })),
       current: sub
         ? {
             plan_name: (sub as unknown as { membership_plans: { name: string } | null }).membership_plans?.name ?? null,
+            start_date: sub.start_date,
             end_date: sub.end_date,
             days_left: remaining,
+            display_state: displayState,
           }
         : null,
     });

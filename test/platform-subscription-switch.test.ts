@@ -81,7 +81,10 @@ async function exec(sql: string, params: unknown[]): Promise<{ data: Row[] | nul
   try {
     // commit: true — the handler's writes have to survive for the assertions
     // (and for the redelivery case) to see them.
-    const rows = await withSession({ role: 'service_role', commit: true }, async (c) => (await c.query(sql, params)).rows as Row[]);
+    const rows = await withSession({ role: 'service_role', commit: true }, async (c) => {
+      await c.query(`select set_config('request.jwt.claims','{"role":"service_role"}',true)`);
+      return (await c.query(sql, params)).rows as Row[];
+    });
     return { data: rows, error: null };
   } catch (e) {
     // PostgREST reports failures in-band, not by throwing. The SQLSTATE rides
@@ -117,6 +120,18 @@ function query(build: (filters: Filter[]) => { sql: string; params: unknown[] })
 
 function fakeAdmin() {
   return {
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name !== 'settle_platform_charge') return { data: null, error: { message: 'unknown RPC' } };
+      const keys = [
+        'p_reference', 'p_gym_id', 'p_amount_kobo', 'p_currency', 'p_plan',
+        'p_billing_cycle', 'p_paid_at', 'p_customer_code', 'p_subscription_code',
+      ];
+      const res = await exec(
+        `select public.settle_platform_charge(${keys.map((_, i) => `$${i + 1}`).join(', ')}) as result`,
+        keys.map((key) => args[key]),
+      );
+      return { data: res.data?.[0]?.result ?? null, error: res.error };
+    },
     from: (table: string) => ({
       select: (columns: string) => query((f) => ({
         sql: `select ${columns} from public.${table}${whereClause(f, 1)}`,
@@ -220,6 +235,8 @@ describe('platform plan switch — the superseded Paystack mandate', () => {
     auditCalls.length = 0;
     sentryCalls.length = 0;
     await asSuperuser(async (c) => {
+      await c.query(`delete from public.payment_refund_events where reference like 'ref-switch-%'`);
+      await c.query(`delete from public.platform_payment_coverage where gym_id = $1`, [IDS.gymA]);
       await c.query(`delete from public.platform_payments where gym_id = $1`, [IDS.gymA]);
       await c.query(
         `update public.gyms set paystack_subscription_code = null, paystack_customer_code = null,
@@ -325,7 +342,7 @@ describe('platform plan switch — the superseded Paystack mandate', () => {
       old_subscription_code: OLD_CODE, new_subscription_code: NEW_CODE, error: 'Paystack unavailable',
     });
     expect(sentryCalls).toHaveLength(1);
-    expect(sentryCalls[0].extra).toMatchObject({ oldSubscriptionCode: OLD_CODE });
+    expect(sentryCalls[0].extra).toMatchObject({ reference: OLD_CODE });
   });
 
   it('records a failed LOOKUP of the old subscription too', async () => {
@@ -414,5 +431,25 @@ describe('platform plan switch — the superseded Paystack mandate', () => {
       return rows[0].n;
     });
     expect(count).toBe(1);
+  });
+
+  it('withholds success handling and opens an incident when an earlier refund consumes the charge', async () => {
+    await gymOnOldPlan();
+    await asSuperuser((c) => c.query(
+      `insert into public.payment_refund_events
+        (event_key,reference,event_name,amount_kobo,currency,is_full_dispute)
+       values($1,$2,'refund.processed',$3,'NGN',false)`,
+      ['refund-before-switch', 'ref-switch-refunded', planAmountKobo('growth', 'annually')],
+    ));
+
+    expect(await handlePlatformEvent(switchCharge('ref-switch-refunded'))).toEqual({
+      ok: false, handled: true, permanent: true,
+      error: 'platform charge was fully refunded before fulfillment; mandate review required',
+    });
+    expect(paystack.disabled).toEqual([]);
+    expect(sentryCalls).toContainEqual({
+      message: 'platform billing: settled charge was already fully refunded',
+      extra: { gymId: IDS.gymA, reference: 'ref-switch-refunded', status: 'mandate_review_required' },
+    });
   });
 });

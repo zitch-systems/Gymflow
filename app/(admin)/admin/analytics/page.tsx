@@ -1,11 +1,11 @@
 import { Wallet, ScanLine, Users, CreditCard } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { fmtNaira, watDateISO } from '@/lib/format';
+import { fmtNaira } from '@/lib/format';
+import { parseGymReportingSummary, type ReportingRpcClient } from '@/lib/reporting';
 
 export const metadata = { title: 'Analytics' };
 
-const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PLAN_COLORS = ['#11d18b', '#4080ff', '#c6f24e', '#ffb020', '#b67bf3'];
 
 // Revenue analytics are finance-only — the nav hides this item from front desk
@@ -18,76 +18,55 @@ export default async function AdminAnalytics() {
   const { gym } = await requireStaff(FINANCE_ROLES);
   const supabase = await createClient();
 
-  const now = Date.now();
-  const d30 = new Date(now - 30 * 86_400_000).toISOString();
-  const d7 = new Date(now - 7 * 86_400_000);
+  const result = await (supabase as unknown as ReportingRpcClient)
+    .rpc('gym_reporting_summary', { p_gym_id: gym.id });
+  if (result.error) throw new Error(`gym_reporting_summary failed: ${result.error.message}`);
+  const summary = parseGymReportingSummary(result.data);
 
-  const [{ data: pay30 }, { data: checkins }, { data: activeSubs }, { data: plans }, { count: members }, { data: lapsed30 }] = await Promise.all([
-    supabase.from('payments').select('amount, payment_status, payment_date').eq('gym_id', gym.id).eq('payment_status', 'successful').gte('payment_date', new Date(now - 42 * 86_400_000).toISOString()),
-    supabase.from('check_ins').select('checked_in_at').eq('gym_id', gym.id).gte('checked_in_at', d7.toISOString()),
-    supabase.from('member_subscriptions').select('plan_id, member_id').eq('gym_id', gym.id).eq('status', 'active'),
-    supabase.from('membership_plans').select('id, name').eq('gym_id', gym.id),
-    supabase.from('gym_member_links').select('id', { count: 'exact', head: true }).eq('gym_id', gym.id).eq('is_active', true),
-    // Churn inputs: subscriptions that ended in the last 30 days. Members who
-    // re-bought have a NEW active row, so they're filtered back out below.
-    //
-    // Bounded at BOTH ends. `gte` alone also matched rows whose end_date is in
-    // the FUTURE, which is not "ended" — a cancel-at-period-end member (status
-    // 'cancelled', still paid through next month) counted as churned while
-    // they were still training, inflating the rate. No app path writes such a
-    // row today, so this is latent rather than live, but the window now
-    // matches what the comment above claims it selects.
-    supabase.from('member_subscriptions').select('member_id').eq('gym_id', gym.id).in('status', ['expired', 'cancelled'])
-      .gte('end_date', d30.slice(0, 10)).lte('end_date', watDateISO()).limit(2000),
-  ]);
-
-  // 30-day churn: members whose subscription lapsed in the window and who have
-  // no active subscription now, over the membership base they lapsed from.
-  const activeMemberIds = new Set((activeSubs ?? []).map((s) => s.member_id).filter(Boolean) as string[]);
-  const churned = new Set(
-    (lapsed30 ?? []).map((s) => s.member_id).filter((id): id is string => Boolean(id) && !activeMemberIds.has(id as string)),
-  ).size;
-  const churnBase = activeMemberIds.size + churned;
+  // The SQL summary selects one deterministic current row per active roster
+  // link, then applies the WAT access window. Past-due paid members remain in
+  // the active base; future starts and paused memberships do not.
+  const members = summary.activeAccess;
+  const churned = summary.churned30d;
+  const churnBase = members + churned;
   const churnPct = churnBase ? Math.round((churned / churnBase) * 100) : 0;
 
-  const revenue30 = (pay30 ?? []).filter((p) => (p.payment_date ?? '') >= d30).reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const revenue30 = summary.revenue30d;
 
-  // Revenue by week (last 6 weeks).
-  const weeks = Array.from({ length: 6 }, (_, i) => ({ label: `W${i + 1}`, amount: 0 }));
-  for (const p of pay30 ?? []) {
-    if (!p.payment_date) continue;
-    const wk = Math.floor((now - new Date(p.payment_date).getTime()) / (7 * 86_400_000));
-    if (wk >= 0 && wk < 6) weeks[5 - wk].amount += Number(p.amount ?? 0);
-  }
+  // The RPC returns every WAT day, including zeroes, so six seven-day slices
+  // cannot be shortened by PostgREST's response cap.
+  const weeks = Array.from({ length: 6 }, (_, i) => ({
+    label: `W${i + 1}`,
+    amount: summary.revenueDaily.slice(i * 7, i * 7 + 7).reduce((sum, day) => sum + day.total, 0),
+  }));
   const wkMax = Math.max(1, ...weeks.map((w) => w.amount));
   // Total across the 6 weekly bars — the panel label reflects the chart's own
   // window (was mislabeled "in 30 days" over this 6-week / 42-day chart, while the
   // 30-day figure lives on the "Revenue (30d)" KPI above).
   const revenue6w = weeks.reduce((s, w) => s + w.amount, 0);
 
-  // Check-ins by day (last 7).
-  const byDay = Array.from({ length: 7 }, (_, i) => { const d = new Date(now - (6 - i) * 86_400_000); return { label: DOW[d.getDay()], n: 0 }; });
-  for (const c of checkins ?? []) {
-    if (!c.checked_in_at) continue;
-    const idx = 6 - Math.floor((now - new Date(c.checked_in_at).getTime()) / 86_400_000);
-    if (idx >= 0 && idx < 7) byDay[idx].n += 1;
-  }
+  // Check-ins by WAT day (last 7).
+  const byDay = summary.checkinDaily.map((day) => ({
+    label: new Date(`${day.day}T12:00:00Z`).toLocaleDateString('en-NG', { weekday: 'short' }),
+    n: day.total,
+  }));
   const dayMax = Math.max(1, ...byDay.map((d) => d.n));
 
-  // Plan mix from active subscriptions.
-  const planName = new Map((plans ?? []).map((p) => [p.id, p.name]));
-  const counts = new Map<string, number>();
-  for (const s of activeSubs ?? []) { const k = s.plan_id ?? 'none'; counts.set(k, (counts.get(k) ?? 0) + 1); }
-  const totalSubs = (activeSubs ?? []).length;
-  const mix = [...counts.entries()].map(([id, n], i) => ({ label: planName.get(id) ?? 'Other', pct: totalSubs ? Math.round((n / totalSubs) * 100) : 0, color: PLAN_COLORS[i % PLAN_COLORS.length] }));
+  // Plan mix from the same current, entitled population as the KPI.
+  const totalSubs = summary.planMix.reduce((sum, plan) => sum + plan.total, 0);
+  const mix = summary.planMix.map((plan, i) => ({
+    label: plan.name,
+    pct: totalSubs ? Math.round((plan.total / totalSubs) * 100) : 0,
+    color: PLAN_COLORS[i % PLAN_COLORS.length],
+  }));
   let acc = 0;
   const donutStops = mix.map((m) => { const from = acc; acc += m.pct; return `${m.color} ${from}% ${acc}%`; }).join(', ');
   const donut = mix.length ? `conic-gradient(${donutStops})` : 'var(--gf-elevated)';
 
   const KPIS = [
     { icon: Wallet, fg: '#a8d92e', bg: '#c6f24e1f', val: fmtNaira(revenue30), lbl: 'Revenue (30d)' },
-    { icon: ScanLine, fg: '#4080ff', bg: '#4080ff1f', val: String((checkins ?? []).length), lbl: 'Check-ins (7d)' },
-    { icon: Users, fg: '#11d18b', bg: '#11d18b1f', val: String(members ?? 0), lbl: 'Active members' },
+    { icon: ScanLine, fg: '#4080ff', bg: '#4080ff1f', val: String(summary.checkins7d), lbl: 'Check-ins (7d)' },
+    { icon: Users, fg: '#11d18b', bg: '#11d18b1f', val: String(members), lbl: 'Active members' },
     // Churn replaces the old "Active subs" tile — that figure is already the
     // plan-mix donut's total, while churn had no home despite being a headline
     // marketing claim ("track revenue, churn & attendance").
@@ -148,7 +127,7 @@ export default async function AdminAnalytics() {
         <div className="panel">
           <div className="panel-h"><div><h3>Members</h3><div className="sub">Active membership base</div></div></div>
           <div style={{ display: 'grid', placeItems: 'center', padding: '28px 0' }}>
-            <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '3rem', fontWeight: 800, letterSpacing: '-0.03em' }}>{members ?? 0}</div>
+            <div style={{ fontFamily: 'var(--gf-font-display)', fontSize: '3rem', fontWeight: 800, letterSpacing: '-0.03em' }}>{members}</div>
             <div className="sub">active members at {gym.name}</div>
           </div>
         </div>

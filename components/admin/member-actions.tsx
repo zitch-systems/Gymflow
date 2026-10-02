@@ -9,6 +9,8 @@ type Plan = { id: string; name: string; price: number };
 
 export function MemberActions({ memberId, plans, isActive, checkedIn = false }: { memberId: string; plans: Plan[]; isActive: boolean; checkedIn?: boolean }) {
   const [panel, setPanel] = useState<null | 'pay' | 'renew'>(null);
+  const [payOperation, setPayOperation] = useState('');
+  const [renewOperation, setRenewOperation] = useState('');
   // Check-in / check-out toggles with the member's live state (open visit today).
   const [ci, ciAction, ciPending] = useActionState(checkedIn ? manualCheckOut : manualCheckIn, INIT);
   const [pay, payAction, payPending] = useActionState(recordPayment, INIT);
@@ -17,6 +19,13 @@ export function MemberActions({ memberId, plans, isActive, checkedIn = false }: 
 
   const states = [ci, pay, ren, st];
   const fb = states.find((s) => s.error) ?? states.find((s) => s.message);
+  function openPaymentPanel(next: 'pay' | 'renew') {
+    if (payPending || renPending) return;
+    if (panel === next) { setPanel(null); return; }
+    if (next === 'pay' && (!payOperation || pay.ok)) setPayOperation(crypto.randomUUID());
+    if (next === 'renew' && (!renewOperation || ren.ok)) setRenewOperation(crypto.randomUUID());
+    setPanel(next);
+  }
 
   return (
     <div className="panel actions-panel">
@@ -29,8 +38,8 @@ export function MemberActions({ memberId, plans, isActive, checkedIn = false }: 
             {ciPending ? (checkedIn ? ' Checking out…' : ' Checking in…') : (checkedIn ? ' Check out' : ' Check in')}
           </button>
         </form>
-        <button type="button" className={`gf-btn gf-btn-secondary gf-btn-sm${panel === 'pay' ? ' on' : ''}`} onClick={() => setPanel(panel === 'pay' ? null : 'pay')}><CreditCard strokeWidth={1.9} size={15} /> Record payment</button>
-        {plans.length > 0 && <button type="button" className={`gf-btn gf-btn-secondary gf-btn-sm${panel === 'renew' ? ' on' : ''}`} onClick={() => setPanel(panel === 'renew' ? null : 'renew')}><RefreshCw strokeWidth={1.9} size={15} /> Renew</button>}
+        <button type="button" disabled={payPending || renPending} className={`gf-btn gf-btn-secondary gf-btn-sm${panel === 'pay' ? ' on' : ''}`} onClick={() => openPaymentPanel('pay')}><CreditCard strokeWidth={1.9} size={15} /> Record payment</button>
+        {plans.length > 0 && <button type="button" disabled={payPending || renPending} className={`gf-btn gf-btn-secondary gf-btn-sm${panel === 'renew' ? ' on' : ''}`} onClick={() => openPaymentPanel('renew')}><RefreshCw strokeWidth={1.9} size={15} /> Renew</button>}
         <form action={stAction}>
           <input type="hidden" name="memberId" value={memberId} />
           <input type="hidden" name="active" value={isActive ? 'false' : 'true'} />
@@ -43,6 +52,7 @@ export function MemberActions({ memberId, plans, isActive, checkedIn = false }: 
       {panel === 'pay' && (
         <form action={payAction} className="act-form" key="pay">
           <input type="hidden" name="memberId" value={memberId} />
+          <input type="hidden" name="operationId" value={payOperation} />
           <div className="af-grid">
             <label>Amount (₦)<input name="amount" type="number" min="1" step="1" className="gf-input" placeholder="15000" required /></label>
             <label>Method
@@ -56,8 +66,11 @@ export function MemberActions({ memberId, plans, isActive, checkedIn = false }: 
                 {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </label>
+            <label>Receipt number or bank reference<input name="receiptReference" maxLength={120} className="gf-input" required /></label>
+            <label>Reason<input name="reason" minLength={3} maxLength={500} className="gf-input" defaultValue="Membership payment" required /></label>
           </div>
           <label className="af-check"><input type="checkbox" name="extend" /> Also extend membership by the plan duration</label>
+          <p>Use the original receipt for retries or when another staff member records this payment. Extending requires the full plan price.</p>
           <button className="gf-btn gf-btn-primary gf-btn-sm" disabled={payPending}>{payPending ? 'Saving…' : 'Save payment'}</button>
         </form>
       )}
@@ -65,14 +78,19 @@ export function MemberActions({ memberId, plans, isActive, checkedIn = false }: 
       {panel === 'renew' && (
         <form action={renAction} className="act-form" key="renew">
           <input type="hidden" name="memberId" value={memberId} />
+          <input type="hidden" name="operationId" value={renewOperation} />
           <div className="af-grid">
             <label>Plan
               <select name="planId" className="gf-input" required defaultValue={plans[0]?.id ?? ''}>
                 {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — ₦{Number(p.price).toLocaleString('en-NG')}</option>)}
               </select>
             </label>
+            <label>Method<select name="method" className="gf-input" defaultValue="cash"><option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option><option value="crypto">Crypto</option></select></label>
+            <label>Receipt number or bank reference<input name="receiptReference" maxLength={120} className="gf-input" required /></label>
+            <label>Reason<input name="reason" minLength={3} maxLength={500} className="gf-input" defaultValue="Membership renewal" required /></label>
           </div>
-          <button className="gf-btn gf-btn-primary gf-btn-sm" disabled={renPending}>{renPending ? 'Renewing…' : 'Confirm renewal'}</button>
+          <p>Confirm only after receiving the full plan price. The payment and membership will be saved together.</p>
+          <button className="gf-btn gf-btn-primary gf-btn-sm" disabled={renPending}>{renPending ? 'Renewing…' : 'Record payment and renew'}</button>
         </form>
       )}
 

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Building2, Dumbbell, Palette, Clock, Bell, Plug, Users, CreditCard, MessageCircle, Mail, Banknote, Snowflake, Fingerprint, Calculator, Smartphone, Copy, Check, ShieldCheck, DatabaseBackup, type LucideIcon } from 'lucide-react';
-import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, updateSecurity, uploadCacCertificate, type GymSaveState } from '@/lib/actions/gym';
+import { updateGym, updateBranding, uploadLogo, saveBusinessHours, updateFreezePolicy, updateNotifications, updateMarketing, uploadCacCertificate, type GymSaveState } from '@/lib/actions/gym';
 import { formatCacNumber } from '@/lib/cac';
 import { PayoutAccounts, type PayoutAccount } from '@/components/admin/payout-accounts';
 import { GalleryManager } from '@/components/admin/gallery-manager';
@@ -152,7 +152,6 @@ export type GymProfile = {
   member_freeze_enabled: boolean;
   notif_class_reminders: boolean; notif_renewal_nudges: boolean; notif_payment_receipts: boolean;
   notif_membership_updates: boolean;
-  two_factor_required: boolean;
   cac_number: string | null;
   backup_frequency: string | null; backup_email: boolean; backup_last_run_at: string | null;
 };
@@ -203,7 +202,6 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
   const [hoursState, hoursAction, hoursPending] = useActionState(saveBusinessHours, GYM_INIT);
   const [freezeState, freezeAction, freezePending] = useActionState(updateFreezePolicy, GYM_INIT);
   const [notifState, notifAction, notifPending] = useActionState(updateNotifications, GYM_INIT);
-  const [secState, secAction, secPending] = useActionState(updateSecurity, GYM_INIT);
   const [cacState, cacAction, cacPending] = useActionState(uploadCacCertificate, GYM_INIT);
   const [mktState, mktAction, mktPending] = useActionState(updateMarketing, GYM_INIT);
 
@@ -463,25 +461,20 @@ export function SettingsClient({ gym, staffCount, banks, hours, payoutAccounts, 
 
           {sec === 'security' && (
             <section className="sec on">
-              <form className="panel" action={secAction}>
+              <div className="panel">
                 <div className="panel-title">Security</div>
                 <div className="panel-desc">How staff prove who they are when signing in to this gym&apos;s console.</div>
-                <label className="set-row" style={{ cursor: 'pointer' }}>
+                <div className="set-row">
                   <div className="m">
-                    <strong>Two-factor sign-in</strong>
-                    <small>Staff enter a 6-digit code emailed to them, on top of their password. Applies to every staff account here — owner, managers, front desk, accountants and instructors.</small>
+                    <strong>Two-factor sign-in is required</strong>
+                    <small>Every owner, manager, front desk user, accountant and instructor must verify a 6-digit email code before their exact sign-in session can access staff data.</small>
                   </div>
-                  <input type="checkbox" name="two_factor_required" defaultChecked={gym.two_factor_required} style={{ width: 20, height: 20, accentColor: 'var(--gf-brand)', cursor: 'pointer', flexShrink: 0 }} />
-                </label>
-                <p style={{ color: 'var(--gf-text-muted)', fontSize: '0.8rem', lineHeight: 1.5, margin: '10px 2px 0' }}>
-                  Staff can tick &ldquo;trust this device&rdquo; to skip the code for 30 days on a browser they use every shift. Turning this off leaves passwords as the only thing between a leaked credential and your member data, payments and payout account.
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
-                  <button className="gf-btn gf-btn-primary" type="submit" disabled={secPending}>{secPending ? 'Saving…' : 'Save changes'}</button>
-                  {secState.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem', fontWeight: 600 }}>Saved ✓</span>}
-                  {secState.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem', fontWeight: 600 }}>{secState.error}</span>}
+                  <span className="gf-badge gf-badge-success"><span className="gf-dot" />Required</span>
                 </div>
-              </form>
+                <p style={{ color: 'var(--gf-text-muted)', fontSize: '0.8rem', lineHeight: 1.5, margin: '10px 2px 0' }}>
+                  Staff can trust a browser for 30 days. Each new sign-in session is still validated against that trusted browser before staff access is granted.
+                </p>
+              </div>
             </section>
           )}
 

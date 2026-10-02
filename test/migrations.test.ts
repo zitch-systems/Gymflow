@@ -138,6 +138,23 @@ describe('the repo migrations directory', () => {
   });
 });
 
+describe('public gym asset storage', () => {
+  it('does not admit script-capable SVG uploads through the raw Storage API', () => {
+    const migrations = readdirSync(MIGRATIONS_DIR)
+      .filter((f) => f.endsWith('.sql'))
+      .sort()
+      .map((f) => readFileSync(join(MIGRATIONS_DIR, f), 'utf8'));
+    const latestBucketMimeUpdate = migrations
+      .filter((sql) => /update\s+storage\.buckets[\s\S]*where\s+id\s*=\s*'gym-assets'/i.test(sql))
+      .at(-1);
+
+    expect(latestBucketMimeUpdate).toBeDefined();
+    const allowlist = latestBucketMimeUpdate?.match(/set\s+allowed_mime_types\s*=\s*array\[([\s\S]*?)\]/i)?.[1] ?? '';
+    expect(allowlist).not.toContain('image/svg+xml');
+    expect(allowlist).toContain('image/avif');
+  });
+});
+
 // ── Connection diagnostics ─────────────────────────────────────────────────
 //
 // A wrong SUPABASE_DB_URL used to surface as a bare pg stack trace, identical

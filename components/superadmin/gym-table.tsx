@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fmtNaira } from '@/lib/format';
 import { CommissionEditor } from '@/components/superadmin/commission-editor';
 import { sa } from '@/lib/superadmin-path';
+import type { ReportingRpcClient } from '@/lib/reporting';
 
 const GRADS = [
   'linear-gradient(135deg,#11d18b,#07a86c)', 'linear-gradient(135deg,#4080ff,#2a5cc0)',
@@ -37,11 +38,18 @@ export async function GymTable({ limit = 50, q = '', status = 'all' }: { limit?:
   });
 
   const ids = gyms.map((g) => g.id);
-  const { data: links } = ids.length
-    ? await supabase.from('gym_member_links').select('gym_id').in('gym_id', ids).eq('is_active', true)
-    : { data: [] as { gym_id: string | null }[] };
-  const memberCount = new Map<string, number>();
-  for (const l of links ?? []) if (l.gym_id) memberCount.set(l.gym_id, (memberCount.get(l.gym_id) ?? 0) + 1);
+  const countRes = ids.length
+    ? await (supabase as unknown as ReportingRpcClient).rpc('platform_gym_member_counts', { p_gym_ids: ids })
+    : { data: [] as unknown[], error: null };
+  if (countRes.error) throw new Error(`platform_gym_member_counts failed: ${countRes.error.message}`);
+  const countRows = Array.isArray(countRes.data) ? countRes.data : [];
+  const memberCount = new Map(countRows.map((value) => {
+    const row = value as { gym_id?: unknown; member_count?: unknown };
+    if (typeof row.gym_id !== 'string') throw new Error('platform_gym_member_counts returned an invalid gym id');
+    const count = Number(row.member_count);
+    if (!Number.isFinite(count)) throw new Error('platform_gym_member_counts returned an invalid count');
+    return [row.gym_id, count] as const;
+  }));
 
   if (gyms.length === 0) {
     return needle || status !== 'all'

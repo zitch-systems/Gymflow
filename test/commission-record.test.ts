@@ -181,31 +181,34 @@ describe('commissionColumns', () => {
 describe('every path that records a payment records what was split', () => {
   it('one-off charges, from the webhook and from both callbacks', () => {
     const fulfill = read('lib/paystack-fulfill.ts');
-    expect(fulfill).toContain('commissionColumns(d.split ?? null)');
+    expect(fulfill).toContain('split: d.split');
+    expect(read('lib/member-charge.ts')).toContain('commissionColumns(input.split ?? null)');
     // fulfillCharge is fed by four call sites and each has to hand the split
     // over — whichever of the webhook and the callback wins the race writes the
     // row, so a callback that dropped it would lose the record half the time.
-    expect(read('app/api/paystack/webhook/route.ts')).toContain('split: readSplit(d)');
+    expect(read('lib/paystack-webhook.ts')).toContain('split: readSplit(d)');
     for (const file of [
       'app/pay/whatsapp/callback/page.tsx',
       'app/api/app/pay/callback/route.ts',
       'app/(member)/dashboard/renew/callback/page.tsx',
     ]) {
-      expect(read(file), `${file} must pass the verified split through`).toContain('split: v.split');
+      expect(read(file), `${file} must use shared verified fulfillment`).toContain('fulfillVerifiedMemberCharge(v)');
     }
     // ...which means verifyTransaction has to carry it back at all.
     expect(read('lib/paystack.ts')).toContain('split: readSplit(d)');
   });
 
   it('auto-debit renewals, which split exactly like one-off ones', () => {
-    expect(read('lib/member-sub-fulfill.ts')).toContain('commissionColumns(readSplit(data))');
+    expect(read('lib/member-sub-fulfill.ts')).toContain('split: readSplit(data)');
+    expect(read('lib/member-payment-callback.ts')).toContain('split: v.split');
   });
 
   it('cash and transfers taken at the desk say so instead of staying silent', () => {
     // 'offline' and "unknown" are different answers and the console shows them
     // differently: one is a payment the platform was never part of, the other
     // is a gap in the record.
-    expect(read('lib/actions/admin-member.ts')).toContain("platform_settlement: 'offline'");
+    expect(read('supabase/migrations/20261002085835_financial_operation_integrity.sql'))
+      .toContain("'offline'");
   });
 });
 
@@ -226,20 +229,30 @@ describe('a gym cannot write its own commission figures', () => {
       ));
 
   it('refuses a staff-written commission figure', async () => {
-    // payments_insert_staff exists so the front desk can record cash. Without
-    // the trigger that same policy lets a tenant stuff any number into the
-    // column the platform's own earnings report sums.
+    // Direct INSERT is revoked; staff cash goes through the receipt RPC.
+    // Tenant-supplied commission columns cannot enter that path.
     await expect(insert('platform_settlement, platform_commission_pct, platform_commission_amount', ['split', 90, 4500]))
-      .rejects.toThrow(/cannot be set by a tenant/);
+      .rejects.toThrow(/permission denied/i);
   });
 
   it('refuses it even without a settlement to go with it', async () => {
-    await expect(insert('platform_commission_amount', [4500])).rejects.toThrow(/cannot be set by a tenant/);
+    await expect(insert('platform_commission_amount', [4500])).rejects.toThrow(/permission denied/i);
   });
 
-  it('still lets the front desk record a cash payment', async () => {
-    // The guard must not cost the feature it sits next to.
-    await expect(insert('platform_settlement', ['offline'])).resolves.toBeTruthy();
+  it('records desk cash through the atomic receipt RPC with no commission', async () => {
+    const saved = await withSession({ role: 'authenticated', uid: IDS.ownerA }, async (c) => {
+      const { rows } = await c.query<{ result: { payment_id: string } }>(
+        `select public.record_staff_payment($1,$2,$3,'desk-cash-5000',500000,'cash',null,false,'Cash receipt') as result`,
+        ['f0000000-0000-4000-8000-000000000008', IDS.gymA, IDS.memberA]);
+      return (await c.query(`select amount,platform_settlement,platform_commission_amount,
+        platform_commission_pct,platform_commission_basis from public.payments where id=$1`,
+        [rows[0].result.payment_id])).rows[0];
+    });
+    expect(Number(saved.amount)).toBe(5000);
+    expect(saved.platform_settlement).toBe('offline');
+    expect(saved.platform_commission_amount).toBeNull();
+    expect(saved.platform_commission_pct).toBeNull();
+    expect(saved.platform_commission_basis).toBeNull();
   });
 
   it('refuses a staff-written commission basis too', async () => {
@@ -247,7 +260,7 @@ describe('a gym cannot write its own commission figures', () => {
     // a figure, which is exactly why it was easy to leave out of the guard — a
     // tenant that can label its own payments 'percentage' can make the console
     // describe an arrangement that never applied.
-    await expect(insert('platform_commission_basis', ['percentage'])).rejects.toThrow(/cannot be set by a tenant/);
+    await expect(insert('platform_commission_basis', ['percentage'])).rejects.toThrow(/permission denied/i);
   });
 
   it('and the settlement they can write carries no figures', async () => {

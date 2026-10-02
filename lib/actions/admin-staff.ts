@@ -169,6 +169,15 @@ export async function setStaffActive(_prev: StaffState, formData: FormData): Pro
 
   const { error } = await admin.from('gym_staff_links').update({ is_active: active }).eq('id', (link as { id: string }).id);
   if (error) return { ok: false, error: error.message };
+  if (!active) {
+    // End every currently elevated session for the suspended account. The
+    // inactive link already denies immediately; this also prevents a proof
+    // from becoming usable again if another role link is changed later.
+    const { error: revokeError } = await admin.rpc('revoke_user_privileged_sessions' as never, {
+      p_user_id: targetUserId,
+    } as never);
+    if (revokeError) console.error('[staff] privileged-session revocation failed', revokeError);
+  }
   logAudit({ action: active ? 'staff_activated' : 'staff_deactivated', table: 'gym_staff_links', actorId, gymId, recordId: targetUserId });
 
   // Losing access is the change people query, and they query it by walking into

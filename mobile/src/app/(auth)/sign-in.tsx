@@ -77,7 +77,12 @@ export default function SignInScreen() {
 
       {/* Password reset is an email round-trip and lives on the web, where the
           reset link lands. Sending the member there beats a dead end. */}
-      <Pressable onPress={() => void Linking.openURL(`${API_BASE_URL}/forgot-password`)} style={{ padding: space.md, alignSelf: 'center' }}>
+      <Pressable
+        onPress={() => void Linking.openURL(`${API_BASE_URL}/forgot-password`)}
+        style={{ padding: space.md, alignSelf: 'center' }}
+        accessibilityRole="link"
+        accessibilityLabel="Reset your password"
+      >
         <Body tone="muted" size={13}>Forgot your password?</Body>
       </Pressable>
     </Screen>

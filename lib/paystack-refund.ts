@@ -1,18 +1,10 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { logAudit } from '@/lib/audit';
+import { captureServerEvent } from '@/lib/server-error';
 
-// Paystack refund + dispute handling. The payment_status enum has always had a
-// 'refunded' state and the UI badges render it, but nothing in the code ever set
-// it — refunds were invisible in the app. This handler flips the corresponding
-// payment row (member or platform, matched by paystack_reference) and audit-logs.
-//
-// Deliberately does NOT reverse the membership extension or downgrade the gym's
-// subscription state: refund policy is a business decision (partial refunds,
-// goodwill credits, chargebacks vs merchant-initiated refunds) that shouldn't
-// happen implicitly from a webhook. Making the refund visible is the primary
-// goal; deciding what to do about it lives with the operator, in /superadmin.
-
+// A verified refund records its exact amount and event identity atomically.
+// Partial refunds retain access; full reversals revoke only that purchase's
+// unused coverage. Legacy rows without an allocation go to operator review.
 type Json = Record<string, unknown>;
 export type RefundResult = { ok: boolean; error?: string; permanent?: boolean };
 
@@ -81,54 +73,38 @@ export async function handleRefundEvent(event: Json): Promise<RefundResult> {
   const reference = refundReference(event);
   if (!reference) return { ok: false, error: 'missing reference in refund event', permanent: true };
 
-  let admin: ReturnType<typeof createAdminClient>;
-  try { admin = createAdminClient(); } catch (e) { return { ok: false, error: (e as Error).message }; }
-
-  const nowIso = new Date().toISOString();
+  const data = (event.data as Json) ?? {};
   const name = str(event.event) ?? 'refund';
-
-  // Try member payments first (the common case). Match by unique
-  // paystack_reference. `.update(...).eq(...).select()` returns the touched rows
-  // so we can tell which table (if any) actually had the record.
-  const { data: memberHit, error: memberErr } = await admin
-    .from('payments')
-    .update({ payment_status: 'refunded', status: 'refunded' })
-    .eq('paystack_reference', reference)
-    .select('id, gym_id, member_id');
-  if (memberErr) return { ok: false, error: memberErr.message };
-  if (memberHit && memberHit.length) {
-    const row = memberHit[0];
-    void logAudit({
-      action: name,
-      table: 'payments',
-      gymId: row.gym_id, recordId: row.id,
-      values: { paystack_reference: reference, member_id: row.member_id, event: name, occurred_at: nowIso },
-    });
+  const lostDispute = isLostDispute(event);
+  const suppliedAmount = data.amount == null ? null : Number(data.amount);
+  if (suppliedAmount !== null && (!Number.isSafeInteger(suppliedAmount) || suppliedAmount <= 0))
+    return { ok: false, error: 'invalid refund amount', permanent: true };
+  if (suppliedAmount === null && !lostDispute)
+    return { ok: false, error: 'refund amount requires provider verification', permanent: true };
+  const providerId = str(data.refund_reference) ??
+    (typeof data.id === 'string' || typeof data.id === 'number' ? String(data.id) : null);
+  if (!providerId && !lostDispute)
+    return { ok: false, error: 'refund identity requires provider verification', permanent: true };
+  const eventKey = `${lostDispute ? 'dispute' : 'refund'}:${providerId ?? reference}`;
+  const transaction = (data.transaction as Json) ?? {};
+  const currency = str(data.currency) ?? str(transaction.currency) ?? 'NGN';
+  if (currency !== 'NGN') return { ok: false, error: 'unexpected refund currency', permanent: true };
+  try {
+    const admin = createAdminClient();
+    const { data: result, error } = await admin.rpc('apply_payment_refund' as never, {
+      p_event_key: eventKey, p_reference: reference, p_event_name: name,
+      p_amount_kobo: suppliedAmount, p_currency: currency,
+      p_full_dispute: lostDispute && suppliedAmount === null,
+    } as never);
+    if (error) return { ok: false, error: error.message, permanent: error.code === '22023' };
+    const decision = result as unknown as { pending?: boolean; requires_review?: boolean } | null;
+    if (!decision || typeof decision.pending !== 'boolean') return { ok: false, error: 'refund save not confirmed' };
+    if (decision.requires_review) {
+      await captureServerEvent('refund entitlement allocation requires review', { reference, event: name });
+      return { ok: false, error: 'Refund recorded; legacy entitlement requires allocation review', permanent: true };
+    }
+    // Pending evidence remains in the database and is applied in the same
+    // transaction when the original charge is eventually settled.
     return { ok: true };
-  }
-
-  // Fall through to platform payments (gym → GymFlow SaaS billing).
-  const { data: platHit, error: platErr } = await admin
-    .from('platform_payments')
-    .update({ payment_status: 'refunded' })
-    .eq('paystack_reference', reference)
-    .select('id, gym_id');
-  if (platErr) return { ok: false, error: platErr.message };
-  if (platHit && platHit.length) {
-    const row = platHit[0];
-    void logAudit({
-      action: name,
-      table: 'platform_payments',
-      gymId: row.gym_id, recordId: row.id,
-      values: { paystack_reference: reference, event: name, occurred_at: nowIso },
-    });
-    return { ok: true };
-  }
-
-  // No matching payment row found. Two legitimate causes: (a) the original
-  // charge.success never fulfilled here (foreign transaction), or (b) the refund
-  // arrived before the charge was recorded. Neither will improve on retry, so
-  // ack with a warning rather than 500'ing forever.
-  console.warn(`[paystack/refund] no matching payment for reference ${reference} (event ${name})`);
-  return { ok: true };
+  } catch (e) { return { ok: false, error: (e as Error).message }; }
 }

@@ -1,14 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Share2, Check, X, Clock } from 'lucide-react';
+import { ArrowLeft, Share2, Check, X, Clock, ArrowDownLeft } from 'lucide-react';
 import { PrintReceiptButton } from './print-button';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDateTime } from '@/lib/format';
+import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
 
 export const metadata = { title: 'Receipt' };
-
-const STATUS_LABEL: Record<string, string> = { successful: 'Successful', pending: 'Pending', failed: 'Failed', refunded: 'Refunded' };
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,7 +16,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   const { data: p } = await supabase
     .from('payments')
-    .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id, paystack_reference')
+    .select('id, amount, refunded_amount, payment_status, payment_date, created_at, payment_method, plan_id, paystack_reference')
     .eq('id', id).eq('member_id', user.id).eq('gym_id', gym.id)
     .maybeSingle();
   if (!p) notFound();
@@ -28,17 +27,23 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
     if (plan?.name) planLabel = plan.name;
   }
 
-  const ok = p.payment_status === 'successful';
   const pending = p.payment_status === 'pending';
-  const failed = !ok && !pending;
+  const failed = p.payment_status === 'failed';
+  const amounts = paymentAmounts(p);
+  const refund = amounts.refundState !== 'none';
   const rows: [string, string][] = [
-    ['Status', STATUS_LABEL[p.payment_status ?? ''] ?? (p.payment_status || '—')],
+    ['Status', paymentStatusLabel(p)],
     ['Date', fmtDateTime(p.payment_date ?? p.created_at)],
     ['Method', p.payment_method || 'Paystack'],
     ['Reference', p.paystack_reference || p.id],
     ['Plan', planLabel],
     ['Gym', gym.name],
   ];
+  if (refund) rows.splice(1, 0,
+    ['Original charge', fmtNaira(amounts.gross)],
+    ['Refunded', fmtNaira(amounts.refunded)],
+    ['Net paid', fmtNaira(amounts.net)],
+  );
 
   return (
     <section className="view on" data-v="receipt">
@@ -50,10 +55,10 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
       <div className="receipt">
         <div className="rtop">
-          <div className="ring" style={failed ? { background: 'var(--gf-danger-soft)', borderColor: 'rgba(255,69,96,0.25)', color: 'var(--gf-danger)' } : undefined}>
-            {failed ? <X strokeWidth={2.4} /> : pending ? <Clock strokeWidth={2.2} /> : <Check strokeWidth={2.4} />}
+          <div className="ring" style={failed ? { background: 'var(--gf-danger-soft)', borderColor: 'rgba(255,69,96,0.25)', color: 'var(--gf-danger)' } : refund ? { background: 'var(--gf-warning-soft)', borderColor: 'rgba(255,176,32,0.25)', color: 'var(--gf-warning)' } : undefined}>
+            {failed ? <X strokeWidth={2.4} /> : pending ? <Clock strokeWidth={2.2} /> : refund ? <ArrowDownLeft strokeWidth={2.2} /> : <Check strokeWidth={2.4} />}
           </div>
-          <div className="ra">{fmtNaira(Number(p.amount ?? 0))}</div>
+          <div className="ra">{fmtNaira(refund ? amounts.net : amounts.gross)}</div>
           <div className="rl">{planLabel}</div>
         </div>
         <div className="group">

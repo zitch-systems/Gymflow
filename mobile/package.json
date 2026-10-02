@@ -7,6 +7,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "audit:production": "node scripts/audit-production.mjs",
+    "audit:android-bundle": "node scripts/audit-android-bundle.mjs dist-ci",
+    "test:router-compat": "node scripts/test-router-compat.mjs",
     "type-check": "tsc --noEmit",
     "lint": "expo lint",
     "prebuild:android": "expo prebuild --platform android --clean",
@@ -15,20 +18,21 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
-    "expo": "~57.0.13",
-    "expo-camera": "~57.0.3",
-    "expo-clipboard": "~57.0.1",
-    "expo-constants": "~57.0.11",
-    "expo-linking": "~57.0.6",
-    "expo-router": "~57.0.13",
-    "expo-secure-store": "~57.0.1",
-    "expo-splash-screen": "~57.0.6",
+    "expo": "~57.0.26",
+    "expo-camera": "~57.0.6",
+    "expo-clipboard": "~57.0.2",
+    "expo-constants": "~57.0.20",
+    "expo-linking": "~57.0.11",
+    "expo-router": "~57.0.24",
+    "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
-    "expo-system-ui": "~57.0.2",
-    "expo-web-browser": "~57.0.2",
+    "expo-system-ui": "~57.0.4",
+    "expo-web-browser": "~57.0.3",
+    "query-string": "file:vendor/query-string-compat",
     "react": "19.2.3",
-    "react-dom": "^19.2.3",
-    "react-native": "0.86.2",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0"
@@ -36,7 +40,12 @@
   "devDependencies": {
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
-    "eslint-config-expo": "^57.0.1",
+    "eslint-config-expo": "~57.0.2",
     "typescript": "~6.0.3"
+  },
+  "overrides": {
+    "image-size": "2.0.4",
+    "uuid": "11.1.1",
+    "query-string": "$query-string"
   }
 }

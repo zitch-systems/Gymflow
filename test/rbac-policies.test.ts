@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { pool } from './db';
+import { fixtureSessionId, pool } from './db';
 import type { PoolClient } from 'pg';
 import { IDS, seed } from './seed';
 
@@ -39,8 +39,23 @@ async function inTx<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
 }
 
 async function becomeUser(c: PoolClient, uid: string, role: 'authenticated' | 'anon' = 'authenticated') {
+  const sessionId = fixtureSessionId(uid);
+  if (role === 'authenticated') {
+    await c.query(
+      `insert into auth.sessions (id, user_id, not_after) values ($1, $2, now() + interval '1 day')
+       on conflict (id) do update set user_id=excluded.user_id, not_after=excluded.not_after`,
+      [sessionId, uid],
+    );
+    await c.query(
+      `insert into private.privileged_session_verifications (session_id,user_id,expires_at,method)
+       values ($1,$2,now() + interval '18 hours','email_code')
+       on conflict (session_id) do update set expires_at=excluded.expires_at`,
+      [sessionId, uid],
+    );
+  }
   await c.query(`select set_config('request.jwt.claim.sub', $1, true)`, [uid]);
   await c.query(`select set_config('request.jwt.claim.role', $1, true)`, [role]);
+  await c.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: uid, role, session_id: sessionId })]);
   await c.query(`SET LOCAL ROLE ${role}`);
 }
 

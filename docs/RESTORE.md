@@ -1,8 +1,9 @@
 # Restoring from a gym backup zip
 
 **Scope:** the per-gym archive produced by Settings → Backups and
-`/api/cron/backups` (`lib/backup.ts`) — the file a gym owner downloads or is
-emailed. For loss of the whole Supabase project, the app or Paystack, see
+`/api/cron/backups` (`lib/backup.ts`) — the file a gym owner downloads from the
+authenticated backup console. Email is only a notification and never carries
+the archive. For loss of the whole Supabase project, the app or Paystack, see
 `DR_RUNBOOK.md`; that is a different asset and a different procedure.
 
 **Status: this is a manual, operator-run procedure. There is no import
@@ -42,7 +43,7 @@ recent 50,000 rows of that table. Neither is visible from the CSV itself.
 Say this out loud to whoever is asking for the restore, before starting:
 
 - **Sign-ins.** The archive holds no passwords, no password hashes and no
-  `auth.users` rows — by design; it is emailed. Every member and staffer must
+  `auth.users` rows — by design. Every member and staffer must
   re-register or be re-invited, and each will get a **new** `auth.users` id.
   Everything below keys on `profiles.id`, so restoring against re-registered
   users means re-mapping every id (§5).

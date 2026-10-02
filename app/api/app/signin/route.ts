@@ -53,8 +53,7 @@ export async function POST(req: Request) {
     //
     // This endpoint returns a Supabase session straight from a password, and it
     // is reachable by ANY account, not just members — so without this it was a
-    // blanket 2FA bypass: every gym in the database has two_factor_required set,
-    // and a staffer challenged on the web could skip the challenge entirely by
+    // blanket 2FA bypass: a staffer challenged on the web could skip the challenge entirely by
     // signing in through the mobile door instead. Platform admins are covered by
     // the same call (see lib/auth/two-factor.ts).
     //

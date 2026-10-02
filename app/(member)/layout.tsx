@@ -1,6 +1,5 @@
 import type { CSSProperties } from 'react';
 import { MemberTabBar } from '@/components/member/tabbar';
-import { CameraPrime } from '@/components/member/camera-prime';
 import { WaiverWall } from '@/components/member/waiver-wall';
 import { SuspendedWall } from '@/components/admin/suspended-wall';
 import { FeatureLockWall } from '@/components/admin/feature-lock-wall';
@@ -59,7 +58,6 @@ export default async function MemberLayout({ children }: { children: React.React
     <div className="ds-member" style={style}>
       <main id="main-content">{children}</main>
       <MemberTabBar whatsappUrl={`https://wa.me/${process.env.WHATSAPP_BUSINESS_NUMBER ?? '2349169582776'}?text=${encodeURIComponent(gym.member_code)}`} />
-      <CameraPrime />
     </div>
   );
 }

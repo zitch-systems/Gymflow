@@ -77,31 +77,31 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }
             <form action={newAction}>
               <input type="hidden" name="slug" value={slug} />
               <div className="field gf-form-group">
-                <label className="gf-form-label">Your name</label>
+                <label className="gf-form-label" htmlFor="join-full-name">Your name</label>
                 <div className="gf-input-group">
                   <User className="gf-input-icon" strokeWidth={1.75} />
-                  <input className="gf-input" name="full_name" placeholder="Tunde Adeyemi" required />
+                  <input className="gf-input" id="join-full-name" name="full_name" placeholder="Tunde Adeyemi" autoComplete="name" required />
                 </div>
               </div>
               <div className="field gf-form-group">
-                <label className="gf-form-label">Phone number</label>
+                <label className="gf-form-label" htmlFor="join-phone">Phone number</label>
                 <div className="gf-input-group">
                   <Phone className="gf-input-icon" strokeWidth={1.75} />
-                  <input className="gf-input" type="tel" name="phone" placeholder="080 1234 5678" inputMode="tel" autoComplete="tel" required />
+                  <input className="gf-input" id="join-phone" type="tel" name="phone" placeholder="080 1234 5678" inputMode="tel" autoComplete="tel" required />
                 </div>
               </div>
               <div className="field gf-form-group">
-                <label className="gf-form-label">Email</label>
+                <label className="gf-form-label" htmlFor="join-email">Email</label>
                 <div className="gf-input-group">
                   <Mail className="gf-input-icon" strokeWidth={1.75} />
-                  <input className="gf-input" type="email" name="email" placeholder="you@example.com" required />
+                  <input className="gf-input" id="join-email" type="email" name="email" placeholder="you@example.com" autoComplete="email" required />
                 </div>
               </div>
               <div className="field gf-form-group">
-                <label className="gf-form-label">Password</label>
+                <label className="gf-form-label" htmlFor="join-password">Password</label>
                 <div className="gf-input-group">
                   <Lock className="gf-input-icon" strokeWidth={1.75} />
-                  <PasswordInput className="gf-input" name="password" placeholder="••••••••" required minLength={8} />
+                  <PasswordInput className="gf-input" id="join-password" name="password" placeholder="••••••••" autoComplete="new-password" required minLength={8} />
                 </div>
               </div>
               {newState.error && (

@@ -205,12 +205,12 @@ describe('payment confirmations', () => {
   });
 
   it('are handed the member and gym by the webhook', () => {
-    const hook = read('app/api/paystack/webhook/route.ts');
+    const hook = read('lib/paystack-webhook.ts');
     expect(hook).toMatch(/confirmWhatsAppPayment\([\s\S]{0,400}memberId:/);
     expect(hook).toMatch(/confirmWhatsAppPayment\([\s\S]{0,400}gymId:/);
     // Still gated on `created`, so the webhook and the callback — which fire
     // near-simultaneously — cannot both message the member.
-    expect(hook).toMatch(/if \(result\.ok && result\.created\)/);
+    expect(hook).toMatch(/if \(result\.created\)/);
   });
 
   it('read as a subscription confirmation, with the details a member would want', () => {
@@ -294,5 +294,15 @@ describe('one account across WhatsApp, the app and the web', () => {
     expect(src).toContain('admin.auth.admin.createUser');
     expect(src).toMatch(/password: params\.password/);
     expect(src).not.toMatch(/password_hash|bcrypt|scrypt|argon/i);
+  });
+
+  it('WhatsApp sign-in cannot enrol an account into a gym named by a public code', () => {
+    // Member codes are printed at reception. Sign-in must prove an active link
+    // already exists; only the explicit signup path may provision a new one.
+    const src = read('lib/whatsapp/auth.ts');
+    const signin = src.slice(src.indexOf('export async function signinWithPassword'));
+    expect(signin).toContain('activeGymIds(admin, userId)');
+    expect(signin).toContain('gymIds.includes(gym.id)');
+    expect(signin).not.toContain('provisionMember(');
   });
 });

@@ -2,7 +2,7 @@ import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Avatar, Badge, Body, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, Title, c } from '@/components/ui';
+import { Avatar, Badge, Body, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { useAuth } from '@/auth/context';
 import { API_BASE_URL } from '@/api/client';
@@ -12,15 +12,17 @@ import type { ProfilePayload } from '@/api/types';
 
 const STATUS: Record<string, { label: string; tone: 'success' | 'info' | 'warning' | 'danger' }> = {
   active: { label: 'Active', tone: 'success' },
-  paused: { label: 'Frozen', tone: 'info' },
-  pause_requested: { label: 'Freeze pending', tone: 'info' },
+  scheduled: { label: 'Scheduled', tone: 'info' },
+  frozen: { label: 'Frozen', tone: 'info' },
+  freeze_pending: { label: 'Freeze pending', tone: 'info' },
+  expired: { label: 'Expired', tone: 'warning' },
   past_due: { label: 'Payment failed', tone: 'danger' },
 };
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
-  const { data, error, loading, refreshing, refresh } = useResource<ProfilePayload>('/api/app/profile');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<ProfilePayload>('/api/app/profile');
 
   const confirmSignOut = () => {
     Alert.alert('Sign out?', 'You’ll need your gym code and password to sign back in.', [
@@ -38,10 +40,16 @@ export default function ProfileScreen() {
   const joined = profile.joined_at
     ? new Date(profile.joined_at).toLocaleDateString('en-NG', { month: 'short', year: 'numeric' })
     : null;
-  const status = membership?.status ? STATUS[membership.status] : null;
+  const statusKey = membership?.status === 'past_due' && membership.display_state === 'active'
+    ? 'past_due'
+    : membership?.display_state;
+  const status = statusKey ? STATUS[statusKey] : null;
+  const membershipDate = membership?.display_state === 'scheduled' ? membership.start_date : membership?.end_date;
+  const membershipDateLabel = membership?.display_state === 'scheduled' ? 'Starts' : 'Renews';
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       <View style={styles.hero}>
         <Avatar label={initial(profile.full_name, profile.email)} size={78} />
         <Title style={{ marginTop: space.lg, textAlign: 'center' }}>{name}</Title>
@@ -54,7 +62,7 @@ export default function ProfileScreen() {
       <View style={styles.stats}>
         <Stat value={String(stats.visits)} label="Visits" />
         <Stat value={String(stats.classes_attended)} label="Classes" />
-        <Stat value={membership?.end_date ? shortDate(membership.end_date) : '—'} label="Renews" small />
+        <Stat value={membershipDate ? shortDate(membershipDate) : '—'} label={membershipDateLabel} small />
       </View>
 
       <SectionTitle>Membership</SectionTitle>

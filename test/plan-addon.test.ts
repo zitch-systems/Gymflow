@@ -158,14 +158,14 @@ describe('a price edit invalidates the cached Paystack Plan', () => {
 
   it('clears the base code when the plan price actually moved', () => {
     expect(src).toContain('const priceChanged = before != null && Number(before.price) !== price');
-    expect(src).toContain('...(priceChanged ? { paystack_plan_code: null } : {})');
+    expect(src).toContain('...(priceChanged || periodChanged ? { paystack_plan_code: null } : {})');
   });
 
   it('still clears the with-trainer code on anything that moves the combined total', () => {
     // The half that already worked, pinned so this fix can't take it with it:
     // the trainer Plan is priced at plan + add-on, so the add-on columns move
     // it even when the base price didn't.
-    expect(src).toContain('...(totalChanged ? { paystack_plan_code_trainer: null } : {})');
+    expect(src).toContain('...(totalChanged || periodChanged ? { paystack_plan_code_trainer: null } : {})');
     for (const term of ['Boolean(before.trainer_addon_enabled) !== trainerEnabled', 'Number(before.trainer_addon_price ?? 0) !== trainerPrice']) {
       expect(src).toContain(term);
     }

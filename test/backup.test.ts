@@ -1,7 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import {
   backupDue, backupFilename, backupStoragePath, humanSize, EXCLUDED_TABLES, KEEP_BACKUPS,
+  rotatingDailyBatch,
 } from '@/lib/backup-plan';
+
+describe('rotatingDailyBatch', () => {
+  const rows = Array.from({ length: 25 }, (_, i) => i);
+
+  it('keeps the requested bound and wraps at the end', () => {
+    const day = new Date('2026-01-02T00:00:00Z');
+    const batch = rotatingDailyBatch(rows, 20, day);
+    expect(batch).toHaveLength(20);
+    expect(new Set(batch)).toHaveLength(20);
+  });
+
+  it('moves the window on the next day so persistent failures cannot starve the tail', () => {
+    const first = rotatingDailyBatch(rows, 20, new Date('2026-01-02T00:00:00Z'));
+    const second = rotatingDailyBatch(rows, 20, new Date('2026-01-03T00:00:00Z'));
+    expect(second).not.toEqual(first);
+    expect(new Set([...first, ...second])).toHaveLength(rows.length);
+  });
+
+  it('returns every row when the list is already within the bound', () => {
+    expect(rotatingDailyBatch([1, 2], 20)).toEqual([1, 2]);
+  });
+});
 
 // The scheduling rule and the naming, which are the parts of the backup feature
 // that can be wrong quietly. A misjudged "due" check doesn't error — it just

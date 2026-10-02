@@ -5,7 +5,8 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { asSuperuser, pool, withSession } from './db';
 import { IDS, seed } from './seed';
 import { LIVE_SUB_STATUSES, extendMemberSub, grantMemberPeriod } from '@/lib/member-sub-core';
-import { extendDate } from '@/lib/plan-duration';
+import { coverageEnd, projectRenewalEnd } from '@/lib/plan-duration';
+import { watDateISO } from '@/lib/format';
 
 // Renewing a membership is money changing hands, so the two ways it used to go
 // wrong are both reproduced here against the real migrations-built database:
@@ -81,7 +82,7 @@ async function frozenState(subId: string) {
 }
 
 // What lib/plan-duration.ts would have produced for the same inputs.
-const inJs = (from: string, p: Period) => extendDate(new Date(from), p).toISOString().slice(0, 10);
+const inJs = (start: string, p: Period) => coverageEnd(new Date(`${start}T00:00:00Z`), p).toISOString().slice(0, 10);
 
 // The two-connection tests hold open transactions. Roll them back before the
 // clients go home: a failed assertion mid-transaction would otherwise return a
@@ -97,11 +98,9 @@ async function release(...clients: PoolClient[]): Promise<void> {
 describe('the renewal period, in SQL', () => {
   beforeAll(async () => { await seed(); });
 
-  // Every shape a plan can take, plus the two month-ends that separate the
-  // JavaScript rule from Postgres' own. `date + interval '1 month'` CLAMPS
-  // (31 Jan → 28 Feb) while Date.setMonth() OVERFLOWS (31 Jan → 3 Mar), so a
-  // naive translation would quietly shorten every renewal that lands on a long
-  // month's tail — three days of access per member, per cycle, forever.
+  // Every supported plan shape, including leap and non-leap month ends. Both
+  // implementations use the clamped calendar anniversary and store the prior
+  // date as the inclusive final day of coverage.
   const CASES: Array<{ from: string; period: Period }> = [
     { from: '2027-08-20', period: { duration_days: null, duration_months: 1 } },
     { from: '2027-08-20', period: { duration_days: null, duration_months: 3 } },
@@ -109,19 +108,18 @@ describe('the renewal period, in SQL', () => {
     { from: '2027-08-20', period: { duration_days: 1, duration_months: 0 } },
     { from: '2027-08-20', period: { duration_days: 7, duration_months: 0 } },
     { from: '2027-08-20', period: { duration_days: 14, duration_months: 1 } }, // days win over months
-    { from: '2027-01-31', period: { duration_days: null, duration_months: 1 } }, // overflow, not clamp
+    { from: '2027-01-31', period: { duration_days: null, duration_months: 1 } },
+    { from: '2028-01-31', period: { duration_days: null, duration_months: 1 } },
     { from: '2027-03-31', period: { duration_days: null, duration_months: 1 } },
     { from: '2027-08-31', period: { duration_days: null, duration_months: 6 } },
     { from: '2027-12-31', period: { duration_days: null, duration_months: 2 } },
-    { from: '2027-08-20', period: { duration_days: null, duration_months: 0 } },    // floors at one month
-    { from: '2027-08-20', period: { duration_days: null, duration_months: null } }, // …and so does "unset"
   ];
 
-  it('lands on the same day as extendDate() for every plan shape', async () => {
+  it('matches coverageEnd() for every plan shape', async () => {
     for (const { from, period } of CASES) {
       const sql = await asSuperuser(async (c) => {
         const { rows } = await c.query<{ e: Date }>(
-          `select private.period_end($1::date, $2::int, $3::int) as e`,
+          `select private.coverage_end($1::date, $2::int, $3::int) as e`,
           [from, period.duration_days, period.duration_months],
         );
         return rows[0].e.toISOString().slice(0, 10);
@@ -155,7 +153,13 @@ describe('extend_member_sub', () => {
     await asSuperuser((c) => extend(c, subId, { duration_days: 7, duration_months: 0 }));
     // renewalBase(): a lapsed period loses to today, so the member gets a full
     // week from now rather than a week from 2020.
-    expect(await endDateOf(subId)).toBe(inJs(new Date().toISOString().slice(0, 10), { duration_days: 7, duration_months: null }));
+    expect(await endDateOf(subId)).toBe(inJs(watDateISO(), { duration_days: 7, duration_months: null }));
+  });
+
+  it('clamps a future month-end renewal and never shortens paid coverage', async () => {
+    const subId = await newSub('2027-01-30');
+    await asSuperuser((c) => extend(c, subId, { duration_days: null, duration_months: 1 }));
+    expect(await endDateOf(subId)).toBe('2027-02-27');
   });
 
   it('leaves a frozen row frozen — the payment buys time, it does not end the freeze', async () => {
@@ -229,7 +233,7 @@ describe('extend_member_sub', () => {
       const [aEnd, bEnd] = [await readEnd(a), await readEnd(b)];
       const write = (c: typeof a, from: string) => c.query(
         `update public.member_subscriptions set end_date = $2 where id = $1`,
-        [subId, inJs(from, { duration_days: null, duration_months: 1 })],
+        [subId, projectRenewalEnd(from, { duration_days: null, duration_months: 1 }).toISOString().slice(0, 10)],
       );
       await write(a, aEnd);
       const bWrite = write(b, bEnd);
@@ -366,50 +370,50 @@ describe('the migration that installs it survives live duplicates', () => {
   });
 });
 
-describe('every writer that extends a membership goes through the RPC', () => {
+describe('every payment writer uses atomic database settlement', () => {
   // Source locks, in the spirit of test/commission-record.test.ts: the fix is
-  // only worth anything while all three writers use it, and the fourth way to
-  // renew a membership is exactly the kind of thing that gets added later with
-  // a fresh read-modify-write in it.
+  // only worth anything while card fulfillers use settle_member_charge and
+  // front-desk payments use record_staff_payment. A future writer must not add
+  // another read-compute-write path.
   const WRITERS = [
-    ['lib/paystack-fulfill.ts', 'grantMemberPeriod('],      // one-off card renewal
-    ['lib/member-sub-fulfill.ts', 'extendMemberSub('],      // auto-debit cycle
-    ['lib/actions/admin-member.ts', 'grantMemberPeriod('],  // front-desk cash
+    ['lib/paystack-fulfill.ts', 'settleMemberCharge('],      // one-off card renewal
+    ['lib/member-sub-fulfill.ts', 'settleMemberCharge('],      // auto-debit cycle
+    ['lib/actions/admin-member.ts', "rpc('record_staff_payment'"], // atomic front-desk payment
   ] as const;
 
   it('calls it instead of computing an end date and writing it back', () => {
     for (const [file, call] of WRITERS) {
       const src = read(file);
-      expect(src, `${file} must extend through lib/member-sub-core.ts`).toContain(call);
+      expect(src, `${file} must use its atomic settlement path`).toContain(call);
       // No `update({ end_date: … })` anywhere in these files: that shape is the
       // defect, whatever value it is given.
       expect(src.match(/update\(\{[^}]*end_date/), `${file} must not write a computed end_date back`).toBeNull();
     }
   });
 
-  it('and the RPC is the only place the arithmetic lives', () => {
-    // extendDate/renewalBase still exist — the renew UI previews a coverage
-    // window with them — but no fulfilment path may use them to write a row.
+  it('keeps renewal arithmetic out of payment writers', () => {
+    // coverageEnd/renewalBase still exist for previews and the no-subscription
+    // insert path, but payment writers must not compute a replacement end date.
     for (const [file] of WRITERS) {
-      expect(read(file).includes('extendDate('), `${file} must not re-implement the period`).toBe(false);
+      expect(read(file).includes('coverageEnd('), `${file} must not re-implement the period`).toBe(false);
     }
     expect(read('lib/member-sub-core.ts')).toContain("rpc('extend_member_sub'");
   });
 });
 
-describe('extend_member_sub answers to RLS, not to whoever calls it', () => {
+describe('extend_member_sub is reserved for service fulfilment', () => {
   beforeAll(async () => { await seed(); });
   beforeEach(async () => {
     await asSuperuser((c) => c.query(`delete from public.member_subscriptions where member_id = $1`, [IDS.memberA]));
   });
 
-  it('extends for staff of the gym that owns the subscription', async () => {
+  it('denies staff a direct date grant without an atomic receipt', async () => {
     const subId = await newSub('2027-06-01');
-    const got = await withSession({ role: 'authenticated', uid: IDS.ownerA, commit: true }, async (c) => {
+    await expect(withSession({ role: 'authenticated', uid: IDS.ownerA, commit: true }, async (c) => {
       const { rows } = await c.query<{ e: Date | null }>(`select public.extend_member_sub($1::uuid, null, 1) as e`, [subId]);
       return rows[0].e;
-    });
-    expect(got?.toISOString().slice(0, 10)).toBe('2027-07-01');
+    })).rejects.toMatchObject({ code: '42501', message: 'Record the payment with a receipt to grant membership dates' });
+    expect(await endDateOf(subId)).toBe('2027-06-01');
   });
 
   it('does nothing for the member themselves, or for another gym’s staff', async () => {
@@ -489,7 +493,7 @@ describe('grantMemberPeriod', () => {
 
   it('starts a subscription for a member who has none', async () => {
     const got = await asSuperuser((c) => grant(c));
-    expect(got).toEqual({ ok: true, endDate: inJs(new Date().toISOString().slice(0, 10), MONTH) });
+    expect(got).toEqual({ ok: true, endDate: inJs(watDateISO(), MONTH) });
   });
 
   it('extends the live one on the next payment instead of adding a second', async () => {
@@ -500,7 +504,15 @@ describe('grantMemberPeriod', () => {
       return rows.length;
     });
     expect(rows).toBe(1);
-    expect(second.ok && second.endDate).toBe(inJs(inJs(new Date().toISOString().slice(0, 10), MONTH), MONTH));
+    const firstEnd = inJs(watDateISO(), MONTH);
+    expect(second.ok && second.endDate).toBe(projectRenewalEnd(firstEnd, MONTH).toISOString().slice(0, 10));
+  });
+
+  it('starts fresh today when only an expired historical row exists', async () => {
+    const expired = await newSub('2020-01-01', { status: 'expired' });
+    const got = await asSuperuser((c) => grant(c));
+    expect(got).toEqual({ ok: true, endDate: inJs(watDateISO(), MONTH) });
+    expect(await endDateOf(expired)).toBe('2020-01-01');
   });
 
   it('recovers from losing the INSERT race by extending the row that won', async () => {
@@ -526,13 +538,10 @@ describe('grantMemberPeriod', () => {
 });
 
 describe('a renewal that lands on a frozen membership', () => {
-  // The one-live index took away the escape hatch this path used to have. A
-  // frozen member who renews (in the app, from WhatsApp, or at the front desk
-  // with "extend") reaches grantMemberPeriod, which reads only status='active',
-  // finds nothing, INSERTs — and is now refused, because 'paused' is live. The
-  // fallback then extends the FROZEN row. That is fine as long as the row is
-  // still frozen afterwards: resumeFreeze() requires status='paused' and
-  // approveFreeze() requires 'pause_requested' (lib/actions/freeze.ts), so a
+  // A frozen member who renews reaches grantMemberPeriod, which treats paused
+  // and pause_requested as live and extends that same row. That is correct as
+  // long as it stays frozen afterwards: resumeFreeze() requires status='paused'
+  // and approveFreeze() requires 'pause_requested' (lib/actions/freeze.ts), so a
   // row that came back 'active' with its pause window still set can never be
   // resumed or approved, and nothing else credits the frozen days.
   beforeAll(async () => { await seed(); });
@@ -600,14 +609,10 @@ describe('a recurring charge for a mandate whose row is no longer live', () => {
     expect(await endDateOf(live)).toBe('2027-07-01');
   });
 
-  it('is wired into the auto-debit fulfiller', () => {
-    // Source lock: onRecurringCharge is webhook code behind a signature check
-    // and a live Paystack payload, so what is pinned here is that the 23505 out
-    // of extendMemberSub is recovered rather than turned into a failed webhook.
-    const src = read('lib/member-sub-fulfill.ts');
-    const extend = src.indexOf('await extendMemberSub(');
-    const recover = src.indexOf("extended.code === '23505'");
-    expect(recover).toBeGreaterThan(extend);
-    expect(src.slice(recover)).toContain('grantMemberPeriod(');
+  it('is wired through atomic settlement in the auto-debit fulfiller', () => {
+    expect(read('lib/member-sub-fulfill.ts')).toContain('await settleMemberCharge(');
+    // The RPC's live-row recovery and payment rollback are exercised by the
+    // atomic-member-charge database suite, including concurrent requests.
+    expect(read('lib/member-sub-fulfill.ts')).not.toContain("from('payments').delete()");
   });
 });

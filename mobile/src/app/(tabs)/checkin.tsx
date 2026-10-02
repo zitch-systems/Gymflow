@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Body, Button, Card, ErrorState, Group, Loading, Notice, Row, SectionTitle, Title, c } from '@/components/ui';
+import { Body, Button, Card, ErrorState, Group, Loading, Notice, Row, SectionTitle, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { api } from '@/api/client';
 import { clockTime, dayMonth, duration, plural } from '@/lib/format';
@@ -26,7 +26,7 @@ const METHOD_LABEL: Record<string, string> = {
 const CODE_POLL_MS = 4000;
 
 export default function CheckinScreen() {
-  const { data, error, loading, refreshing, refresh, set } = useResource<CheckinState>('/api/app/checkin');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh, set } = useResource<CheckinState>('/api/app/checkin');
 
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -191,6 +191,7 @@ export default function CheckinScreen() {
   return (
     <>
       <Screen refreshing={refreshing} onRefresh={refresh}>
+        {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
         <Title style={{ textAlign: 'center' }}>{checkedIn ? 'Check out' : 'Check in'}</Title>
         <Body tone="secondary" style={{ textAlign: 'center', marginTop: space.sm, lineHeight: 21 }}>
           {checkedIn
@@ -220,7 +221,7 @@ export default function CheckinScreen() {
           style={{ marginTop: space.md }}
         />
         <Button
-          label={busy ? '' : `Or tap to self check-${checkedIn ? 'out' : 'in'}`}
+          label={`Or tap to self check-${checkedIn ? 'out' : 'in'}`}
           variant="ghost"
           onPress={() => void run(checkedIn ? 'out' : 'in')}
           loading={busy}

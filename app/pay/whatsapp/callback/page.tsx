@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock, XCircle, ArrowRight } from 'lucide-react';
 import { verifyTransaction } from '@/lib/paystack';
-import { fulfillCharge } from '@/lib/paystack-fulfill';
+import { fulfillVerifiedMemberCharge } from '@/lib/member-payment-callback';
 
 export const metadata = { title: 'Payment', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -36,7 +36,7 @@ export default async function WhatsAppPayCallback({ searchParams }: { searchPara
   if (reference) {
     const v = await verifyTransaction(reference);
     if (v.ok && v.status === 'success') {
-      const f = await fulfillCharge({ reference: v.reference, amountKobo: v.amountKobo, channel: v.channel, metadata: v.metadata, split: v.split });
+      const f = await fulfillVerifiedMemberCharge(v);
       if (!f.ok) console.error(`[whatsapp/pay-callback] fulfill failed for ${v.reference}: ${f.error}`);
       outcome = f.ok ? 'paid' : 'pending';
       msg = f.ok

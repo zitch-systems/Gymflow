@@ -21,13 +21,31 @@ import { asSuperuser } from './db';
 const captured = vi.hoisted(() => [] as Array<{ message: string; extra?: Record<string, unknown> }>);
 const inserted = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 const uploaded = vi.hoisted(() => [] as string[]);
+const updated = vi.hoisted(() => [] as Array<Record<string, unknown>>);
+const deleted = vi.hoisted(() => [] as string[]);
+const prunable = vi.hoisted(() => ({ success: [] as Array<{ id: string; storage_path: string | null }>, partial: [] as Array<{ id: string; storage_path: string | null }> }));
+const removeFailure = vi.hoisted(() => ({ message: null as string | null }));
 const archive = vi.hoisted(() => ({ current: null as unknown }));
+const sent = vi.hoisted(() => [] as Array<Record<string, unknown>>);
+const backupTemplateArgs = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
 vi.mock('@/lib/server-error', () => ({
   captureServerEvent: async (message: string, extra?: Record<string, unknown>) => { captured.push({ message, extra }); },
 }));
 
 vi.mock('@/lib/backup', () => ({ buildGymBackup: async () => archive.current }));
+
+vi.mock('@/lib/email/recipients', () => ({ getGymOwnerEmails: async () => ['owner@example.test'] }));
+vi.mock('@/lib/email/send', () => ({
+  platformAppUrl: (path: string) => `https://gymflow.test${path}`,
+  sendPlatformEmail: async (message: Record<string, unknown>) => { sent.push(message); return { ok: true }; },
+}));
+vi.mock('@/lib/email/templates/platform', () => ({
+  gymBackupReady: (options: Record<string, unknown>) => {
+    backupTemplateArgs.push(options);
+    return { subject: 'Backup ready', preheader: 'Open your secure console', blocks: [] };
+  },
+}));
 
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => fakeAdmin() }));
 
@@ -36,6 +54,7 @@ vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => fakeAdmin() })
 function fakeAdmin() {
   function builder(table: string) {
     let op = 'select';
+    let status = '';
     const q = {
       select() { return q; },
       insert(values: Record<string, unknown>) {
@@ -43,18 +62,20 @@ function fakeAdmin() {
         if (table === 'gym_backups') inserted.push(values);
         return q;
       },
-      update() { op = 'update'; return q; },
+      update(values: Record<string, unknown>) { op = 'update'; updated.push(values); return q; },
       delete() { op = 'delete'; return q; },
-      eq() { return q; },
-      in() { return q; },
+      eq(column: string, value: string) { if (column === 'status') status = value; return q; },
+      in(_column: string, values: string[]) { if (op === 'delete') deleted.push(...values); return q; },
       order() { return q; },
       range() { return q; },
       async maybeSingle() {
         return { data: table === 'gyms' ? { id: GYM, name: 'Gym A', slug: 'gym-a' } : null, error: null };
       },
       then<T>(resolve: (v: { data: unknown; error: null }) => T) {
-        // prune()'s read returns nothing to prune; every write succeeds.
-        return Promise.resolve({ data: op === 'select' ? [] : null, error: null }).then(resolve);
+        const data = op === 'select' && table === 'gym_backups'
+          ? prunable[status as keyof typeof prunable] ?? []
+          : op === 'select' ? [] : null;
+        return Promise.resolve({ data, error: null }).then(resolve);
       },
     };
     return q;
@@ -64,7 +85,7 @@ function fakeAdmin() {
     storage: {
       from: () => ({
         async upload(path: string) { uploaded.push(path); return { error: null }; },
-        async remove() { return { error: null }; },
+        async remove() { return { error: removeFailure.message ? { message: removeFailure.message } : null }; },
       }),
     },
   };
@@ -90,6 +111,14 @@ beforeEach(() => {
   captured.length = 0;
   inserted.length = 0;
   uploaded.length = 0;
+  updated.length = 0;
+  deleted.length = 0;
+  prunable.success = [];
+  prunable.partial = [];
+  removeFailure.message = null;
+  sent.length = 0;
+  backupTemplateArgs.length = 0;
+  delete process.env.RESEND_API_KEY;
 });
 
 describe('a run where nothing could be read', () => {
@@ -158,6 +187,17 @@ describe('a run that partly worked', () => {
     await runGymBackup(GYM, { trigger: 'scheduled', cadence: 'weekly', email: false });
     expect(captured.map((c) => c.message)).toContain('gym backup completed with problems');
   });
+
+  it('does not mark an incomplete archive as the last completed backup', async () => {
+    await runGymBackup(GYM, { trigger: 'scheduled', cadence: 'weekly', email: false });
+    expect(updated).toEqual([]);
+  });
+
+  it('retains only a bounded, independent window of partial archives', async () => {
+    prunable.partial = [{ id: 'partial-old', storage_path: `${GYM}/partial-old.zip` }];
+    await runGymBackup(GYM, { trigger: 'scheduled', cadence: 'weekly', email: false });
+    expect(deleted).toContain('partial-old');
+  });
 });
 
 describe('the column those problems are written to', () => {
@@ -191,5 +231,30 @@ describe('a clean run', () => {
     expect(res.problems).toEqual([]);
     expect(inserted[0]).toMatchObject({ status: 'success', problems: [] });
     expect(captured).toEqual([]);
+  });
+
+  it('marks a clean archive as the last completed backup', async () => {
+    await runGymBackup(GYM, { trigger: 'scheduled', cadence: 'weekly', email: false });
+    expect(updated).toHaveLength(1);
+    expect(updated[0]).toHaveProperty('backup_last_run_at');
+  });
+
+  it('emails only the authenticated console link and never attaches the archive', async () => {
+    process.env.RESEND_API_KEY = 'test-key';
+    const res = await runGymBackup(GYM, { trigger: 'scheduled', cadence: 'weekly', email: true });
+    expect(res.emailed).toBe(true);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).not.toHaveProperty('attachments');
+    expect(backupTemplateArgs[0]).toMatchObject({
+      backupsUrl: 'https://gymflow.test/admin/settings?section=backups',
+    });
+  });
+
+  it('keeps the database index when deleting an old object fails', async () => {
+    prunable.success = [{ id: 'success-old', storage_path: `${GYM}/success-old.zip` }];
+    removeFailure.message = 'storage unavailable';
+    await runGymBackup(GYM, { trigger: 'scheduled', cadence: 'weekly', email: false });
+    expect(deleted).not.toContain('success-old');
+    expect(captured).toContainEqual(expect.objectContaining({ message: 'gym backup retention failed' }));
   });
 });

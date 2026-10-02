@@ -1,6 +1,5 @@
 import { createHash, timingSafeEqual } from 'crypto';
 import { createClient as createSb } from '@supabase/supabase-js';
-import { runReconciliation, type ReconcileSummary } from '@/lib/reconcile';
 import { deliverRenewalReminder, inSlices, type NotifyGym } from '@/lib/notify';
 import { expireStaleIntents } from '@/lib/whatsapp/payments';
 import { firstName, fmt12Hr, fmtDate, watDateISO, watDayStartUtc } from '@/lib/format';
@@ -10,6 +9,7 @@ import { adminOrNull, getContacts, getGymOwnerEmails, GYM_EMAIL_COLUMNS, type Em
 import { classesToday, freezeResumed, MEMBER_TEMPLATES, type ClassFacts } from '@/lib/email/templates/member';
 import { trialEnded, trialEnding } from '@/lib/email/templates/platform';
 import { OFFLINE_GYM_FILTER } from '@/lib/gym-status';
+import { markJobStarted, markJobSucceeded } from '@/lib/operational-jobs';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -89,6 +89,7 @@ export async function GET(req: Request) {
   // preview environments and this route must degrade to the keep-warm ping
   // rather than 500.
   const admin = adminOrNull();
+  if (admin) await markJobStarted(admin, 'notifications');
 
   // Keep-warm: a cheap query so the (free-tier) Supabase project doesn't pause.
   const warm = admin ?? createSb(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
@@ -316,37 +317,38 @@ export async function GET(req: Request) {
     } catch { /* the digest is a bonus channel; never abort the run for it */ }
   }
 
-  // Auto-resume freezes whose scheduled window has ended: restore status and
-  // credit the frozen days (pause_start → pause_end) to end_date so the member
-  // gets back exactly the time they were paused.
+  // Auto-resume freezes whose scheduled window has ended. The RPC owns the
+  // WAT calendar calculation, member-term lock, paid-coverage shift and audit;
+  // using the same path as staff resume prevents a cron/payment race from
+  // granting or losing days.
   let freezesResumed = 0;
   const resumed: Array<{ gymId: string; memberId: string; daysCredited: number; newEndDate: string }> = [];
   if (admin) {
     // watDay, matching the rest of this route — pause_end is a WAT date-only
     // column, so a UTC "today" resumes a freeze a day early or late.
     const today = watDay(0);
-    // gym_id and member_id ride along so the member can be told. Without them
-    // this was the one membership state change that reached nobody: the
-    // turnstile started working again and the member found out by trying it.
-    const { data: due } = await admin.from('member_subscriptions')
-      .select('id, gym_id, member_id, end_date, pause_start, pause_end')
-      .eq('status', 'paused').not('pause_end', 'is', null).lte('pause_end', today);
+    const { data: due, error: dueError } = await admin.from('member_subscriptions')
+      .select('id, gym_id')
+      .eq('status', 'paused').not('pause_end', 'is', null).lte('pause_end', today)
+      .order('pause_end', { ascending: true }).limit(200);
+    if (dueError) throw new Error(`Automatic freeze scan failed: ${dueError.message}`);
     for (const s of due ?? []) {
-      const start = s.pause_start ?? s.pause_end!;
-      const days = Math.max(0, Math.round((Date.parse(s.pause_end! + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 86_400_000));
-      const base = new Date((s.end_date ?? today) + 'T00:00:00Z');
-      base.setUTCDate(base.getUTCDate() + days);
-      const newEndDate = base.toISOString().slice(0, 10);
-      // CAS on status='paused': if a staff resumeFreeze raced this cron tick
-      // and already flipped the row, the guarded UPDATE affects 0 rows and we
-      // must not credit again on top of what they already stamped.
-      const { data: swapped, error } = await admin.from('member_subscriptions')
-        .update({ status: 'active', paused_at: null, pause_reason: null, pause_start: null, pause_end: null, end_date: newEndDate })
-        .eq('id', s.id).eq('status', 'paused').select('id').maybeSingle();
-      if (!error && swapped) {
-        freezesResumed++;
-        if (s.gym_id && s.member_id) resumed.push({ gymId: s.gym_id, memberId: s.member_id, daysCredited: days, newEndDate });
-      }
+      const { data, error } = await admin.rpc('resume_member_freeze' as never, {
+        p_gym_id: s.gym_id,
+        p_subscription_id: s.id,
+      } as never);
+      if (error) throw new Error(`Automatic freeze resume failed for ${s.id}: ${error.message}`);
+      const result = data as unknown as {
+        created: boolean; member_id: string; end_date: string; days_credited: number;
+      } | null;
+      if (!result?.created) continue;
+      freezesResumed++;
+      resumed.push({
+        gymId: s.gym_id,
+        memberId: result.member_id,
+        daysCredited: result.days_credited,
+        newEndDate: result.end_date,
+      });
     }
   }
 
@@ -402,13 +404,6 @@ export async function GET(req: Request) {
     }
   }
 
-  // Paystack ↔ DB reconciliation: flag charges whose webhook was dropped,
-  // resolve payouts stuck in 'approved', and repair gyms whose Paystack split
-  // drifted (stale subaccount code, or a commission push that failed).
-  // No-ops without PAYSTACK_SECRET_KEY.
-  let reconciliation: ReconcileSummary | null = null;
-  if (admin) reconciliation = await runReconciliation();
-
   // Housekeeping: rate-limit windows are minutes-to-hours; anything older
   // than 2 days is dead weight. Webhook replay-ledger rows matter only while
   // Paystack could still retry the same body — 30 days is far beyond that.
@@ -461,9 +456,10 @@ export async function GET(req: Request) {
     } catch { /* housekeeping never fails the run */ }
   }
 
+  if (admin) await markJobSucceeded(admin, 'notifications');
   return Response.json({
     ok: true, warmed: true, serviceRole: Boolean(admin),
     remindersCreated, trialNoticesSent, classDigestsSent, freezesResumed, freezeNoticesSent, staleVisitsClosed,
-    intentsExpired, reconciliation,
+    intentsExpired,
   });
 }

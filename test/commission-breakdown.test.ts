@@ -5,11 +5,11 @@ import { asSuperuser, withSession } from './db';
 import { IDS, seed } from './seed';
 import {
   arrangementLabel, commissionPeriod, estimatedCommission, isDefaultArrangement,
-  rateLabel, summarizeCommission, type GymCommissionRow,
+  rateLabel, refundAdjustedCommission, summarizeCommission, type GymCommissionRow,
 } from '../lib/commission-breakdown';
 
-// The platform operator's commission breakdown: what GymFlow actually kept out
-// of member payments, per gym, over a window.
+// The platform operator's proportional refund-adjusted commission estimate,
+// per gym over a window.
 //
 // Two layers, both pinned here because the two ways this has gone wrong before
 // live one in each. The SQL (public.platform_commission_by_gym) decides WHAT
@@ -67,6 +67,9 @@ beforeAll(async () => {
     // Gym A: a percentage split and a flat split — ₦1,000 kept between them.
     await pay({ gym_id: IDS.gymA, amount: 10000, status: 'success', payment_status: 'successful', paystack_reference: 'cb-pct', platform_settlement: 'split', platform_commission_basis: 'percentage', platform_commission_pct: 5, platform_commission_amount: 500 });
     await pay({ gym_id: IDS.gymA, amount: 5000, status: 'success', payment_status: 'successful', paystack_reference: 'cb-flat', platform_settlement: 'split', platform_commission_basis: 'flat', platform_commission_amount: 500 });
+    // Both commission modes use the same explicit proportional refund policy.
+    await pay({ gym_id: IDS.gymA, amount: 10000, refunded_amount: 2500, status: 'success', payment_status: 'successful', paystack_reference: 'cb-pct-partial', platform_settlement: 'split', platform_commission_basis: 'percentage', platform_commission_pct: 5, platform_commission_amount: 500 });
+    await pay({ gym_id: IDS.gymA, amount: 4000, refunded_amount: 1000, status: 'success', payment_status: 'successful', paystack_reference: 'cb-flat-partial', platform_settlement: 'split', platform_commission_basis: 'flat', platform_commission_amount: 500 });
     // Refunded: the member got their money back, so the cut was not kept.
     await pay({ gym_id: IDS.gymA, amount: 40000, status: 'refunded', payment_status: 'refunded', paystack_reference: 'cb-refunded', platform_settlement: 'split', platform_commission_basis: 'percentage', platform_commission_pct: 5, platform_commission_amount: 2000 });
     // A row that disagrees with ITSELF: refunded on one status column, still
@@ -80,6 +83,7 @@ beforeAll(async () => {
     await c.query(`alter table public.payments enable trigger trg_sync_payment_status`);
     // platform_only: whole charge landed in GymFlow's account, gym owed its share.
     await pay({ gym_id: IDS.gymA, amount: 8000, status: 'success', payment_status: 'successful', paystack_reference: 'cb-held', platform_settlement: 'platform_only' });
+    await pay({ gym_id: IDS.gymA, amount: 4000, refunded_amount: 1000, status: 'success', payment_status: 'successful', paystack_reference: 'cb-held-partial', platform_settlement: 'platform_only' });
     // Cash at the front desk — the platform never saw it.
     await pay({ gym_id: IDS.gymA, amount: 3000, status: 'success', payment_status: 'successful', paystack_reference: 'MANUAL-cb', platform_settlement: 'offline' });
     // Older than any window the console offers by default.
@@ -101,15 +105,15 @@ describe('platform_commission_by_gym', () => {
     expect(err?.code).toBe('42501');
   });
 
-  it('sums only the commission actually kept, best-earning gym first', async () => {
+  it('sums the refund-adjusted estimate, best-earning gym first', async () => {
     const rows = await callAs(ADMIN, null);
     expect(rows.map((r) => r.gym_id)).toEqual([IDS.gymA, IDS.gymB]);
 
     const a = rows[0];
-    // 500 + 500 in-window, plus the 400-day-old 9,000. Not the refunded 2,000,
-    // not the held 8,000, not the offline row.
-    expect(n(a.commission_total)).toBe(10000);
-    expect(n(a.commission_payments)).toBe(3);
+    // 500 + 500, plus 375 from each partial refund, plus historic 9,000.
+    // Not the fully refunded 2,000, held float, or offline row.
+    expect(n(a.commission_total)).toBe(10750);
+    expect(n(a.commission_payments)).toBe(5);
   });
 
   it('excludes refunded charges from earnings', async () => {
@@ -118,25 +122,31 @@ describe('platform_commission_by_gym', () => {
     // Two refunded rows carry commission figures — ₦2,000 on the cleanly
     // refunded one and ₦3,000 on the half-applied one. Counting either would
     // report commission on money that went back out.
-    expect(n(a.commission_total)).toBe(10000);
-    expect(n(a.commission_total)).not.toBe(15000);
+    expect(n(a.commission_total)).toBe(10750);
+    expect(n(a.commission_total)).not.toBe(15750);
+  });
+
+  it('scales both percentage and flat commission by net charge over gross charge', async () => {
+    const a = (await callAs(ADMIN, null)).find((r) => r.gym_id === IDS.gymA)!;
+    expect(n(a.percentage_total)).toBe(9875);
+    expect(n(a.flat_total)).toBe(875);
   });
 
   it('reports platform_only money as held, never as commission', async () => {
     const rows = await callAs(ADMIN, null);
     const a = rows.find((r) => r.gym_id === IDS.gymA)!;
-    expect(n(a.held_total)).toBe(8000);
-    expect(n(a.held_payments)).toBe(1);
+    expect(n(a.held_total)).toBe(11000);
+    expect(n(a.held_payments)).toBe(2);
     // And it is nowhere in the earnings figures.
-    expect(n(a.commission_total)).toBe(10000);
+    expect(n(a.commission_total)).toBe(10750);
     expect(n(a.percentage_total) + n(a.flat_total) + n(a.unclassified_total)).toBe(n(a.commission_total));
   });
 
   it('splits earnings into percentage and flat, and carries the gym’s current mode', async () => {
     const rows = await callAs(ADMIN, null);
     const a = rows.find((r) => r.gym_id === IDS.gymA)!;
-    expect(n(a.percentage_total)).toBe(9500); // 500 in-window + 9,000 historic
-    expect(n(a.flat_total)).toBe(500);
+    expect(n(a.percentage_total)).toBe(9875); // 500 + partial 375 + historic 9,000
+    expect(n(a.flat_total)).toBe(875); // 500 + partial 375
     expect(a.commission_mode).toBe('percentage');
     expect(n(a.commission_pct)).toBe(20);
 
@@ -152,16 +162,16 @@ describe('platform_commission_by_gym', () => {
     const a = rows.find((r) => r.gym_id === IDS.gymA)!;
     expect(n(a.unrecorded_payments)).toBe(1); // seed()'s payment
     // It contributes nothing to the money figures — NULL is "not recorded", not zero.
-    expect(n(a.commission_total)).toBe(10000);
+    expect(n(a.commission_total)).toBe(10750);
   });
 
   it('honours the date window', async () => {
     const from = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const rows = await callAs(ADMIN, from);
     const a = rows.find((r) => r.gym_id === IDS.gymA)!;
-    // The 400-day-old ₦9,000 drops out; the two recent splits remain.
-    expect(n(a.commission_total)).toBe(1000);
-    expect(n(a.commission_payments)).toBe(2);
+    // The 400-day-old ₦9,000 drops out; four recent splits remain.
+    expect(n(a.commission_total)).toBe(1750);
+    expect(n(a.commission_payments)).toBe(4);
   });
 });
 
@@ -260,6 +270,12 @@ describe('describing a gym’s arrangement', () => {
     const volume = { gmv: 10_000_000, payments: 400 };
     expect(estimatedCommission(flat, volume)).toBe(200_000);
     expect(estimatedCommission(pctOnly, volume)).toBe(500_000);
+  });
+
+  it('uses proportional payment equivalents for refund-adjusted flat estimates', () => {
+    expect(estimatedCommission(flat, { gmv: 15_000, payments: 2, paymentEquivalents: 1.5 })).toBe(750);
+    expect(refundAdjustedCommission(500, 10_000, 2_500)).toBe(375);
+    expect(refundAdjustedCommission(500, 10_000, 10_000)).toBe(0);
   });
 
   it('never calls a flat deal the default, whatever its fallback rate is', () => {

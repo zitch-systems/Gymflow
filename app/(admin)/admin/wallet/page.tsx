@@ -2,6 +2,7 @@ import { Banknote, ArrowDownLeft, ArrowUpRight, CreditCard, Download, Filter } f
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDate, watDayStartUtc, watMonthStartISO } from '@/lib/format';
+import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
 
 export const metadata = { title: 'Wallet' };
 
@@ -39,7 +40,7 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
   // The transactions list honours the filters; the "this month" KPIs stay
   // month-scoped regardless (they summarise the month, not the current view).
   let txq = supabase.from('payments')
-    .select('id, amount, payment_status, payment_date, created_at, payment_method, plan_id, member_id')
+    .select('id, amount, refunded_amount, payment_status, payment_date, created_at, payment_method, plan_id, member_id')
     .eq('gym_id', gym.id);
   if (status) txq = txq.eq('payment_status', status);
   if (method) txq = txq.eq('payment_method', method);
@@ -50,7 +51,7 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
   const [{ data: rows }, { data: monthRows }, { data: methodRows }] = await Promise.all([
     txq,
     supabase.from('payments')
-      .select('amount, payment_status, payment_date')
+      .select('amount, refunded_amount, payment_status, payment_date')
       .eq('gym_id', gym.id).gte('payment_date', monthStart.toISOString()),
     // Distinct payment methods this gym has used, to populate the filter.
     // DB-side DISTINCT via RPC (20260722_search_and_filters.sql) — the old
@@ -59,9 +60,9 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
     supabase.rpc('gym_payment_methods' as never, { p_gym: gym.id } as never),
   ]);
 
-  const collected = (monthRows ?? []).filter((p) => p.payment_status === 'successful').reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const collected = (monthRows ?? []).filter((p) => p.payment_status === 'successful').reduce((s, p) => s + paymentAmounts(p).net, 0);
   const pending = (monthRows ?? []).filter((p) => p.payment_status === 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
-  const failed = (monthRows ?? []).filter((p) => p.payment_status !== 'successful' && p.payment_status !== 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const failed = (monthRows ?? []).filter((p) => p.payment_status === 'failed').reduce((s, p) => s + Number(p.amount ?? 0), 0);
 
   // Method options: the distinct set the gym actually uses, plus the current
   // selection if a URL pinned one that isn't in the set.
@@ -96,7 +97,7 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
 
       <div className="wtop">
         <div className="balance">
-          <small>Collected this month</small>
+          <small>Net collected this month</small>
           <div className="amt">{fmtNaira(collected)}</div>
           <div className="sub">{fmtNaira(pending)} pending · {(monthRows ?? []).length} payment{(monthRows ?? []).length === 1 ? '' : 's'} this month</div>
           <div className="acts" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -163,12 +164,20 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
               <thead><tr><th>Description</th><th style={{ textAlign: 'right' }}>Amount</th><th>Date</th><th>Status</th></tr></thead>
               <tbody>
                 {(rows ?? []).map((p) => {
-                  const st = STATUS[p.payment_status ?? ''] ?? ['gf-badge-neutral', p.payment_status ?? '—'];
+                  const amounts = paymentAmounts(p);
+                  const st = amounts.refundState === 'none'
+                    ? STATUS[p.payment_status ?? ''] ?? ['gf-badge-neutral', paymentStatusLabel(p)]
+                    : ['gf-badge-warning', paymentStatusLabel(p)];
                   const ok = p.payment_status === 'successful';
                   return (
                     <tr key={p.id}>
                       <td><div className="who"><span className="gf-avatar gf-avatar-sm" style={{ background: 'var(--gf-success-soft)', color: 'var(--gf-success)', border: 'none' }}><CreditCard strokeWidth={1.9} size={15} /></span><div><strong>{(p.plan_id && planById.get(p.plan_id)) || 'Payment'} · {p.member_id ? nameById.get(p.member_id) : '—'}</strong><small>{p.payment_method ?? 'Paystack'}</small></div></div></td>
-                      <td className={`naira tx-amt ${ok ? 'in' : 'out'}`} style={{ textAlign: 'right' }}>{ok ? '+' : ''}{fmtNaira(Number(p.amount ?? 0))}</td>
+                      <td className={`naira tx-amt ${ok ? 'in' : 'out'}`} style={{ textAlign: 'right' }}>
+                        <div className="cell-2" style={{ alignItems: 'flex-end' }}>
+                          <strong>{ok ? '+' : ''}{fmtNaira(ok || amounts.refundState !== 'none' ? amounts.net : amounts.gross)}</strong>
+                          {amounts.refunded > 0 && <small>{fmtNaira(amounts.refunded)} refunded from {fmtNaira(amounts.gross)}</small>}
+                        </div>
+                      </td>
                       <td style={{ color: 'var(--gf-text-secondary)' }}>{fmtDate(p.payment_date ?? p.created_at)}</td>
                       <td><span className={`gf-badge ${st[0]}`}><span className="gf-dot" />{st[1]}</span></td>
                     </tr>

@@ -890,11 +890,9 @@ export function underpaymentAlert(o: {
 /**
  * A gym's scheduled data backup is ready.
  *
- * Leads with what is in the file and where else it lives, because the whole
- * value of this mail is confidence: an owner who cannot tell whether the
- * attachment is complete has to open it to find out, and one who does not know
- * a copy is also held in the console will treat this email as the only copy and
- * hoard it in an inbox.
+ * Leads with what is in the file and where it lives. The archive carries PII,
+ * health notes and signatures, so the email is deliberately only a pointer to
+ * the authenticated console rather than another stored copy of the data.
  *
  * Says plainly that card and bank details are absent. Someone receiving a file
  * called "backup" containing their members will reasonably wonder whether it
@@ -909,13 +907,10 @@ export function gymBackupReady(o: {
   cadence: string;
   /** Row count per file, biggest first. */
   counts: Array<[string, number]>;
-  /** Human size of the attachment, e.g. '1.2 MB'. */
+  /** Human size of the stored archive, e.g. '1.2 MB'. */
   size: string;
   /** Settings → Backups, where every stored copy can be downloaded. */
   backupsUrl: string;
-  /** Set when the archive was too large to attach — then the mail is a
-   *  pointer to the console rather than a delivery. */
-  attached: boolean;
   /** Tables that could not be read, or were cut short by the row cap, on this
    *  run, if any. */
   problems?: string[];
@@ -923,14 +918,10 @@ export function gymBackupReady(o: {
   const total = o.counts.reduce((n, [, c]) => n + c, 0);
   return {
     subject: line(`${o.gymName} backup · ${o.runOn}`),
-    preheader: line(o.attached
-      ? `${total.toLocaleString('en-NG')} records attached as a zip.`
-      : `Ready to download — too large to attach.`),
+    preheader: line(`${total.toLocaleString('en-NG')} records ready in your backup console.`),
     blocks: [
       h1('Your backup is ready'),
-      p(o.attached
-        ? t`Hi ${firstName(o.ownerName)}, here is ${o.gymName}'s ${o.cadence.toLowerCase()} backup, attached as a zip of spreadsheets. A copy is kept in your console too, so you don't have to hold on to this email.`
-        : t`Hi ${firstName(o.ownerName)}, ${o.gymName}'s ${o.cadence.toLowerCase()} backup ran and is waiting in your console. It was too large to attach to an email.`),
+      p(t`Hi ${firstName(o.ownerName)}, ${o.gymName}'s ${o.cadence.toLowerCase()} backup ran and is waiting in your secure console. Sign in there to download it.`),
       panel([
         ['Taken', t`${o.runOn}`],
         ['Schedule', t`${o.cadence}`],

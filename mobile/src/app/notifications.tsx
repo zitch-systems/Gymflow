@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Body, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, c } from '@/components/ui';
+import { Body, EmptyState, ErrorState, Group, Loading, Row, SectionTitle, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { api } from '@/api/client';
 import { inboxTime } from '@/lib/format';
@@ -43,7 +43,7 @@ function groupOf(iso: string | null, now: number): 'Today' | 'This week' | 'Earl
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const { data, error, loading, refreshing, refresh, set } = useResource<Inbox>('/api/app/notifications');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh, set } = useResource<Inbox>('/api/app/notifications');
   const [marking, setMarking] = useState(false);
   // "Today" and "this week" are relative to when the screen opened, read once.
   // Reading the clock during render would make the grouping change under the
@@ -71,6 +71,7 @@ export default function NotificationsScreen() {
   if (rows.length === 0) {
     return (
       <Screen refreshing={refreshing} onRefresh={refresh}>
+        {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
         <EmptyState title="No messages yet" message="Reminders, receipts and gym alerts will appear here." />
       </Screen>
     );
@@ -81,8 +82,16 @@ export default function NotificationsScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       {(data?.unread ?? 0) > 0 ? (
-        <Pressable onPress={markAllRead} disabled={marking} style={styles.markAll} accessibilityRole="button">
+        <Pressable
+          onPress={markAllRead}
+          disabled={marking}
+          style={styles.markAll}
+          accessibilityRole="button"
+          accessibilityLabel="Mark all notifications as read"
+          accessibilityState={{ disabled: marking, busy: marking }}
+        >
           <Ionicons name="checkmark-done-outline" size={16} color={c.brand} />
           <Body tone="brand" size={13} weight="600">Mark all as read</Body>
         </Pressable>

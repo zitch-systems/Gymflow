@@ -11,6 +11,8 @@ import { initSubscription, createPlan, planIntervalFor, getSubscription, disable
 import { logAudit } from '@/lib/audit';
 import { LIVE_SUB_STATUSES, hasLiveMandate, mandateGoneAtPaystack } from '@/lib/member-sub-core';
 import { offersTrainer, planTotalKobo } from '@/lib/plan-addon';
+import { reserveAutoRenewalCheckout, finishAutoRenewalInitialization } from '@/lib/member-checkout';
+import { captureServerEvent } from '@/lib/server-error';
 import { firstName, fmtDate } from '@/lib/format';
 import { getContact, getEmailGym } from '@/lib/email/recipients';
 import { memberAppUrl, sendGymEmail } from '@/lib/email/send';
@@ -47,7 +49,7 @@ async function ensurePlanCode(
   planId: string,
   gymId: string,
   withTrainer: boolean,
-): Promise<{ ok: true; code: string; amountKobo: number; trainerAddon: boolean } | { ok: false; error: string }> {
+): Promise<{ ok: true; code: string; amountKobo: number; trainerAddon: boolean; durationDays: number | null; durationMonths: number | null } | { ok: false; error: string }> {
   const admin = createAdminClient();
   const { data: plan, error } = await admin
     .from('membership_plans')
@@ -61,7 +63,8 @@ async function ensurePlanCode(
   const trainerAddon = withTrainer && offersTrainer(plan);
   const amountKobo = planTotalKobo(plan, trainerAddon);
   const cached = trainerAddon ? plan.paystack_plan_code_trainer : plan.paystack_plan_code;
-  if (cached) return { ok: true, code: cached, amountKobo, trainerAddon };
+  const period = { durationDays: plan.duration_days, durationMonths: plan.duration_months };
+  if (cached) return { ok: true, code: cached, amountKobo, trainerAddon, ...period };
 
   const interval = planIntervalFor(plan.duration_days ?? null, plan.duration_months ?? null);
   if (!interval) return { ok: false, error: `Plan "${plan.name}" duration doesn't map to a Paystack billing interval.` };
@@ -79,7 +82,7 @@ async function ensurePlanCode(
   await admin.from('membership_plans')
     .update(trainerAddon ? { paystack_plan_code_trainer: res.planCode } : { paystack_plan_code: res.planCode })
     .eq('id', plan.id);
-  return { ok: true, code: res.planCode, amountKobo, trainerAddon };
+  return { ok: true, code: res.planCode, amountKobo, trainerAddon, ...period };
 }
 
 // Start an auto-renewing subscription for the signed-in member. Same shape as
@@ -134,10 +137,22 @@ export async function startAutoRenewal(planId: string, withTrainer = false): Pro
 
   const codeResult = await ensurePlanCode(planId, gym.id, withTrainer);
   if (!codeResult.ok) return { ok: false, error: codeResult.error };
+  const checkout = await reserveAutoRenewalCheckout({
+    gymId: gym.id, memberId: user.id, planId, amountKobo: codeResult.amountKobo,
+    durationDays: codeResult.durationDays, durationMonths: codeResult.durationMonths,
+    trainerAddon: codeResult.trainerAddon,
+    providerPlanCode: codeResult.code,
+  }, admin);
+  if (!checkout.ok) return checkout;
+  if (!checkout.created) {
+    if (checkout.state === 'ready' && checkout.url) return { ok: true, url: checkout.url };
+    return { ok: false, error: 'Your auto-renew checkout is being confirmed. Please retry shortly; contact the gym if it stays pending. Do not start a second payment.' };
+  }
 
   // Same host the member started on — see lib/request-origin.ts.
   const site = await requestOrigin();
   const res = await initSubscription({
+    reference: checkout.reference,
     email: user.email ?? '',
     planCode: codeResult.code,
     amountKobo: codeResult.amountKobo,
@@ -151,7 +166,16 @@ export async function startAutoRenewal(planId: string, withTrainer = false): Pro
     },
     callbackUrl: site ? `${site}/dashboard/renew/callback` : undefined,
   });
-  return res.ok ? { ok: true, url: res.authorization_url } : { ok: false, error: res.error };
+  const saved = await finishAutoRenewalInitialization(admin, res.ok
+    ? { reference: checkout.reference, url: res.authorization_url }
+    : { reference: checkout.reference, definiteFailure: res.definiteFailure, error: 'Provider initialization not confirmed' });
+  if (!res.ok || !saved) {
+    await captureServerEvent('member auto-renew initialization not confirmed', { reference: checkout.reference, source: 'auto-renew' });
+    return { ok: false, error: res.ok
+      ? 'Your checkout could not be confirmed. Contact the gym before starting another payment.'
+      : 'Your checkout could not be confirmed. Retry shortly; if it stays pending, contact the gym before starting another payment.' };
+  }
+  return { ok: true, url: res.authorization_url };
 }
 
 /**
@@ -226,7 +250,7 @@ async function disableSub(
   if (!sub.paystack_subscription_code) {
     // Nothing to cancel at Paystack, but still flip the local flag so the UI
     // stops advertising auto-renew.
-    await admin.from('member_subscriptions').update({ auto_debit_enabled: false }).eq('id', sub.id);
+    if (sub.auto_debit_enabled) return { ok: false, error: 'The provider mandate could not be identified. Contact the gym before starting a new auto-renew checkout.' };
     return { ok: true, error: null, message: 'Auto-renew was already off.' };
   }
 
@@ -237,7 +261,10 @@ async function disableSub(
   // back to auto-renew at this gym. The caveat is said out loud because we
   // could not get Paystack to confirm it.
   const clearLocally = async (reason?: string): Promise<ActionState> => {
-    await admin.from('member_subscriptions').update({ auto_debit_enabled: false }).eq('id', sub.id);
+    const { error } = await admin.from('member_subscriptions').update({ auto_debit_enabled: false }).eq('id', sub.id);
+    if (error) return { ok: false, error: 'Cancellation could not be saved. Please retry; do not start another mandate yet.' };
+    await admin.from('member_auto_renewal_intents' as never).update({ state: 'cancelled', updated_at: new Date().toISOString() } as never)
+      .eq('gym_id',sub.gym_id).eq('member_id',sub.member_id).eq('state','fulfilled');
     void logAudit({
       action: actor.role === 'member' ? 'member_auto_renew_cancelled_self' : 'member_auto_renew_cancelled_by_staff',
       table: 'member_subscriptions',
@@ -268,9 +295,12 @@ async function disableSub(
       : { ok: false, error: disabled.error ?? 'Could not cancel at Paystack.' };
   }
 
-  await admin.from('member_subscriptions')
+  const { error: cancelError } = await admin.from('member_subscriptions')
     .update({ auto_debit_enabled: false })
     .eq('id', sub.id);
+  if (cancelError) return { ok: false, error: 'Paystack stopped the mandate, but the saved setting could not be confirmed. Retry cancellation before starting again.' };
+  await admin.from('member_auto_renewal_intents' as never).update({ state: 'cancelled', updated_at: new Date().toISOString() } as never)
+    .eq('gym_id',sub.gym_id).eq('member_id',sub.member_id).eq('state','fulfilled');
 
   void logAudit({
     action: actor.role === 'member' ? 'member_auto_renew_cancelled_self' : 'member_auto_renew_cancelled_by_staff',

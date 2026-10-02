@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Screen } from '@/components/screen';
-import { Badge, Body, Button, Card, EmptyState, ErrorState, Loading, Notice, Title, c } from '@/components/ui';
+import { Badge, Body, Button, Card, EmptyState, ErrorState, Loading, Notice, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { api } from '@/api/client';
 import { shortDate, time12 } from '@/lib/format';
@@ -13,7 +13,7 @@ const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // The gym's timetable and the member's own bookings, as two tabs — the same
 // split the web schedule page uses.
 export default function ClassesScreen() {
-  const { data, error, loading, refreshing, refresh } = useResource<Classes>('/api/app/classes');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<Classes>('/api/app/classes');
   const [tab, setTab] = useState<'schedule' | 'bookings'>('schedule');
   const [selectedDow, setSelectedDow] = useState(() => new Date().getDay());
   const [pending, setPending] = useState<string | null>(null);
@@ -27,7 +27,15 @@ export default function ClassesScreen() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      return { dow: d.getDay(), dom: d.getDate(), label: SHORT[d.getDay()], isToday: d.toDateString() === today.toDateString() };
+      return {
+        dow: d.getDay(),
+        dom: d.getDate(),
+        label: SHORT[d.getDay()],
+        accessibilityLabel: d.toLocaleDateString('en-NG', {
+          weekday: 'long', day: 'numeric', month: 'long',
+        }),
+        isToday: d.toDateString() === today.toDateString(),
+      };
     });
   }, []);
 
@@ -89,6 +97,7 @@ export default function ClassesScreen() {
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       <Title>Schedule</Title>
 
       <View style={styles.tabs}>
@@ -109,6 +118,7 @@ export default function ClassesScreen() {
                   onPress={() => setSelectedDow(d.dow)}
                   style={[styles.day, on && { backgroundColor: c.brand, borderColor: c.brand }]}
                   accessibilityRole="button"
+                  accessibilityLabel={d.accessibilityLabel}
                   accessibilityState={{ selected: on }}
                 >
                   <Body size={11} style={{ color: on ? c.onBrand : c.textMuted }}>{d.label}</Body>

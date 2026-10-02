@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { daysLeft } from '@/lib/format';
+import { daysLeft, fmtDate, watDateISO } from '@/lib/format';
+import { membershipDisplayState } from '@/lib/membership-display';
 import { RenewPicker, type Plan } from './renew-picker';
 
 export const metadata = { title: 'Renew membership' };
@@ -16,16 +17,25 @@ export default async function RenewPage() {
       .select('id, name, price, duration_days, duration_months, description, trainer_addon_enabled, trainer_addon_price')
       .eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
     supabase.from('member_subscriptions')
-      .select('end_date, plan_id, status, membership_plans(name)')
-      .eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'active')
+      .select('start_date, end_date, plan_id, status, membership_plans(name)')
+      .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due', 'paused', 'pause_requested'])
       .order('end_date', { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
+  const displayState = sub ? membershipDisplayState({
+    status: sub.status, startDate: sub.start_date, daysRemaining: remaining, today: watDateISO(),
+  }) : null;
   const curPlan = (sub as unknown as { membership_plans: { name: string } | null })?.membership_plans?.name ?? null;
-  const context = remaining > 0
-    ? `Your ${curPlan ?? 'membership'} renews in ${remaining} day${remaining === 1 ? '' : 's'}. Renew early to lock in your rate.`
-    : `Pick a plan to start training at ${gym.name}.`;
+  const context = displayState === 'scheduled'
+    ? `Your ${curPlan ?? 'membership'} starts ${fmtDate(sub!.start_date)}. Paying now adds another period after it.`
+    : displayState === 'active'
+      ? `Your ${curPlan ?? 'membership'} renews in ${remaining} day${remaining === 1 ? '' : 's'}. Renew early to lock in your rate.`
+      : displayState === 'frozen'
+        ? `Your ${curPlan ?? 'membership'} is frozen. A payment adds another period after your current term.`
+        : displayState === 'freeze_pending'
+          ? `Your freeze request is pending. A payment adds another period after your current term.`
+          : `Pick a plan to start training at ${gym.name}.`;
 
   return (
     <section className="view on" data-v="renew">
@@ -40,7 +50,12 @@ export default async function RenewPage() {
       {(plans ?? []).length === 0 ? (
         <div className="empty"><div className="eic" /><h3>No plans available</h3><p>This gym hasn&apos;t published any plans yet.</p></div>
       ) : (
-        <RenewPicker plans={(plans ?? []) as Plan[]} currentEnd={remaining > 0 ? (sub?.end_date ?? null) : null} />
+        <RenewPicker
+          plans={(plans ?? []) as Plan[]}
+          currentEnd={displayState && displayState !== 'expired' ? (sub?.end_date ?? null) : null}
+          currentStart={sub?.start_date ?? null}
+          scheduled={displayState === 'scheduled'}
+        />
       )}
     </section>
   );

@@ -13,11 +13,12 @@ import {
   gymBillingState, PLATFORM_PLANS, isPlanTier, normalizeCycle, planAmountKobo,
   monthlyEquivalentKobo, CYCLE_SUFFIX, type BillingState, type PlanTier,
 } from '@/lib/platform-plans';
-import { arrangementLabel, estimatedCommission } from '@/lib/commission-breakdown';
+import { arrangementLabel, estimatedCommission, refundAdjustedCommission } from '@/lib/commission-breakdown';
 import { ROOT_DOMAIN } from '@/lib/tenant';
 import { CommissionEditor } from '@/components/superadmin/commission-editor';
 import { GymControls } from '@/components/superadmin/gym-controls';
 import { sa } from '@/lib/superadmin-path';
+import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
 
 export const metadata = { title: 'Gym' };
 export const dynamic = 'force-dynamic';
@@ -84,7 +85,7 @@ type ExtraGymCols = {
 // them in a select() poisons the whole row type. Query the table untyped and
 // state the shape here instead — same pattern as gym_payout_accounts below.
 type PayRow = {
-  id: string; amount: number | null; status: string | null; payment_status: string | null;
+  id: string; amount: number | null; refunded_amount: number | null; status: string | null; payment_status: string | null;
   payment_date: string | null; created_at: string | null; paystack_reference: string | null;
   plan_id: string | null; payment_method: string | null;
   platform_settlement: string | null; platform_commission_amount: number | null;
@@ -125,8 +126,8 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
     supabase.from('membership_plans').select('id, name, price, duration_months, duration_days, is_active').eq('gym_id', id).order('price', { ascending: true }),
     supabase.from('classes').select('id', { count: 'exact', head: true }).eq('gym_id', id).eq('is_active', true),
     supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('gym_id', id).gte('checked_in_at', monthAgo),
-    supabase.from('payments' as never).select('id, amount, status, payment_status, payment_date, created_at, paystack_reference, plan_id, payment_method, platform_settlement, platform_commission_amount').eq('gym_id', id).order('payment_date', { ascending: false }).limit(200),
-    supabase.from('platform_payments').select('id, amount, plan, payment_status, paystack_reference, billing_period_start, billing_period_end, created_at').eq('gym_id', id).order('created_at', { ascending: false }).limit(12),
+    supabase.from('payments' as never).select('id, amount, refunded_amount, status, payment_status, payment_date, created_at, paystack_reference, plan_id, payment_method, platform_settlement, platform_commission_amount').eq('gym_id', id).order('payment_date', { ascending: false }).limit(200),
+    supabase.from('platform_payments').select('id, amount, refunded_amount, plan, payment_status, paystack_reference, billing_period_start, billing_period_end, created_at').eq('gym_id', id).order('created_at', { ascending: false }).limit(12),
     supabase.from('member_subscriptions').select('plan_id, status, end_date').eq('gym_id', id).eq('status', 'active'),
     supabase.from('gym_payout_accounts' as never).select('id, bank_name, account_number, account_name, verified, is_active, paystack_subaccount_code').eq('gym_id', id),
     supabase.from('instructor_payouts').select('id, amount, status, requested_at, instructor_id').eq('gym_id', id).order('requested_at', { ascending: false }).limit(10),
@@ -154,18 +155,19 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
 
   const pays = ((payments ?? []) as unknown as PayRow[]);
   const paidPays = pays.filter((p) => PAID.has(String(p.status ?? p.payment_status ?? '').toLowerCase()));
-  const memberGmv = paidPays.reduce((s, p) => s + Number(p.amount ?? 0), 0);
-  // Commission as it was actually taken, summed off the payment rows that
-  // recorded it (lib/paystack-split.ts stamps them at fulfilment). Rows written
+  const memberGmv = paidPays.reduce((s, p) => s + paymentAmounts(p).net, 0);
+  // Refund-adjusted commission estimate, based on the amount originally
+  // recorded at fulfilment and scaled by net charge / gross charge. Rows written
   // before that existed carry NULL, which means "not recorded" and must not be
   // counted as zero — so they are reported separately rather than dragging the
   // total down, and the estimate is only offered when there is nothing real to
   // show. Multiplying today's rate by all historical GMV was the old behaviour
   // and it silently repriced every past payment whenever the rate was edited.
   const splitLive = Boolean(gym.paystack_subaccount_code);
-  const commissionRows = paidPays.filter((p) => p.platform_commission_amount != null);
-  const commissionEarned = commissionRows.reduce((s, p) => s + Number(p.platform_commission_amount ?? 0), 0);
-  const unrecordedPays = paidPays.filter((p) => p.platform_settlement == null).length;
+  const commissionRows = paidPays.filter((p) => p.platform_commission_amount != null && paymentAmounts(p).net > 0);
+  const commissionEarned = commissionRows.reduce((sum, p) =>
+    sum + refundAdjustedCommission(p.platform_commission_amount, p.amount, p.refunded_amount), 0);
+  const unrecordedPays = paidPays.filter((p) => p.platform_settlement == null && paymentAmounts(p).net > 0).length;
   // The arrangement, not the rate: in fixed mode the stored percentage is only
   // Paystack's fallback, so both the estimate and the prose below have to be
   // built from the mode as well (see lib/commission-breakdown.ts).
@@ -175,10 +177,17 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
     fixed: gym.platform_commission_fixed_amount,
   };
   const rate = arrangementLabel(arrangement);
-  const estimated = estimatedCommission(arrangement, { gmv: memberGmv, payments: paidPays.length });
+  const estimated = estimatedCommission(arrangement, {
+    gmv: memberGmv,
+    payments: paidPays.length,
+    paymentEquivalents: paidPays.reduce((sum, p) => {
+      const amounts = paymentAmounts(p);
+      return sum + (amounts.gross > 0 ? amounts.net / amounts.gross : 0);
+    }, 0),
+  });
 
   const platPaid = (platPay ?? []).filter((p) => String(p.payment_status ?? '') === 'successful');
-  const platCollected = platPaid.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  const platCollected = platPaid.reduce((s, p) => s + paymentAmounts(p).net, 0);
 
   const pendingPayouts = (payouts ?? []).filter((p) => p.status === 'pending');
   const pendingPayoutTotal = pendingPayouts.reduce((s, p) => s + Number(p.amount ?? 0), 0);
@@ -314,7 +323,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
             <div className="md-sub-rows">
               <div><span>Trial ends</span><b>{gym.trial_ends_at ? fmtDate(gym.trial_ends_at) : '—'}</b></div>
               <div><span>Paid through</span><b>{gym.subscription_current_period_end ? fmtDate(gym.subscription_current_period_end) : '—'}</b></div>
-              <div><span>Collected all-time</span><b className="naira">{fmtNaira(platCollected)}</b></div>
+              <div><span>Net collected all-time</span><b className="naira">{fmtNaira(platCollected)}</b></div>
               <div><span>Paystack subscription</span><b>{gym.paystack_subscription_code ? 'Linked' : 'Not linked'}</b></div>
             </div>
             {platPay?.length ? (
@@ -322,14 +331,15 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
                 <table className="tbl">
                   <thead><tr><th>Period</th><th>Plan</th><th>Status</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
                   <tbody>
-                    {platPay.map((p) => (
-                      <tr key={p.id}>
+                    {platPay.map((p) => {
+                      const amounts = paymentAmounts(p);
+                      return <tr key={p.id}>
                         <td><div className="cell-2"><strong>{fmtDate(p.billing_period_start ?? p.created_at)}</strong><small>{p.paystack_reference ?? '—'}</small></div></td>
                         <td style={{ textTransform: 'capitalize' }}>{p.plan ?? '—'}</td>
-                        <td><span className={`gf-badge ${p.payment_status === 'successful' ? 'gf-badge-success' : 'gf-badge-danger'}`}>{p.payment_status === 'successful' ? 'Paid' : p.payment_status === 'pending' ? 'Pending' : 'Failed'}</span></td>
-                        <td className="naira" style={{ textAlign: 'right' }}>{fmtNaira(Number(p.amount ?? 0))}</td>
-                      </tr>
-                    ))}
+                        <td><span className={`gf-badge ${amounts.refundState !== 'none' ? 'gf-badge-warning' : p.payment_status === 'successful' ? 'gf-badge-success' : 'gf-badge-danger'}`}>{paymentStatusLabel(p)}</span></td>
+                        <td className="naira" style={{ textAlign: 'right' }}><div className="cell-2" style={{ alignItems: 'flex-end' }}><strong>{fmtNaira(amounts.net)}</strong>{amounts.refunded > 0 && <small>{fmtNaira(amounts.refunded)} refunded</small>}</div></td>
+                      </tr>;
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -349,7 +359,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
                   nesting anyway). */}
               <div><span>Commission rate</span><CommissionEditor gymId={gym.id} pct={Number(gym.platform_commission_pct ?? 0)} mode={gym.platform_commission_mode === 'fixed' ? 'fixed' : 'percentage'} fixed={Number(gym.platform_commission_fixed_amount ?? 0)} splitting={Boolean(gym.paystack_subaccount_code)} /></div>
               <div>
-                <span>{commissionRows.length ? `Commission taken · ${commissionRows.length} payment${commissionRows.length === 1 ? '' : 's'}` : 'Commission taken'}</span>
+                <span>{commissionRows.length ? `Refund-adjusted commission estimate · ${commissionRows.length} payment${commissionRows.length === 1 ? '' : 's'}` : 'Refund-adjusted commission estimate'}</span>
                 <b className="naira">{commissionRows.length ? fmtNaira(commissionEarned) : '—'}</b>
               </div>
               {unrecordedPays > 0 && (
@@ -481,7 +491,7 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
 
           <div className="panel">
             <div className="panel-h">
-              <div><h3>Member payments</h3><div className="sub">{fmtNaira(memberGmv)} collected · {paidPays.length} payment{paidPays.length === 1 ? '' : 's'}</div></div>
+              <div><h3>Member payments</h3><div className="sub">{fmtNaira(memberGmv)} net collected · {paidPays.length} payment{paidPays.length === 1 ? '' : 's'}</div></div>
             </div>
             {pays.length ? (
               <div className="tbl-scroll">
@@ -490,12 +500,13 @@ export default async function SuperGymDetail({ params }: { params: Promise<{ id:
                   <tbody>
                     {pays.slice(0, 10).map((p) => {
                       const paid = PAID.has(String(p.status ?? p.payment_status ?? '').toLowerCase());
+                      const amounts = paymentAmounts(p);
                       return (
                         <tr key={p.id}>
                           <td><div className="cell-2"><strong>{fmtDate(p.payment_date ?? p.created_at)}</strong><small>{p.paystack_reference ?? p.payment_method ?? '—'}</small></div></td>
                           <td>{p.plan_id ? planById.get(p.plan_id)?.name ?? '—' : '—'}</td>
-                          <td><span className={`gf-badge ${paid ? 'gf-badge-success' : 'gf-badge-danger'}`}>{paid ? 'Paid' : 'Failed'}</span></td>
-                          <td className="naira" style={{ textAlign: 'right' }}>{fmtNaira(Number(p.amount ?? 0))}</td>
+                          <td><span className={`gf-badge ${amounts.refundState !== 'none' ? 'gf-badge-warning' : paid ? 'gf-badge-success' : 'gf-badge-danger'}`}>{paymentStatusLabel(p)}</span></td>
+                          <td className="naira" style={{ textAlign: 'right' }}><div className="cell-2" style={{ alignItems: 'flex-end' }}><strong>{fmtNaira(amounts.net)}</strong>{amounts.refunded > 0 && <small>{fmtNaira(amounts.refunded)} refunded</small>}</div></td>
                         </tr>
                       );
                     })}

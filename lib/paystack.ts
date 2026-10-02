@@ -14,7 +14,7 @@ function secret(): string {
 
 export type InitResult =
   | { ok: true; authorization_url: string; reference: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; definiteFailure?: boolean };
 
 // Initialize a transaction. amountKobo = naira × 100. metadata carries the
 // member/gym/plan so the webhook can record the payment + extend the sub.
@@ -36,6 +36,7 @@ export type InitResult =
 // of "the old arrangement still applied", which is recoverable and visible in
 // what gets recorded on the payment.
 export async function initTransaction(params: {
+  reference?: string;
   email: string;
   amountKobo: number;
   metadata: Record<string, unknown>;
@@ -64,6 +65,7 @@ export async function initTransaction(params: {
       headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: params.email,
+        reference: params.reference,
         amount: params.amountKobo,
         currency: 'NGN',
         metadata,
@@ -95,6 +97,7 @@ export async function initTransaction(params: {
 // initialize requires it, and omitting it failed every plan checkout with
 // "Invalid Amount Sent". Paystack charges the plan's amount regardless.
 export async function initSubscription(params: {
+  reference?: string;
   email: string;
   planCode: string;
   /** The plan's price in kobo. Required by /transaction/initialize even when a
@@ -105,23 +108,28 @@ export async function initSubscription(params: {
   callbackUrl?: string;
 }): Promise<InitResult> {
   if (!isChargeableKobo(params.amountKobo)) {
-    return { ok: false, error: 'This plan has no price set, so it can’t be billed.' };
+    return { ok: false, error: 'This plan has no price set, so it can’t be billed.', definiteFailure: true };
   }
   try {
     const res = await fetch(`${PAYSTACK_BASE}/transaction/initialize`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscriptionInitBody({
+      body: JSON.stringify({ ...subscriptionInitBody({
         email: params.email,
         planCode: params.planCode,
         amountKobo: params.amountKobo,
         metadata: params.metadata,
         callbackUrl: params.callbackUrl,
-      })),
+      }), ...(params.reference ? { reference: params.reference } : {}) }),
       cache: 'no-store',
     });
     const json = await res.json();
-    if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Paystack init failed' };
+    if (!res.ok || !json.status || !json.data) {
+      const error = String(json.message ?? 'Paystack init failed');
+      // A duplicate reference or network/5xx failure is ambiguous. Keep its
+      // reservation; creating a new one might establish two card mandates.
+      return { ok: false, error, definiteFailure: res.status >= 400 && res.status < 500 && !/reference|duplicate|already/i.test(error) };
+    }
     return { ok: true, authorization_url: json.data.authorization_url, reference: json.data.reference };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -438,54 +446,71 @@ export type PaystackTxn = {
   amountKobo: number;
   paidAt: string | null;
   channel: string | null;
+  /** Restricted event-shaped subset used to repair a dropped charge webhook.
+   * Authorization tokens and customer contact details are deliberately absent. */
+  memberEventData: Record<string, unknown>;
 };
 
-export type ListTransactionsResult =
-  | { ok: true; transactions: PaystackTxn[] }
+export type ListTransactionsPageResult =
+  | { ok: true; transactions: PaystackTxn[]; page: number; complete: boolean }
   | { ok: false; error: string };
 
-// List transactions from Paystack — the authoritative charge record. Used by
-// the daily reconciliation pass to catch charges whose charge.success webhook
-// was dropped (they exist at Paystack but not in payments/platform_payments).
-// Pages through up to `maxPages` × 200 rows; date bounds keep the sweep small.
-export async function listTransactions(params: {
+// Fetch exactly one bounded provider page. The reconciliation worker persists
+// `page` between invocations and advances its watermark only after `complete`,
+// so a high-volume window is spread across runs without a silent page cap or an
+// unbounded in-memory array.
+export async function listTransactionsPage(params: {
   from: Date;
   to?: Date;
   status?: 'success' | 'failed' | 'abandoned';
-  maxPages?: number;
-}): Promise<ListTransactionsResult> {
+  page: number;
+  perPage?: number;
+}): Promise<ListTransactionsPageResult> {
   try {
-    const out: PaystackTxn[] = [];
-    const maxPages = params.maxPages ?? 5;
-    for (let page = 1; page <= maxPages; page++) {
-      const qs = new URLSearchParams({
-        perPage: '200',
-        page: String(page),
-        from: params.from.toISOString(),
-        ...(params.to ? { to: params.to.toISOString() } : {}),
-        ...(params.status ? { status: params.status } : {}),
-      });
-      const res = await fetch(`${PAYSTACK_BASE}/transaction?${qs}`, {
-        headers: { Authorization: `Bearer ${secret()}` },
-        cache: 'no-store',
-      });
-      const json = await res.json();
-      if (!res.ok || !json.status || !Array.isArray(json.data)) {
-        return { ok: false, error: json.message ?? 'Transaction list failed' };
-      }
-      for (const t of json.data) {
-        if (!t?.reference) continue;
-        out.push({
-          reference: String(t.reference),
-          status: String(t.status ?? ''),
-          amountKobo: Number(t.amount ?? 0),
-          paidAt: t.paid_at ? String(t.paid_at) : null,
-          channel: t.channel ? String(t.channel) : null,
-        });
-      }
-      if (json.data.length < 200) break; // last page
+    const perPage = Math.max(1, Math.min(params.perPage ?? 200, 200));
+    const page = Math.max(1, Math.floor(params.page));
+    const qs = new URLSearchParams({
+      perPage: String(perPage),
+      page: String(page),
+      from: params.from.toISOString(),
+      ...(params.to ? { to: params.to.toISOString() } : {}),
+      ...(params.status ? { status: params.status } : {}),
+    });
+    const res = await fetch(`${PAYSTACK_BASE}/transaction?${qs}`, {
+      headers: { Authorization: `Bearer ${secret()}` },
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.status || !Array.isArray(json.data)) {
+      return { ok: false, error: json.message ?? 'Transaction list failed' };
     }
-    return { ok: true, transactions: out };
+    const transactions: PaystackTxn[] = [];
+    for (const t of json.data) {
+      if (!t?.reference) continue;
+      transactions.push({
+        reference: String(t.reference),
+        status: String(t.status ?? ''),
+        amountKobo: Number(t.amount ?? 0),
+        paidAt: t.paid_at ? String(t.paid_at) : null,
+        channel: t.channel ? String(t.channel) : null,
+        memberEventData: {
+          reference: t.reference,
+          amount: t.amount,
+          currency: t.currency,
+          channel: t.channel,
+          metadata: t.metadata ?? {},
+          plan: t.plan_object ?? t.plan,
+          customer: { customer_code: t.customer?.customer_code },
+          subscription: { subscription_code: t.subscription?.subscription_code },
+          subscription_code: t.subscription_code,
+          subaccount: t.subaccount,
+          fees_split: t.fees_split,
+        },
+      });
+    }
+    const pageCount = Number(json.meta?.pageCount ?? json.meta?.page_count ?? 0);
+    const complete = json.data.length < perPage || (Number.isFinite(pageCount) && pageCount > 0 && page >= pageCount);
+    return { ok: true, transactions, page, complete };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
@@ -542,7 +567,7 @@ export async function getBalance(): Promise<BalanceResult> {
 }
 
 export type VerifyResult =
-  | { ok: true; status: string; amountKobo: number; reference: string; metadata: Record<string, unknown>; channel: string | null; split: SplitRecord }
+  | { ok: true; status: string; amountKobo: number; currency: string; reference: string; metadata: Record<string, unknown>; channel: string | null; split: SplitRecord; memberEventData: Record<string, unknown> }
   | { ok: false; error: string };
 
 export async function verifyTransaction(reference: string): Promise<VerifyResult> {
@@ -558,7 +583,16 @@ export async function verifyTransaction(reference: string): Promise<VerifyResult
     // webhook body, so the split has to survive the round trip too — otherwise
     // whichever of the two races in first decides whether commission is
     // recorded at all.
-    return { ok: true, status: d.status, amountKobo: d.amount, reference: d.reference, metadata: d.metadata ?? {}, channel: d.channel ?? null, split: readSplit(d) };
+    // Keep just the fields needed for recurring fulfillment. Authorization
+    // tokens and complete provider/customer responses never reach callbacks.
+    const memberEventData = {
+      reference: d.reference, amount: d.amount, currency: d.currency, metadata: d.metadata ?? {},
+      paid_at: d.paid_at ?? null,
+      plan: d.plan_object ?? d.plan, customer: { customer_code: d.customer?.customer_code },
+      subscription: { subscription_code: d.subscription?.subscription_code },
+      subscription_code: d.subscription_code, subaccount: d.subaccount, fees_split: d.fees_split,
+    };
+    return { ok: true, status: d.status, amountKobo: d.amount, currency: typeof d.currency === 'string' ? d.currency : '', reference: d.reference, metadata: d.metadata ?? {}, channel: d.channel ?? null, split: readSplit(d), memberEventData };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

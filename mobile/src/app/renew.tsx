@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Badge, Body, Button, Card, EmptyState, ErrorState, Loading, Notice, Title, c } from '@/components/ui';
+import { Badge, Body, Button, Card, EmptyState, ErrorState, Loading, Notice, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { api } from '@/api/client';
 import { naira, plural, shortDate } from '@/lib/format';
@@ -34,7 +34,7 @@ function planPeriod(p: Plan): string {
 
 export default function RenewScreen() {
   const router = useRouter();
-  const { data, error, loading, refreshing, refresh } = useResource<Plans>('/api/app/plans');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<Plans>('/api/app/plans');
 
   const [selected, setSelected] = useState<string | null>(null);
   const [withTrainer, setWithTrainer] = useState(false);
@@ -86,6 +86,7 @@ export default function RenewScreen() {
   if (plans.length === 0) {
     return (
       <Screen refreshing={refreshing} onRefresh={refresh}>
+        {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
         <EmptyState
           title="No plans available"
           message="This gym hasn’t published any plans yet. Ask at the front desk."
@@ -121,14 +122,17 @@ export default function RenewScreen() {
         </>
       }
     >
+      {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
       <Title>Choose your plan</Title>
       <Body tone="secondary" style={{ marginTop: space.sm, lineHeight: 21 }}>
         {/* Paying while still covered is a RENEWAL: the days stack onto the end
             date rather than starting today. Naming that date is the difference
             between a member who understands what they bought and one who
             expects their new month to start this morning. */}
-        {current && current.days_left > 0
-          ? `You’re covered for another ${plural(current.days_left, 'day')}${current.end_date ? `, through ${shortDate(current.end_date)}` : ''}. Paying now is a renewal — the days are added on top of that date, so nothing you’ve already paid for is lost.`
+        {current?.display_state === 'scheduled'
+          ? `Your ${current.plan_name ?? 'membership'} starts ${shortDate(current.start_date)}${current.end_date ? ` and is already set up through ${shortDate(current.end_date)}` : ''}. Paying now adds another period after that.`
+          : current?.display_state === 'active'
+            ? `You’re covered for another ${plural(current.days_left, 'day')}${current.end_date ? `, through ${shortDate(current.end_date)}` : ''}. Paying now is a renewal — the days are added on top of that date, so nothing you’ve already paid for is lost.`
           : 'Pick a plan to start training.'}
       </Body>
 
@@ -142,6 +146,7 @@ export default function RenewScreen() {
               key={p.id}
               onPress={() => { setSelected(p.id); setWithTrainer(false); }}
               accessibilityRole="radio"
+              accessibilityLabel={`${p.name}, ${naira(p.price)}, ${planPeriod(p)}`}
               accessibilityState={{ selected: on }}
             >
               <Card style={[styles.plan, on && { borderColor: c.brand, borderWidth: 2 }]}>
@@ -152,7 +157,7 @@ export default function RenewScreen() {
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
                       <Body weight="700" size={16}>{p.name}</Body>
-                      {p.is_current ? <Badge label="Current" tone="brand" /> : null}
+                      {p.is_current ? <Badge label="Current" tone="brand" /> : p.is_scheduled ? <Badge label="Scheduled" tone="info" /> : null}
                     </View>
                     {p.description ? (
                       <Body tone="secondary" size={12.5} style={{ marginTop: 4, lineHeight: 18 }}>{p.description}</Body>
@@ -177,6 +182,8 @@ export default function RenewScreen() {
                       onValueChange={setWithTrainer}
                       trackColor={{ false: c.elevated, true: c.brandSoft }}
                       thumbColor={withTrainer ? c.brand : c.textMuted}
+                      accessibilityLabel="Add a private trainer"
+                      accessibilityState={{ checked: withTrainer }}
                     />
                   </View>
                 ) : null}

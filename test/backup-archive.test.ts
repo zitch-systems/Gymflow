@@ -113,7 +113,6 @@ beforeAll(async () => {
       `update public.profiles
           set first_name = 'Amaka', last_name = 'Obi', phone = '+2348030000001',
               emergency_contact_name = 'Chidi Obi', emergency_contact_phone = '+2348030000002',
-              health_notes = 'Asthmatic — inhaler in locker 12',
               waiver_signature = $2
         where id = $1`,
       [IDS.memberA, `data:image/png;base64,${'A'.repeat(4000)}`],
@@ -137,14 +136,15 @@ describe('the archive carries the gym’s people, not just their ids', () => {
     const { read } = await archiveFor(IDS.gymA);
     const members = read('members.csv');
     const header = members.split('\n')[0];
-    for (const column of ['first_name', 'last_name', 'email', 'phone', 'date_of_birth', 'emergency_contact_name', 'health_notes']) {
+    for (const column of ['first_name', 'last_name', 'email', 'phone', 'date_of_birth', 'emergency_contact_name']) {
       expect(header, `members.csv is missing ${column}`).toContain(column);
     }
     expect(members).toContain('Amaka');
     expect(members).toContain('+2348030000001');
     expect(members).toContain('memberA@example.com');
-    // The gym's own record of a member's health, in the gym's own backup.
-    expect(members).toContain('Asthmatic');
+    // General scheduled/manager backups have no owner actor and therefore do
+    // not carry protected health data. That needs a separate audited export.
+    expect(header).not.toContain('health_notes');
   });
 
   it('puts each staff member’s details next to their link row', async () => {

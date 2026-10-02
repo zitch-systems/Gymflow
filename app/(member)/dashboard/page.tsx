@@ -8,6 +8,7 @@ import {
 import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft, firstName, fmtNaira, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
+import { membershipDisplayState } from '@/lib/membership-display';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ShareInvite } from '@/components/member/share-invite';
 import { PaymentSuccess, type PaidReceipt } from '@/components/member/payment-success';
@@ -101,9 +102,13 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
   const initial = (profile?.full_name ?? profile?.email ?? user.email ?? 'M').charAt(0).toUpperCase();
   const gymLogo = (gym as { logo_url?: string | null }).logo_url ?? null;
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
-  const isFrozen = sub?.status === 'paused';
-  const isPauseRequested = sub?.status === 'pause_requested';
-  const isActive = !isFrozen && !isPauseRequested && remaining > 0;
+  const displayState = sub ? membershipDisplayState({
+    status: sub.status, startDate: sub.start_date, daysRemaining: remaining, today,
+  }) : null;
+  const isFrozen = displayState === 'frozen';
+  const isPauseRequested = displayState === 'freeze_pending';
+  const isScheduled = displayState === 'scheduled';
+  const isActive = displayState === 'active';
   const isPastDue = sub?.status === 'past_due';
   // A member who has never subscribed has no plan to name — "Membership" read
   // as though they had one.
@@ -116,7 +121,7 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
   const termDays = sub?.start_date && sub?.end_date
     ? Math.max(1, Math.round((Date.parse(sub.end_date) - Date.parse(sub.start_date)) / 86_400_000))
     : 0;
-  const progressPct = termDays > 0
+  const progressPct = isActive && termDays > 0
     ? Math.min(100, Math.max(0, Math.round((remaining / termDays) * 100)))
     : 0;
   const unreadCount = unread ?? 0;
@@ -209,15 +214,15 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
       <div className="home-grid">
         <div className="col-a">
           <div className={`status${isFrozen || isPauseRequested ? ' frozen' : ''}`}>
-            <span className="tag"><span className="gf-dot" style={{ background: '#fff' }} /> {isFrozen ? 'Frozen' : isPauseRequested ? 'Freeze pending' : isActive ? 'Active' : sub ? 'Expired' : 'No plan'}</span>
+            <span className="tag"><span className="gf-dot" style={{ background: '#fff' }} /> {isFrozen ? 'Frozen' : isPauseRequested ? 'Freeze pending' : isScheduled ? 'Scheduled' : isActive ? 'Active' : sub ? 'Expired' : 'No plan'}</span>
             <div className="plan">{planName}</div>
-            <div className="meta">{isFrozen ? `Frozen${sub?.pause_end ? ` until ${fmtDate(sub.pause_end)}` : ''}` : isPauseRequested ? 'Waiting for staff approval' : isActive ? `Renews ${fmtDate(sub!.end_date)}` : sub ? 'Renew to keep training' : 'No active membership'}</div>
+            <div className="meta">{isFrozen ? `Frozen${sub?.pause_end ? ` until ${fmtDate(sub.pause_end)}` : ''}` : isPauseRequested ? 'Waiting for staff approval' : isScheduled ? `Starts ${fmtDate(sub!.start_date)}` : isActive ? `Renews ${fmtDate(sub!.end_date)}` : sub ? 'Renew to keep training' : 'No active membership'}</div>
             <div className="barwrap"><div className="bar" style={{ width: `${progressPct}%` }} /></div>
-            <div className="days"><span>{sub?.start_date ? fmtDate(sub.start_date) : '—'}</span><span>{sub ? `${remaining} day${remaining === 1 ? '' : 's'} left` : 'Not subscribed'}</span></div>
+            <div className="days"><span>{sub?.start_date ? fmtDate(sub.start_date) : '—'}</span><span>{isScheduled ? `Starts ${fmtDate(sub!.start_date)}` : sub ? `${remaining} day${remaining === 1 ? '' : 's'} left` : 'Not subscribed'}</span></div>
             {/* A member who has never subscribed is starting a membership, not
                 renewing one — "Renew" told first-time members to redo something
                 they had never done. */}
-            <Link href={isActive || isFrozen || isPauseRequested ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta"><CreditCard strokeWidth={2} /> {isActive || isFrozen || isPauseRequested ? 'Manage membership' : sub ? 'Renew membership' : 'Create membership'}</Link>
+            <Link href={isActive || isScheduled || isFrozen || isPauseRequested ? '/dashboard/wallet' : '/dashboard/renew'} className="status-cta"><CreditCard strokeWidth={2} /> {isActive || isScheduled || isFrozen || isPauseRequested ? 'Manage membership' : sub ? 'Renew membership' : 'Create membership'}</Link>
           </div>
 
           <div className="qa">

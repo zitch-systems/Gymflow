@@ -102,7 +102,11 @@ export function Row({
   );
   if (!onPress) return content;
   return (
-    <Pressable onPress={onPress} android_ripple={{ color: 'rgba(255,255,255,0.06)' }}>
+    <Pressable
+      onPress={onPress}
+      android_ripple={{ color: 'rgba(255,255,255,0.06)' }}
+      accessibilityRole="button"
+    >
       {content}
     </Pressable>
   );
@@ -143,6 +147,7 @@ export function Button({
       disabled={off}
       android_ripple={variant === 'ghost' ? undefined : { color: 'rgba(0,0,0,0.12)' }}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: off, busy: Boolean(loading) }}
       style={[styles.button, variantStyle, { paddingVertical: pad }, off && { opacity: 0.55 }, style]}
     >
@@ -231,15 +236,59 @@ export function Notice({ message, tone = 'danger' }: { message: string; tone?: B
   );
 }
 
+/**
+ * Shown whenever a resource refresh fails after data was already rendered.
+ * Cached membership/access data is useful context, but it is never presented
+ * as proof that a member may enter during an outage.
+ */
+export function StaleDataNotice({
+  lastRefreshedAt, offline, onRetry, refreshing,
+}: {
+  lastRefreshedAt: number | null;
+  offline: boolean;
+  onRetry: () => void;
+  refreshing?: boolean;
+}) {
+  const refreshed = lastRefreshedAt === null
+    ? 'an unknown time'
+    : new Date(lastRefreshedAt).toLocaleString('en-NG', {
+        day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
+      });
+
+  return (
+    <View
+      style={[styles.notice, { backgroundColor: c.warningSoft, borderColor: c.warning }]}
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+    >
+      <Text style={{ color: c.warning, fontSize: 13.5, lineHeight: 19, fontWeight: '700' }}>
+        {offline ? 'You’re offline' : 'Could not refresh this screen'}
+      </Text>
+      <Text style={{ color: c.warning, fontSize: 13, lineHeight: 19, marginTop: 3 }}>
+        Showing data from {refreshed}. Cached status does not grant entry. Confirm access with the front desk during an outage.
+      </Text>
+      <Button
+        label="Retry now"
+        variant="secondary"
+        size="sm"
+        onPress={onRetry}
+        loading={refreshing}
+        style={{ marginTop: space.md, alignSelf: 'flex-start' }}
+      />
+    </View>
+  );
+}
+
 // ── Form fields ────────────────────────────────────────────────────────────
 
 export const Field = forwardRef<TextInput, TextInputProps & { label: string; hint?: string }>(
-  function Field({ label, hint, style, ...props }, ref) {
+  function Field({ label, hint, style, accessibilityLabel, ...props }, ref) {
     return (
       <View style={{ marginBottom: space.lg }}>
         <Text style={styles.fieldLabel}>{label}</Text>
         <TextInput
           ref={ref}
+          accessibilityLabel={accessibilityLabel ?? label}
           placeholderTextColor={c.textMuted}
           style={[styles.input, style]}
           {...props}

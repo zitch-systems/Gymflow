@@ -294,7 +294,7 @@ describe('the page Paystack sends the member back to', () => {
   const verified = () => ({
     status: true,
     data: {
-      status: 'success', reference: 'wa-ref-1', amount: 1_000_000, channel: 'card',
+      status: 'success', reference: 'wa-ref-1', amount: 1_000_000, currency: 'NGN', channel: 'card',
       metadata: {
         kind: 'membership_renewal', member_id: IDS.memberA, gym_id: IDS.gymA, plan_id: IDS.planA,
         expected_amount_kobo: 1_000_000, duration_months: 1, source: 'whatsapp',

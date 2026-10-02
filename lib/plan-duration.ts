@@ -1,3 +1,4 @@
+import { watDateISO } from '@/lib/format';
 // Membership-plan billing periods.
 //
 // A plan stores EITHER duration_days (daily / weekly) OR duration_months
@@ -56,37 +57,66 @@ export function planCadenceLabel(p: PlanDuration): string {
   return `Billed every ${m} month${m === 1 ? '' : 's'}`;
 }
 
-// The date a renewal's new period must extend FROM. When a member buys while
-// their current subscription is still running, the new period is stacked onto
-// the END of the current one — so they pay for the NEXT period, never the one
-// they're already inside. A lapsed/expired member (no future end date) starts
-// from `now`. This is the single source of truth shared by every fulfilment
-// path (one-off checkout, recurring auto-debit, admin assign) so the rule can't
-// drift between them.
+// The first covered date of a renewal. end_date is inclusive, so an existing
+// period that still covers today is followed by end_date + 1; a lapsed member
+// starts on today's WAT calendar date. Keeping this as date-only UTC arithmetic
+// makes the result independent of the server's locale and daylight-saving
+// rules.
 export function renewalBase(endDate: string | Date | null | undefined, now: Date = new Date()): Date {
-  if (endDate != null) {
-    const end = endDate instanceof Date ? endDate : new Date(endDate);
-    if (!Number.isNaN(end.getTime()) && end.getTime() > now.getTime()) return end;
+  const today = watDateISO(now);
+  let endDay: string | null = null;
+
+  if (typeof endDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+    const parsed = new Date(`${endDate}T00:00:00Z`);
+    if (!Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === endDate) endDay = endDate;
+  } else if (endDate != null) {
+    const parsed = endDate instanceof Date ? endDate : new Date(endDate);
+    if (!Number.isNaN(parsed.getTime())) endDay = watDateISO(parsed);
   }
-  return now;
+
+  if (endDay == null || endDay < today) return utcDate(today);
+  const next = utcDate(endDay);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next;
 }
 
-// The end date a renewal would produce: stack onto the current period (if any
-// still runs) and add one billing period of `p`. Pure — used both to write the
-// new end_date and to preview the coverage window in the renew UI.
+// The inclusive end date a renewal would produce. The new paid allocation is
+// [renewalBase, anniversary), so the stored end is the day before anniversary.
 export function projectRenewalEnd(currentEnd: string | Date | null | undefined, p: PlanDuration, now: Date = new Date()): Date {
-  return extendDate(renewalBase(currentEnd, now), p);
+  return coverageEnd(renewalBase(currentEnd, now), p);
 }
 
-// Extend `from` by one billing period. Days are exact; months are calendar
-// months (so a monthly plan on the 31st lands on the right day). Returns a
-// new Date — the caller decides how to serialise it.
-export function extendDate(from: Date, p: PlanDuration): Date {
-  const out = new Date(from);
+// Inclusive final covered date for a new period beginning on `start`.
+// N-day plans cover exactly N calendar dates. Month plans end one day before
+// the clamped calendar anniversary (31 Jan + one month anniversaries on 28/29
+// Feb). This matches private.coverage_end() in the database.
+export function coverageEnd(start: Date, p: PlanDuration): Date {
+  const firstDay = utcDate(watDateISO(start));
   const d = p.duration_days ?? 0;
-  if (d > 0) out.setDate(out.getDate() + d);
-  else out.setMonth(out.getMonth() + Math.max(1, p.duration_months ?? 1));
-  return out;
+  if (d > 0) {
+    firstDay.setUTCDate(firstDay.getUTCDate() + d - 1);
+    return firstDay;
+  }
+
+  const months = Math.max(1, p.duration_months ?? 1);
+  const targetMonth = firstDay.getUTCMonth() + months;
+  const targetYear = firstDay.getUTCFullYear() + Math.floor(targetMonth / 12);
+  const monthInYear = ((targetMonth % 12) + 12) % 12;
+  const lastTargetDay = new Date(Date.UTC(targetYear, monthInYear + 1, 0)).getUTCDate();
+  const anniversary = new Date(Date.UTC(
+    targetYear,
+    monthInYear,
+    Math.min(firstDay.getUTCDate(), lastTargetDay),
+  ));
+  anniversary.setUTCDate(anniversary.getUTCDate() - 1);
+  return anniversary;
+}
+
+/** @deprecated Prefer coverageEnd; this alias now follows inclusive-end rules. */
+export const extendDate = coverageEnd;
+
+function utcDate(isoDay: string): Date {
+  return new Date(`${isoDay}T00:00:00Z`);
 }
 
 // Monthly-equivalent price, for MRR/ARPU only (a ₦2,000/week plan ≈ ₦8,673/mo).

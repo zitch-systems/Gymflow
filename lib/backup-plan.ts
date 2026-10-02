@@ -42,6 +42,19 @@ export const EXCLUDED_TABLES: Record<string, string> = {
  *  member table is a liability rather than an asset. */
 export const KEEP_BACKUPS = 8;
 
+/** Select a bounded daily window from a stable, ordered candidate list.
+ *
+ * A plain `slice(0, limit)` lets one permanently failing tenant occupy a slot
+ * forever. Moving the start once per UTC day eventually gives every due tenant
+ * a turn while keeping the function's memory/time bound unchanged. */
+export function rotatingDailyBatch<T>(rows: readonly T[], limit: number, now: Date = new Date()): T[] {
+  if (limit <= 0 || rows.length === 0) return [];
+  if (rows.length <= limit) return [...rows];
+  const day = Math.floor(now.getTime() / 86_400_000);
+  const start = (day * limit) % rows.length;
+  return Array.from({ length: limit }, (_, offset) => rows[(start + offset) % rows.length]);
+}
+
 /**
  * Is a gym due for a backup?
  *

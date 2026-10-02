@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createApiAuthClient, provisionMember } from '@/lib/gym-signup';
 import { sendGymEmail } from '@/lib/email/send';
 import { whatsappSignupCode } from '@/lib/email/templates/whatsapp';
-import { codeMatches, hashCode, numericCode } from '@/lib/crypto/secret-box';
+import { hashCode, numericCode } from '@/lib/crypto/secret-box';
 import { gymByMemberCode, type WhatsAppGym } from '@/lib/whatsapp/settings';
 import { activeGymIds } from '@/lib/whatsapp/contacts';
 import { waIdToLocal } from '@/lib/whatsapp/phone';
@@ -124,16 +124,17 @@ export async function issueEmailOtp(
   admin: Admin,
   params: { email: string; userId: string | null; gym: WhatsAppGym; waId: string; fullName?: string | null },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const email = params.email.trim().toLowerCase();
   await admin
     .from('whatsapp_email_otps')
     .update({ consumed_at: new Date().toISOString() })
-    .eq('email', params.email)
+    .eq('email', email)
     .eq('purpose', 'signup')
     .is('consumed_at', null);
 
   const code = numericCode(6);
   const { error } = await admin.from('whatsapp_email_otps').insert({
-    email: params.email,
+    email,
     code_hash: hashCode(code),
     purpose: 'signup',
     user_id: params.userId,
@@ -145,7 +146,7 @@ export async function issueEmailOtp(
 
   const res = await sendGymEmail({
     gym: { id: params.gym.id, name: params.gym.name, slug: params.gym.slug },
-    to: { email: params.email, fullName: params.fullName ?? null },
+    to: { email, fullName: params.fullName ?? null },
     // 'critical' so it bypasses the gym's marketing toggles: this is not a
     // nudge, it is the only way the member can finish signing up.
     category: 'critical',
@@ -155,7 +156,7 @@ export async function issueEmailOtp(
       minutes: OTP_TTL_MIN,
       gymName: params.gym.name,
       fullName: params.fullName,
-      email: params.email,
+      email,
     }),
   });
 
@@ -174,8 +175,9 @@ export async function issueEmailOtp(
 /**
  * Step 2 of sign-up: check the code, confirm the address, join the gym.
  *
- * The attempt counter is incremented before the comparison so a failed guess
- * always costs one, including on a crash between the two.
+ * The database locks the challenge and atomically counts/consumes it. This is
+ * the security boundary: two concurrent requests cannot both verify one code,
+ * and a failed update cannot race a successful consume.
  */
 export async function verifyEmailOtp(params: {
   email: string;
@@ -187,44 +189,27 @@ export async function verifyEmailOtp(params: {
   if (code.length !== 6) return { ok: false, error: 'Enter the 6-digit code from your email.' };
 
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('whatsapp_email_otps')
-    .select('id, code_hash, user_id, gym_id, attempts, expires_at')
-    .eq('email', email)
-    .eq('purpose', 'signup')
-    .is('consumed_at', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const otp = data as {
-    id: string; code_hash: string; user_id: string | null; gym_id: string | null;
-    attempts: number; expires_at: string;
-  } | null;
-
-  if (!otp) return { ok: false, error: 'That code has expired. Tap “Send a new code”.' };
-  if (new Date(otp.expires_at).getTime() < Date.now()) {
+  const { data, error: consumeError } = await admin.rpc('consume_whatsapp_email_otp', {
+    p_email: email,
+    p_wa_id: params.waId,
+    p_code_hash: hashCode(code),
+    p_max_attempts: OTP_MAX_ATTEMPTS,
+  });
+  if (consumeError) return { ok: false, error: 'We couldn’t check that code. Please try again.' };
+  const otp = data?.[0];
+  if (!otp || otp.status === 'missing' || otp.status === 'expired') {
     return { ok: false, error: 'That code has expired. Tap “Send a new code”.' };
   }
-  if (otp.attempts >= OTP_MAX_ATTEMPTS) {
-    // Burn it rather than leaving a code that can be ground down over time.
-    await admin.from('whatsapp_email_otps').update({ consumed_at: new Date().toISOString() }).eq('id', otp.id);
+  if (otp.status === 'locked') {
     return { ok: false, error: 'Too many wrong codes. Tap “Send a new code” to start again.' };
   }
-
-  await admin.from('whatsapp_email_otps').update({ attempts: otp.attempts + 1 }).eq('id', otp.id);
-
-  if (!codeMatches(code, otp.code_hash)) {
-    const left = OTP_MAX_ATTEMPTS - otp.attempts - 1;
-    return {
-      ok: false,
-      error: left > 0 ? `That code isn’t right. ${left} attempt${left === 1 ? '' : 's'} left.` : 'That code isn’t right.',
-    };
+  if (otp.status === 'mismatch') {
+    const left = otp.attempts_remaining;
+    return { ok: false, error: `That code isn’t right. ${left} attempt${left === 1 ? '' : 's'} left.` };
   }
-
-  await admin.from('whatsapp_email_otps').update({ consumed_at: new Date().toISOString() }).eq('id', otp.id);
-
-  if (!otp.user_id || !otp.gym_id) return { ok: false, error: 'Something went wrong. Please start again.' };
+  if (otp.status !== 'matched' || !otp.user_id || !otp.gym_id) {
+    return { ok: false, error: 'Something went wrong. Please start again.' };
+  }
 
   const { data: gymRow } = await admin
     .from('gyms').select('id, name, slug, member_code, status, phone, subscription_plan, paystack_subaccount_code, platform_commission_mode, platform_commission_fixed_amount')
@@ -299,14 +284,25 @@ export async function signinWithPassword(params: {
   const admin = createAdminClient();
   const userId = data.user.id;
 
-  // Which gym? An explicit code wins. Otherwise, if they belong to exactly one
-  // gym, use it; more than one and the conversation asks.
+  // Which gym? A code may select only a gym this account is already actively
+  // linked to. Member codes are deliberately public (printed at reception and
+  // used by the join flow), so possession of one is not an invitation that a
+  // password sign-in may turn into a new tenant membership. New members enrol
+  // through the explicit signup flow; sign-in only restores an existing link.
+  //
+  // Without this check, any GymFlow user could submit another gym's public code
+  // with their own valid password and the old provisioning call would create
+  // an active link in that tenant. The mobile sign-in endpoint already observes
+  // this boundary (app/api/app/signin/route.ts).
+  const gymIds = await activeGymIds(admin, userId);
   let gym: WhatsAppGym | null = null;
   if (params.gymCode) {
     gym = await gymByMemberCode(admin, params.gymCode);
     if (!gym) return { ok: false, error: 'We couldn’t find a gym with that code.' };
+    if (!gymIds.includes(gym.id)) {
+      return { ok: false, error: 'This account isn’t a member of that gym. Create an account first, or ask the front desk for help.' };
+    }
   } else {
-    const gymIds = await activeGymIds(admin, userId);
     if (gymIds.length === 0) {
       return { ok: false, error: 'You’re signed in, but you’re not a member of any gym yet. Ask your gym for their code.' };
     }
@@ -316,18 +312,6 @@ export async function signinWithPassword(params: {
     gym = gymRow as WhatsAppGym | null;
   }
   if (!gym) return { ok: false, error: 'We couldn’t load your gym. Please try again.' };
-
-  // Signing in through WhatsApp joins the gym if they aren't linked yet — the
-  // same idempotent trust model /api/app/signin already uses for the app.
-  const prov = await provisionMember({
-    userId,
-    email,
-    gymId: gym.id,
-    fullName: (data.user.user_metadata?.full_name as string | undefined) ?? null,
-    phone: waIdToLocal(params.waId),
-    onboardingMethod: 'whatsapp',
-  });
-  if (!prov.ok) return { ok: false, error: 'Signed in, but we couldn’t attach your gym. Please try again.' };
 
   // Store the WhatsApp number on the profile if it has none, so the next
   // message is recognised without another sign-in.
