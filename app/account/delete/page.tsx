@@ -19,6 +19,6 @@ export default async function AccountDeletionPage() {
     <h1>Delete your account</h1>
     <p>{ACCOUNT_DELETION_MESSAGE}</p>
     <p>You do not need to contact support to submit this request. Deletion does not automatically refund previous payments.</p>
-    <AccountDeletionForm email={user?.email ?? null} initial={initial} />
+    <AccountDeletionForm authenticated={Boolean(user)} email={user?.email ?? null} initial={initial} />
   </main>;
 }

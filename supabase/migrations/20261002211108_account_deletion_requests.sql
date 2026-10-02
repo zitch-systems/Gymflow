@@ -57,7 +57,7 @@ begin
     raise exception 'Verified platform administrator required' using errcode = '42501';
   end if;
   select * into v_request from public.account_deletion_requests where id = p_request_id for update;
-  if not found or v_request.status <> p_expected_status then return false; end if;
+  if not found or v_request.status is distinct from p_expected_status then return false; end if;
   if not ((v_request.status = 'pending' and p_status = 'processing')
       or (v_request.status = 'processing' and p_status = 'completed')) then
     raise exception 'Invalid account deletion transition' using errcode = '22023';

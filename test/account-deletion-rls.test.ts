@@ -53,8 +53,13 @@ describe('account deletion queue policy', () => {
     await asSuperuser(async (db) => {
       await db.query('begin');
       try {
-        await db.query('delete from auth.users where id=$1', [IDS.memberA]);
-        expect((await db.query('select id from public.account_deletion_requests where subject_id=$1', [IDS.memberA])).rows).toEqual([{ id: REQUEST_A }]);
+        // seed() includes real payment/waiver fixtures, whose RESTRICT guards
+        // correctly prevent cascading deletion. Use a new empty identity.
+        const subject = 'b3333333-3333-3333-3333-333333333333';
+        await db.query('insert into auth.users (id, email) values ($1, $2)', [subject, 'empty-deletion-fixture@example.test']);
+        const created = (await db.query('insert into public.account_deletion_requests (subject_id) values ($1) returning id', [subject])).rows[0];
+        await db.query('delete from auth.users where id=$1', [subject]);
+        expect((await db.query('select id from public.account_deletion_requests where subject_id=$1', [subject])).rows).toEqual([{ id: created.id }]);
       } finally { await db.query('rollback'); }
     });
   });

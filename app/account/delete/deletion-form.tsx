@@ -3,12 +3,12 @@
 import { useActionState } from 'react';
 import { submitAccountDeletion, type DeletionState } from '@/lib/actions/account-deletion';
 
-export function AccountDeletionForm({ email, initial }: { email: string | null; initial: DeletionState }) {
+export function AccountDeletionForm({ authenticated, email, initial }: { authenticated: boolean; email: string | null; initial: DeletionState }) {
   const [state, action, pending] = useActionState(submitAccountDeletion, initial);
   return (
     <form action={action} style={{ display: 'grid', gap: 16 }}>
-      <input type="hidden" name="mode" value={email ? 'session' : 'credentials'} />
-      {email ? <p>Account: <strong>{email}</strong></p> : <>
+      <input type="hidden" name="mode" value={authenticated ? 'session' : 'credentials'} />
+      {authenticated ? <p>Account: <strong>{email ?? 'Your signed-in account'}</strong></p> : <>
         <p>Verify the account you want to delete. This works even if your gym membership is inactive.</p>
         <label>Email<input className="gf-input" type="email" name="email" autoComplete="username" maxLength={254} required /></label>
         <label>Password<input className="gf-input" type="password" name="password" autoComplete="current-password" maxLength={1024} required /></label>
