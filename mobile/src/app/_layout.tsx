@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/auth/context';
 import { c } from '@/components/ui';
+import { authRouteTarget } from '@/lib/auth-routing';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -16,15 +17,19 @@ function Gate() {
   const { status } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-
-  const inAuthGroup = segments[0] === '(auth)';
+  const navigation = useRootNavigationState();
 
   useEffect(() => {
-    if (status === 'loading') return;
+    if (status === 'loading' || !navigation?.key) return;
     void SplashScreen.hideAsync();
-    if (status === 'signed-out' && !inAuthGroup) router.replace('/(auth)/gym');
-    else if (status === 'signed-in' && inAuthGroup) router.replace('/(tabs)');
-  }, [status, inAuthGroup, router]);
+    const target = authRouteTarget(status, segments);
+    if (target) router.replace(target);
+  }, [status, segments, navigation?.key, router]);
+
+  // Keep private route components from mounting and starting requests until
+  // secure storage restoration has decided which navigation tree is valid.
+  // Expo keeps the native splash visible until the ready branch above.
+  if (status === 'loading') return null;
 
   return (
     <Stack

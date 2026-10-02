@@ -12,6 +12,7 @@
     "test:router-compat": "node scripts/test-router-compat.mjs",
     "test:native-config": "node scripts/test-native-config.mjs",
     "test:api-client": "node scripts/test-api-client.mjs",
+    "test:auth-routing": "node scripts/test-auth-routing.mjs",
     "type-check": "tsc --noEmit",
     "lint": "expo lint",
     "prebuild:android": "expo prebuild --platform android --clean",

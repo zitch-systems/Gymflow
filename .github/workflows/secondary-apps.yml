@@ -40,6 +40,8 @@ jobs:
         run: npm run test:native-config
       - name: Verify API client auth and refresh contract
         run: npm run test:api-client
+      - name: Verify cold launch and authenticated deep link routing
+        run: npm run test:auth-routing
       - name: Audit production graph against reviewed residual advisories
         run: npm run audit:production
       - run: npm run type-check
