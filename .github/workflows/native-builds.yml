@@ -59,6 +59,47 @@ jobs:
       - run: npm ci
       - name: Build internal release artifacts
         run: npm run build:native:android
+      - name: Split installables into downloadable verified chunks
+        run: |
+          mkdir -p artifacts/android/delivery
+          apk=artifacts/android/gymflow-internal-debug-signed-release.apk
+          aab=artifacts/android/gymflow-internal-debug-signed-release.aab
+          sha256sum "$apk" "$aab" | sed 's#artifacts/android/##' > artifacts/android/delivery/SHA256SUMS
+          split -b 24m -d -a 2 "$apk" artifacts/android/delivery/apk-part-
+          split -b 24m -d -a 2 "$aab" artifacts/android/delivery/aab-part-
+      - name: Upload delivery checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-android-delivery-checksums, path: mobile/artifacts/android/delivery/SHA256SUMS, if-no-files-found: error, retention-days: 14 }
+      - name: Upload APK part 00
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-00, path: mobile/artifacts/android/delivery/apk-part-00, if-no-files-found: error, retention-days: 14 }
+      - name: Upload APK part 01
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/apk-part-01') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-01, path: mobile/artifacts/android/delivery/apk-part-01, retention-days: 14 }
+      - name: Upload APK part 02
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/apk-part-02') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-02, path: mobile/artifacts/android/delivery/apk-part-02, retention-days: 14 }
+      - name: Upload APK part 03
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/apk-part-03') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-apk-part-03, path: mobile/artifacts/android/delivery/apk-part-03, retention-days: 14 }
+      - name: Upload AAB part 00
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-00, path: mobile/artifacts/android/delivery/aab-part-00, if-no-files-found: error, retention-days: 14 }
+      - name: Upload AAB part 01
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/aab-part-01') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-01, path: mobile/artifacts/android/delivery/aab-part-01, retention-days: 14 }
+      - name: Upload AAB part 02
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/aab-part-02') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-02, path: mobile/artifacts/android/delivery/aab-part-02, retention-days: 14 }
+      - name: Upload AAB part 03
+        if: ${{ hashFiles('mobile/artifacts/android/delivery/aab-part-03') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: gymflow-aab-part-03, path: mobile/artifacts/android/delivery/aab-part-03, retention-days: 14 }
       - name: Boot emulator and launch bundled app without Metro
         run: |
           sdkmanager_bin=$(find -L "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)
@@ -101,7 +142,25 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gymflow-android-internal-release
-          path: mobile/artifacts/android/
+          path: |
+            mobile/artifacts/android/gymflow-internal-debug-signed-release.apk
+            mobile/artifacts/android/gymflow-internal-debug-signed-release.aab
+            mobile/artifacts/android/build.log
+            mobile/artifacts/android/build-info.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Android smoke evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gymflow-android-smoke-evidence
+          path: |
+            mobile/artifacts/android/*.txt
+            mobile/artifacts/android/*.png
+            mobile/artifacts/android/*.xml
+            mobile/artifacts/android/*.log
+            !mobile/artifacts/android/build.log
+            !mobile/artifacts/android/build-info.txt
           if-no-files-found: error
           retention-days: 14
 
