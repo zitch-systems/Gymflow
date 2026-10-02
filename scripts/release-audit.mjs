@@ -9,6 +9,8 @@ import { spawn } from 'node:child_process';
 import pg from 'pg';
 
 export const EXPECTED_FUNCTIONS = [
+  'private.review_account_deletion_request(uuid,uuid,text,text,boolean,boolean,text,text)',
+  'public.review_account_deletion_request(uuid,uuid,text,text,boolean,boolean,text,text)',
   'private.privileged_session_verified()',
   'private.has_gym_role(uuid,user_role[])',
   'private.is_gym_staff(uuid)',
@@ -44,6 +46,7 @@ export const EXPECTED_FUNCTIONS = [
 ];
 
 export const EXPECTED_POLICIES = [
+  'public.account_deletion_requests.account_deletion_subject_read',
   'public.profile_health_notes.profile_health_notes_read',
   'public.profile_health_note_audit.profile_health_note_audit_read',
   'public.payment_coverage_allocations.coverage_allocations_read',
@@ -64,6 +67,8 @@ export const EXPECTED_POLICIES = [
 ];
 
 export const EXPECTED_RLS_TABLES = [
+  'public.account_deletion_requests',
+  'public.account_deletion_events',
   'private.privileged_session_verifications',
   'public.profile_health_notes',
   'public.profile_health_note_audit',
@@ -95,7 +100,7 @@ const SERVICE_ONLY_FUNCTIONS = [
   'public.finish_member_auto_renewal_initialization(text,text,boolean,text)',
 ];
 
-const LATEST_RELEASE_MIGRATION = '20261002105049_preserve_full_freeze_interval.sql';
+const LATEST_RELEASE_MIGRATION = '20261002211108_account_deletion_requests.sql';
 
 export function redact(value, secrets = []) {
   let out = String(value ?? '');

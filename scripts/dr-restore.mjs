@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { assertIsolatedRestore, decryptArchive, postgresEnv } from './dr-core.mjs';
+import { assertIsolatedRestore, assertRestoreTargetBinding, decryptArchive, postgresEnv } from './dr-core.mjs';
 
 function run(command, args, options = {}) {
   return new Promise((resolvePromise, reject) => {
@@ -59,12 +59,7 @@ export async function main() {
     if (!targetDb || !targetUrl || !targetKey) throw new Error('DR_RESTORE_DB_URL, DR_RESTORE_SUPABASE_URL, and DR_RESTORE_SERVICE_ROLE_KEY are required.');
     const targetHost = new URL(targetUrl).hostname;
     assertIsolatedRestore({ ack: process.env.DR_RESTORE_ACK, sourceHost: manifest.source?.host, targetHost });
-    if (new URL(targetDb).hostname !== targetHost && !targetHost.startsWith('localhost')) {
-      // Supabase DB and API hosts use different prefixes, but must carry the
-      // same project ref. Avoid accepting an unrelated target by accident.
-      const ref = targetHost.split('.')[0];
-      if (!new URL(targetDb).hostname.includes(ref)) throw new Error('Database and API targets do not belong to the same isolated project.');
-    }
+    assertRestoreTargetBinding(targetUrl, targetDb);
 
     // Schema migrations must already be at the artifact's code version. This
     // restores rows only and fails on any collision rather than overwriting a

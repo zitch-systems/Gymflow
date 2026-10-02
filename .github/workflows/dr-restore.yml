@@ -1,0 +1,54 @@
+name: Isolated DR fixture
+
+on:
+  pull_request:
+    paths: ['scripts/dr-*.mjs', 'test/dr-*.mjs', '.github/workflows/dr-restore.yml']
+  push:
+    branches: [main]
+    paths: ['scripts/dr-*.mjs', 'test/dr-*.mjs', '.github/workflows/dr-restore.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dr-fixture-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-restore:
+    name: Backup and restore entrypoints · disposable PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+        with:
+          version: 10.34.6
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install PostgreSQL 17 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common ca-certificates
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+      - name: Exercise encrypted backup and isolated restore entrypoints
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+        run: node test/dr-isolated-fixture.mjs

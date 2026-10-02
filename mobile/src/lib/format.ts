@@ -1,29 +1,42 @@
 // Formatting, matched to lib/format.ts on the web so the two surfaces render the
 // same value the same way. Nigeria is UTC+1 with no DST.
 
+const WAT = 'Africa/Lagos';
+
+function dateValue(iso: string): Date {
+  // A database DATE has no timezone. Parsing it as midnight UTC can render the
+  // previous day on a member's phone in the Americas, so anchor it at noon.
+  return new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00Z` : iso);
+}
+
+export function sameWatDay(left: Date, right: Date): boolean {
+  const key = (value: Date) => value.toLocaleDateString('en-CA', { timeZone: WAT });
+  return key(left) === key(right);
+}
+
 export function naira(n: number | null | undefined): string {
   return `₦${Number(n ?? 0).toLocaleString('en-NG')}`;
 }
 
 export function shortDate(iso: string | null | undefined): string {
   if (!iso) return '—';
-  const d = new Date(iso);
+  const d = dateValue(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric', timeZone: WAT });
 }
 
 export function dayMonth(iso: string | null | undefined): string {
   if (!iso) return '—';
-  const d = new Date(iso);
+  const d = dateValue(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short', timeZone: WAT });
 }
 
 export function clockTime(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: WAT });
 }
 
 /** "18:30" → "6:30 PM". */
@@ -63,10 +76,10 @@ export function inboxTime(iso: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   const now = Date.now();
-  const clock = d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false });
-  if (d.toDateString() === new Date(now).toDateString()) return `Today · ${clock}`;
-  if (now - d.getTime() < 7 * 86_400_000) return `${d.toLocaleDateString('en-NG', { weekday: 'short' })} · ${clock}`;
-  return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' });
+  const clock = d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: WAT });
+  if (sameWatDay(d, new Date(now))) return `Today · ${clock}`;
+  if (now - d.getTime() < 7 * 86_400_000) return `${d.toLocaleDateString('en-NG', { weekday: 'short', timeZone: WAT })} · ${clock}`;
+  return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', timeZone: WAT });
 }
 
 export function plural(n: number, one: string, many = `${one}s`): string {

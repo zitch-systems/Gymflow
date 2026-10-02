@@ -48,7 +48,7 @@ export default function LegalPage() {
           <div className="prose">
             <section id="privacy">
               <h2><span className="badge-ic"><Lock strokeWidth={1.75} /></span> Privacy Policy</h2>
-              <p className="upd">Last updated 1 June 2026</p>
+              <p className="upd">Last updated 2 October 2026</p>
               <p>GymFlow helps gyms run their business. To do that we process information about gym owners, their staff, and their members. This policy explains what we collect, why, and the choices you have.</p>
               <h3>What we collect</h3>
               <ul>
@@ -61,7 +61,8 @@ export default function LegalPage() {
               <p>To provide the service, process subscriptions, send reminders the gym has configured, and improve GymFlow. We do not sell personal data, ever.</p>
               <div className="callout"><Info strokeWidth={1.75} /><p>Each gym is the data controller for its members. GymFlow processes that data on the gym&apos;s behalf, under our agreement with them.</p></div>
               <h3>Your choices</h3>
-              <p>Members can request a copy of their data or ask their gym to delete it. Gym owners can export or erase their workspace at any time from Settings.</p>
+              <p>Members can request a copy of their data from their gym. You can <a href="/account/delete">request deletion of your whole GymFlow account</a> online or from Account in the mobile app, including when your gym membership is inactive. We aim to process requests within 30 days and confirm completion. The account stays available during processing. Existing renewals continue until cancelled; processing includes stopping future renewals. We remove associated personal data except records we are legally required to retain.</p>
+              <p>The mobile app uses the camera only when you choose to scan a gym check-in code. It stores sign-in tokens in the device&apos;s secure storage. Card entry takes place with Paystack in your browser.</p>
             </section>
 
             <section id="terms">

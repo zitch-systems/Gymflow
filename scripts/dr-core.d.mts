@@ -13,4 +13,5 @@ export function assertIsolatedRestore(input: {
   sourceHost?: string;
   targetHost?: string;
 }): void;
+export function assertRestoreTargetBinding(apiUrl: string, databaseUrl: string): void;
 export function postgresEnv(connectionString: string, base?: NodeJS.ProcessEnv): NodeJS.ProcessEnv;

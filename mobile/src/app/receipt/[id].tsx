@@ -10,8 +10,13 @@ import { space } from '@/theme';
 import type { Receipt } from '@/api/types';
 
 export default function ReceiptScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<{ receipt: Receipt }>(`/api/app/wallet/${id}`);
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const receiptId = typeof id === 'string' ? id.trim() : '';
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<{ receipt: Receipt }>(
+    receiptId ? `/api/app/wallet/${encodeURIComponent(receiptId)}` : '',
+  );
+
+  if (!receiptId) return <Screen><ErrorState message="Receipt not found." /></Screen>;
 
   if (loading && !data) return <Screen><Loading /></Screen>;
   if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;

@@ -1,0 +1,162 @@
+name: Native mobile builds
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/native-builds.yml'
+  push:
+    branches: [main, native/gymflow-mobile-20261002, native/gymflow-mobile-final-20261002]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/native-builds.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-mobile-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPO_PUBLIC_API_URL: https://www.gymflow.ng
+  EXPO_NO_GIT_STATUS: '1'
+
+jobs:
+  credentials:
+    name: Release credential availability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report available release paths
+        env:
+          HAS_EXPO_TOKEN: ${{ secrets.EXPO_TOKEN != '' }}
+          HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+          HAS_APPLE_SIGNING: ${{ secrets.APPLE_DISTRIBUTION_P12_BASE64 != '' && secrets.APPLE_DISTRIBUTION_P12_PASSWORD != '' && secrets.APPLE_PROVISIONING_PROFILE_BASE64 != '' && secrets.APPLE_TEAM_ID != '' }}
+        run: |
+          echo "Expo authentication available: $HAS_EXPO_TOKEN"
+          echo "Android production signing available: $HAS_ANDROID_KEYSTORE"
+          echo "Apple production signing available: $HAS_APPLE_SIGNING"
+          echo "This probe reports booleans only and never consumes credential values."
+
+  android:
+    name: Android · release APK/AAB and launch smoke
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - name: Build internal release artifacts
+        run: npm run build:native:android
+      - name: Boot emulator and launch bundled app without Metro
+        run: |
+          sdkmanager 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+          echo no | avdmanager create avd --force --name gymflow-smoke --package 'system-images;android-35;google_apis;x86_64'
+          sudo chmod 666 /dev/kvm
+          nohup emulator -avd gymflow-smoke -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > artifacts/android/emulator.log 2>&1 &
+          adb wait-for-device
+          timeout 300 bash -c 'until [ "$(adb shell getprop sys.boot_completed | tr -d "\r")" = "1" ]; do sleep 2; done'
+          adb install -r artifacts/android/gymflow-internal-debug-signed-release.apk
+          adb shell am start -W -n ng.gymflow.member/.MainActivity | tee artifacts/android/launch.txt
+          rendered=false
+          for attempt in $(seq 1 30); do
+            sleep 2
+            adb shell uiautomator dump /sdcard/gymflow-window.xml >/dev/null
+            adb shell cat /sdcard/gymflow-window.xml > artifacts/android/window.xml
+            if grep -q 'Welcome to GymFlow' artifacts/android/window.xml; then
+              rendered=true
+              break
+            fi
+          done
+          test "$rendered" = true
+          adb shell pidof ng.gymflow.member | tee artifacts/android/pid.txt
+          test -s artifacts/android/pid.txt
+          adb exec-out screencap -p > artifacts/android/launch.png
+          adb logcat -d -t 1000 > artifacts/android/logcat.txt
+      - name: Upload Android build evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gymflow-android-internal-release
+          path: mobile/artifacts/android/
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-simulator:
+    name: iOS · Release simulator app and launch smoke
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Select Expo SDK 57 reference Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+      - run: npm ci
+      - name: Build unsigned Release simulator app
+        run: npm run build:native:ios-simulator
+      - name: Boot simulator and launch bundled app without Metro
+        run: |
+          # Device types are newest-first. Let CoreSimulator choose the newest
+          # compatible installed iOS runtime instead of pairing unrelated IDs.
+          device_type=$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devicetypes"]; print(next(x["identifier"] for x in d if x["name"].startswith("iPhone")))')
+          udid=$(xcrun simctl create GymFlowSmoke "$device_type")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" build/ios/Build/Products/Release-iphonesimulator/GymFlow.app
+          xcrun simctl launch "$udid" ng.gymflow.member | tee artifacts/ios/launch.txt
+          sleep 10
+          xcrun simctl spawn "$udid" launchctl list | grep -q 'ng.gymflow.member'
+          xcrun simctl io "$udid" screenshot artifacts/ios/launch.png
+          xcrun simctl spawn "$udid" log show --last 2m --style compact > artifacts/ios/simulator.log 2>&1 || true
+      - name: Upload iOS build evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gymflow-ios-simulator-release
+          path: mobile/artifacts/ios/
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-device-unsigned:
+    name: iOS · unsigned physical-device archive
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Select Expo SDK 57 reference Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+      - run: npm ci
+      - name: Compile unsigned iPhoneOS archive and IPA
+        run: npm run build:native:ios-device-unsigned
+      - name: Upload unsigned iPhoneOS build evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gymflow-ios-device-unsigned-release
+          path: mobile/artifacts/ios-device/
+          if-no-files-found: error
+          retention-days: 14

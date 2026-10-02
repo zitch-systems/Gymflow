@@ -56,6 +56,11 @@ const PUBLIC_ROUTES: Record<string, string> = {
 
 const routes = routeFiles(API_DIR);
 
+// Account-wide privacy rights must remain available without an active gym
+// link or member_app plan. Its verified bearer-identity gate is exercised by
+// account-deletion-api.test.ts; it is authenticated, not a public exception.
+const ACCOUNT_RIGHTS_ROUTES = new Set(['app/api/app/account-deletion/route.ts']);
+
 describe('/api/app surface', () => {
   it('has routes to check', () => {
     expect(routes.length).toBeGreaterThan(5);
@@ -68,7 +73,7 @@ describe('/api/app surface', () => {
       expect(why.length).toBeGreaterThan(20);
       return;
     }
-    expect(src).toContain('requireApiMember(req)');
+    expect(src).toContain(ACCOUNT_RIGHTS_ROUTES.has(file) ? 'requireAccountDeletionUser(req)' : 'requireApiMember(req)');
     // The auth result is a discriminated union precisely so a route cannot read
     // the member without handling the failure branch. Returning `auth.res` is
     // that handling; skipping it would mean reading ctx off a failed auth.

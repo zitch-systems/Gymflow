@@ -50,10 +50,40 @@ export async function decryptArchive(input, output, passphrase) {
 export function assertIsolatedRestore({ ack, sourceHost, targetHost }) {
   if (ack !== 'ISOLATED_ONLY') throw new Error('Set DR_RESTORE_ACK=ISOLATED_ONLY to enable restore mode.');
   if (!targetHost) throw new Error('The isolated target host is missing.');
-  if (sourceHost && sourceHost === targetHost) throw new Error('Refusing to restore into the source project.');
-  if (!/(localhost|127\.0\.0\.1|\.supabase\.(?:co|net))$/i.test(targetHost)) {
+  if (sourceHost && String(sourceHost).toLowerCase() === String(targetHost).toLowerCase()) throw new Error('Refusing to restore into the source project.');
+  if (!isLoopbackHost(targetHost) && !projectRefFromApiHost(targetHost)) {
     throw new Error('Target is not recognisable as an isolated Postgres/Supabase host.');
   }
+}
+
+function isLoopbackHost(host) {
+  return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(String(host).toLowerCase());
+}
+
+function projectRefFromApiHost(host) {
+  const match = /^([a-z0-9]+)\.supabase\.(?:co|net)$/i.exec(String(host));
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+/** Prove the database and API URLs name the same isolated target. Supabase's
+ * direct database hostname embeds the project ref in the host. Shared pooler
+ * hosts instead bind it in the exact `postgres.<ref>` username. */
+export function assertRestoreTargetBinding(apiUrl, databaseUrl) {
+  const api = new URL(apiUrl);
+  const database = new URL(databaseUrl);
+  const apiHost = api.hostname.toLowerCase();
+  const databaseHost = database.hostname.toLowerCase();
+  if (isLoopbackHost(apiHost)) {
+    if (!isLoopbackHost(databaseHost)) throw new Error('Database and API targets do not belong to the same isolated project.');
+    return;
+  }
+
+  const ref = projectRefFromApiHost(apiHost);
+  if (!ref) throw new Error('Target is not recognisable as an isolated Postgres/Supabase host.');
+  const direct = databaseHost === `db.${ref}.supabase.co` || databaseHost === `db.${ref}.supabase.net`;
+  const pooler = /^(?:[a-z0-9-]+\.)+pooler\.supabase\.com$/i.test(databaseHost)
+    && decodeURIComponent(database.username).toLowerCase() === `postgres.${ref}`;
+  if (!direct && !pooler) throw new Error('Database and API targets do not belong to the same isolated project.');
 }
 
 /** Keep database credentials out of process arguments while giving libpq the

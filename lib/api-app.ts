@@ -9,7 +9,7 @@ import type { Database } from '@/lib/database.types';
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Gym-Id',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -70,6 +70,27 @@ export function createTokenClient(token: string): AppSupabase {
 
 export type MemberContext = { supabase: AppSupabase; user: User; gym: Gym; link: MemberLink };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type StatusError = { status?: unknown };
+
+export function authErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object') return null;
+  const status = (error as StatusError).status;
+  return typeof status === 'number' && Number.isFinite(status) ? status : null;
+}
+
+export function authFailure(error: unknown): Response {
+  const status = authErrorStatus(error);
+  if (status === 400 || status === 401 || status === 403) {
+    return json({ error: 'Your session has expired. Please sign in again.', code: 'expired' }, 401);
+  }
+  if (status === 429) {
+    return json({ error: 'Authentication is temporarily unavailable. Please try again.', code: 'retryable' }, 429);
+  }
+  return json({ error: 'Authentication is temporarily unavailable. Please try again.', code: 'retryable' }, 503);
+}
+
 /**
  * The refusal for a member surface the gym's plan doesn't include.
  *
@@ -100,6 +121,11 @@ export async function requireApiMember(
   const token = bearerToken(req);
   if (!token) return { ok: false, res: json({ error: 'Sign in to continue.', code: 'no_token' }, 401) };
 
+  const requestedGymId = req.headers.get('x-gym-id')?.trim() || null;
+  if (requestedGymId && !UUID.test(requestedGymId)) {
+    return { ok: false, res: json({ error: 'Invalid gym ID.', code: 'invalid_gym_id' }, 400) };
+  }
+
   let supabase: AppSupabase;
   try {
     supabase = createTokenClient(token);
@@ -109,17 +135,24 @@ export async function requireApiMember(
 
   // getUser(token) verifies the JWT with the auth server rather than trusting
   // its claims — an expired or revoked token fails here, not three queries later.
-  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-  const user = userData?.user;
-  if (userErr || !user) {
-    return { ok: false, res: json({ error: 'Your session has expired. Please sign in again.', code: 'expired' }, 401) };
+  let userData: Awaited<ReturnType<AppSupabase['auth']['getUser']>>['data'];
+  let userErr: Awaited<ReturnType<AppSupabase['auth']['getUser']>>['error'];
+  try {
+    ({ data: userData, error: userErr } = await supabase.auth.getUser(token));
+  } catch {
+    return { ok: false, res: authFailure(null) };
   }
+  const user = userData?.user;
+  if (userErr) return { ok: false, res: authFailure(userErr) };
+  if (!user) return { ok: false, res: authFailure({ status: 401 }) };
 
-  const { data: link } = await supabase
+  let linkQuery = supabase
     .from('gym_member_links')
     .select('*, gyms(*)')
     .eq('user_id', user.id)
-    .eq('is_active', true)
+    .eq('is_active', true);
+  if (requestedGymId) linkQuery = linkQuery.eq('gym_id', requestedGymId);
+  const { data: link } = await linkQuery
     .order('joined_at', { ascending: false })
     .limit(1)
     .maybeSingle();

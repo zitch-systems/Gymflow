@@ -34,19 +34,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // The client reads the session synchronously on every request, so it can't go
   // through React state — a ref is the live copy, state is what renders.
   const sessionRef = useRef<Session | null>(null);
+  const gymRef = useRef<Gym | null>(null);
+  const sessionStorageQueue = useRef<Promise<void>>(Promise.resolve());
 
   const applySession = useCallback(async (next: Session) => {
     sessionRef.current = next;
     setSession(next);
-    await storage.setSession(next);
+    const write = sessionStorageQueue.current.then(() => storage.setSession(next));
+    sessionStorageQueue.current = write.catch(() => undefined);
+    await write;
   }, []);
 
   const clear = useCallback(async () => {
     sessionRef.current = null;
+    gymRef.current = null;
     setSession(null);
     setGym(null);
     setStatus('signed-out');
-    await Promise.all([storage.clearSession(), storage.clearGym()]);
+    const eraseSession = sessionStorageQueue.current.then(() => storage.clearSession());
+    sessionStorageQueue.current = eraseSession.catch(() => undefined);
+    await Promise.all([eraseSession, storage.clearGym()]);
   }, []);
 
   // Bind before the first request goes out, and keep the binding for the life of
@@ -54,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     bindAuth({
       getSession: () => sessionRef.current,
+      getGymId: () => gymRef.current?.id ?? null,
       saveSession: applySession,
       onSessionLost: clear,
     });
@@ -70,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       if (stored?.access_token && storedGym) {
         sessionRef.current = stored;
+        gymRef.current = storedGym;
         setSession(stored);
         setGym(storedGym);
         setStatus('signed-in');
@@ -90,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Could not start your session. Please sign in again.');
     }
     await Promise.all([applySession(res.session), storage.setGym(res.gym), storage.setLastCode(code.trim())]);
+    gymRef.current = res.gym;
     setGym(res.gym);
     setStatus('signed-in');
   }, [applySession]);

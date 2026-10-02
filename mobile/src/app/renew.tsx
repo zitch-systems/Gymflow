@@ -32,14 +32,35 @@ function planPeriod(p: Plan): string {
   return 'per period';
 }
 
+function checkoutReturn(url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+}
+
+function membershipVersion(plans: Plans | null): string {
+  const current = plans?.current;
+  return JSON.stringify({
+    plan: current?.plan_name ?? null,
+    start: current?.start_date ?? null,
+    end: current?.end_date ?? null,
+    state: current?.display_state ?? null,
+    scheduled: plans?.plans.filter((p) => p.is_scheduled).map((p) => p.id).sort() ?? [],
+  });
+}
+
+const wait = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+
 export default function RenewScreen() {
   const router = useRouter();
-  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<Plans>('/api/app/plans');
+  const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh, set } = useResource<Plans>('/api/app/plans');
 
   const [selected, setSelected] = useState<string | null>(null);
   const [withTrainer, setWithTrainer] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ message: string; tone: 'danger' | 'success' } | null>(null);
+  const [notice, setNotice] = useState<{ message: string; tone: 'danger' | 'success' | 'warning' } | null>(null);
 
   const plans = data?.plans ?? [];
   const chosen = plans.find((p) => p.id === selected) ?? null;
@@ -51,26 +72,59 @@ export default function RenewScreen() {
   // gets in its way.
   const pay = async () => {
     if (!chosen) return;
+    const beforePayment = membershipVersion(data);
     setBusy(true);
     setNotice(null);
     try {
-      const res = await api.post<{ ok: boolean; authorization_url: string }>('/api/app/renew', {
+      const res = await api.post<{ ok: boolean; authorization_url: string; reference: string | null }>('/api/app/renew', {
         plan_id: chosen.id,
         with_trainer: trainerOn,
       });
 
       const result = await WebBrowser.openAuthSessionAsync(res.authorization_url, RETURN_URL);
 
-      if (result.type === 'success' && result.url.includes('status=success')) {
-        setNotice({ message: 'Payment received. Your membership has been extended.', tone: 'success' });
-        refresh();
+      const callback = result.type === 'success' ? checkoutReturn(result.url) : null;
+      const returnedReference = callback?.searchParams.get('reference') ?? null;
+      const verified = callback?.protocol === 'gymflow:'
+        && callback.hostname === 'pay'
+        && callback.pathname === '/callback'
+        && callback.searchParams.get('status') === 'success'
+        && Boolean(res.reference)
+        && returnedReference === res.reference;
+
+      if (verified) {
+        // The callback verifies the charge, but fulfilment may still be queued.
+        // Poll the authoritative plans payload and only claim an update once it
+        // actually changes. The webhook remains the fallback after this window.
+        setNotice({ message: 'Payment verified. Confirming your membership update…', tone: 'warning' });
+        let updated = false;
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          if (attempt > 0) await wait(1500);
+          try {
+            const next = await api.get<Plans>('/api/app/plans');
+            set(() => next);
+            if (membershipVersion(next) !== beforePayment) {
+              updated = true;
+              break;
+            }
+          } catch {
+            // Keep polling within the short confirmation window. The final
+            // message remains pending and pull-to-refresh stays available.
+          }
+        }
+        setNotice(updated
+          ? { message: 'Your payment is confirmed and your membership is updated.', tone: 'success' }
+          : { message: 'Payment confirmed. Your membership update is still processing; refresh again shortly.', tone: 'warning' });
       } else if (result.type === 'success') {
-        setNotice({ message: 'That payment didn’t complete. Nothing has been charged — you can try again.', tone: 'danger' });
+        // Treat malformed or mismatched callbacks as unverified. A webhook can
+        // still settle a real charge, so don't tell the member to pay twice.
+        setNotice({ message: 'We couldn’t confirm the checkout return. Refresh your membership before trying again.', tone: 'warning' });
+        refresh();
       } else {
         // dismiss / cancel: the member closed the tab. A payment may still have
         // gone through and be settling, so this stays neutral rather than
         // claiming failure — the refresh below tells the truth either way.
-        setNotice({ message: 'Checkout closed. If you completed the payment, it’ll reflect here shortly.', tone: 'danger' });
+        setNotice({ message: 'Checkout closed. If you completed the payment, it’ll reflect here shortly.', tone: 'warning' });
         refresh();
       }
     } catch (e) {
@@ -136,7 +190,7 @@ export default function RenewScreen() {
           : 'Pick a plan to start training.'}
       </Body>
 
-      {notice ? <View style={{ marginTop: space.lg }}><Notice message={notice.message} tone={notice.tone === 'success' ? 'success' : 'danger'} /></View> : null}
+      {notice ? <View style={{ marginTop: space.lg }}><Notice message={notice.message} tone={notice.tone} /></View> : null}
 
       <View style={{ marginTop: space.lg, gap: space.md }}>
         {plans.map((p) => {
