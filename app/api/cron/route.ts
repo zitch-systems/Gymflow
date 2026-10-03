@@ -9,7 +9,7 @@ import { adminOrNull, getContacts, getGymOwnerEmails, GYM_EMAIL_COLUMNS, type Em
 import { classesToday, freezeResumed, MEMBER_TEMPLATES, type ClassFacts } from '@/lib/email/templates/member';
 import { trialEnded, trialEnding } from '@/lib/email/templates/platform';
 import { OFFLINE_GYM_FILTER } from '@/lib/gym-status';
-import { markJobStarted, markJobSucceeded } from '@/lib/operational-jobs';
+import { markJobFailed, markJobStarted, markJobSucceeded } from '@/lib/operational-jobs';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -48,7 +48,7 @@ const watDay = (offset: number): string => watDateISO(new Date(Date.now() + offs
  * GymFlow with links pointing at the wrong host.
  */
 async function emailTargets(admin: Admin, gymIds: string[], memberIds: string[]) {
-  const [{ data: gyms }, contacts] = await Promise.all([
+  const [{ data: gyms, error: gymsError }, contacts] = await Promise.all([
     // Offline gyms drop out of the map here, and every fan-out below already
     // skips a member whose gym is missing (`if (!gym ...) return`). That makes
     // this one filter the choke point for the whole route: a gym GymFlow has
@@ -56,8 +56,9 @@ async function emailTargets(admin: Admin, gymIds: string[], memberIds: string[])
     // subdomain — a subdomain whose landing page now 404s.
     admin.from('gyms').select(GYM_EMAIL_COLUMNS).in('id', [...new Set(gymIds)])
       .not('status', 'in', OFFLINE_GYM_FILTER),
-    getContacts(admin, memberIds),
+    getContacts(admin, memberIds, { throwOnError: true }),
   ]);
+  if (gymsError) throw new Error(`Email gym lookup failed: ${gymsError.message}`);
   return {
     gymById: new Map(((gyms ?? []) as unknown as EmailGym[]).map((g) => [g.id, g])),
     contactById: new Map(contacts.map((c) => [c.id, c])),
@@ -89,13 +90,16 @@ export async function GET(req: Request) {
   // preview environments and this route must degrade to the keep-warm ping
   // rather than 500.
   const admin = adminOrNull();
-  if (admin) await markJobStarted(admin, 'notifications');
+  let bestEffortWarnings = 0;
+  try {
+    if (admin) await markJobStarted(admin, 'notifications');
 
   // Keep-warm: a cheap query so the (free-tier) Supabase project doesn't pause.
   const warm = admin ?? createSb(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
   // gym-status: n/a — a head-only row count to stop the project auto-pausing.
   // It resolves no gym and reads no column, so filtering it would mean nothing.
-  await warm.from('gyms').select('id', { head: true, count: 'exact' });
+  const { error: warmError } = await warm.from('gyms').select('id', { head: true, count: 'exact' });
+  if (warmError) throw new Error(`Keep-warm query failed: ${warmError.message}`);
 
   // Renewal reminders — needs service role (writes notifications across users).
   let remindersCreated = 0;
@@ -107,18 +111,20 @@ export async function GET(req: Request) {
     const in3 = watDay(3);
     const cutoff = new Date(Date.now() - 3 * 86_400_000).toISOString();
 
-    const { data: subs } = await admin.from('member_subscriptions')
+    const { data: subs, error: subsError } = await admin.from('member_subscriptions')
       .select('id, member_id, gym_id, end_date')
       .eq('status', 'active').gte('end_date', today).lte('end_date', in3);
+    if (subsError) throw new Error(`Renewal scan failed: ${subsError.message}`);
 
     const due = (subs ?? []).filter((s) => s.member_id && s.end_date);
     if (due.length) {
       // Batch the dedup into ONE query (was a SELECT per subscription → N+1 that
       // could exceed the 60s budget on large platforms), then bulk-insert.
-      const { data: dupes } = await admin.from('notifications')
+      const { data: dupes, error: dupesError } = await admin.from('notifications')
         .select('user_id, metadata->>subscription_id')
         .eq('type', 'warning').gte('created_at', cutoff)
         .in('user_id', due.map((s) => s.member_id as string));
+      if (dupesError) throw new Error(`Renewal deduplication failed: ${dupesError.message}`);
       const seen = new Set(
         (dupes ?? []).map((d: { user_id: string | null; subscription_id?: string | null }) => `${d.user_id}:${d.subscription_id}`),
       );
@@ -134,30 +140,25 @@ export async function GET(req: Request) {
           };
         });
       if (rows.length) {
+        // Resolve delivery prerequisites before claiming the reminder in the
+        // dedupe ledger. A failed lookup can then be retried on the next run.
+        const fresh = due.filter((s) => !seen.has(`${s.member_id}:${s.id}`)).slice(0, 200);
+        const gymIds = [...new Set(fresh.map((s) => s.gym_id as string))];
+        const [{ data: contacts, error: contactsError }, { data: gyms, error: gymsError }] = await Promise.all([
+          admin.from('profiles').select('id, email, phone, full_name, notification_email').in('id', fresh.map((s) => s.member_id as string)),
+          admin.from('gyms').select(GYM_EMAIL_COLUMNS).in('id', gymIds).not('status', 'in', OFFLINE_GYM_FILTER),
+        ]);
+        if (contactsError) throw new Error(`Renewal contact lookup failed: ${contactsError.message}`);
+        if (gymsError) throw new Error(`Renewal gym lookup failed: ${gymsError.message}`);
+
         const { error } = await admin.from('notifications').insert(rows);
-        if (!error) {
+        if (error) throw new Error(`Renewal notification write failed: ${error.message}`);
+        {
           remindersCreated = rows.length;
           // External fan-out (email all tiers, WhatsApp Growth+ — lib/notify
           // applies the per-gym toggles). Batched contact + gym lookups, then
           // bounded-parallel delivery capped so the run stays inside the 60s
           // budget even on a big platform day.
-          const fresh = due.filter((s) => !seen.has(`${s.member_id}:${s.id}`)).slice(0, 200);
-          const gymIds = [...new Set(fresh.map((s) => s.gym_id as string))];
-          const [{ data: contacts }, { data: gyms }] = await Promise.all([
-            // notification_email is the member's own opt-out. Without it the
-            // recipient is built with no `wantsEmail` and sendGymEmail treats
-            // absent as consent, so a member who switched renewal mail off
-            // kept receiving it.
-            admin.from('profiles').select('id, email, phone, full_name, notification_email').in('id', fresh.map((s) => s.member_id as string)),
-            // GYM_EMAIL_COLUMNS, not a hand-narrowed list: these mails carry
-            // the gym's logo, colour and subdomain. Without slug/logo_url/
-            // brand_color every automated renewal reminder went out dressed as
-            // GymFlow with a Renew button pointing at the apex host instead of
-            // the member's own tenant — exactly what emailTargets' comment
-            // warns about. Still its own select so it keeps its own filter.
-            admin.from('gyms').select(GYM_EMAIL_COLUMNS).in('id', gymIds)
-              .not('status', 'in', OFFLINE_GYM_FILTER),
-          ]);
           const contactById = new Map((contacts ?? []).map((c) => [c.id, c]));
           const gymById = new Map(((gyms ?? []) as unknown as NotifyGym[]).map((g) => [g.id, g]));
           await inSlices(fresh, 10, async (s) => {
@@ -193,13 +194,14 @@ export async function GET(req: Request) {
     try {
       const stamp = watDay(0);
       const billingUrl = platformAppUrl('/admin/billing');
-      const [{ data: ending }, { data: ended }] = await Promise.all([
+      const [{ data: ending, error: endingError }, { data: ended, error: endedError }] = await Promise.all([
         trialsEndingBetween(admin, watDay(3), watDay(4)),
         // Yesterday's bucket, not "any time before now": a trial ending at 22:00
         // Lagos today has not passed at the 09:00 run, and would otherwise be
         // declared over fourteen hours early.
         trialsEndingBetween(admin, watDay(-1), watDay(0)),
       ]);
+      if (endingError || endedError) throw new Error('Trial notice scan failed');
 
       type TrialGym = NonNullable<typeof ending>[number];
       const notices: Array<{ gym: TrialGym; kind: 'ending' | 'ended' }> = [
@@ -208,7 +210,7 @@ export async function GET(req: Request) {
       ];
 
       await inSlices(notices, 5, async ({ gym, kind }) => {
-        const to = await getGymOwnerEmails(admin, gym.id);
+        const to = await getGymOwnerEmails(admin, gym.id, { throwOnError: true });
         if (to.length === 0) return;
         const gymName = gymNameOf(gym);
         const trialEndDate = fmtDate(gym.trial_ends_at);
@@ -225,8 +227,9 @@ export async function GET(req: Request) {
           idempotencyKey: `trial_${kind}:${gym.id}:${stamp}`,
         });
         if (res.ok) trialNoticesSent++;
+        else if (!res.skipped) bestEffortWarnings++;
       });
-    } catch { /* one branch failing must not abort the rest of the run */ }
+    } catch { bestEffortWarnings++; }
   }
 
   // Today's classes, gym-branded, to the members holding a seat.
@@ -246,22 +249,25 @@ export async function GET(req: Request) {
   if (admin && process.env.RESEND_API_KEY) {
     try {
       const today = watDateISO();
-      const { data: bookings } = await admin.from('class_bookings')
+      const { data: bookings, error: bookingsError } = await admin.from('class_bookings')
         .select('member_id, gym_id, class_schedule_id')
         .eq('booking_date', today).eq('status', 'booked')
         .limit(2000);
+      if (bookingsError) throw new Error('Class digest booking scan failed');
       const held = (bookings ?? []).filter((b) => b.member_id && b.gym_id && b.class_schedule_id);
 
       if (held.length) {
         // Name, instructor and room live two tables away from the booking, both
         // fetched in one batch each rather than per seat.
-        const { data: scheds } = await admin.from('class_schedules')
-          .select('id, class_id, start_time, room')
+        const { data: scheds, error: schedsError } = await admin.from('class_schedules')
+          .select('id, gym_id, class_id, start_time, room')
           .in('id', [...new Set(held.map((b) => b.class_schedule_id as string))]);
+        if (schedsError) throw new Error('Class digest schedule lookup failed');
         const schedById = new Map((scheds ?? []).map((s) => [s.id, s]));
-        const { data: classes } = await admin.from('classes')
-          .select('id, name, instructor')
+        const { data: classes, error: classesError } = await admin.from('classes')
+          .select('id, gym_id, name, instructor')
           .in('id', [...new Set((scheds ?? []).map((s) => s.class_id).filter(Boolean) as string[])]);
+        if (classesError) throw new Error('Class digest class lookup failed');
         const classById = new Map((classes ?? []).map((c) => [c.id, c]));
 
         // Sorted on the raw column, before display formatting: start_time is 24h
@@ -269,32 +275,37 @@ export async function GET(req: Request) {
         // the member reads sorts the afternoon above the morning.
         const startOf = (scheduleId: string): string => schedById.get(scheduleId)?.start_time ?? '';
         const ordered = held
-          .filter((b) => schedById.has(b.class_schedule_id as string))
+          .filter((b) => schedById.get(b.class_schedule_id as string)?.gym_id === b.gym_id)
           .sort((a, b) => startOf(a.class_schedule_id as string).localeCompare(startOf(b.class_schedule_id as string)));
 
         // One digest per member, not one per booking: someone with three classes
         // today gets their day, not three separate emails.
-        const byMember = new Map<string, { gymId: string; classes: ClassFacts[] }>();
+        const byMemberGym = new Map<string, { memberId: string; gymId: string; classes: ClassFacts[] }>();
         for (const b of ordered) {
           const sched = schedById.get(b.class_schedule_id as string)!;
-          const cls = sched.class_id ? classById.get(sched.class_id) : null;
-          const entry = byMember.get(b.member_id as string) ?? { gymId: b.gym_id as string, classes: [] };
+          const candidate = sched.class_id ? classById.get(sched.class_id) : null;
+          const cls = candidate?.gym_id === b.gym_id ? candidate : null;
+          const memberId = b.member_id as string;
+          const gymId = b.gym_id as string;
+          const key = `${memberId}:${gymId}`;
+          const entry = byMemberGym.get(key) ?? { memberId, gymId, classes: [] };
           entry.classes.push({
             className: cls?.name ?? 'Class',
             time: fmt12Hr(sched.start_time),
             instructor: cls?.instructor ?? null,
             location: sched.room ?? null,
           });
-          byMember.set(b.member_id as string, entry);
+          byMemberGym.set(key, entry);
         }
 
         // Capped for the same reason the renewal fan-out is: this branch shares
         // a 60s budget with everything below it.
-        const digests = [...byMember.entries()].filter(([, d]) => d.classes.length > 0).slice(0, 500);
-        const { gymById, contactById } = await emailTargets(admin, digests.map(([, d]) => d.gymId), digests.map(([id]) => id));
+        const digests = [...byMemberGym.values()].filter((d) => d.classes.length > 0).slice(0, 500);
+        const { gymById, contactById } = await emailTargets(admin, digests.map((d) => d.gymId), digests.map((d) => d.memberId));
         const spec = MEMBER_TEMPLATES.classesToday;
 
-        await inSlices(digests, 5, async ([memberId, d]) => {
+        await inSlices(digests, 5, async (d) => {
+          const { memberId } = d;
           const gym = gymById.get(d.gymId);
           const contact = contactById.get(memberId);
           if (!gym || !contact?.email) return;
@@ -309,12 +320,13 @@ export async function GET(req: Request) {
               classes: d.classes,
               classesUrl: memberAppUrl(gym, '/classes'),
             }),
-            idempotencyKey: `classes_today:${memberId}:${today}`,
+            idempotencyKey: `classes_today:${memberId}:${d.gymId}:${today}`,
           });
           if (res.ok) classDigestsSent++;
+          else if (!res.skipped) bestEffortWarnings++;
         });
       }
-    } catch { /* the digest is a bonus channel; never abort the run for it */ }
+    } catch { bestEffortWarnings++; }
   }
 
   // Auto-resume freezes whose scheduled window has ended. The RPC owns the
@@ -379,8 +391,9 @@ export async function GET(req: Request) {
           idempotencyKey: `freeze_resumed:${r.memberId}:${r.newEndDate}`,
         });
         if (res.ok) freezeNoticesSent++;
+        else if (!res.skipped) bestEffortWarnings++;
       });
-    } catch { /* the resume already happened; the mail is best-effort */ }
+    } catch { bestEffortWarnings++; }
   }
 
   // Auto-close stale visits: a member who forgot to check out shouldn't
@@ -390,17 +403,19 @@ export async function GET(req: Request) {
   let staleVisitsClosed = 0;
   if (admin) {
     const sixHoursAgoIso = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-    const { data: stale } = await admin.from('check_ins')
+    const { data: stale, error: staleError } = await admin.from('check_ins')
       .select('id, checked_in_at')
       .eq('status', 'active').is('checked_out_at', null).lt('checked_in_at', sixHoursAgoIso)
       .limit(500);
+    if (staleError) throw new Error(`Stale visit scan failed: ${staleError.message}`);
     for (const v of stale ?? []) {
       if (!v.checked_in_at) continue;
       const closedAt = new Date(new Date(v.checked_in_at).getTime() + 6 * 60 * 60 * 1000).toISOString();
       const { error } = await admin.from('check_ins')
         .update({ checked_out_at: closedAt, status: 'completed' })
         .eq('id', v.id).is('checked_out_at', null);
-      if (!error) staleVisitsClosed++;
+      if (error) throw new Error(`Stale visit close failed: ${error.message}`);
+      staleVisitsClosed++;
     }
   }
 
@@ -410,9 +425,11 @@ export async function GET(req: Request) {
   // Best-effort.
   if (admin) {
     const stale = new Date(Date.now() - 2 * 86_400_000).toISOString();
-    await admin.from('rate_limits').delete().lt('window_start', stale);
+    const { error: rateLimitError } = await admin.from('rate_limits').delete().lt('window_start', stale);
+    if (rateLimitError) bestEffortWarnings++;
     const ledgerStale = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    await admin.from('webhook_events' as never).delete().lt('received_at', ledgerStale);
+    const { error: webhookGcError } = await admin.from('webhook_events' as never).delete().lt('received_at', ledgerStale);
+    if (webhookGcError) bestEffortWarnings++;
 
     // Two-factor leftovers. A challenge is dead 10 minutes after it is issued
     // and a trusted device at its expiry; both are kept a day past that purely
@@ -421,9 +438,12 @@ export async function GET(req: Request) {
     // both test expiry — so this is hygiene, not enforcement.
     const authStale = new Date(Date.now() - 86_400_000).toISOString();
     try {
-      await admin.from('auth_challenges' as never).delete().lt('expires_at', authStale);
-      await admin.from('trusted_devices' as never).delete().lt('expires_at', authStale);
-    } catch { /* housekeeping never fails the run */ }
+      const [{ error: challengeGcError }, { error: deviceGcError }] = await Promise.all([
+        admin.from('auth_challenges' as never).delete().lt('expires_at', authStale),
+        admin.from('trusted_devices' as never).delete().lt('expires_at', authStale),
+      ]);
+      if (challengeGcError || deviceGcError) bestEffortWarnings++;
+    } catch { bestEffortWarnings++; }
   }
 
   // Resend's delivery ledger: ops telemetry that answers "did the receipt
@@ -433,8 +453,9 @@ export async function GET(req: Request) {
   if (admin) {
     try {
       const eventsStale = new Date(Date.now() - 90 * 86_400_000).toISOString();
-      await admin.from('email_events' as never).delete().lt('created_at', eventsStale);
-    } catch { /* housekeeping never fails the run */ }
+      const { error } = await admin.from('email_events' as never).delete().lt('created_at', eventsStale);
+      if (error) bestEffortWarnings++;
+    } catch { bestEffortWarnings++; }
   }
 
   // WhatsApp housekeeping. Checkouts that were started and never finished are
@@ -447,19 +468,24 @@ export async function GET(req: Request) {
     try {
       intentsExpired = await expireStaleIntents(admin);
       const now = new Date().toISOString();
-      await admin.from('whatsapp_flow_sessions').delete().lt('expires_at', now);
-      await admin.from('whatsapp_email_otps').delete().lt('expires_at', now);
+      const { error: flowGcError } = await admin.from('whatsapp_flow_sessions').delete().lt('expires_at', now);
+      const { error: otpGcError } = await admin.from('whatsapp_email_otps').delete().lt('expires_at', now);
       // The message log is a support tool, not an archive. 180 days keeps a
       // full season of context without holding members' conversations forever.
       const msgStale = new Date(Date.now() - 180 * 86_400_000).toISOString();
-      await admin.from('whatsapp_messages').delete().lt('created_at', msgStale);
-    } catch { /* housekeeping never fails the run */ }
+      const { error: messageGcError } = await admin.from('whatsapp_messages').delete().lt('created_at', msgStale);
+      if (flowGcError || otpGcError || messageGcError) bestEffortWarnings++;
+    } catch { bestEffortWarnings++; }
   }
 
   if (admin) await markJobSucceeded(admin, 'notifications');
   return Response.json({
     ok: true, warmed: true, serviceRole: Boolean(admin),
     remindersCreated, trialNoticesSent, classDigestsSent, freezesResumed, freezeNoticesSent, staleVisitsClosed,
-    intentsExpired,
+    intentsExpired, bestEffortWarnings,
   });
+  } catch (error) {
+    if (admin) await markJobFailed(admin, 'notifications', error).catch(() => undefined);
+    return Response.json({ ok: false, error: 'notification cron failed', bestEffortWarnings }, { status: 500 });
+  }
 }

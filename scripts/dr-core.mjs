@@ -73,6 +73,16 @@ export function assertRestoreTargetBinding(apiUrl, databaseUrl) {
   const database = new URL(databaseUrl);
   const apiHost = api.hostname.toLowerCase();
   const databaseHost = database.hostname.toLowerCase();
+  if (!['http:', 'https:'].includes(api.protocol)) throw new Error('Supabase API URL must use HTTP or HTTPS.');
+  if (api.username || api.password || api.search || api.hash || !['', '/'].includes(api.pathname)) {
+    throw new Error('Supabase API URL must be a bare project origin without credentials, path, query, or fragment.');
+  }
+  if (!isLoopbackHost(apiHost) && api.protocol !== 'https:') {
+    throw new Error('Remote Supabase API URL must use HTTPS.');
+  }
+  // Validate the connection protocol, host, and database name before using its
+  // identity below. This is also the shape passed to libpq subprocesses.
+  postgresEnv(databaseUrl, {});
   if (isLoopbackHost(apiHost)) {
     if (!isLoopbackHost(databaseHost)) throw new Error('Database and API targets do not belong to the same isolated project.');
     return;

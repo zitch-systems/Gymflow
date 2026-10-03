@@ -3,6 +3,7 @@ import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDateTime } from '@/lib/format';
 import { requeuePaymentWebhook } from '@/lib/actions/operations';
+import { jobDisplayStatus, OPERATIONAL_JOB_SCHEDULES, type OperationalJobName } from '@/lib/operations-status';
 
 export const metadata = { title: 'Job health' };
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,14 @@ export default async function OperationsPage() {
   const backups = (backupRes.data ?? []) as unknown as Array<{
     gym_id: string; due_at: string; status: string; attempts: number; last_error: string | null; next_attempt_at: string;
   }>;
+  const jobsByName = new Map(jobs.map((job) => [job.job_name, job]));
+  const scheduledJobs = Object.keys(OPERATIONAL_JOB_SCHEDULES).map((jobName) => ({
+    jobName: jobName as OperationalJobName,
+    job: jobsByName.get(jobName),
+  }));
+  const unavailable = (message: string) => (
+    <div className="empty sm"><h3>Unavailable</h3><p>{message}</p></div>
+  );
 
   return (
     <>
@@ -54,18 +63,20 @@ export default async function OperationsPage() {
       <div className="grid-2">
         <div className="panel">
           <div className="panel-h"><div><h3>Scheduled jobs</h3><div className="sub">A missed success stays visible after logs expire</div></div><Activity size={18} /></div>
-          {jobs.map((job) => (
-            <div className="act-row" key={job.job_name}>
+          {jobsRes.error ? unavailable('Scheduled job state could not be loaded.') : scheduledJobs.map(({ jobName, job }) => {
+            const status = jobDisplayStatus(jobName, job);
+            return (
+            <div className="act-row" key={jobName}>
               <div className="ic"><RefreshCw strokeWidth={1.8} /></div>
-              <div className="m"><strong>{job.job_name.replace(/_/g, ' ')}</strong><small>Last success {when(job.last_succeeded_at)}{job.watermark ? ` · through ${when(job.watermark)}` : ''}</small>{job.last_error && <small style={{ color: 'var(--gf-danger)' }}>{job.last_error}</small>}</div>
-              <span className="t">{job.consecutive_failures ? `${job.consecutive_failures} failed` : 'Healthy'}</span>
+              <div className="m"><strong>{OPERATIONAL_JOB_SCHEDULES[jobName].label}</strong><small>Last success {when(job?.last_succeeded_at)}{job?.watermark ? ` · through ${when(job.watermark)}` : ''}</small>{job?.last_error && <small style={{ color: 'var(--gf-danger)' }}>{job.last_error}</small>}</div>
+              <span className="t" style={status.tone === 'danger' ? { color: 'var(--gf-danger)' } : undefined}>{status.label}</span>
             </div>
-          ))}
+          );})}
         </div>
 
         <div className="panel">
           <div className="panel-h"><div><h3>Backup queue</h3><div className="sub">Oldest due first; failed work backs off and retries</div></div><DatabaseBackup size={18} /></div>
-          {backups.length === 0 ? <div className="empty sm"><h3>Queue drained</h3><p>No gym backup is waiting.</p></div> : backups.map((job) => (
+          {backupRes.error ? unavailable('Backup queue state could not be loaded.') : backups.length === 0 ? <div className="empty sm"><h3>Queue drained</h3><p>No gym backup is waiting.</p></div> : backups.map((job) => (
             <div className="act-row" key={job.gym_id}>
               <div className="m"><strong>Gym {job.gym_id.slice(0, 8)}</strong><small>Due {when(job.due_at)} · {job.status} · attempt {job.attempts}</small>{job.last_error && <small style={{ color: 'var(--gf-danger)' }}>{job.last_error}</small>}</div>
             </div>
@@ -75,7 +86,7 @@ export default async function OperationsPage() {
 
       <div className="panel" style={{ marginTop: 16 }}>
         <div className="panel-h"><div><h3>Payment recovery queue</h3><div className="sub">Provider payloads stay restricted and are never rendered here</div></div><RefreshCw size={18} /></div>
-        {webhook.length === 0 ? <div className="empty sm"><h3>No stuck payment events</h3><p>Retry and repair work is clear.</p></div> : webhook.map((job) => (
+        {webhookRes.error ? unavailable('Payment recovery queue state could not be loaded.') : webhook.length === 0 ? <div className="empty sm"><h3>No stuck payment events</h3><p>Retry and repair work is clear.</p></div> : webhook.map((job) => (
           <div className="act-row" key={job.body_hash}>
             <div className="m"><strong>{job.event_name} · {job.reference ?? 'no reference'}</strong><small>{job.status} · attempt {job.attempts} · next {when(job.next_attempt_at)}</small>{job.last_error && <small style={{ color: 'var(--gf-danger)' }}>{job.last_error}</small>}</div>
             {job.status === 'dead' && <form action={requeuePaymentWebhook}><input type="hidden" name="body_hash" value={job.body_hash} /><button className="gf-btn gf-btn-secondary gf-btn-sm" type="submit">Verify &amp; retry</button></form>}
@@ -85,7 +96,7 @@ export default async function OperationsPage() {
 
       <div className="panel" style={{ marginTop: 16 }}>
         <div className="panel-h"><div><h3>Open incidents</h3><div className="sub">Repeated handled errors collapse into one incident with an attempt count</div></div><AlertTriangle size={18} /></div>
-        {incidents.length === 0 ? <div className="empty sm"><h3>No open incidents</h3><p>Handled operational errors will appear here.</p></div> : incidents.map((incident) => (
+        {incidentsRes.error ? unavailable('Open incident state could not be loaded.') : incidents.length === 0 ? <div className="empty sm"><h3>No open incidents</h3><p>Handled operational errors will appear here.</p></div> : incidents.map((incident) => (
           <div className="act-row" key={incident.id}>
             <div className="m"><strong>{incident.kind}</strong><small>{incident.reference ? `${incident.reference} · ` : ''}{incident.error}</small></div>
             <span className="t">{incident.attempts}× · {when(incident.last_seen_at)}</span>

@@ -36,6 +36,33 @@ Supabase documentation: https://supabase.com/docs/guides/auth/managing-user-data
 
 Use a reviewed, subject-scoped operational script against the current schema. Rehearse it on disposable fixtures first. Run database changes transactionally where possible, check affected counts and keep the before/after evidence in the restricted case. Do not use the old blanket SQL recipe: it did not cover all identifiers or processors and could leave a sign-in-capable account behind.
 
+Before approving a script, generate its database dependency inventory from the
+same schema revision that production is running. At minimum, enumerate every
+foreign key that reaches `public.profiles(id)` or `auth.users(id)`; review
+indirect subject keys (`member_id`, `user_id`, `instructor_id`, `staff_id`,
+email and phone columns) separately because a foreign-key-only scan cannot
+find them. The following query is read-only and safe to run on production:
+
+```sql
+select
+  con.conrelid::regclass as referencing_table,
+  pg_get_constraintdef(con.oid) as foreign_key
+from pg_constraint con
+where con.contype = 'f'
+  and con.confrelid in ('public.profiles'::regclass, 'auth.users'::regclass)
+order by con.conrelid::regclass::text, pg_get_constraintdef(con.oid);
+```
+
+Save the sanitized result with the case and compare it with the reviewed
+script. A script is stale if the current result contains an unclassified
+dependency. In the disposable rehearsal, create a unique test Auth identity,
+populate each applicable direct and indirect category, run the exact script in
+a transaction, and verify the identity cannot authenticate, non-retained rows
+and objects are absent, and retained rows match the approved inventory. Roll
+back database changes and delete the test identity, Storage objects, and any
+processor-side fixture afterward. Never reuse a real person's UUID, email,
+phone, payment authorization or message destination for this drill.
+
 The inventory must include at least:
 
 - Profile identity and contact fields, emergency/next-of-kin details, avatar/photo URLs and files, biography, health notes and their separate `profile_health_notes` / `profile_health_note_audit` data.

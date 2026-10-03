@@ -22,7 +22,7 @@ async function restoreStorage(manifest, staging, targetUrl, serviceKey) {
     const file = resolve(staging, object.file);
     if (!file.startsWith(resolve(staging, 'storage') + '/')) throw new Error('Manifest contains an unsafe Storage path.');
     const url = `${targetUrl}/storage/v1/object/${encodeURIComponent(object.bucket)}/${object.path.split('/').map(encodeURIComponent).join('/')}`;
-    const response = await fetch(url, { method: 'POST', headers, body: createReadStream(file), duplex: 'half' });
+    const response = await fetch(url, { method: 'POST', headers, body: createReadStream(file), duplex: 'half', redirect: 'error' });
     if (!response.ok) throw new Error(`Storage restore failed for ${object.bucket}/${object.path} (${response.status}).`);
     restored++;
   }

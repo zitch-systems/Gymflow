@@ -43,6 +43,29 @@ describe('isolated restore gate', () => {
     expect(() => assertRestoreTargetBinding('http://localhost:54321', 'postgresql://postgres:x@127.0.0.1:5432/postgres')).not.toThrow();
   });
 
+  it('requires HTTPS for a remote API while preserving local HTTP drills', () => {
+    expect(() => assertRestoreTargetBinding('http://targetref.supabase.co', 'postgresql://postgres:x@db.targetref.supabase.co/postgres')).toThrow(/HTTPS/);
+    expect(() => assertRestoreTargetBinding('http://127.0.0.1:54321', 'postgresql://postgres:x@localhost:5432/postgres')).not.toThrow();
+  });
+
+  it.each([
+    'ftp://targetref.supabase.co',
+    'https://user:secret@targetref.supabase.co',
+    'https://targetref.supabase.co/storage/v1',
+    'https://targetref.supabase.co?apikey=secret',
+    'https://targetref.supabase.co#secret',
+  ])('rejects a non-canonical API origin: %s', (apiUrl) => {
+    expect(() => assertRestoreTargetBinding(apiUrl, 'postgresql://postgres:x@db.targetref.supabase.co/postgres')).toThrow(/API URL|project origin/);
+  });
+
+  it.each([
+    'https://postgres:x@db.targetref.supabase.co/postgres',
+    'ftp://postgres:x@db.targetref.supabase.co/postgres',
+    'postgresql://postgres:x@db.targetref.supabase.co',
+  ])('rejects a non-Postgres database URL or missing database name: %s', (databaseUrl) => {
+    expect(() => assertRestoreTargetBinding('https://targetref.supabase.co', databaseUrl)).toThrow(/Database URL/);
+  });
+
   it.each([
     'postgresql://postgres:x@db.evil-targetref.supabase.co/postgres',
     'postgresql://postgres:x@db.targetref.supabase.co.evil.test/postgres',

@@ -18,8 +18,9 @@ type UserRole = Database['public']['Enums']['user_role'];
 //
 // Service-role is required, not incidental: a manager cannot read the owner's
 // staff link under RLS, and cron/webhook paths have no user session at all.
-// Every function fails soft (null / empty array) so a lookup failure degrades to
-// "no email sent" rather than throwing inside a payment webhook.
+// Recipient lists fail soft by default (empty array) so a lookup failure does
+// not throw inside a payment webhook. Scheduled jobs opt into throwOnError so
+// they can record the missed lookup as an operational warning.
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -89,13 +90,20 @@ export async function getContact(admin: Admin, profileId: string): Promise<Email
 
 /** Contacts for many profiles in one round-trip — used by class-cancellation and
  *  reminder fan-outs, which would otherwise issue a query per member. */
-export async function getContacts(admin: Admin, profileIds: string[]): Promise<EmailContact[]> {
+type RecipientLookupOptions = { throwOnError?: boolean };
+
+export async function getContacts(
+  admin: Admin,
+  profileIds: string[],
+  options: RecipientLookupOptions = {},
+): Promise<EmailContact[]> {
   const ids = [...new Set(profileIds.filter(Boolean))];
   if (ids.length === 0) return [];
-  const { data } = await admin
+  const { data, error } = await admin
     .from('profiles')
     .select('id, email, full_name, phone, notification_email')
     .in('id', ids);
+  if (error && options.throwOnError) throw new Error(`Contact lookup failed: ${error.message}`);
   return ((data ?? []) as Array<{ id: string; email: string | null; full_name: string | null; phone: string | null; notification_email: boolean | null }>)
     .map((r) => ({ id: r.id, email: r.email, fullName: r.full_name, phone: r.phone, wantsEmail: r.notification_email !== false }));
 }
@@ -108,17 +116,23 @@ export async function getContacts(admin: Admin, profileIds: string[]): Promise<E
  * everything GymFlow sends a gym: platform receipts, trial expiry, payout
  * changes, freeze requests.
  */
-export async function getGymOwnerEmails(admin: Admin, gymId: string): Promise<string[]> {
-  const { data: links } = await admin
+export async function getGymOwnerEmails(
+  admin: Admin,
+  gymId: string,
+  options: RecipientLookupOptions = {},
+): Promise<string[]> {
+  const { data: links, error: linksError } = await admin
     .from('gym_staff_links')
     .select('user_id')
     .eq('gym_id', gymId)
     .eq('role', 'gym_owner')
     .eq('is_active', true);
+  if (linksError && options.throwOnError) throw new Error(`Gym owner lookup failed: ${linksError.message}`);
   const ownerIds = [...new Set(((links ?? []) as { user_id: string | null }[])
     .map((l) => l.user_id).filter(Boolean) as string[])];
   if (ownerIds.length === 0) return [];
-  const { data: profiles } = await admin.from('profiles').select('id, email').in('id', ownerIds);
+  const { data: profiles, error: profilesError } = await admin.from('profiles').select('id, email').in('id', ownerIds);
+  if (profilesError && options.throwOnError) throw new Error(`Gym owner profile lookup failed: ${profilesError.message}`);
   return [...new Set(((profiles ?? []) as { id: string; email: string | null }[])
     .map((p) => p.email).filter(Boolean) as string[])];
 }
