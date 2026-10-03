@@ -1,17 +1,37 @@
 import { spawnSync } from 'node:child_process';
 
-// These are the only advisories left in Expo SDK 57's locked production graph.
+// These are the only advisories left in Expo SDK 57 / React Native 0.86's
+// locked production graph. Both affected leaf packages are reached through
+// Expo/Metro build tooling and have no patched npm release yet (braces 3.0.3
+// and node-forge 1.4.0). The Android bundle audit separately proves they are
+// absent from the shipped JavaScript bundle.
 // Keep this narrow: a new advisory, package chain, or critical severity must
 // fail CI even though npm exits non-zero for the explicitly reviewed findings.
 const reviewedPackages = new Map([
   ['@expo/cli', 'high'],
   ['@expo/code-signing-certificates', 'high'],
+  ['@expo/metro', 'high'],
+  ['@expo/metro-config', 'high'],
+  ['@expo/metro-file-map', 'high'],
+  ['@react-native/community-cli-plugin', 'high'],
+  ['@react-native/metro-config', 'high'],
+  ['@react-native/virtualized-lists', 'high'],
+  ['braces', 'high'],
   ['expo', 'high'],
+  ['metro', 'high'],
+  ['metro-config', 'high'],
+  ['metro-file-map', 'high'],
+  ['metro-transform-worker', 'high'],
+  ['micromatch', 'high'],
   ['node-forge', 'high'],
+  ['react-native', 'high'],
+  ['react-native-reanimated', 'high'],
+  ['react-native-worklets', 'high'],
 ]);
 
 const reviewedDirectAdvisories = new Set([
   'https://github.com/advisories/GHSA-86w9-cpqp-85rv',
+  'https://github.com/advisories/GHSA-vfj7-8cjw-p6xm',
 ]);
 
 const result = spawnSync('npm', ['audit', '--omit=dev', '--json'], {
@@ -62,7 +82,7 @@ if (unexpected.length > 0) {
 }
 
 console.log(
-  `Reviewed residual production audit: ${vulnerabilities.high ?? 0} high, ` +
+  `UNRESOLVED reviewed production audit: ${vulnerabilities.high ?? 0} high, ` +
     `${vulnerabilities.moderate ?? 0} moderate, 0 critical across ` +
     `${Object.keys(findings).length} package-chain findings.`,
 );

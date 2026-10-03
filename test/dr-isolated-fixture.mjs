@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { Client } from 'pg';
@@ -29,10 +29,13 @@ function run(command, args, env = process.env) {
 
 function runExpectingFailure(command, args, env = process.env) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawn(command, args, { env, stdio: ['ignore', 'ignore', 'ignore'] });
+    let stderr = '';
+    const child = spawn(command, args, { env, stdio: ['ignore', 'ignore', 'pipe'] });
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
     child.on('error', reject);
     child.on('exit', (code) => code && code !== 0
-      ? resolvePromise()
+      ? resolvePromise(stderr)
       : reject(new Error(`${command} unexpectedly succeeded`)));
   });
 }
@@ -127,6 +130,26 @@ try {
   const artifact = resolve(staging, 'fixture.tgz.enc');
   const common = { ...process.env, DR_BACKUP_PASSPHRASE: passphrase };
 
+  // Exercise the production backup entrypoint with a deliberately mixed
+  // source. An empty PATH makes any accidental pg_dump attempt fail with a
+  // different error, while the unreachable API makes network access unable to
+  // produce the expected binding message. No output file may be created.
+  const mixedArtifact = resolve(staging, 'mixed-source-must-not-exist.tgz.enc');
+  const mixedError = await runExpectingFailure(process.execPath, ['scripts/dr-backup.mjs', '--output', mixedArtifact], {
+    ...common,
+    PATH: '',
+    SUPABASE_DB_URL: sourceUrl.toString(),
+    NEXT_PUBLIC_SUPABASE_URL: 'https://differentproject.supabase.co',
+    SUPABASE_SERVICE_ROLE_KEY: serviceKey,
+  });
+  if (!mixedError.includes('Database and API targets do not belong to the same isolated project.')) {
+    throw new Error(`Mixed-source backup failed for the wrong reason: ${mixedError.trim()}`);
+  }
+  await access(mixedArtifact).then(
+    () => { throw new Error('Mixed-source backup created an artifact before refusing the source.'); },
+    (error) => { if (error?.code !== 'ENOENT') throw error; },
+  );
+
   await run(process.execPath, ['scripts/dr-backup.mjs', '--output', artifact], {
     ...common, SUPABASE_DB_URL: sourceUrl.toString(),
     NEXT_PUBLIC_SUPABASE_URL: `http://127.0.0.1:${address.port}`,
@@ -164,7 +187,7 @@ try {
   if (encrypted.includes(Buffer.from('fixture@example.invalid')) || encrypted.includes(Buffer.from('synthetic storage object'))) {
     throw new Error('Encrypted artifact exposed fixture plaintext.');
   }
-  console.log('Isolated DR entrypoints passed: database=1 Auth=1 Storage metadata=1 object=1; verification made no writes.');
+  console.log('Isolated DR entrypoints passed: mixed source refused before I/O; database=1 Auth=1 Storage metadata=1 object=1; verification made no writes.');
 } finally {
   // Attempt every cleanup even if an earlier one fails. In particular, a
   // temporary-file error must never leave fixture databases behind.

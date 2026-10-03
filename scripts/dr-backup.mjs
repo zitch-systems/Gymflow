@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createWriteStream } from 'node:fs';
-import { DR_FORMAT, encryptArchive, postgresEnv } from './dr-core.mjs';
+import { DR_FORMAT, assertRestoreTargetBinding, encryptArchive, postgresEnv } from './dr-core.mjs';
 
 const REQUIRED_SECRETS = [
   'SUPABASE_SERVICE_ROLE_KEY', 'PAYSTACK_SECRET_KEY', 'CRON_SECRET',
@@ -69,6 +69,13 @@ export async function main() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const passphrase = process.env.DR_BACKUP_PASSPHRASE;
   if (!dbUrl || !baseUrl || !serviceKey || !passphrase) throw new Error('SUPABASE_DB_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and DR_BACKUP_PASSPHRASE are required.');
+
+  // A mixed set of credentials would create an internally inconsistent
+  // artifact (database/Auth from one project, Storage from another). Worse,
+  // its manifest would name the Storage project as the source, weakening the
+  // restore guard for the real database source. Bind both inputs before the
+  // first read so a copied or stale environment fails closed.
+  assertRestoreTargetBinding(baseUrl, dbUrl);
 
   const staging = await mkdtemp(resolve(tmpdir(), 'gymflow-dr-'));
   try {

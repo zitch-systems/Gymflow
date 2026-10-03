@@ -6,6 +6,24 @@ import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 
 const SAFE_LABEL = /^[a-z0-9][a-z0-9_.:-]{0,79}$/;
+const INCIDENT_KINDS = new Map([
+  ['reconciliation: Paystack charges missing locally', 'provider_charge_missing_locally'],
+  ['reconciliation: local references unknown at Paystack', 'local_reference_unknown_at_provider'],
+  ['reconciliation sweep failed', 'reconciliation_sweep_failed'],
+  ['paystack recovery requires operator repair', 'webhook_operator_repair'],
+  ['refund entitlement allocation requires review', 'refund_allocation_review'],
+  ['platform billing: superseded Paystack subscription could not be disabled', 'superseded_subscription_active'],
+  ['platform billing: settled charge was already fully refunded', 'settled_charge_refunded'],
+  ['legacy member charge below current plan price', 'legacy_charge_price_mismatch'],
+  ['member auto-renew initialization not confirmed', 'auto_renew_initialization_unconfirmed'],
+  ['gym backup queue is overdue', 'gym_backup_queue_overdue'],
+  ['gym backup failed', 'gym_backup_failed'],
+  ['gym backup completed with problems', 'gym_backup_partial'],
+]);
+
+export function incidentKind(value) {
+  return INCIDENT_KINDS.get(value) ?? 'unclassified_incident';
+}
 
 export function safeLabel(value, fallback = 'unclassified') {
   const normalized = String(value ?? '').trim().toLowerCase();
@@ -44,8 +62,15 @@ export async function operationsSnapshot(client) {
         last_succeeded_at, watermark, consecutive_failures, last_error is not null as has_error,
         last_error
       from public.operational_job_state order by job_name`);
-    const incidents = await client.query(`select kind, error, attempts, first_seen_at, last_seen_at
-      from public.operational_incidents where resolved_at is null order by kind, last_seen_at`);
+    const incidents = await client.query(`select i.kind, i.error, i.attempts, i.first_seen_at, i.last_seen_at,
+        i.reference is not null as has_reference,
+        case when i.context->>'count' ~ '^[0-9]{1,9}$' then (i.context->>'count')::integer else null end as affected_count,
+        exists(select 1 from public.payments p where p.paystack_reference=i.reference) as member_payment_exists,
+        exists(select 1 from public.platform_payments p where p.paystack_reference=i.reference) as platform_payment_exists,
+        exists(select 1 from public.paystack_reconciliation_refs r where r.reference=i.reference) as provider_reference_observed,
+        exists(select 1 from public.payment_webhook_jobs j where j.reference=i.reference and j.status='completed') as recovery_completed,
+        exists(select 1 from public.payment_webhook_jobs j where j.reference=i.reference and j.status<>'completed') as recovery_pending
+      from public.operational_incidents i where i.resolved_at is null order by i.kind, i.last_seen_at`);
     const queues = await client.query(`select
       (select count(*) from public.payment_webhook_jobs where status in ('queued','retry') and next_attempt_at <= now()) as webhook_due,
       (select count(*) from public.payment_webhook_jobs where status='processing') as webhook_processing,
@@ -91,13 +116,21 @@ export async function operationsSnapshot(client) {
 
     const incidentGroups = new Map();
     for (const row of incidents.rows) {
-      const key = `${safeLabel(row.kind, 'unsafe_kind')}|${errorClass(row.error)}`;
+      const key = `${incidentKind(row.kind)}|${errorClass(row.error)}`;
       const existing = incidentGroups.get(key) ?? {
-        kind: safeLabel(row.kind, 'unsafe_kind'), error_class: errorClass(row.error), open_count: 0,
+        kind: incidentKind(row.kind), error_class: errorClass(row.error), open_count: 0,
         total_attempts: 0, first_seen_at: row.first_seen_at, last_seen_at: row.last_seen_at,
+        affected_count: 0, with_reference: 0, with_member_payment: 0, with_platform_payment: 0,
+        with_provider_reference_observed: 0, with_recovery_completed: 0, with_recovery_pending: 0,
       };
       existing.open_count += 1;
       existing.total_attempts += count(row.attempts);
+      existing.affected_count += count(row.affected_count ?? 0);
+      for (const [field, source] of [
+        ['with_reference', 'has_reference'], ['with_member_payment', 'member_payment_exists'],
+        ['with_platform_payment', 'platform_payment_exists'], ['with_provider_reference_observed', 'provider_reference_observed'],
+        ['with_recovery_completed', 'recovery_completed'], ['with_recovery_pending', 'recovery_pending'],
+      ]) if (row[source] === true) existing[field] += 1;
       if (new Date(row.first_seen_at) < new Date(existing.first_seen_at)) existing.first_seen_at = row.first_seen_at;
       if (new Date(row.last_seen_at) > new Date(existing.last_seen_at)) existing.last_seen_at = row.last_seen_at;
       incidentGroups.set(key, existing);

@@ -20,6 +20,7 @@ if (maps.length === 0) {
 
 const excludedBuildPackages = [
   '/node_modules/@expo/code-signing-certificates/',
+  '/node_modules/braces/',
   '/node_modules/image-size/',
   '/node_modules/node-forge/',
   '/node_modules/xcode/',

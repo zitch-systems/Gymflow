@@ -110,6 +110,15 @@ pnpm dr:backup -- --output ./gymflow-dr-$(date +%F).tgz.enc
 pnpm dr:verify -- --archive ./gymflow-dr-2026-10-02.tgz.enc
 ```
 
+The backup command proves that `SUPABASE_DB_URL` and
+`NEXT_PUBLIC_SUPABASE_URL` identify the same project before reading either
+source. Direct database hosts must contain the exact project ref; Supavisor
+pooler connections must use the exact `postgres.<project-ref>` username.
+Loopback API and database hosts are accepted only for disposable local drills.
+This prevents a stale shell from combining one project's database/Auth rows
+with another project's Storage objects or recording the wrong source project
+in the restore guard.
+
 The artifact format is `GFDR0001`: a gzip tar encrypted with AES-256-GCM. The
 key is derived with scrypt (`N=131072, r=8, p=1`), with a fresh 16-byte salt and
 12-byte IV per artifact; the 16-byte GCM tag authenticates the full archive.
@@ -311,4 +320,10 @@ Supabase dashboard:
 
 | Date | Operator | Outcome |
 |---|---|---|
-| _none yet_ | | |
+| 2026-10-02 | automated CI fixture | Synthetic CLI drill passed: encrypted data-only database/Auth/Storage-metadata dump, object download/upload, verification-only no-write check, missing-ack refusal, and disposable PostgreSQL restore. This is not a production snapshot restore and does not measure RTO/RPO. |
+
+The first production-derived rehearsal still requires a current encrypted
+artifact and a throwaway Supabase project. Record the artifact timestamp,
+restore start/end, source-to-artifact lag (measured RPO), restored row/object
+counts, Auth sign-in checks, provider/config checks, and cleanup evidence. A
+schema-only test database or the synthetic CI fixture cannot close that gap.

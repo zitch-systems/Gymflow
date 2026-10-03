@@ -49,7 +49,7 @@ describe('account deletion queue policy', () => {
       expect(after).toEqual(before);
     });
   });
-  it('keeps the durable request when the Auth identity is deleted', async () => {
+  it('erases an empty Auth identity while preserving its receipt/event and denying another account access', async () => {
     await asSuperuser(async (db) => {
       await db.query('begin');
       try {
@@ -58,8 +58,24 @@ describe('account deletion queue policy', () => {
         const subject = 'b3333333-3333-3333-3333-333333333333';
         await db.query('insert into auth.users (id, email) values ($1, $2)', [subject, 'empty-deletion-fixture@example.test']);
         const created = (await db.query('insert into public.account_deletion_requests (subject_id) values ($1) returning id', [subject])).rows[0];
+        await db.query(
+          `insert into public.account_deletion_events (request_id, actor_id, previous_status, new_status)
+           values ($1, $2, 'pending', 'processing')`,
+          [created.id, IDS.ownerA],
+        );
         await db.query('delete from auth.users where id=$1', [subject]);
+        expect((await db.query('select id from auth.users where id=$1', [subject])).rowCount).toBe(0);
+        expect((await db.query('select id from public.profiles where id=$1', [subject])).rowCount).toBe(0);
         expect((await db.query('select id from public.account_deletion_requests where subject_id=$1', [subject])).rows).toEqual([{ id: created.id }]);
+        expect((await db.query('select new_status from public.account_deletion_events where request_id=$1', [created.id])).rows).toEqual([{ new_status: 'processing' }]);
+
+        // Model a different signed-in client after the erased account can no
+        // longer obtain a verified Auth identity. The durable receipt remains
+        // service-visible but cannot be discovered through subject RLS.
+        await db.query(`select set_config('request.jwt.claim.sub', $1, true)`, [IDS.ownerB]);
+        await db.query(`set local role authenticated`);
+        expect((await db.query('select id from public.account_deletion_requests where id=$1', [created.id])).rows).toEqual([]);
+        await db.query('reset role');
       } finally { await db.query('rollback'); }
     });
   });

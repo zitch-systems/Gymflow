@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { errorClass, operationsSnapshot, safeLabel } from '../scripts/operations-audit.mjs';
+import { errorClass, incidentKind, operationsSnapshot, safeLabel } from '../scripts/operations-audit.mjs';
 
 describe('operations audit output safety', () => {
   it('classifies errors without returning their sensitive text', () => {
@@ -11,6 +11,8 @@ describe('operations audit output safety', () => {
   it('accepts catalog labels and replaces unsafe labels', () => {
     expect(safeLabel('paystack_reconciliation')).toBe('paystack_reconciliation');
     expect(safeLabel('customer@example.com')).toBe('unclassified');
+    expect(incidentKind('reconciliation: Paystack charges missing locally')).toBe('provider_charge_missing_locally');
+    expect(incidentKind('provider failed for private-customer-reference')).toBe('unclassified_incident');
   });
 
   it('uses a read-only transaction, emits aggregates, and always rolls back', async () => {
@@ -18,7 +20,8 @@ describe('operations audit output safety', () => {
       [], [], [], [],
       [{ job_name: 'notifications', last_started_at: null, last_heartbeat_at: null, last_succeeded_at: null,
         watermark: null, consecutive_failures: '2', has_error: true, last_error: 'timeout ref-secret' }],
-      [{ kind: 'webhook_failure', error: 'provider failed ref-secret', attempts: '3',
+      [{ kind: 'paystack recovery requires operator repair', error: 'provider failed ref-secret', attempts: '3',
+        has_reference: true, member_payment_exists: true, affected_count: '1', recovery_pending: true,
         first_seen_at: '2026-10-01T00:00:00Z', last_seen_at: '2026-10-02T00:00:00Z' }],
       [{ webhook_due: '1', webhook_processing: '0', webhook_dead: '0', webhook_oldest: null,
         backup_due: '0', backup_processing: '0', backup_oldest_due: '2026-10-02T00:00:00Z' }],
@@ -32,7 +35,8 @@ describe('operations audit output safety', () => {
     expect(query.mock.calls[0][0]).toBe('begin read only');
     expect(query.mock.calls.at(-1)?.[0]).toBe('rollback');
     expect(snapshot.jobs[0]).toMatchObject({ job_name: 'notifications', consecutive_failures: 2, error_class: 'timeout' });
-    expect(snapshot.incidents[0]).toMatchObject({ kind: 'webhook_failure', error_class: 'provider', open_count: 1, total_attempts: 3 });
+    expect(snapshot.incidents[0]).toMatchObject({ kind: 'webhook_operator_repair', error_class: 'provider', open_count: 1, total_attempts: 3,
+      with_reference: 1, with_member_payment: 1, affected_count: 1, with_recovery_pending: 1, with_recovery_completed: 0 });
     expect(snapshot.unallocated_member_payments[0].payment_count).toBe(10);
     expect(snapshot.queues.backup_oldest_due).toBe('2026-10-02T00:00:00Z');
     expect(JSON.stringify(snapshot)).not.toContain('ref-secret');
