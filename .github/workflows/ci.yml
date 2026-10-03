@@ -144,6 +144,12 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: node scripts/operations-audit.mjs
 
+      - name: Preview fully evidenced incident resolutions (read only)
+        if: steps.gate.outputs.on == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/resolve-recovered-incidents.mjs
+
       - name: Diff schema fingerprints (shadow vs live)
         if: steps.gate.outputs.on == 'true'
         env:
@@ -416,6 +422,16 @@ jobs:
 
       - name: Verify the production mobile API and account deletion entry
         run: node scripts/verify-mobile-release.mjs https://www.gymflow.ng
+
+      - name: Resolve incidents with complete recovery evidence
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/resolve-recovered-incidents.mjs --apply
+
+      - name: Verify operational state after deployment
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/operations-audit.mjs
 
       - name: Remove temporary audit configuration
         if: always()

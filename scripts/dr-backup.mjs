@@ -25,7 +25,7 @@ function run(command, args, options = {}) {
 
 async function storageObjects(baseUrl, key, staging) {
   const headers = { authorization: `Bearer ${key}`, apikey: key, 'content-type': 'application/json' };
-  const bucketsRes = await fetch(`${baseUrl}/storage/v1/bucket`, { headers });
+  const bucketsRes = await fetch(`${baseUrl}/storage/v1/bucket`, { headers, redirect: 'error' });
   if (!bucketsRes.ok) throw new Error(`Storage bucket list failed (${bucketsRes.status}).`);
   const buckets = await bucketsRes.json();
   const objects = [];
@@ -37,7 +37,7 @@ async function storageObjects(baseUrl, key, staging) {
       let offset = 0;
       for (;;) {
         const listed = await fetch(`${baseUrl}/storage/v1/object/list/${encodeURIComponent(bucket.id)}`, {
-          method: 'POST', headers,
+          method: 'POST', headers, redirect: 'error',
           body: JSON.stringify({ prefix, limit: 100, offset, sortBy: { column: 'name', order: 'asc' } }),
         });
         if (!listed.ok) throw new Error(`Storage object list failed for ${bucket.id} (${listed.status}).`);
@@ -48,7 +48,7 @@ async function storageObjects(baseUrl, key, staging) {
           const local = `storage/${Buffer.from(bucket.id).toString('base64url')}/${Buffer.from(objectPath).toString('base64url')}`;
           const absolute = resolve(staging, local);
           await mkdir(dirname(absolute), { recursive: true, mode: 0o700 });
-          const downloaded = await fetch(`${baseUrl}/storage/v1/object/authenticated/${encodeURIComponent(bucket.id)}/${objectPath.split('/').map(encodeURIComponent).join('/')}`, { headers });
+          const downloaded = await fetch(`${baseUrl}/storage/v1/object/authenticated/${encodeURIComponent(bucket.id)}/${objectPath.split('/').map(encodeURIComponent).join('/')}`, { headers, redirect: 'error' });
           if (!downloaded.ok || !downloaded.body) throw new Error(`Storage download failed for ${bucket.id}/${objectPath} (${downloaded.status}).`);
           await pipeline(Readable.fromWeb(downloaded.body), createWriteStream(absolute, { mode: 0o600 }));
           objects.push({ bucket: bucket.id, path: objectPath, file: local });

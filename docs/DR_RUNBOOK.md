@@ -119,6 +119,12 @@ This prevents a stale shell from combining one project's database/Auth rows
 with another project's Storage objects or recording the wrong source project
 in the restore guard.
 
+Remote API endpoints must be a bare HTTPS project origin: no credentials,
+path, query, or fragment are accepted. Database endpoints must use PostgreSQL
+and name a database. Storage backup and restore requests refuse redirects so a
+project or proxy response cannot forward the service-role API key to another
+origin. Disposable loopback drills may use HTTP; remote projects may not.
+
 The artifact format is `GFDR0001`: a gzip tar encrypted with AES-256-GCM. The
 key is derived with scrypt (`N=131072, r=8, p=1`), with a fresh 16-byte salt and
 12-byte IV per artifact; the 16-byte GCM tag authenticates the full archive.

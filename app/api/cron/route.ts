@@ -56,7 +56,7 @@ async function emailTargets(admin: Admin, gymIds: string[], memberIds: string[])
     // subdomain — a subdomain whose landing page now 404s.
     admin.from('gyms').select(GYM_EMAIL_COLUMNS).in('id', [...new Set(gymIds)])
       .not('status', 'in', OFFLINE_GYM_FILTER),
-    getContacts(admin, memberIds),
+    getContacts(admin, memberIds, { throwOnError: true }),
   ]);
   if (gymsError) throw new Error(`Email gym lookup failed: ${gymsError.message}`);
   return {
@@ -210,7 +210,7 @@ export async function GET(req: Request) {
       ];
 
       await inSlices(notices, 5, async ({ gym, kind }) => {
-        const to = await getGymOwnerEmails(admin, gym.id);
+        const to = await getGymOwnerEmails(admin, gym.id, { throwOnError: true });
         if (to.length === 0) return;
         const gymName = gymNameOf(gym);
         const trialEndDate = fmtDate(gym.trial_ends_at);
@@ -227,6 +227,7 @@ export async function GET(req: Request) {
           idempotencyKey: `trial_${kind}:${gym.id}:${stamp}`,
         });
         if (res.ok) trialNoticesSent++;
+        else if (!res.skipped) bestEffortWarnings++;
       });
     } catch { bestEffortWarnings++; }
   }
@@ -322,6 +323,7 @@ export async function GET(req: Request) {
             idempotencyKey: `classes_today:${memberId}:${d.gymId}:${today}`,
           });
           if (res.ok) classDigestsSent++;
+          else if (!res.skipped) bestEffortWarnings++;
         });
       }
     } catch { bestEffortWarnings++; }
@@ -389,6 +391,7 @@ export async function GET(req: Request) {
           idempotencyKey: `freeze_resumed:${r.memberId}:${r.newEndDate}`,
         });
         if (res.ok) freezeNoticesSent++;
+        else if (!res.skipped) bestEffortWarnings++;
       });
     } catch { bestEffortWarnings++; }
   }

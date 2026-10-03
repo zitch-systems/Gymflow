@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
   admin: null as unknown, responder: vi.fn(), gym: vi.fn(), platform: vi.fn(), reminder: vi.fn(),
-  started: vi.fn(), succeeded: vi.fn(), failed: vi.fn(), contacts: vi.fn(), classesToday: vi.fn(),
+  started: vi.fn(), succeeded: vi.fn(), failed: vi.fn(), contacts: vi.fn(), owners: vi.fn(), classesToday: vi.fn(),
 }));
 
 function query(table: string) {
@@ -30,7 +30,7 @@ vi.mock('@/lib/notify', () => ({
   inSlices: async (items: unknown[], _size: number, fn: (item: unknown) => Promise<void>) => { for (const item of items) await fn(item); },
 }));
 vi.mock('@/lib/email/recipients', () => ({
-  adminOrNull: () => h.admin, getContacts: h.contacts, getGymOwnerEmails: vi.fn(async () => []), GYM_EMAIL_COLUMNS: 'id,name',
+  adminOrNull: () => h.admin, getContacts: h.contacts, getGymOwnerEmails: h.owners, GYM_EMAIL_COLUMNS: 'id,name',
 }));
 vi.mock('@/lib/operational-jobs', () => ({
   markJobStarted: h.started, markJobSucceeded: h.succeeded, markJobFailed: h.failed,
@@ -55,7 +55,9 @@ describe('notifications cron correctness controls', () => {
     h.succeeded.mockResolvedValue(undefined);
     h.failed.mockResolvedValue(undefined);
     h.contacts.mockResolvedValue([]);
+    h.owners.mockResolvedValue([]);
     h.gym.mockResolvedValue({ ok: true });
+    h.platform.mockResolvedValue({ ok: true });
     h.classesToday.mockImplementation((facts) => ({ subject: 'Classes', html: JSON.stringify(facts.classes), text: JSON.stringify(facts.classes) }));
   });
 
@@ -82,6 +84,57 @@ describe('notifications cron correctness controls', () => {
     expect(await response.json()).toMatchObject({ ok: true, bestEffortWarnings: 1 });
     expect(h.succeeded).toHaveBeenCalledOnce();
     expect(h.failed).not.toHaveBeenCalled();
+  });
+
+  it('requests strict recipient lookups for optional email branches', async () => {
+    h.contacts.mockRejectedValueOnce(new Error('recipient database unavailable'));
+    h.responder.mockImplementation((table: string) => {
+      if (table === 'class_bookings') return { data: [
+        { member_id: 'member-1', gym_id: 'gym-a', class_schedule_id: 'sched-a' },
+      ], error: null };
+      if (table === 'class_schedules') return { data: [
+        { id: 'sched-a', gym_id: 'gym-a', class_id: 'class-a', start_time: '08:00:00', room: null },
+      ], error: null };
+      if (table === 'classes') return { data: [
+        { id: 'class-a', gym_id: 'gym-a', name: 'Yoga', instructor: null },
+      ], error: null };
+      return { data: [], error: null };
+    });
+    const { GET } = await import('../app/api/cron/route');
+    const response = await GET(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ bestEffortWarnings: 1, classDigestsSent: 0 });
+    expect(h.contacts).toHaveBeenCalledWith(expect.anything(), ['member-1'], { throwOnError: true });
+  });
+
+  it('warns on provider email failures but not intentional skips', async () => {
+    h.responder.mockImplementation((table: string, state: { columns?: string }) => {
+      if (table === 'class_bookings') return { data: [
+        { member_id: 'member-1', gym_id: 'gym-a', class_schedule_id: 'sched-a' },
+        { member_id: 'member-2', gym_id: 'gym-a', class_schedule_id: 'sched-b' },
+      ], error: null };
+      if (table === 'class_schedules') return { data: [
+        { id: 'sched-a', gym_id: 'gym-a', class_id: 'class-a', start_time: '08:00:00', room: null },
+        { id: 'sched-b', gym_id: 'gym-a', class_id: 'class-b', start_time: '09:00:00', room: null },
+      ], error: null };
+      if (table === 'classes') return { data: [
+        { id: 'class-a', gym_id: 'gym-a', name: 'Yoga', instructor: null },
+        { id: 'class-b', gym_id: 'gym-a', name: 'Spin', instructor: null },
+      ], error: null };
+      if (table === 'gyms' && state.columns === 'id,name') return { data: [{ id: 'gym-a', name: 'Gym A' }], error: null };
+      return { data: [], error: null };
+    });
+    h.contacts.mockResolvedValue([
+      { id: 'member-1', email: 'one@test.invalid', fullName: 'One', wantsEmail: true },
+      { id: 'member-2', email: 'two@test.invalid', fullName: 'Two', wantsEmail: true },
+    ]);
+    h.gym
+      .mockResolvedValueOnce({ ok: false, error: 'provider unavailable' })
+      .mockResolvedValueOnce({ ok: false, skipped: true });
+    const { GET } = await import('../app/api/cron/route');
+    const response = await GET(request());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ bestEffortWarnings: 1, classDigestsSent: 0 });
   });
 
   it('does not write the renewal dedupe row until contact prerequisites load', async () => {
