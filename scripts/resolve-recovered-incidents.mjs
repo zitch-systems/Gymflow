@@ -18,14 +18,17 @@ join public.payments p on p.paystack_reference=i.reference
 join public.payment_coverage_allocations a on a.payment_id=p.id
   and a.gym_id=p.gym_id and a.member_id=p.member_id
   and a.amount_kobo=round(p.amount*100)::bigint
+  and a.revoked_at is null and a.revoked_days=0
 join public.member_subscriptions s on s.id=a.subscription_id
   and s.gym_id=p.gym_id and s.member_id=p.member_id and s.plan_id=p.plan_id
 where i.resolved_at is null
   and i.kind='reconciliation: Paystack charges missing locally'
   and i.context->'count'='1'::jsonb
   and nullif(i.reference,'') is not null
-  and exists(select 1 from public.audit_logs al where al.action='member_charge_committed'
-    and al.table_name='payments' and al.record_id=p.id and al.gym_id=p.gym_id)
+  and p.metadata->'fulfillment_version'='1'::jsonb
+  and p.metadata->>'subscription_id'=a.subscription_id::text
+  and p.metadata->>'coverage_start'=a.original_start::text
+  and p.metadata->>'fulfilled_end_date'=a.original_end::text
   and not exists(select 1 from public.payment_refund_events r where r.reference=i.reference)
   and exists(select 1 from public.paystack_reconciliation_refs seen where seen.reference=i.reference)
   and not exists(select 1 from public.payment_webhook_jobs active where active.reference=i.reference

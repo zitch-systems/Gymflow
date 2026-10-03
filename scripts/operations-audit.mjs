@@ -87,7 +87,12 @@ export async function operationsSnapshot(client) {
         exists(select 1 from public.member_payment_checkouts co where co.reference=p.paystack_reference) as has_checkout,
         exists(select 1 from public.staff_financial_operations fo where fo.payment_id=p.id) as has_staff_operation,
         exists(select 1 from public.audit_logs al where al.record_id=p.id
-          and al.action in ('member_charge_committed','staff_payment_committed')) as has_commit_audit,
+          and al.action='staff_payment_committed' and al.table_name='payments'
+          and al.gym_id=p.gym_id) as has_staff_commit_audit,
+        coalesce(p.metadata->'fulfillment_version'='1'::jsonb
+          and nullif(p.metadata->>'subscription_id','') is not null
+          and nullif(p.metadata->>'coverage_start','') is not null
+          and nullif(p.metadata->>'fulfilled_end_date','') is not null,false) as has_coverage_metadata,
         exists(select 1 from public.payment_refund_events r where r.reference=p.paystack_reference) as has_refund_event,
         p.payment_date
       from public.payments p
@@ -95,9 +100,9 @@ export async function operationsSnapshot(client) {
       left join public.membership_plans mp on mp.id=p.plan_id
       where p.payment_status='successful' and a.payment_id is null
     ) select payment_month,payment_method,has_plan_id,plan_exists,legacy_path,has_checkout,
-        has_staff_operation,has_commit_audit,has_refund_event,count(*) as payment_count,
+        has_staff_operation,has_staff_commit_audit,has_coverage_metadata,has_refund_event,count(*) as payment_count,
         min(payment_date) as earliest_payment_at,max(payment_date) as latest_payment_at
-      from classified group by 1,2,3,4,5,6,7,8,9 order by 1,2,3,4,5,6,7,8,9`);
+      from classified group by 1,2,3,4,5,6,7,8,9,10 order by 1,2,3,4,5,6,7,8,9,10`);
     const platformPayments = await client.query(`with classified as (
       select date_trunc('month', p.created_at)::date as payment_month,
         coalesce(nullif(p.plan,''),'unknown') as plan,

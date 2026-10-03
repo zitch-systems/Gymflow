@@ -26,7 +26,8 @@ describe('operations audit output safety', () => {
       [{ webhook_due: '1', webhook_processing: '0', webhook_dead: '0', webhook_oldest: null,
         backup_due: '0', backup_processing: '0', backup_oldest_due: '2026-10-02T00:00:00Z' }],
       [{ payment_month: '2026-09-01', payment_method: 'card', has_plan_id: true, plan_exists: true, legacy_path: true,
-        has_checkout: false, has_staff_operation: false, has_commit_audit: false, has_refund_event: false, payment_count: '10' }],
+        has_checkout: false, has_staff_operation: false, has_staff_commit_audit: false,
+        has_coverage_metadata: false, has_refund_event: false, payment_count: '10' }],
       [{ payment_month: '2026-08-01', plan: 'starter', legacy_path: true, has_billing_period: true,
         valid_billing_period: true, has_refund_event: false, payment_count: '4' }],
     ];

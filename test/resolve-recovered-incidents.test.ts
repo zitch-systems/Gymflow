@@ -15,17 +15,25 @@ beforeEach(async () => {
 
 async function fixture(c: PoolClient, suffix: string, change = '') {
   const ref = `resolver-${suffix}`;
-  const payment = (await c.query(`insert into public.payments
-    (gym_id,member_id,plan_id,amount,currency,paystack_reference,payment_method,status,payment_status,metadata)
-    values($1,$2,$3,100,'NGN',$4,'card','success','successful','{"fulfillment_version":1}') returning id`,
-  [IDS.gymA, IDS.memberA, IDS.planA, ref])).rows[0];
   const sub = (await c.query(`select id from public.member_subscriptions where gym_id=$1 and member_id=$2 limit 1`, [IDS.gymA, IDS.memberA])).rows[0];
-  if (change !== 'noalloc') await c.query(`insert into public.payment_coverage_allocations
-    (payment_id,gym_id,member_id,subscription_id,coverage_start,coverage_end,amount_kobo,original_start,original_end)
-    values($1,$2,$3,$4,current_date,current_date+1,$5,current_date,current_date+1)`,
-  [payment.id, IDS.gymA, IDS.memberA, sub.id, change === 'amount' ? 9999 : 10000]);
-  if (change !== 'noaudit') await c.query(`insert into public.audit_logs(action,gym_id,record_id,table_name)
-    values('member_charge_committed',$1,$2,'payments')`, [IDS.gymA, payment.id]);
+  let payment: { id: string };
+  if (suffix === 'eligible' || suffix === 'rollback') {
+    const result = (await c.query(`select public.settle_member_charge(
+      $1,$2,$3,$4,1000000,'NGN',0,1,false,'card','{}'::jsonb,$5) result`,
+    [ref,IDS.gymA,IDS.memberA,IDS.planA,sub.id])).rows[0].result;
+    payment = { id: result.payment_id };
+  } else {
+    payment = (await c.query(`insert into public.payments
+      (gym_id,member_id,plan_id,amount,currency,paystack_reference,payment_method,status,payment_status,metadata)
+      values($1,$2,$3,100,'NGN',$4,'card','success','successful',jsonb_build_object(
+        'fulfillment_version',case when $5 then 2 else 1 end,'subscription_id',$6::text,
+        'coverage_start',current_date::text,'fulfilled_end_date',(current_date+1)::text)) returning id`,
+    [IDS.gymA, IDS.memberA, IDS.planA, ref, change === 'metadata', sub.id])).rows[0];
+    if (change !== 'noalloc') await c.query(`insert into public.payment_coverage_allocations
+      (payment_id,gym_id,member_id,subscription_id,coverage_start,coverage_end,amount_kobo,original_start,original_end)
+      values($1,$2,$3,$4,current_date,current_date+1,$5,current_date,current_date+1)`,
+    [payment.id, IDS.gymA, IDS.memberA, sub.id, change === 'amount' ? 9999 : 10000]);
+  }
   const incident = (await c.query(`insert into public.operational_incidents
     (dedupe_key,kind,reference,error,context,last_seen_at) values($1,$2,$3,'provider',$4,now()-interval '1 hour') returning id`,
   [`resolver-${suffix}`, change === 'unknownkind' ? 'reconciliation: local references unknown at Paystack' : 'reconciliation: Paystack charges missing locally', ref,
@@ -49,7 +57,7 @@ describe('recovered reconciliation incident resolver', () => {
   it('resolves only fully evidenced single-reference recovery and is idempotent', async () => {
     await asSuperuser(async (c) => {
       const eligible = await fixture(c, 'eligible');
-      for (const kind of ['count','malformed','oldjob','unknownkind','unseen','noalloc','amount','errorjob','noaudit','refund','active','wrongverify']) await fixture(c, kind, kind);
+      for (const kind of ['count','malformed','oldjob','unknownkind','unseen','noalloc','amount','errorjob','metadata','refund','active','wrongverify']) await fixture(c, kind, kind);
       expect(await resolveRecoveredIncidents(c)).toEqual({ eligible: 1, resolved: 0 });
       expect(await resolveRecoveredIncidents(c,{apply:true})).toEqual({ eligible: 1, resolved: 1 });
       expect(await resolveRecoveredIncidents(c,{apply:true})).toEqual({ eligible: 0, resolved: 0 });
