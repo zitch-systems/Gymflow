@@ -138,6 +138,12 @@ jobs:
         id: shadow
         run: echo "url=$(node scripts/shadow-db.mjs | tail -1)" >> "$GITHUB_OUTPUT"
 
+      - name: Inspect live operational recovery state (read only)
+        if: steps.gate.outputs.on == 'true'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/operations-audit.mjs
+
       - name: Diff schema fingerprints (shadow vs live)
         if: steps.gate.outputs.on == 'true'
         env:
@@ -249,6 +255,11 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: node scripts/release-audit.mjs database
+
+      - name: Inspect live operational recovery state (read only)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/operations-audit.mjs
 
   # Production deploy — the step that makes migrations GATE the release.
   #
