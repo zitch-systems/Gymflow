@@ -22,11 +22,9 @@ import { captureServerEvent } from '@/lib/server-error';
 //
 // Discipline copied from app/api/paystack/webhook: read the RAW body (parsing
 // and re-serialising changes bytes and breaks the MAC), verify before touching
-// anything, then ack. Verified events always get a 200 — including types we
-// don't handle — because Resend retries non-2xx and disables endpoints that keep
-// failing, and losing the whole feed to protect one unwritten row is a bad
-// trade. Only a bad signature (401) or a body that will never parse (400) is
-// refused.
+// anything, then ack only after durable writes succeed. Transient storage
+// failures return 503 so Resend retries. Duplicate deliveries preserve the
+// original event identity and suppression timestamp.
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -134,10 +132,8 @@ export async function POST(req: NextRequest) {
 
   const admin = adminOrNull();
   if (!admin) {
-    // Preview/dev envs have no service-role key. Nowhere to write, but Resend
-    // must not retry forever over a config gap on our side.
     console.warn('[resend/webhook] no service-role client; event not recorded');
-    return NextResponse.json({ received: true, stored: false });
+    return NextResponse.json({ error: 'Email event storage is unavailable.' }, { status: 503 });
   }
 
   const type = str(event.type) ?? 'unknown';
@@ -169,13 +165,14 @@ export async function POST(req: NextRequest) {
     payload: event,
   } as never, { onConflict: 'event_id', ignoreDuplicates: true });
 
-  // Telemetry only — Resend's dashboard still holds the authoritative feed, so a
-  // failed ledger write is logged, not retried.
+  // Attempt suppression even if the ledger failed; a retry can complete either
+  // write without replacing the original suppression timestamp.
   if (ledgerError) console.error(`[resend/webhook] ledger write failed for ${type}: ${ledgerError.message}`);
 
   const suppress = recipient
     && (type === 'email.complained' || (type === 'email.bounced' && isHardBounce(data)));
 
+  let suppressionFailed = false;
   if (suppress) {
     // ignoreDuplicates: the FIRST record wins, so created_at stays "when we
     // stopped mailing this address" — the number that matters when explaining a
@@ -187,12 +184,17 @@ export async function POST(req: NextRequest) {
     } as never, { onConflict: 'address', ignoreDuplicates: true });
 
     if (error) {
+      suppressionFailed = true;
       // The one write with lasting consequence: dropping it means we keep
       // mailing a dead address, which is the exact failure this route exists to
       // prevent. Page on it rather than letting it scroll past in the logs.
       console.error(`[resend/webhook] suppression write failed: ${error.message}`);
       void captureServerEvent('resend webhook suppression write failed', { type, error: error.message });
     }
+  }
+
+  if (ledgerError || suppressionFailed) {
+    return NextResponse.json({ error: 'Email event storage failed. Please retry.' }, { status: 503 });
   }
 
   // Unknown event types land here too: acking them keeps the endpoint healthy,
