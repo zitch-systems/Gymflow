@@ -1,0 +1,77 @@
+name: Publish verified Android APK
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-android-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gymflow-android-test-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    env:
+      SOURCE_RUN: '37072083649'
+      SOURCE_SHA: '1e23ffb00ccd0d1db20edf42f9ea637c7efe6298'
+      ARTIFACT_ID: '11256162627'
+      ARTIFACT_DIGEST: '43d128dc37f40d6dfc50b08c814f869bdf8643ad928d553f4b76611de0c61338'
+      RELEASE_TAG: android-test-2026-10-08
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify build provenance and unchanged application
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN" > "$RUNNER_TEMP/source-run.json"
+          jq -e --arg sha "$SOURCE_SHA" '.head_sha == $sha and .conclusion == "success"' "$RUNNER_TEMP/source-run.json"
+          git diff --exit-code "$SOURCE_SHA" HEAD -- mobile ':!mobile/scripts/audit-production.mjs' ':!mobile/scripts/audit-android-bundle.mjs'
+          gh api "repos/$GH_REPO/actions/artifacts/$ARTIFACT_ID" > "$RUNNER_TEMP/source-artifact.json"
+          jq -e --arg sha "$SOURCE_SHA" --arg digest "sha256:$ARTIFACT_DIGEST" --argjson run "$SOURCE_RUN" '.name == "gymflow-android-internal-release" and .expired == false and .digest == $digest and .workflow_run.id == $run and .workflow_run.head_sha == $sha' "$RUNNER_TEMP/source-artifact.json"
+          gh api "repos/$GH_REPO/actions/artifacts/$ARTIFACT_ID/zip" > "$RUNNER_TEMP/android-artifact.zip"
+          printf '%s  %s\n' "$ARTIFACT_DIGEST" "$RUNNER_TEMP/android-artifact.zip" | sha256sum --check
+          mkdir -p release
+          unzip -j "$RUNNER_TEMP/android-artifact.zip" 'gymflow-internal-debug-signed-release.apk' -d release
+          mv release/gymflow-internal-debug-signed-release.apk release/GymFlow-Android.apk
+      - name: Verify installable signature and package
+        run: |
+          set -euo pipefail
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$build_tools/apksigner" verify --verbose --print-certs release/GymFlow-Android.apk > release/signature-verification.txt
+          "$build_tools/aapt" dump badging release/GymFlow-Android.apk > "$RUNNER_TEMP/apk-badging.txt"
+          grep -q "package: name='ng.gymflow.member'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -q "launchable-activity: name='ng.gymflow.member.MainActivity'" "$RUNNER_TEMP/apk-badging.txt"
+          (cd release && sha256sum GymFlow-Android.apk > SHA256SUMS.txt)
+      - name: Publish direct APK download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          Download **GymFlow-Android.apk** below, open it on your Android phone, and tap Install. No ZIP extraction is required.
+
+          This is an internal test build signed for direct installation, connected to https://www.gymflow.ng. It is not a Play Store release. Android build, emulator installation and welcome-screen launch checks passed. Real-device acceptance and full signed-in/payment journeys remain to be tested.
+
+          Source commit: 1e23ffb00ccd0d1db20edf42f9ea637c7efe6298
+          Verified build: https://github.com/zitch-systems/Gymflow/actions/runs/37072083649
+
+          The application source and dependency lockfile match the publishing revision; subsequent mobile changes only affect audit scripts. SHA256SUMS.txt and signature-verification.txt accompany the APK.
+          NOTES
+          gh release create "$RELEASE_TAG" --target "$SOURCE_SHA" --title "GymFlow Android — Installable Test APK" --notes-file "$RUNNER_TEMP/release-notes.md" --draft --prerelease
+          gh release upload "$RELEASE_TAG" release/GymFlow-Android.apk release/SHA256SUMS.txt release/signature-verification.txt
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
