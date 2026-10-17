@@ -22,11 +22,11 @@ jobs:
       actions: read
       contents: write
     env:
-      SOURCE_RUN: '37072083649'
-      SOURCE_SHA: '1e23ffb00ccd0d1db20edf42f9ea637c7efe6298'
-      ARTIFACT_ID: '11256162627'
-      ARTIFACT_DIGEST: '43d128dc37f40d6dfc50b08c814f869bdf8643ad928d553f4b76611de0c61338'
-      RELEASE_TAG: android-test-2026-10-08
+      SOURCE_RUN: '39068572659'
+      SOURCE_SHA: '1e270218bd118651159ab25c5c597337d376b042'
+      ARTIFACT_ID: '12114906141'
+      ARTIFACT_DIGEST: '2eeee9962173198b315ef770d07599799bef59ab937ba51039682536539d9806'
+      RELEASE_TAG: android-test-2026-10-17
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -53,8 +53,12 @@ jobs:
           set -euo pipefail
           build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
           "$build_tools/apksigner" verify --verbose --print-certs release/GymFlow-Android.apk > release/signature-verification.txt
+          # Preserve the identity of the already-published internal test APK.
+          grep -Fq 'certificate SHA-256 digest: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c' release/signature-verification.txt
           "$build_tools/aapt" dump badging release/GymFlow-Android.apk > "$RUNNER_TEMP/apk-badging.txt"
           grep -q "package: name='ng.gymflow.member'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -Fq "versionCode='2'" "$RUNNER_TEMP/apk-badging.txt"
+          grep -Fq "versionName='1.0.1'" "$RUNNER_TEMP/apk-badging.txt"
           grep -q "launchable-activity: name='ng.gymflow.member.MainActivity'" "$RUNNER_TEMP/apk-badging.txt"
           (cd release && sha256sum GymFlow-Android.apk > SHA256SUMS.txt)
       - name: Publish direct APK download
@@ -65,13 +69,15 @@ jobs:
           cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
           Download **GymFlow-Android.apk** below, open it on your Android phone, and tap Install. No ZIP extraction is required.
 
-          This is an internal test build signed for direct installation, connected to https://www.gymflow.ng. It is not a Play Store release. Android build, emulator installation and welcome-screen launch checks passed. Real-device acceptance and full signed-in/payment journeys remain to be tested.
+          GymFlow 1.0.1 (Android versionCode 2) fixes class occurrence dates and waitlist status, gym QR validation, retry/session handling, waiver review, and tab/profile/wallet interactions.
 
-          Source commit: 1e23ffb00ccd0d1db20edf42f9ea637c7efe6298
-          Verified build: https://github.com/zitch-systems/Gymflow/actions/runs/37072083649
+          This is an internal test build signed with the same public development certificate as the previous test APK, connected to https://www.gymflow.ng. It is not a Play Store release. Android build, clean-emulator installation and welcome-screen launch checks passed. Real-device acceptance, upgrading an existing installation, and full signed-in/payment journeys remain to be tested.
 
-          The application source and dependency lockfile match the publishing revision; subsequent mobile changes only affect audit scripts. SHA256SUMS.txt and signature-verification.txt accompany the APK.
+          Source commit: 1e270218bd118651159ab25c5c597337d376b042
+          Verified build: https://github.com/zitch-systems/Gymflow/actions/runs/39068572659
+
+          The application source and dependency lockfile match the publishing revision. The publisher verifies artifact provenance and checksum, APK signature continuity, package name, version and launch activity. SHA256SUMS.txt and signature-verification.txt accompany the APK.
           NOTES
-          gh release create "$RELEASE_TAG" --target "$SOURCE_SHA" --title "GymFlow Android — Installable Test APK" --notes-file "$RUNNER_TEMP/release-notes.md" --draft --prerelease
+          gh release create "$RELEASE_TAG" --target "$SOURCE_SHA" --title "GymFlow 1.0.1 — Installable Android Test APK" --notes-file "$RUNNER_TEMP/release-notes.md" --draft --prerelease
           gh release upload "$RELEASE_TAG" release/GymFlow-Android.apk release/SHA256SUMS.txt release/signature-verification.txt
           gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
