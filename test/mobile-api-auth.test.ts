@@ -18,7 +18,7 @@ vi.mock('@/lib/rate-limit', () => ({
   rateLimit: vi.fn(async () => true),
 }));
 
-import { corsPreflight, requireApiMember } from '@/lib/api-app';
+import { corsPreflight, requireApiMember, readJson } from '@/lib/api-app';
 import { POST as refresh } from '@/app/api/app/session/route';
 
 const USER_ID = '10000000-0000-4000-8000-000000000001';
@@ -160,5 +160,23 @@ describe('mobile authentication failures', () => {
     }));
     expect(response.status).toBe(503);
     expect(JSON.stringify(await response.json())).not.toContain('internal host');
+  });
+});
+
+
+describe('mobile database and body failures', () => {
+  it('keeps a membership lookup outage retryable without claiming membership was revoked', async () => {
+    const client = memberClient();
+    client.query.maybeSingle.mockResolvedValue({ data: null, error: { message: 'private database detail' } } as never);
+    mocks.tokenClient = client;
+    const result = await requireApiMember(request());
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.res.status).toBe(503);
+      expect(await result.res.json()).toMatchObject({ code: 'retryable' });
+    }
+  });
+  it.each(['null', '[]', '123', 'invalid-json'])('reads malformed/non-object body %s safely', async (body) => {
+    expect(await readJson(new Request('https://example.test', { method: 'POST', body }))).toEqual({});
   });
 });

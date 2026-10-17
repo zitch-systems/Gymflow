@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation';
+import { consolePage } from '@/lib/console-query';
+import { sa } from '@/lib/superadmin-path';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fmtDateTime } from '@/lib/format';
@@ -26,19 +29,28 @@ type Row = {
 export default async function PayoutApprovalsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   await requirePlatformAdmin();
   const sp = await searchParams;
-  const page = Math.max(1, Number(sp.page) || 1);
+  const page = consolePage(sp.page);
   const db = createAdminClient();
 
   // Pending is a work queue — always show every item (never paginate away an
   // approval). The reviewed log grows without bound, so page it separately.
   const from = (page - 1) * PAGE_SIZE;
-  const [{ data: pendingData }, { data: pastData, count: pastCount }] = await Promise.all([
+  const [{ data: pendingData, error: pendingError }, { data: pastData, count: pastCount, error: pastError }] = await Promise.all([
     db.from('payout_change_requests' as never)
       .select(SELECT).eq('status', 'pending').order('created_at', { ascending: false }).limit(500),
     db.from('payout_change_requests' as never)
       .select(SELECT, { count: 'exact' }).in('status', ['approved', 'rejected'])
       .order('created_at', { ascending: false }).range(from, from + PAGE_SIZE - 1),
   ]);
+  if (pendingError || pastError) throw new Error('Could not load payout reviews. Please retry.');
+
+  const lastPage = Math.max(1, Math.ceil((pastCount ?? 0) / PAGE_SIZE));
+  if (page > lastPage) {
+    const params = new URLSearchParams({});
+    if (lastPage > 1) params.set('page', String(lastPage));
+    redirect(`${sa('/payout-approvals')}?${params}`);
+  }
+
   const pending = (pendingData as unknown as Row[]) ?? [];
   const past = (pastData as unknown as Row[]) ?? [];
 
@@ -81,7 +93,7 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
               </tbody>
             </table>
           </div>
-          <Pagination basePath="/superadmin/payout-approvals" params={{}} page={page} pageSize={PAGE_SIZE} total={pastCount ?? 0} />
+          <Pagination basePath={sa('/payout-approvals')} params={{}} page={page} pageSize={PAGE_SIZE} total={pastCount ?? 0} />
         </div>
       )}
     </>

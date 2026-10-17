@@ -3,6 +3,8 @@ import { Bell, CalendarX, Coffee } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { watNow } from '@/lib/format';
+import { nextOccurrenceDate } from '@/lib/class-dates';
+import { isUpcomingMemberBooking, memberScheduleDays, memberSessionKey } from '@/lib/member-schedule';
 import { BookButton, CancelButton } from '@/components/member/class-actions';
 import { AddToCalendar } from '@/components/member/add-to-calendar';
 
@@ -29,15 +31,11 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const today = watNow();
   const todayDow = today.getUTCDay();
   const todayStr = today.toISOString().slice(0, 10);
-  const selDow = sp.d != null && !Number.isNaN(Number(sp.d)) ? (((Number(sp.d) % 7) + 7) % 7) : todayDow;
-  const mondayOffset = (todayDow + 6) % 7;
-  const monday = new Date(today); monday.setUTCDate(today.getUTCDate() - mondayOffset);
-  const week = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday); d.setUTCDate(monday.getUTCDate() + i);
-    return { dow: d.getUTCDay(), dom: d.getUTCDate(), label: SHORT[d.getUTCDay()], isSel: d.getUTCDay() === selDow };
-  });
+  const week = memberScheduleDays(today, sp.d);
+  const selectedDay = week.find((day) => day.selected)!;
+  const selDow = selectedDay.dow;
 
-  const [{ data: classes }, { data: schedules }, { data: bookings }, { count: unread }] = await Promise.all([
+  const [{ data: classes, error: classError }, { data: schedules, error: scheduleError }, { data: bookings, error: bookingError }, { count: unread }] = await Promise.all([
     supabase.from('classes').select('id, name, instructor, max_capacity, duration_minutes').eq('gym_id', gym.id),
     supabase.from('class_schedules').select('id, day_of_week, start_time, room, class_id').eq('gym_id', gym.id).eq('is_active', true).order('start_time', { ascending: true }),
     // gym_id as well as member_id — see the same fix in app/api/app/classes:
@@ -46,15 +44,17 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     supabase.from('class_bookings').select('id, booking_date, status, class_schedule_id, class_id').eq('gym_id', gym.id).eq('member_id', user.id).neq('status', 'cancelled').order('booking_date', { ascending: true }),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
   ]);
+  if (classError || scheduleError || bookingError) throw new Error('Your class schedule could not be loaded. Please try again.');
 
   const classMap = new Map((classes ?? []).map((c) => [c.id, c]));
   const schedMap = new Map((schedules ?? []).map((s) => [s.id, s]));
   const hasOnDow = new Set((schedules ?? []).map((s) => s.day_of_week));
-  const upcoming = (bookings ?? []).filter((b) => (b.booking_date ?? '') >= todayStr);
-  const bookedSet = new Set(upcoming.map((b) => b.class_schedule_id));
-  // Days of this week the member has a booking on — the calstrip marks them accent.
-  const bookedDows = new Set(upcoming.map((b) => (b.booking_date ? new Date(`${b.booking_date}T00:00:00Z`).getUTCDay() : -1)));
-  const selSlots = (schedules ?? []).filter((s) => s.day_of_week === selDow);
+  const upcoming = (bookings ?? []).filter((b) => (b.booking_date ?? '') >= todayStr && (b.status === 'booked' || b.status === 'waitlisted'));
+  const bookedSessions = new Map(upcoming.filter((b) => b.class_schedule_id && b.booking_date)
+    .map((b) => [memberSessionKey(b.class_schedule_id!, b.booking_date!), b]));
+  const bookedDates = new Set(upcoming.map((b) => b.booking_date));
+  const selSlots = (schedules ?? []).filter((s) => s.day_of_week === selDow
+    && nextOccurrenceDate(s.day_of_week, s.start_time, today) === selectedDay.date);
   const myBookings = bookings ?? [];
   const unreadCount = unread ?? 0;
 
@@ -68,38 +68,38 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       </div>
 
       <div className="segtabs">
-        <Link href="/classes" className={tab === 'cal' ? 'on' : undefined}>Schedule</Link>
-        <Link href="/classes?tab=book" className={tab === 'book' ? 'on' : undefined}>My bookings</Link>
+        <Link href="/classes" className={tab === 'cal' ? 'on' : undefined} aria-current={tab === 'cal' ? 'page' : undefined}>Schedule</Link>
+        <Link href="/classes?tab=book" className={tab === 'book' ? 'on' : undefined} aria-current={tab === 'book' ? 'page' : undefined}>My bookings</Link>
       </div>
 
       {tab === 'cal' ? (
         <div>
           <div className="calstrip">
-            {week.map((d, i) => (
-              <Link key={i} href={`/classes?d=${d.dow}`} className={`cday${d.isSel ? ' on' : ''}`}>
-                <span>{d.label}</span><b>{d.dom}</b>
-                <span className={`mk${hasOnDow.has(d.dow) ? '' : ' ghost'}`} style={bookedDows.has(d.dow) ? { background: 'var(--gf-accent)' } : undefined} />
+            {week.map((d) => (
+              <Link key={d.date} href={`/classes?d=${d.dow}`} className={`cday${d.selected ? ' on' : ''}`} aria-current={d.selected ? 'date' : undefined} aria-label={`${SHORT[d.dow]} ${d.date}`}>
+                <span>{SHORT[d.dow]}</span><b>{d.dom}</b>
+                <span className={`mk${hasOnDow.has(d.dow) ? '' : ' ghost'}`} style={bookedDates.has(d.date) ? { background: 'var(--gf-accent)' } : undefined} />
               </Link>
             ))}
           </div>
           <div className="day-label">
-            {selDow === todayDow ? 'Today · ' : ''}{SHORT[selDow]} {week.find((w) => w.dow === selDow)?.dom}
+            {selDow === todayDow ? 'Today · ' : ''}{SHORT[selDow]} {selectedDay.dom}
           </div>
           {selSlots.length === 0 ? (
-            <div className="empty"><div className="eic"><Coffee strokeWidth={1.6} /></div><h3>Rest day</h3><p>No classes scheduled. Recovery counts too.</p></div>
+            <div className="empty"><div className="eic"><Coffee strokeWidth={1.6} /></div><h3>{selDow === todayDow ? 'No more classes today' : 'Rest day'}</h3><p>Choose another day to find your next class.</p></div>
           ) : (
             <div className="cls-list">
               {selSlots.map((s) => {
                 const c = s.class_id ? classMap.get(s.class_id) : null;
                 const { hm, ap } = splitTime(s.start_time);
-                const isBooked = bookedSet.has(s.id);
+                const booking = bookedSessions.get(memberSessionKey(s.id, selectedDay.date));
                 return (
                   <div key={s.id} className="cls-card">
                     <div className="tm"><b>{hm}</b><span>{ap}</span></div>
                     <Link href={`/classes/${s.id}`} className="info" style={{ textDecoration: 'none', color: 'inherit' }}>
                       <strong>{c?.name ?? 'Class'}</strong><small>{c?.instructor ?? 'TBA'}{s.room ? ` · ${s.room}` : ''}</small>
                     </Link>
-                    {isBooked ? <span className="gf-badge gf-badge-success" style={{ padding: '5px 9px' }}>Booked</span> : <BookButton scheduleId={s.id} />}
+                    {booking ? <span className={`gf-badge ${booking.status === 'waitlisted' ? 'gf-badge-warning' : 'gf-badge-success'}`} style={{ padding: '5px 9px' }}>{booking.status === 'waitlisted' ? 'Waitlisted' : 'Booked'}</span> : <BookButton key={memberSessionKey(s.id, selectedDay.date)} scheduleId={s.id} />}
                   </div>
                 );
               })}
@@ -121,7 +121,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
               // Parse as local midnight — bare YYYY-MM-DD parses as UTC and can shift a day.
               const d = b.booking_date ? new Date(`${b.booking_date}T00:00:00`) : null;
               const t = sch?.start_time ? splitTime(sch.start_time) : null;
-              const isUpcoming = (b.booking_date ?? '') >= todayStr;
+              const isUpcoming = (b.status === 'booked' || b.status === 'waitlisted') && isUpcomingMemberBooking(b.booking_date, sch?.start_time, today);
               return (
                 <div key={b.id} className="bkg">
                   <div className="date"><b>{d ? d.getDate() : '—'}</b><span>{d ? SHORT[d.getDay()] : ''}</span></div>
@@ -129,7 +129,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                   {isUpcoming ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {b.status === 'waitlisted' && <span className="gf-badge gf-badge-warning">Waitlist</span>}
-                      {b.booking_date && sch?.start_time && (
+                      {b.status !== 'waitlisted' && b.booking_date && sch?.start_time && (
                         <AddToCalendar event={{
                           title: `${c?.name ?? 'Class'} · ${gym.name}`,
                           dateStr: b.booking_date,

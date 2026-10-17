@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { cache, type CSSProperties } from 'react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -15,6 +15,7 @@ import { ROOT_DOMAIN } from '@/lib/tenant';
 import { ldJson } from '@/lib/ld-json';
 import { accentVars } from '@/lib/accent';
 import { offersTrainer, trainerAddonPrice } from '@/lib/plan-addon';
+import { monthlyEquivalent, planPeriodLabel } from '@/lib/plan-duration';
 import { LogoMark } from '@/components/ui/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { InstallCards } from '@/components/gym/install-cards';
@@ -77,21 +78,15 @@ type RpcClient = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{
  *  monthly one honestly (§3: lowest PER MONTH, not the cheapest total). */
 function perMonth(p: Plan): number | null {
   if (p.price == null) return null;
-  const months = p.duration_months ?? (p.duration_days ? p.duration_days / 30 : null);
-  if (!months || months <= 0) return null;
-  return Number(p.price) / months;
+  if (!(Number(p.duration_days) > 0 || Number(p.duration_months) > 0)) return null;
+  return monthlyEquivalent(Number(p.price), p);
 }
 
 function planPeriod(p: Plan): string {
-  if (p.duration_months === 1) return ' /mo';
-  if (p.duration_months === 12) return ' /yr';
-  if (p.duration_months) return ` /${p.duration_months} mo`;
-  if (p.duration_days === 1) return ' /day';
-  if (p.duration_days) return ` /${p.duration_days} days`;
-  return '';
+  return ` ${planPeriodLabel(p)}`;
 }
 
-async function loadGym(slug: string) {
+const loadGym = cache(async (slug: string) => {
   const { db, privileged } = await getClient();
   const { data: gymRow } = await db.from('gyms').select('*').eq('slug', slug).maybeSingle();
   if (!gymRow) return null;
@@ -174,7 +169,7 @@ async function loadGym(slug: string) {
     traffic: (trafficRes.data as unknown as { hour_of_day: number; visits: number }[] | null) ?? [],
     now,
   };
-}
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

@@ -15,15 +15,21 @@ export type MarkResult = { ok: boolean; error: string | null };
 // Mark a PT session attended/no-show. RLS (isess_update_instructor) restricts
 // updates to the instructor's own sessions, so the user session suffices.
 export async function markSession(sessionId: string, status: 'completed' | 'no_show'): Promise<MarkResult> {
+  if (status !== 'completed' && status !== 'no_show') return { ok: false, error: 'Choose attended or no-show.' };
+  if (!sessionId) return { ok: false, error: 'Session not found.' };
   const { user, gym } = await requireInstructor();
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('instructor_sessions')
     .update({ status, marked_at: new Date().toISOString() })
     .eq('id', sessionId)
     .eq('instructor_id', user.id)
-    .eq('gym_id', gym.id);
+    .eq('gym_id', gym.id)
+    .neq('status', 'cancelled')
+    .select('id')
+    .maybeSingle();
   if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: 'Session unavailable. It may have been cancelled or assigned to another coach.' };
   revalidatePath('/coach/attendance');
   revalidatePath('/coach');
   return { ok: true, error: null };

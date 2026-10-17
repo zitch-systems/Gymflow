@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { unstable_rethrow } from 'next/navigation';
 import { Lock, Check, ArrowRight, AlertCircle } from 'lucide-react';
 import { updatePassword } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
@@ -37,13 +38,18 @@ export default function ResetPasswordPage() {
   const confirmDescribedBy = [confirmHintId, err ? errorId : null].filter(Boolean).join(' ');
 
   async function handle(formData: FormData) {
+    if (!canSubmit) { setErr('Use a strong password and make sure both passwords match.'); return; }
     setPending(true);
     setErr(null);
     // updatePassword redirects to /login?reset=1 on success; only returns on error.
-    const res = await updatePassword({ error: null }, formData);
-    setPending(false);
-    if (res?.error) setErr(res.error);
-    else setDone(true);
+    try {
+      const res = await updatePassword({ error: null }, formData);
+      if (res?.error) setErr(res.error);
+      else setDone(true);
+    } catch (cause) {
+      unstable_rethrow(cause);
+      setErr('We could not update your password. Check your connection and try again.');
+    } finally { setPending(false); }
   }
 
   return (

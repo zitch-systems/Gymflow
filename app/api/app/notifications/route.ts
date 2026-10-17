@@ -1,4 +1,4 @@
-import { requireApiMember, json, corsPreflight, readJson } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight, readJson } from '@/lib/api-app';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -16,12 +16,14 @@ export async function GET(req: Request) {
   const { supabase, user } = auth.ctx;
 
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('notifications')
       .select('id, title, body, type, sent_at, is_read, metadata')
       .eq('user_id', user.id)
       .order('sent_at', { ascending: false })
       .limit(50);
+
+    if (error) return dataUnavailable();
 
     const rows = data ?? [];
     return json({
@@ -41,8 +43,8 @@ export async function GET(req: Request) {
         };
       }),
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }
 

@@ -3,9 +3,26 @@
 import { ClipboardCheck, ShieldCheck } from 'lucide-react';
 import { signWaiver } from '@/lib/actions/waiver';
 import { useState } from 'react';
+import { unstable_rethrow, useRouter } from 'next/navigation';
+import type { WaiverDocument } from '@/lib/waiver-core';
 
-export function WaiverWall({ gymName }: { gymName: string }) {
+export function WaiverWall({ gymId, gymName, document }: { gymId: string; gymName: string; document: WaiverDocument }) {
+  const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    setPending(true);
+    setError(null);
+    try {
+      const result = await signWaiver({ gymId, revision: document.revision });
+      if (result?.error) { setError(result.error); router.refresh(); }
+    }
+    catch (cause) {
+      unstable_rethrow(cause);
+      setError('We could not save your acceptance. Please check your connection and try again.');
+    } finally { setPending(false); }
+  }
 
   return (
     <section className="view on" data-v="waiver">
@@ -20,16 +37,13 @@ export function WaiverWall({ gymName }: { gymName: string }) {
       </div>
 
       <div className="doc-card">
-        <div className="doc-h"><span className="doc-ic"><ShieldCheck strokeWidth={1.8} /></span><h2>Liability waiver</h2></div>
-        <h3>Assumption of risk</h3>
-        <p>You acknowledge that physical exercise carries inherent risks, including injury, and choose to participate voluntarily and at your own risk.</p>
-        <h3>Health declaration</h3>
-        <p>You confirm you are in suitable health to exercise and will stop and seek help if you feel unwell. You will disclose relevant conditions to gym staff.</p>
-        <h3>Release</h3>
-        <p>To the extent permitted by law, you release {gymName} and its staff from liability for injury arising from ordinary use of the facilities, except in cases of gross negligence.</p>
+        <div className="doc-h"><span className="doc-ic"><ShieldCheck strokeWidth={1.8} /></span><h2>{document.title}</h2></div>
+        {document.version && <p className="doc-sub">Version {document.version}</p>}
+        <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{document.content}</div>
       </div>
 
-      <form action={async () => { setPending(true); await signWaiver(); }} style={{ padding: '0 0 40px' }}>
+      <form action={submit} aria-busy={pending} style={{ padding: '0 0 40px' }}>
+        {error && <p role="alert" style={{ color: 'var(--gf-danger)' }}>{error}</p>}
         <button type="submit" className="gf-btn gf-btn-primary gf-btn-full" disabled={pending}>
           {pending ? 'Signing…' : 'I agree — sign waiver'}
         </button>

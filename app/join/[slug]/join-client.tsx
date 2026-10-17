@@ -8,13 +8,14 @@ import { joinAsNew, joinAsCurrent, type JoinState } from '@/lib/actions/join';
 import { fmtNaira } from '@/lib/format';
 import { offersTrainer, trainerAddonPrice } from '@/lib/plan-addon';
 import { PasswordInput } from '@/components/ui/password-input';
+import { planPeriodLabel } from '@/lib/plan-duration';
 
 const initial: JoinState = { error: null };
 
 // Gym invite landing — create a member account (or join with the signed-in
 // one) linked to this gym.
 export type JoinPlan = {
-  name: string; price: number | null; duration_months: number | null;
+  name: string; price: number | null; duration_months: number | null; duration_days?: number | null;
   trainer_addon_enabled?: boolean | null; trainer_addon_price?: number | null;
 };
 
@@ -43,7 +44,7 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }
             // otherwise would promise a charge that isn't happening here.
             <p className="join-plan">
               <span>Chosen plan</span>
-              <b>{plan.name}{plan.price != null && <> · {fmtNaira(Number(plan.price))}{plan.duration_months === 1 ? ' / month' : plan.duration_months ? ` / ${plan.duration_months} months` : ''}</>}</b>
+              <b>{plan.name}{plan.price != null && <> · {fmtNaira(Number(plan.price))} {planPeriodLabel(plan)}</>}</b>
               {offersTrainer(plan) && (
                 // Flagged here, not just on the landing page, because the tick
                 // itself appears at checkout — this is the last screen before
@@ -61,11 +62,11 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }
           )}
 
           {currentEmail ? (
-            <form action={curAction}>
+            <form action={curAction} aria-busy={curPending}>
               <input type="hidden" name="slug" value={slug} />
               <p style={{ fontSize: '0.9rem', margin: '0 0 14px' }}>You&apos;re signed in as <strong>{currentEmail}</strong>.</p>
               {curState.error && (
-                <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '0 0 14px' }}>
+                <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '0 0 14px' }}>
                   <AlertCircle size={15} strokeWidth={2} style={{ flexShrink: 0 }} /> {curState.error}
                 </p>
               )}
@@ -74,7 +75,7 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }
               </button>
             </form>
           ) : (
-            <form action={newAction}>
+            <form action={newAction} aria-busy={newPending}>
               <input type="hidden" name="slug" value={slug} />
               <div className="field gf-form-group">
                 <label className="gf-form-label" htmlFor="join-full-name">Your name</label>
@@ -105,7 +106,7 @@ export function JoinClient({ slug, gymName, logoUrl, currentEmail, plan = null }
                 </div>
               </div>
               {newState.error && (
-                <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '0 0 14px' }}>
+                <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '0 0 14px' }}>
                   <AlertCircle size={15} strokeWidth={2} style={{ flexShrink: 0 }} /> {newState.error}
                 </p>
               )}

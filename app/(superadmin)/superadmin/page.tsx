@@ -44,7 +44,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
     { icon: Building2, fg: '#11d18b', bg: '#11d18b1f', val: String(activeGyms), lbl: 'Active gyms' },
     { icon: Users, fg: '#4080ff', bg: '#4080ff1f', val: String(members ?? 0), lbl: 'Members platform-wide' },
     { icon: Repeat, fg: '#a8d92e', bg: '#c6f24e1f', val: String(activeSubs ?? 0), lbl: 'Active subscriptions' },
-    { icon: Banknote, fg: '#ffb020', bg: '#ffb0201f', val: fmtNaira(trailingTotal), lbl: 'Revenue (12 mo)' },
+    { icon: Banknote, fg: '#ffb020', bg: '#ffb0201f', val: fmtNaira(trailingTotal), lbl: 'Member payments (12 mo)' },
   ];
 
   return (
@@ -65,7 +65,7 @@ export default async function SuperOverview({ searchParams }: { searchParams: Pr
 
       <section className="grid">
         <div className="panel">
-          <div className="panel-h"><div><h3>Platform MRR</h3><div className="sub">Trailing 12 months · {fmtNaira(trailingTotal)}</div></div><Link className="link" href={sa('/revenue')}>Revenue report <ArrowRight strokeWidth={2} /></Link></div>
+          <div className="panel-h"><div><h3>Member payments</h3><div className="sub">Trailing 12 months · {fmtNaira(trailingTotal)}</div></div><Link className="link" href={sa('/revenue')}>Revenue report <ArrowRight strokeWidth={2} /></Link></div>
           <svg viewBox="0 0 600 170" className="area" preserveAspectRatio="none" aria-hidden>
             <polyline points={pts} fill="none" stroke="#11d18b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

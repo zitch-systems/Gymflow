@@ -1,3 +1,4 @@
+import { readBoundedPages } from '@/lib/paged-query';
 import Link from 'next/link';
 import Image from 'next/image';
 import { LayoutGrid, Dumbbell, Wrench, Receipt, AlertTriangle, Check, Plus, Pencil } from 'lucide-react';
@@ -20,15 +21,19 @@ export default async function AdminFacility() {
   const todayIso = watDateISO();
   const monthAgo = watDateISO(new Date(Date.now() - 30 * 86_400_000));
 
-  const [{ data: equipment }, { data: expenses }] = await Promise.all([
+  const [{ data: equipment, error: equipmentError }, { data: expenses, error: expensesError }, spendRows] = await Promise.all([
     supabase.from('equipment').select('id, name, category, status, location, last_maintenance_date, next_maintenance_date, maintenance_notes, photo_url').eq('gym_id', gym.id).order('name', { ascending: true }).limit(100),
     supabase.from('expenses').select('id, amount, category, description, expense_date').eq('gym_id', gym.id).order('expense_date', { ascending: false }).limit(20),
+    readBoundedPages((from, to) => supabase.from('expenses').select('id, amount').eq('gym_id', gym.id).gte('expense_date', monthAgo).lte('expense_date', todayIso).order('id').range(from, to), 50_000),
   ]);
+
+  if (equipmentError || expensesError) throw new Error('Could not load this page. Please retry.');
 
   const eq = equipment ?? [];
   const zones = new Set(eq.map((e) => e.location).filter(Boolean)).size;
   const needsService = eq.filter((e) => e.status === 'maintenance' || e.status === 'retired' || e.status === 'lost' || (e.next_maintenance_date && e.next_maintenance_date <= todayIso));
-  const spend30 = (expenses ?? []).filter((e) => (e.expense_date ?? '') >= monthAgo).reduce((s, e) => s + Number(e.amount ?? 0), 0);
+  if (spendRows.truncated) throw new Error('Expense totals exceed the reporting limit. Please contact support.');
+  const spend30 = spendRows.rows.reduce((s, e) => s + Number(e.amount ?? 0), 0);
 
   const KPIS = [
     { icon: LayoutGrid, fg: '#11d18b', bg: '#11d18b1f', val: String(zones), lbl: 'Zones' },

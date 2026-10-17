@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { ArrowLeft, CheckCheck, Bell, CalendarCheck, Gift, Receipt, Sparkles, Download } from 'lucide-react';
+import { ArrowLeft, Bell, CalendarCheck, Gift, Receipt, Sparkles, Download } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { markAllRead } from '@/lib/actions/notifications';
+import { MarkNotificationsRead } from '@/components/member/mark-notifications-read';
+import { watDateISO } from '@/lib/format';
 
 export const metadata = { title: 'Notifications' };
 
@@ -22,16 +23,17 @@ const DAY = 86_400_000;
 function bucketOf(iso: string | null, now: number): 'Today' | 'This week' | 'Earlier' {
   if (!iso) return 'Earlier';
   const t = new Date(iso).getTime();
-  if (new Date(t).toDateString() === new Date(now).toDateString()) return 'Today';
+  if (watDateISO(new Date(t)) === watDateISO(new Date(now))) return 'Today';
   if (now - t < 7 * DAY) return 'This week';
   return 'Earlier';
 }
 function timeLabel(iso: string | null, now: number): string {
   if (!iso) return '';
   const d = new Date(iso);
-  if (d.toDateString() === new Date(now).toDateString()) return `Today · ${d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
-  if (now - d.getTime() < 7 * DAY) return `${d.toLocaleDateString('en-NG', { weekday: 'short' })} · ${d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
-  return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Lagos' });
+  if (watDateISO(d) === watDateISO(new Date(now))) return `Today · ${time}`;
+  if (now - d.getTime() < 7 * DAY) return `${d.toLocaleDateString('en-NG', { weekday: 'short', timeZone: 'Africa/Lagos' })} · ${time}`;
+  return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', timeZone: 'Africa/Lagos' });
 }
 
 // Notifications — recreates revamp/member.html "notifications", wired to the
@@ -39,12 +41,13 @@ function timeLabel(iso: string | null, now: number): string {
 export default async function InboxPage() {
   const { user } = await requireMember();
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('notifications')
     .select('id, title, body, type, sent_at, is_read, metadata')
     .eq('user_id', user.id)
     .order('sent_at', { ascending: false })
     .limit(50);
+  if (error) throw new Error('Your notifications could not be loaded. Please try again.');
 
   const now = Date.now();
   const rows = data ?? [];
@@ -56,9 +59,7 @@ export default async function InboxPage() {
       <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
         <Link href="/dashboard" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back"><ArrowLeft strokeWidth={1.9} /></Link>
         <strong className="htitle">Notifications</strong>
-        <form action={markAllRead}>
-          <button className="icon-btn" style={{ width: 34, height: 34 }} title="Mark all read" aria-label="Mark all read"><CheckCheck strokeWidth={1.9} /></button>
-        </form>
+        <MarkNotificationsRead hasUnread={rows.some((row) => !row.is_read)} />
       </div>
 
       {rows.length === 0 ? (

@@ -1,3 +1,5 @@
+import { readBoundedPages } from '@/lib/paged-query';
+import { consoleDate } from '@/lib/console-query';
 import { Banknote, ArrowDownLeft, ArrowUpRight, CreditCard, Download, Filter } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
@@ -13,7 +15,6 @@ const STATUS: Record<string, [string, string]> = {
   refunded: ['gf-badge-warning', 'Refunded'],
 };
 const STATUS_VALUES = new Set(Object.keys(STATUS));
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // 'bank_transfer' → 'Bank transfer', 'card' → 'Card'.
 function methodLabel(m: string): string {
@@ -31,8 +32,8 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
   // as the export route, so the CSV export can carry the exact filter.
   const status = sp.status && STATUS_VALUES.has(sp.status) ? sp.status : '';
   const method = (sp.method ?? '').trim();
-  const from = sp.from && DATE_RE.test(sp.from) ? sp.from : '';
-  const to = sp.to && DATE_RE.test(sp.to) ? sp.to : '';
+  const from = consoleDate(sp.from);
+  const to = consoleDate(sp.to);
   const hasFilters = Boolean(status || method || from || to);
 
   const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
@@ -44,21 +45,25 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
     .eq('gym_id', gym.id);
   if (status) txq = txq.eq('payment_status', status);
   if (method) txq = txq.eq('payment_method', method);
-  if (from) txq = txq.gte('payment_date', `${from}T00:00:00Z`);
-  if (to) txq = txq.lte('payment_date', `${to}T23:59:59Z`);
+  if (from) txq = txq.gte('payment_date', `${from}T00:00:00+01:00`);
+  if (to) txq = txq.lt('payment_date', new Date(Date.parse(`${to}T00:00:00+01:00`) + 86_400_000).toISOString());
   txq = txq.order('payment_date', { ascending: false }).limit(60);
 
-  const [{ data: rows }, { data: monthRows }, { data: methodRows }] = await Promise.all([
+  const [{ data: rows, error: rowsError }, monthPage, { data: methodRows }] = await Promise.all([
     txq,
-    supabase.from('payments')
-      .select('amount, refunded_amount, payment_status, payment_date')
-      .eq('gym_id', gym.id).gte('payment_date', monthStart.toISOString()),
+    readBoundedPages((from, to) => supabase.from('payments')
+      .select('id, amount, refunded_amount, payment_status, payment_date')
+      .eq('gym_id', gym.id).gte('payment_date', monthStart.toISOString()).order('id').range(from, to), 50_000),
     // Distinct payment methods this gym has used, to populate the filter.
     // DB-side DISTINCT via RPC (20260722_search_and_filters.sql) — the old
     // version fetched up to 1000 payment rows just to dedupe them here.
     // `as never`: the function postdates the generated types.
     supabase.rpc('gym_payment_methods' as never, { p_gym: gym.id } as never),
   ]);
+
+  if (rowsError) throw new Error('Could not load payments. Please retry.');
+  if (monthPage.truncated) throw new Error('Monthly payments exceed the reporting limit. Please contact support.');
+  const monthRows = monthPage.rows;
 
   const collected = (monthRows ?? []).filter((p) => p.payment_status === 'successful').reduce((s, p) => s + paymentAmounts(p).net, 0);
   const pending = (monthRows ?? []).filter((p) => p.payment_status === 'pending').reduce((s, p) => s + Number(p.amount ?? 0), 0);
@@ -113,7 +118,7 @@ export default async function AdminWallet({ searchParams }: { searchParams: Prom
 
       <div className="panel">
         <div className="panel-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div><h3>Transactions</h3><div className="sub">{hasFilters ? `${shown} match${shown === 1 ? 'es' : ''} your filters` : 'All settlements & payments'}</div></div>
+          <div><h3>Transactions</h3><div className="sub">{hasFilters ? `${shown} matching transaction${shown === 1 ? '' : 's'} shown (latest 60)` : 'Latest 60 settlements & payments'}</div></div>
           <a className="gf-btn gf-btn-secondary gf-btn-sm" href={exportHref} style={{ textDecoration: 'none', flexShrink: 0 }} title="Accounting-ready CSV with VAT breakdown (respects the filters below)">
             <Download strokeWidth={1.9} size={15} /> Accounting CSV
           </a>

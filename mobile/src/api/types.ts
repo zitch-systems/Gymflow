@@ -183,3 +183,10 @@ export type ProfilePayload = {
   } | null;
   freeze_enabled: boolean;
 };
+
+export type WaiverPayload = {
+  gym: { id: string; name: string };
+  document: { id: string | null; title: string; content: string; version: string | null; revision: string };
+  accepted: boolean;
+  signedAt: string | null;
+};

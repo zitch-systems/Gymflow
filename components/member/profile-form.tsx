@@ -20,7 +20,7 @@ export function MemberProfileForm({ profile }: { profile: P }) {
   return (
     <form action={action} className="pform" aria-busy={pending}>
       <label className="pf">Full name<input className="gf-input" name="full_name" defaultValue={profile.full_name ?? ''} required aria-invalid={state.error ? true : undefined} aria-describedby={state.error ? errorId : undefined} /></label>
-      <label className="pf">Phone<input className="gf-input" name="phone" defaultValue={profile.phone ?? ''} placeholder="0801 234 5678" /></label>
+      <label className="pf">Phone<input className="gf-input" type="tel" autoComplete="tel" name="phone" defaultValue={profile.phone ?? ''} placeholder="0801 234 5678" /></label>
       <div className="pf-row">
         <label className="pf">Date of birth<input className="gf-input" type="date" name="date_of_birth" defaultValue={profile.date_of_birth ?? ''} /></label>
         <label className="pf">Gender
@@ -32,7 +32,7 @@ export function MemberProfileForm({ profile }: { profile: P }) {
       <label className="pf">Address<input className="gf-input" name="address" defaultValue={profile.address ?? ''} placeholder="Street, city" /></label>
       <div className="pf-row">
         <label className="pf">Emergency contact<input className="gf-input" name="emergency_contact_name" defaultValue={profile.emergency_contact_name ?? ''} /></label>
-        <label className="pf">Emergency phone<input className="gf-input" name="emergency_contact_phone" defaultValue={profile.emergency_contact_phone ?? ''} /></label>
+        <label className="pf">Emergency phone<input className="gf-input" type="tel" name="emergency_contact_phone" defaultValue={profile.emergency_contact_phone ?? ''} /></label>
       </div>
       {state.error && <p id={errorId} role="alert" className="pf-err"><AlertCircle size={15} strokeWidth={2} /> {state.error}</p>}
       <div className="pf-actions">

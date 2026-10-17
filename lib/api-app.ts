@@ -20,6 +20,10 @@ export function json(body: unknown, status = 200): Response {
   });
 }
 
+export function dataUnavailable(): Response {
+  return json({ error: 'Your gym data could not be loaded. Please try again.', code: 'retryable' }, 503);
+}
+
 export function corsPreflight(): Response {
   return new Response(null, { status: 204, headers: CORS });
 }
@@ -152,10 +156,17 @@ export async function requireApiMember(
     .eq('user_id', user.id)
     .eq('is_active', true);
   if (requestedGymId) linkQuery = linkQuery.eq('gym_id', requestedGymId);
-  const { data: link } = await linkQuery
+  let linkResult;
+  try {
+    linkResult = await linkQuery
     .order('joined_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  } catch {
+    return { ok: false, res: dataUnavailable() };
+  }
+  if (linkResult.error) return { ok: false, res: dataUnavailable() };
+  const link = linkResult.data;
   if (!link) {
     return { ok: false, res: json({ error: 'This account isn’t a member at any gym yet.', code: 'not_a_member' }, 403) };
   }
@@ -163,8 +174,13 @@ export async function requireApiMember(
   const { gyms: embeddedGym, ...linkRow } = link as MemberLink & { gyms: Gym | null };
   let gym: Gym | null = embeddedGym ?? null;
   if (!gym && linkRow.gym_id) {
-    const { data } = await supabase.from('gyms').select('*').eq('id', linkRow.gym_id).maybeSingle();
-    gym = (data as Gym) ?? null;
+    try {
+      const { data, error } = await supabase.from('gyms').select('*').eq('id', linkRow.gym_id).maybeSingle();
+      if (error) return { ok: false, res: dataUnavailable() };
+      gym = (data as Gym) ?? null;
+    } catch {
+      return { ok: false, res: dataUnavailable() };
+    }
   }
   if (!gym) return { ok: false, res: json({ error: 'Your gym could not be loaded.', code: 'no_gym' }, 403) };
 
@@ -189,7 +205,7 @@ export async function requireApiMember(
 export async function readJson(req: Request): Promise<Record<string, unknown>> {
   try {
     const body = await req.json();
-    return body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    return body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
   } catch {
     return {};
   }

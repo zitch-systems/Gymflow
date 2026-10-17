@@ -1,51 +1,45 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
 import { Badge, Body, Button, Card, EmptyState, ErrorState, Loading, Notice, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
-import { api } from '@/api/client';
+import { api, ApiError } from '@/api/client';
 import { shortDate, time12 } from '@/lib/format';
+import { bookingForSlot, canCancelBooking } from '@/lib/class-bookings';
 import { radius, space } from '@/theme';
 import type { Classes } from '@/api/types';
 
 const SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0];
+const LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 // The gym's timetable and the member's own bookings, as two tabs — the same
 // split the web schedule page uses.
 export default function ClassesScreen() {
+  const router = useRouter();
+  const [waiverRequired, setWaiverRequired] = useState(false);
   const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<Classes>('/api/app/classes');
   const [tab, setTab] = useState<'schedule' | 'bookings'>('schedule');
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const actionLock = useRef(false);
   const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'danger' } | null>(null);
 
   const serverToday = data?.today ?? new Date().toISOString().slice(0, 10);
   const today = new Date(`${serverToday}T12:00:00`);
   const activeDow = selectedDow ?? today.getDay();
 
-  // This week, Monday first. Anchor it to the server's Nigerian calendar date
-  // so a device set to another timezone doesn't show or book the wrong week.
-  const week = (() => {
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      return {
-        dow: d.getDay(),
-        dom: d.getDate(),
-        label: SHORT[d.getDay()],
-        accessibilityLabel: d.toLocaleDateString('en-NG', {
-          weekday: 'long', day: 'numeric', month: 'long',
-        }),
-        isToday: d.toDateString() === today.toDateString(),
-      };
-    });
-  })();
+  // This is a recurring timetable, not a calendar for the current week.
+  // Each card names the server's actual next occurrence before the member books.
+  const week = WEEKDAYS.map((dow) => ({ dow, label: SHORT[dow], accessibilityLabel: LONG[dow] }));
 
   const book = useCallback(async (scheduleId: string) => {
+    if (actionLock.current) return;
+    actionLock.current = true;
     setPending(scheduleId);
     setNotice(null);
+    setWaiverRequired(false);
     try {
       const res = await api.post<{ ok: boolean; waitlisted: boolean; message: string | null }>('/api/app/classes', {
         action: 'book', schedule_id: scheduleId,
@@ -53,8 +47,10 @@ export default function ClassesScreen() {
       setNotice({ message: res.message ?? (res.waitlisted ? 'Added to the waitlist.' : 'You’re booked in.'), tone: 'success' });
       refresh();
     } catch (e) {
+      setWaiverRequired(e instanceof ApiError && e.code === 'waiver_required');
       setNotice({ message: e instanceof Error ? e.message : 'Could not book that class.', tone: 'danger' });
     } finally {
+      actionLock.current = false;
       setPending(null);
     }
   }, [refresh]);
@@ -68,6 +64,8 @@ export default function ClassesScreen() {
         text: 'Cancel booking',
         style: 'destructive',
         onPress: async () => {
+          if (actionLock.current) return;
+          actionLock.current = true;
           setPending(bookingId);
           setNotice(null);
           try {
@@ -77,6 +75,7 @@ export default function ClassesScreen() {
           } catch (e) {
             setNotice({ message: e instanceof Error ? e.message : 'Could not cancel that booking.', tone: 'danger' });
           } finally {
+            actionLock.current = false;
             setPending(null);
           }
         },
@@ -89,20 +88,16 @@ export default function ClassesScreen() {
   if (!data) return <Screen><EmptyState title="No timetable yet" /></Screen>;
 
   const daySlots = data.schedule.filter((s) => s.day_of_week === activeDow);
-  const bookedScheduleIds = new Set(
-    data.bookings.filter((b) => (b.booking_date ?? '') >= data.today).map((b) => b.class_schedule_id),
-  );
-  const bookedDows = new Set(
-    data.bookings
-      .filter((b) => (b.booking_date ?? '') >= data.today && b.booking_date)
-      .map((b) => new Date(`${b.booking_date}T00:00:00`).getDay()),
-  );
+  const bookedDows = new Set(data.schedule
+    .filter((slot) => bookingForSlot(slot, data.bookings))
+    .map((slot) => slot.day_of_week));
   const scheduledDows = new Set(data.schedule.map((s) => s.day_of_week));
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
       {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
-      <Title>Schedule</Title>
+      <Title>Classes</Title>
+      <Body tone="secondary" style={{ marginTop: space.sm }}>Choose a day to see its next available classes.</Body>
 
       <View style={styles.tabs}>
         <TabButton label="Schedule" active={tab === 'schedule'} onPress={() => setTab('schedule')} />
@@ -110,6 +105,7 @@ export default function ClassesScreen() {
       </View>
 
       {notice ? <Notice message={notice.message} tone={notice.tone === 'success' ? 'success' : 'danger'} /> : null}
+      {waiverRequired ? <Button label="Review gym waiver" onPress={() => router.push('/waiver')} style={{ marginBottom: space.lg }} /> : null}
 
       {tab === 'schedule' ? (
         <>
@@ -126,7 +122,6 @@ export default function ClassesScreen() {
                   accessibilityState={{ selected: on }}
                 >
                   <Body size={11} style={{ color: on ? c.onBrand : c.textMuted }}>{d.label}</Body>
-                  <Body size={16} weight="800" style={{ color: on ? c.onBrand : c.text }}>{d.dom}</Body>
                   <View style={[
                     styles.mark,
                     { backgroundColor: scheduledDows.has(d.dow) ? (bookedDows.has(d.dow) ? c.accent : c.textMuted) : 'transparent' },
@@ -140,7 +135,7 @@ export default function ClassesScreen() {
             <EmptyState title="Rest day" message="No classes scheduled. Recovery counts too." />
           ) : (
             daySlots.map((s) => {
-              const booked = bookedScheduleIds.has(s.id);
+              const booking = bookingForSlot(s, data.bookings);
               return (
                 <Card key={s.id} style={styles.slot}>
                   <View style={styles.slotTime}>
@@ -152,10 +147,11 @@ export default function ClassesScreen() {
                     <Body tone="secondary" size={12} numberOfLines={1}>
                       {s.instructor ?? 'TBA'}{s.room ? ` · ${s.room}` : ''}{s.duration_minutes ? ` · ${s.duration_minutes}m` : ''}
                     </Body>
+                    <Body tone="brand" size={12} style={{ marginTop: 4 }}>Next: {shortDate(s.next_date)}</Body>
                   </View>
-                  {booked
-                    ? <Badge label="Booked" tone="success" />
-                    : <Button label="Book" size="sm" onPress={() => void book(s.id)} loading={pending === s.id} style={{ paddingHorizontal: space.lg }} />}
+                  {booking
+                    ? <Badge label={booking.status === 'waitlisted' ? 'Waitlist' : 'Booked'} tone={booking.status === 'waitlisted' ? 'warning' : 'success'} />
+                    : <Button label="Book" size="sm" onPress={() => void book(s.id)} loading={pending === s.id} disabled={pending !== null} style={{ paddingHorizontal: space.md }} />}
                 </Card>
               );
             })
@@ -170,7 +166,7 @@ export default function ClassesScreen() {
           />
         ) : (
           data.bookings.map((b) => {
-            const upcoming = (b.booking_date ?? '') >= data.today;
+            const upcoming = canCancelBooking(b, data.today);
             const d = b.booking_date ? new Date(`${b.booking_date}T00:00:00`) : null;
             return (
               <Card key={b.id} style={styles.slot}>
@@ -181,7 +177,7 @@ export default function ClassesScreen() {
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Body weight="700" numberOfLines={1}>{b.name}</Body>
                   <Body tone="secondary" size={12} numberOfLines={1}>
-                    {b.start_time ? time12(b.start_time) : shortDate(b.booking_date)}{b.room ? ` · ${b.room}` : ''}
+                    {shortDate(b.booking_date)}{b.start_time ? ` · ${time12(b.start_time)}` : ''}{b.room ? ` · ${b.room}` : ''}
                   </Body>
                 </View>
                 {upcoming ? (
@@ -193,6 +189,7 @@ export default function ClassesScreen() {
                       variant="danger"
                       onPress={() => cancel(b.id, b.name)}
                       loading={pending === b.id}
+                      disabled={pending !== null}
                     />
                   </View>
                 ) : (

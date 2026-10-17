@@ -15,7 +15,7 @@ export const metadata = { robots: { index: false, follow: false } };
 // Instructor portal shell. requireInstructor() gates the group (instructor /
 // manager / gym_owner). Reuses the .ds-admin namespace + instructor widgets.
 export default async function CoachLayout({ children }: { children: React.ReactNode }) {
-  const { user, gym } = await requireInstructor();
+  const { user, gym, role } = await requireInstructor();
   // Same wall the admin console shows — a coach is staff, and a switched-off
   // gym has no classes to run. See app/(admin)/layout.tsx.
   if (isOfflineGym(gym)) return <SuspendedWall gymName={gym.name} />;
@@ -24,7 +24,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
   // change (see gyms.legacy_full_access). A coach is staff (unlike a member),
   // so this points at Billing rather than dead-ending — see FeatureLockWall's
   // 'staff' audience.
-  if (!gymCanUse(gym, 'instructor_portal')) return <FeatureLockWall gymName={gym.name} featureLabel="The instructor portal" />;
+  if (!gymCanUse(gym, 'instructor_portal')) return <FeatureLockWall gymName={gym.name} featureLabel="The instructor portal" canManageBilling={role !== 'instructor'} />;
   const [profile, staffGyms] = await Promise.all([getProfile(), getStaffGyms(INSTRUCTOR_ROLES)]);
   const name = profile?.full_name?.trim() || user.email?.split('@')[0] || 'Instructor';
   const sharePct = (gym as { instructor_revenue_share_pct?: number | null }).instructor_revenue_share_pct ?? null;

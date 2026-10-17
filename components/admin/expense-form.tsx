@@ -1,5 +1,7 @@
 'use client';
 
+import { watDateISO } from '@/lib/format';
+
 import { useState, useTransition } from 'react';
 import { Plus, AlertCircle, Check } from 'lucide-react';
 import { logExpense, type FState } from '@/lib/actions/facility';
@@ -33,13 +35,13 @@ export function ExpenseForm() {
 
   return (
     <form action={submit} style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '4px 0 10px' }}>
-      <select className="gf-select" name="category" defaultValue="utilities">
+      <select className="gf-select" name="category" aria-label="Expense category" defaultValue="utilities">
         {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c[0].toUpperCase() + c.slice(1)}</option>)}
       </select>
-      <input className="gf-input" name="amount" type="number" min="0" step="100" placeholder="Amount (₦)" required />
-      <input className="gf-input" name="description" placeholder="Description (optional)" />
-      <input className="gf-input" name="expense_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
-      {error && <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--gf-danger)', fontSize: '0.82rem' }}><AlertCircle size={14} strokeWidth={2} /> {error}</span>}
+      <input className="gf-input" name="amount" aria-label="Amount in naira" type="number" min="0.01" step="0.01" placeholder="Amount (₦)" required />
+      <input className="gf-input" name="description" aria-label="Expense description" placeholder="Description (optional)" />
+      <input className="gf-input" name="expense_date" aria-label="Expense date" type="date" defaultValue={watDateISO()} />
+      {error && <span role="alert" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--gf-danger)', fontSize: '0.82rem' }}><AlertCircle size={14} strokeWidth={2} /> {error}</span>}
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="gf-btn gf-btn-primary gf-btn-sm" type="submit" disabled={pending}>{pending ? 'Saving…' : 'Save expense'}</button>
         <button className="gf-btn gf-btn-secondary gf-btn-sm" type="button" onClick={() => setOpen(false)}>Cancel</button>

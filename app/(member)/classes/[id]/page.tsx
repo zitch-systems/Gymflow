@@ -43,10 +43,11 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
 
   // Resolve the schedule (a specific time slot) scoped to the member's gym, with
   // its class. 404 for a foreign/unknown id — never leak another gym's timetable.
-  const { data: sched } = await supabase
+  const { data: sched, error: scheduleError } = await supabase
     .from('class_schedules')
     .select('id, day_of_week, start_time, end_time, room, class_id, is_active, classes(name, instructor, description, level, category, duration_minutes, max_capacity)')
     .eq('id', id).eq('gym_id', gym.id).maybeSingle();
+  if (scheduleError) throw new Error('This class could not be loaded. Please try again.');
   if (!sched) notFound();
 
   const c = (sched as unknown as {
@@ -64,15 +65,16 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
   const isToday = isSameWatDate(bookingDate, now);
 
   // Already booked this occurrence? (mirrors the schedule page's bookedSet.)
-  const { data: existing } = await supabase
+  const { data: existing, error: bookingError } = await supabase
     .from('class_bookings')
     .select('id, status')
-    .eq('member_id', user.id).eq('class_schedule_id', sched.id)
-    .eq('booking_date', bookingDate).neq('status', 'cancelled')
+    .eq('member_id', user.id).eq('gym_id', gym.id).eq('class_schedule_id', sched.id)
+    .eq('booking_date', bookingDate).in('status', ['booked', 'waitlisted'])
     .maybeSingle();
+  if (bookingError) throw new Error('Your booking status could not be loaded. Please try again.');
 
   const durMin = Number(c?.duration_minutes ?? 60) || 60;
-  const whenLabel = `${isToday ? 'Today' : DAYS[dow]} · ${fmtTime(sched.start_time)} · ${durMin} min`;
+  const whenLabel = `${isToday ? 'Today' : `${DAYS[dow]} ${bookingDate}`} · ${fmtTime(sched.start_time)} · ${durMin} min`;
   const coach = c?.instructor?.trim() || 'Instructor TBA';
   const hero = gym.hero_image_url || photoFor(sched.class_id ?? sched.id);
 
@@ -150,7 +152,8 @@ export default async function ClassDetailPage({ params }: { params: Promise<{ id
               </div>
             </>
           )
-          : <BookButtonLarge scheduleId={sched.id} />}
+          : sched.is_active ? <BookButtonLarge key={bookingDate} scheduleId={sched.id} />
+            : <p role="status">This class is no longer available to book. Please choose another time from the schedule.</p>}
       </div>
     </section>
   );

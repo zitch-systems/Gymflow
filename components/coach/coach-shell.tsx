@@ -63,7 +63,7 @@ export function CoachShell({ children, gymName, userName, userInitial, sharePct,
           {NAV.map((n) => {
             const Icon = n.icon;
             return (
-              <Link key={n.href} href={n.href} className={`gf-nav-item${isActive(n.href) ? ' active' : ''}`}>
+              <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? 'page' : undefined} className={`gf-nav-item${isActive(n.href) ? ' active' : ''}`}>
                 <Icon size={17} strokeWidth={1.75} /><span>{n.label}</span>
               </Link>
             );

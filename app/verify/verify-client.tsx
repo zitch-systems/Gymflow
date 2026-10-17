@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useId } from 'react';
+import { useActionState, useId, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft, ArrowRight, KeyRound, MailCheck, ShieldCheck } from 'lucide-react';
 import { resendTwoFactor, verifyTwoFactor, type TwoFactorState } from '@/lib/auth/actions';
@@ -15,10 +15,11 @@ export function VerifyClient({ maskedEmail }: { maskedEmail: string }) {
   const [state, action, pending] = useActionState(verifyTwoFactor, initial);
   const [resendState, resendAction, resendPending] = useActionState(resendTwoFactor, initial);
   const errorId = useId();
+  const [lastAction, setLastAction] = useState<'verify' | 'resend'>('verify');
 
   // Either action can raise an error; the newest message wins so nobody is
   // reading advice about a code they already replaced.
-  const error = state.error ?? resendState.error;
+  const error = lastAction === 'verify' ? state.error : resendState.error;
 
   return (
     <div className="auth-shell">
@@ -46,7 +47,7 @@ export function VerifyClient({ maskedEmail }: { maskedEmail: string }) {
             We emailed a 6-digit code to <span className="em">{maskedEmail}</span>. Enter it to finish signing in — it expires in 10 minutes.
           </p>
 
-          <form action={action} aria-busy={pending}>
+          <form action={action} onSubmit={() => setLastAction('verify')} aria-busy={pending}>
             <div className="field gf-form-group">
               <label className="gf-form-label" htmlFor="code">Verification code</label>
               <div className="gf-input-group">
@@ -81,13 +82,13 @@ export function VerifyClient({ maskedEmail }: { maskedEmail: string }) {
                 <AlertCircle size={15} strokeWidth={2} style={{ flexShrink: 0 }} /> {error}
               </p>
             )}
-            {resendState.sent && !error && (
+            {lastAction === 'resend' && resendState.sent && !error && (
               <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-success, #11d18b)', fontSize: '0.84rem', margin: '-4px 0 14px' }}>
                 <MailCheck size={15} strokeWidth={2} style={{ flexShrink: 0 }} /> A new code is on its way.
               </p>
             )}
 
-            <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={pending}>
+            <button className="gf-btn gf-btn-primary gf-btn-lg gf-btn-full" type="submit" disabled={pending || resendPending}>
               {pending ? 'Verifying…' : 'Verify and sign in'} <ArrowRight strokeWidth={2} style={{ width: 17, height: 17 }} />
             </button>
           </form>
@@ -98,8 +99,8 @@ export function VerifyClient({ maskedEmail }: { maskedEmail: string }) {
               nesting and the browser would close the <p> early. */}
           <div className="resend" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span>Didn’t get it?</span>
-            <form action={resendAction}>
-              <button type="submit" className="linkish" disabled={resendPending}>
+            <form action={resendAction} onSubmit={() => setLastAction('resend')}>
+              <button type="submit" className="linkish" disabled={resendPending || pending}>
                 {resendPending ? 'Sending…' : 'Send a new code'}
               </button>
             </form>

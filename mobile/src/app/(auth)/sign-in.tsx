@@ -1,20 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
 import { Body, Button, Field, Notice, Title } from '@/components/ui';
 import { useAuth } from '@/auth/context';
 import { API_BASE_URL } from '@/api/client';
+import { gymPortalUrl } from '@/lib/gym-links';
 import { space } from '@/theme';
 
 export default function SignInScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const { code = '', gymName = '' } = useLocalSearchParams<{ code?: string; gymName?: string }>();
+  const { code = '', gymName = '', gymSlug = '' } = useLocalSearchParams<{ code?: string; gymName?: string; gymSlug?: string }>();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const actionLock = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   // These parameters normally come from the verified gym-code screen. A stale
@@ -25,8 +27,10 @@ export default function SignInScreen() {
   }, [code, router]);
 
   const submit = async () => {
+    if (actionLock.current) return;
     if (!String(code).trim()) { router.replace('/(auth)/gym'); return; }
     if (!email.trim() || !password) { setError('Enter your email and password.'); return; }
+    actionLock.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -35,6 +39,7 @@ export default function SignInScreen() {
       // status flips to signed-in, and a push from both places double-navigates.
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not sign you in.');
+      actionLock.current = false;
       setBusy(false);
     }
   };
@@ -71,6 +76,7 @@ export default function SignInScreen() {
         secureTextEntry
         autoCapitalize="none"
         autoComplete="current-password"
+        autoCorrect={false}
         returnKeyType="go"
         onSubmitEditing={submit}
         editable={!busy}
@@ -80,15 +86,17 @@ export default function SignInScreen() {
 
       <Button
         label="New here? Create an account"
+        disabled={busy}
         variant="ghost"
-        onPress={() => router.push({ pathname: '/(auth)/sign-up', params: { code, gymName } })}
+        onPress={() => router.push({ pathname: '/(auth)/sign-up', params: { code, gymName, gymSlug } })}
         style={{ marginTop: space.md }}
       />
 
       {/* Password reset is an email round-trip and lives on the web, where the
           reset link lands. Sending the member there beats a dead end. */}
       <Pressable
-        onPress={() => void Linking.openURL(`${API_BASE_URL}/forgot-password`)}
+        onPress={() => { void Linking.openURL(gymPortalUrl(API_BASE_URL, String(gymSlug), '/forgot-password')).catch(() => setError('Could not open password reset. Please try again.')); }}
+        disabled={busy}
         style={{ padding: space.md, alignSelf: 'center' }}
         accessibilityRole="link"
         accessibilityLabel="Reset your password"
@@ -98,7 +106,7 @@ export default function SignInScreen() {
       <Button
         label="Delete an account"
         variant="ghost"
-        onPress={() => void Linking.openURL(`${API_BASE_URL}/account/delete`)}
+        onPress={() => void Linking.openURL(`${API_BASE_URL}/account/delete`).catch(() => setError('Could not open account deletion. Please try again.'))}
       />
     </Screen>
   );

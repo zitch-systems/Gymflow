@@ -12,7 +12,7 @@ export default async function CoachClients() {
 
   const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
   const monthStartISO = watMonthStartISO();
-  const [{ data: subs }, { data: sessions }] = await Promise.all([
+  const [{ data: subs, error: subsError }, { data: sessions, error: sessionsError }] = await Promise.all([
     supabase.from('instructor_subscriptions')
       .select('id, member_id, status, end_date, amount_paid, start_date')
       .eq('instructor_id', user.id).eq('gym_id', gym.id)
@@ -21,6 +21,8 @@ export default async function CoachClients() {
       .select('id, scheduled_at')
       .eq('instructor_id', user.id).eq('gym_id', gym.id).gte('scheduled_at', monthStart.toISOString()),
   ]);
+
+  if (subsError || sessionsError) throw new Error('Could not load this page. Please retry.');
 
   const active = (subs ?? []).filter((s) => s.status === 'active');
   const expiringSoon = active.filter((s) => s.end_date && daysLeft(s.end_date) <= 7).length;

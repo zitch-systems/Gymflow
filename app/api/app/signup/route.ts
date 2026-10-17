@@ -2,7 +2,7 @@ import { createApiAuthClient, resolveGymByCode, provisionMember } from '@/lib/gy
 import { validatePassword } from '@/lib/auth/password';
 import { normalizeNgPhone } from '@/lib/format';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
-import { json, corsPreflight, sessionPayload, planLocked } from '@/lib/api-app';
+import { readJson, dataUnavailable, json, corsPreflight, sessionPayload, planLocked } from '@/lib/api-app';
 import { gymCanUse } from '@/lib/entitlements';
 
 export const dynamic = 'force-dynamic';
@@ -20,8 +20,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 // flow), links the member to the gym, and returns the Supabase session so the
 // app is immediately logged in.
 export async function POST(req: Request) {
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return json({ error: 'Invalid request body.' }, 400); }
+  const body = await readJson(req);
 
   const code = String(body.code ?? '').trim();
   const email = String(body.email ?? '').trim().toLowerCase();
@@ -85,7 +84,7 @@ export async function POST(req: Request) {
       session: sessionPayload(session),
       needs_email_confirmation: !session,
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }

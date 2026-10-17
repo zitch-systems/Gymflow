@@ -42,6 +42,8 @@ jobs:
         run: npm run test:api-client
       - name: Verify cold launch and authenticated deep link routing
         run: npm run test:auth-routing
+      - name: Verify booking dates, gym QR validation, and screen data recovery
+        run: npm run test:member-flows
       - name: Audit production graph against reviewed residual advisories
         run: npm run audit:production
       - run: npm run type-check

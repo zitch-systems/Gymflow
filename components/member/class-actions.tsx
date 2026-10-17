@@ -11,15 +11,15 @@ export function BookButton({ scheduleId }: { scheduleId: string }) {
   const [state, action, pending] = useActionState(bookClass, INIT);
   // Matches the schedule card's booked state in revamp/member.html.
   if (state.ok) return state.waitlisted
-    ? <span className="gf-badge gf-badge-warning" style={{ padding: '5px 9px' }}>Waitlisted</span>
-    : <span className="gf-badge gf-badge-success" style={{ padding: '5px 9px' }}>Booked</span>;
+    ? <span role="status" className="gf-badge gf-badge-warning" style={{ padding: '5px 9px' }}>Waitlisted</span>
+    : <span role="status" className="gf-badge gf-badge-success" style={{ padding: '5px 9px' }}>Booked</span>;
   return (
-    <form action={action} className="bk-form">
+    <form action={action} className="bk-form" aria-busy={pending}>
       <input type="hidden" name="scheduleId" value={scheduleId} />
       <button className="bk-btn" disabled={pending} type="submit">
         {pending ? 'Booking…' : <><Plus size={14} strokeWidth={2.6} /> Book</>}
       </button>
-      {state.error && <span className="bk-err">{state.error}</span>}
+      {state.error && <span className="bk-err" role="alert">{state.error}</span>}
     </form>
   );
 }
@@ -37,7 +37,7 @@ export function BookButtonLarge({ scheduleId }: { scheduleId: string }) {
     );
   }
   return (
-    <form action={action}>
+    <form action={action} aria-busy={pending}>
       <input type="hidden" name="scheduleId" value={scheduleId} />
       <button className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" disabled={pending} type="submit">
         {pending ? 'Booking…' : <><Plus size={18} strokeWidth={2.4} /> Book your spot</>}
@@ -49,14 +49,15 @@ export function BookButtonLarge({ scheduleId }: { scheduleId: string }) {
 
 export function CancelButton({ bookingId }: { bookingId: string }) {
   const [state, action, pending] = useActionState(cancelBooking, INIT);
-  if (state.ok) return <span className="bk-cancelled">Cancelled</span>;
+  if (state.ok) return <span className="bk-cancelled" role="status">Cancelled</span>;
   // The prototype's booking rows use a plain-text Cancel button (.bkg .cancel).
   return (
-    <form action={action}>
+    <form action={action} aria-busy={pending}>
       <input type="hidden" name="bookingId" value={bookingId} />
       <button className="cancel" disabled={pending} type="submit" aria-label="Cancel booking">
         {pending ? 'Cancelling…' : 'Cancel'}
       </button>
+      {state.error && <p className="bk-err" role="alert">{state.error}</p>}
     </form>
   );
 }

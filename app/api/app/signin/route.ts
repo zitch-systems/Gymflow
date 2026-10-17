@@ -1,6 +1,6 @@
 import { createApiAuthClient, resolveGymByCode } from '@/lib/gym-signup';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
-import { json, corsPreflight, sessionPayload, planLocked } from '@/lib/api-app';
+import { readJson, dataUnavailable, json, corsPreflight, sessionPayload, planLocked } from '@/lib/api-app';
 import { gymCanUse } from '@/lib/entitlements';
 import { twoFactorRequiredForUser } from '@/lib/auth/two-factor';
 
@@ -18,8 +18,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 // linked to the gym for that code (idempotent — joins them if not already, the
 // same trust model as the web /join link), and returns the Supabase session.
 export async function POST(req: Request) {
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return json({ error: 'Invalid request body.' }, 400); }
+  const body = await readJson(req);
 
   const code = String(body.code ?? '').trim();
   const email = String(body.email ?? '').trim().toLowerCase();
@@ -79,13 +78,17 @@ export async function POST(req: Request) {
     // MRR, and granting member-app surface access at a gym they never joined).
     // Only refresh the existing link — new joins must go through the signup
     // flow (which requires opting in to that gym) or an admin-side invite.
-    const { data: existingLink } = await auth
+    const { data: existingLink, error: linkError } = await auth
       .from('gym_member_links')
       .select('id')
       .eq('user_id', data.user.id)
       .eq('gym_id', gym.id)
       .eq('is_active', true)
       .maybeSingle();
+    if (linkError) {
+      await auth.auth.signOut({ scope: 'local' });
+      return dataUnavailable();
+    }
     if (!existingLink) {
       await auth.auth.signOut({ scope: 'local' });
       return json({ error: 'This account isn’t a member of that gym. Sign up first, or ask your gym for a fresh invite.' }, 403);
@@ -96,7 +99,7 @@ export async function POST(req: Request) {
       user: { id: data.user.id, email: data.user.email ?? email },
       session: sessionPayload(data.session),
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }

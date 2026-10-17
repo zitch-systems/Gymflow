@@ -125,7 +125,7 @@ export default async function PrintQrPoster({
   const initial = (gym.name.trim()[0] ?? 'G').toUpperCase();
 
   return (
-    <main className="qr-print-shell" style={style}>
+    <main id="main-content" className="qr-print-shell" style={style}>
       <nav className="qr-print-toolbar" aria-label="Print poster controls">
         <Link href={`/g/${gym.slug}` as Route} className="qr-print-back">
           <ArrowLeft aria-hidden="true" strokeWidth={2} />

@@ -89,7 +89,7 @@ export default async function AdminDashboard() {
   const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const ownerName = firstName(profile?.full_name ?? profile?.first_name, 'there');
   const fmtTime = (t: string | null) => (t ? String(t).slice(0, 5) : '—');
-  const feedTime = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false }) : '');
+  const feedTime = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
 
   return (
     <>
@@ -126,7 +126,7 @@ export default async function AdminDashboard() {
               {revByDay.map((v, i) => (
                 <div className="bar-col" key={i}>
                   <div className="bar" style={{ height: `${Math.max(Math.round((v / revMax) * 100), v > 0 ? 4 : 2)}%` }} data-v={fmtNaira(v)} />
-                  <span className="bar-lbl">{new Date(dayKeys[i] + 'T12:00:00Z').toLocaleDateString('en-NG', { weekday: 'short' })}</span>
+                  <span className="bar-lbl">{new Date(dayKeys[i] + 'T12:00:00Z').toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', weekday: 'short' })}</span>
                 </div>
               ))}
             </div>

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Share2, Check, X, Clock, ArrowDownLeft } from 'lucide-react';
+import { ArrowLeft, Check, X, Clock, ArrowDownLeft } from 'lucide-react';
 import { PrintReceiptButton } from './print-button';
+import { ShareReceiptButton } from './share-button';
 import { requireMember } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtNaira, fmtDateTime } from '@/lib/format';
@@ -14,11 +15,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const { user, gym } = await requireMember();
   const supabase = await createClient();
 
-  const { data: p } = await supabase
+  const { data: p, error: paymentError } = await supabase
     .from('payments')
     .select('id, amount, refunded_amount, payment_status, payment_date, created_at, payment_method, plan_id, paystack_reference')
     .eq('id', id).eq('member_id', user.id).eq('gym_id', gym.id)
     .maybeSingle();
+  if (paymentError) throw new Error('Your receipt could not be loaded. Please try again.');
   if (!p) notFound();
 
   let planLabel = 'Membership payment';
@@ -50,7 +52,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <div className="mhead" style={{ justifyContent: 'space-between', paddingBottom: 6 }}>
         <Link href="/dashboard/wallet" className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Back to wallet"><ArrowLeft strokeWidth={1.9} /></Link>
         <strong className="htitle">Receipt</strong>
-        <button className="icon-btn" style={{ width: 34, height: 34 }} aria-label="Share receipt"><Share2 strokeWidth={1.9} /></button>
+        <ShareReceiptButton summary={`GymFlow receipt · ${fmtNaira(refund ? amounts.net : amounts.gross)}\n${rows.map(([label, value]) => `${label}: ${value}`).join('\n')}`} />
       </div>
 
       <div className="receipt">

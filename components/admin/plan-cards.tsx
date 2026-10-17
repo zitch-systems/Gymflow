@@ -23,11 +23,12 @@ const FEATURES: Record<PlanTier, string[]> = {
 // GymFlow bills quarterly or annually — the toggle picks which Paystack Plan
 // the checkout is opened against.
 export function PlanCards({
-  currentTier, currentCycle, highlightTier,
+  currentTier, currentCycle, highlightTier, allowCurrentPlan = false,
 }: {
   currentTier?: PlanTier | null;
   currentCycle?: BillingCycle | null;
   highlightTier?: PlanTier;
+  allowCurrentPlan?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [busyTier, setBusyTier] = useState<PlanTier | null>(null);
@@ -38,11 +39,13 @@ export function PlanCards({
     setError(null);
     setBusyTier(tier);
     startTransition(async () => {
-      const res = await startPlatformSubscription(tier, cycle);
-      if (res.ok) {
-        window.location.href = res.url;
-      } else {
-        setError(res.error);
+      try {
+        const res = await startPlatformSubscription(tier, cycle);
+        if (res.ok) window.location.href = res.url;
+        else setError(res.error);
+      } catch {
+        setError('Could not open checkout. Please try again.');
+      } finally {
         setBusyTier(null);
       }
     });
@@ -51,7 +54,7 @@ export function PlanCards({
   return (
     <>
       {error && (
-        <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 10, background: 'var(--gf-danger-soft, #ff45601f)', color: 'var(--gf-danger, #ff4560)', fontSize: '0.86rem' }}>
+        <div role="alert" style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 10, background: 'var(--gf-danger-soft, #ff45601f)', color: 'var(--gf-danger, #ff4560)', fontSize: '0.86rem' }}>
           {error}
         </div>
       )}
@@ -66,7 +69,7 @@ export function PlanCards({
             const save = Math.max(...PLAN_TIERS.map((t) => cycleSavingPct(t, c)));
             const on = c === cycle;
             return (
-              <button key={c} type="button" onClick={() => setCycle(c)} aria-pressed={on} className={on ? 'on' : undefined}>
+              <button key={c} type="button" onClick={() => setCycle(c)} disabled={pending} aria-pressed={on} className={on ? 'on' : undefined}>
                 {CYCLE_LABEL[c]}
                 {save > 0 && <span className="cycle-save">−{save}%</span>}
               </button>
@@ -100,11 +103,11 @@ export function PlanCards({
               <button
                 type="button"
                 onClick={() => choose(tier)}
-                disabled={pending || isCurrent}
+                disabled={pending || (isCurrent && !allowCurrentPlan)}
                 className={`gf-btn gf-btn-${pop ? 'primary' : 'secondary'} gf-btn-full`}
                 style={{ marginTop: 'auto' }}
               >
-                {busy ? 'Redirecting…' : isCurrent ? 'Current plan' : `Choose ${p.name}`}
+                {busy ? 'Redirecting…' : isCurrent && !allowCurrentPlan ? 'Current plan' : `Choose ${p.name}`}
               </button>
             </div>
           );

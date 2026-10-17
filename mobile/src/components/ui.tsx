@@ -28,11 +28,11 @@ const TONE: Record<TextTone, string> = {
 };
 
 export function Title({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
-  return <Text style={[styles.title, style]}>{children}</Text>;
+  return <Text accessibilityRole="header" style={[styles.title, style]}>{children}</Text>;
 }
 
 export function Heading({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {
-  return <Text style={[styles.heading, style]}>{children}</Text>;
+  return <Text accessibilityRole="header" style={[styles.heading, style]}>{children}</Text>;
 }
 
 export function Body({
@@ -80,7 +80,7 @@ export function Group({ children, style }: { children: ReactNode; style?: StyleP
 }
 
 export function Row({
-  icon, title, subtitle, right, onPress, danger, last,
+  icon, title, subtitle, right, onPress, danger, last, subtitleLines = 2,
 }: {
   icon?: ReactNode;
   title: string;
@@ -89,15 +89,16 @@ export function Row({
   onPress?: () => void;
   danger?: boolean;
   last?: boolean;
+  subtitleLines?: number;
 }) {
   const content = (
     <View style={[styles.row, last && { borderBottomWidth: 0 }]}>
       {icon ? <View style={[styles.rowIcon, danger && { backgroundColor: c.dangerSoft }]}>{icon}</View> : null}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={[styles.rowTitle, danger && { color: c.danger }]} numberOfLines={1}>{title}</Text>
-        {subtitle ? <Text style={styles.rowSubtitle} numberOfLines={2}>{subtitle}</Text> : null}
+        {subtitle ? <Text style={styles.rowSubtitle} numberOfLines={subtitleLines}>{subtitle}</Text> : null}
       </View>
-      {right}
+      {right ? <View style={{ maxWidth: '52%', flexShrink: 1 }}>{right}</View> : null}
     </View>
   );
   if (!onPress) return content;
@@ -265,7 +266,7 @@ export function StaleDataNotice({
         {offline ? 'You’re offline' : 'Could not refresh this screen'}
       </Text>
       <Text style={{ color: c.warning, fontSize: 13, lineHeight: 19, marginTop: 3 }}>
-        Showing data from {refreshed}. Cached status does not grant entry. Confirm access with the front desk during an outage.
+        Showing data from {refreshed}. Refresh to confirm the latest information before taking action.
       </Text>
       <Button
         label="Retry now"
@@ -328,9 +329,9 @@ const styles = StyleSheet.create({
   rowSubtitle: { color: c.textSecondary, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
   button: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm,
-    borderRadius: radius.sm, paddingHorizontal: space.lg,
+    borderRadius: radius.sm, paddingHorizontal: space.lg, minHeight: 44,
   },
-  buttonLabel: { fontWeight: '700' },
+  buttonLabel: { fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   badge: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
   badgeText: { fontSize: 11.5, fontWeight: '700' },
   avatar: { backgroundColor: c.brandSoft, alignItems: 'center', justifyContent: 'center' },

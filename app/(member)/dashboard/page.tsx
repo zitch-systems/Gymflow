@@ -9,6 +9,7 @@ import { requireMember, getProfile } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate, daysLeft, firstName, fmtNaira, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
 import { membershipDisplayState } from '@/lib/membership-display';
+import { isUpcomingMemberBooking } from '@/lib/member-schedule';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ShareInvite } from '@/components/member/share-invite';
 import { PaymentSuccess, type PaidReceipt } from '@/components/member/payment-success';
@@ -41,7 +42,7 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
   const monthStartIso = watDayStartUtc(`${today.slice(0, 7)}-01`); // UTC instant of WAT month start
   const since = new Date(now.getTime() - 70 * 86_400_000).toISOString();
 
-  const [{ data: sub }, { count: unread }, { data: allCheckins }, { count: classesAttended }, { data: nextBooking }] = await Promise.all([
+  const [{ data: sub }, { count: unread }, { data: allCheckins }, { count: classesAttended }, { data: futureBookings }] = await Promise.all([
     // Include past_due so the dunning banner renders when Paystack failed the
     // last auto-charge; downstream code treats past_due as "still has access"
     // until the invoice.payment_failed grace window closes.
@@ -51,15 +52,22 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
     supabase.from('check_ins').select('checked_in_at, checked_out_at, check_in_method')
       .eq('member_id', user.id).eq('gym_id', gym.id).gte('checked_in_at', since).order('checked_in_at', { ascending: false }),
     supabase.from('class_bookings').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'attended'),
-    supabase.from('class_bookings').select('booking_date, class_id, status')
+    supabase.from('class_bookings').select('booking_date, class_id, status, class_schedule_id, class_schedules(start_time)')
       .eq('member_id', user.id).eq('gym_id', gym.id).gte('booking_date', today).in('status', ['booked', 'confirmed'])
-      .order('booking_date', { ascending: true }).limit(1).maybeSingle(),
+      .order('booking_date', { ascending: true }).limit(50),
   ]);
+  // A class can have several weekly time slots. The booked schedule is the
+  // authority for its time, and classes already started today aren't "next".
+  const nextBooking = (futureBookings ?? []).map((booking) => ({
+    ...booking,
+    startTime: (booking.class_schedules as { start_time?: string | null } | null)?.start_time ?? null,
+  })).filter((booking) => isUpcomingMemberBooking(booking.booking_date, booking.startTime, wnow))
+    .sort((a, b) => `${a.booking_date}T${a.startTime ?? '23:59'}`.localeCompare(`${b.booking_date}T${b.startTime ?? '23:59'}`))[0];
 
   // Resolve plan name + next-class name without relying on PostgREST embeds.
   const [{ data: plan }, { data: nextClass }] = await Promise.all([
     sub?.plan_id ? supabase.from('membership_plans').select('name').eq('id', sub.plan_id).maybeSingle() : Promise.resolve({ data: null }),
-    nextBooking?.class_id ? supabase.from('classes').select('name, start_time').eq('id', nextBooking.class_id).maybeSingle() : Promise.resolve({ data: null }),
+    nextBooking?.class_id ? supabase.from('classes').select('name').eq('id', nextBooking.class_id).eq('gym_id', gym.id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
 
   const checkins = allCheckins ?? [];
@@ -260,9 +268,9 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
         <div className="col-b">
           <div className="sect-t">Next class <Link href="/classes">See all</Link></div>
           {nextBooking ? (
-            <Link href="/classes" className="lc tap">
+            <Link href={nextBooking.class_schedule_id ? `/classes/${nextBooking.class_schedule_id}` : '/classes?tab=book'} className="lc tap">
               <div className="ic"><CalendarClock strokeWidth={1.9} /></div>
-              <div className="m"><strong>{nextClass?.name ?? 'Class'}</strong><small>{fmtDate(nextBooking.booking_date)}{nextClass?.start_time ? ` · ${String(nextClass.start_time).slice(0, 5)}` : ''}</small></div>
+              <div className="m"><strong>{nextClass?.name ?? 'Class'}</strong><small>{fmtDate(nextBooking.booking_date)}{nextBooking.startTime ? ` · ${nextBooking.startTime.slice(0, 5)}` : ''}</small></div>
               <span className="gf-badge gf-badge-success">Booked</span>
             </Link>
           ) : (
@@ -274,7 +282,7 @@ export default async function MemberHome({ searchParams }: { searchParams: Promi
 
           <div className="promo">
             <span className="pic"><Gift strokeWidth={1.9} /></span>
-            <div className="m"><strong>Refer &amp; earn ₦5,000</strong><small>Invite a friend to {gym.name}.</small></div>
+            <div className="m"><strong>Train with a friend</strong><small>Invite someone to join {gym.name}.</small></div>
             <ShareInvite gymName={gym.name} gymSlug={gym.slug} />
           </div>
 

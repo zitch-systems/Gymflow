@@ -1,4 +1,4 @@
-import { requireApiMember, json, corsPreflight } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight } from '@/lib/api-app';
 import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
 
 export const dynamic = 'force-dynamic';
@@ -21,16 +21,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
 
   try {
-    const { data: p } = await supabase
+    const { data: p, error } = await supabase
       .from('payments')
       .select('id, amount, refunded_amount, payment_status, payment_date, created_at, payment_method, plan_id, paystack_reference')
       .eq('id', id).eq('member_id', user.id).eq('gym_id', gym.id)
       .maybeSingle();
+    if (error) return dataUnavailable();
     if (!p) return json({ error: 'Receipt not found.' }, 404);
 
     let planLabel = 'Membership payment';
     if (p.plan_id) {
-      const { data: plan } = await supabase.from('membership_plans').select('name').eq('id', p.plan_id).maybeSingle();
+      const { data: plan, error: planError } = await supabase.from('membership_plans').select('name').eq('id', p.plan_id).maybeSingle();
+      if (planError) return dataUnavailable();
       if (plan?.name) planLabel = plan.name;
     }
 
@@ -51,7 +53,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         gym: gym.name,
       },
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }

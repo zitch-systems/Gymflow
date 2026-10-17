@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { ArrowLeft, ClipboardCheck, ShieldCheck, FileText } from 'lucide-react';
 import { requireMember } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { getWaiverState } from '@/lib/waiver-core';
+import { fmtDateTime } from '@/lib/format';
 
 export const metadata = { title: 'Waiver & documents' };
 
@@ -8,7 +11,8 @@ export const metadata = { title: 'Waiver & documents' };
 // bouncing to the public /legal marketing page. Shows the liability waiver the
 // member accepted plus a short data/security note, scoped to their gym.
 export default async function DocumentsPage() {
-  const { gym } = await requireMember();
+  const { user, gym } = await requireMember();
+  const waiver = await getWaiverState(await createClient(), user.id, gym);
 
   return (
     <section className="view on" data-v="documents">
@@ -18,14 +22,12 @@ export default async function DocumentsPage() {
       </div>
 
       <div className="doc-card">
-        <div className="doc-h"><span className="doc-ic"><ClipboardCheck strokeWidth={1.8} /></span><h2>Liability waiver</h2></div>
-        <p className="doc-sub">Accepted when you joined {gym.name}.</p>
-        <h3>Assumption of risk</h3>
-        <p>You acknowledge that physical exercise carries inherent risks, including injury, and choose to participate voluntarily and at your own risk.</p>
-        <h3>Health declaration</h3>
-        <p>You confirm you are in suitable health to exercise and will stop and seek help if you feel unwell. You will disclose relevant conditions to gym staff.</p>
-        <h3>Release</h3>
-        <p>To the extent permitted by law, you release {gym.name} and its staff from liability for injury arising from ordinary use of the facilities, except in cases of gross negligence.</p>
+        <div className="doc-h"><span className="doc-ic"><ClipboardCheck strokeWidth={1.8} /></span><h2>{waiver.document.title}</h2></div>
+        <p className="doc-sub">
+          {gym.name}{waiver.document.version ? ` · Version ${waiver.document.version}` : ''}
+          {waiver.accepted && waiver.signedAt ? ` · Accepted ${fmtDateTime(waiver.signedAt)}` : ' · Acceptance not recorded for this version'}
+        </p>
+        <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.7 }}>{waiver.document.content}</div>
       </div>
 
       <div className="doc-card">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
@@ -20,25 +20,31 @@ export default function GymCodeScreen() {
   const { resolveGym } = useAuth();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const actionLock = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   // Members re-open this screen after every sign-out; retyping the same code is
   // needless friction.
   useEffect(() => {
-    void storage.getLastCode().then((last) => { if (last) setCode(last); });
+    let cancelled = false;
+    void storage.getLastCode().then((last) => { if (last && !cancelled) setCode((current) => current || last); });
+    return () => { cancelled = true; };
   }, []);
 
   const submit = async () => {
+    if (actionLock.current) return;
     const trimmed = code.trim();
     if (!trimmed) { setError('Enter your gym code.'); return; }
+    actionLock.current = true;
     setBusy(true);
     setError(null);
     try {
       const gym = await resolveGym(trimmed);
-      router.push({ pathname: '/(auth)/sign-in', params: { code: trimmed, gymName: gym.name } });
+      router.push({ pathname: '/(auth)/sign-in', params: { code: trimmed, gymName: gym.name, gymSlug: gym.slug } });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not find that gym.');
     } finally {
+      actionLock.current = false;
       setBusy(false);
     }
   };
@@ -78,13 +84,13 @@ export default function GymCodeScreen() {
       <Button
         label="Privacy & terms"
         variant="ghost"
-        onPress={() => void Linking.openURL(`${API_BASE_URL}/legal`)}
+        onPress={() => void Linking.openURL(`${API_BASE_URL}/legal`).catch(() => setError('Could not open privacy and terms. Please try again.'))}
         style={{ marginTop: space.md }}
       />
       <Button
         label="Delete an existing account"
         variant="ghost"
-        onPress={() => void Linking.openURL(`${API_BASE_URL}/account/delete`)}
+        onPress={() => void Linking.openURL(`${API_BASE_URL}/account/delete`).catch(() => setError('Could not open account deletion. Please try again.'))}
         style={{ marginTop: space.md }}
       />
     </Screen>

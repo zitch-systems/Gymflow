@@ -79,7 +79,7 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
 
   const todayTotal = todayCount ?? 0;
   const lastTime = feed?.[0]?.checked_in_at
-    ? new Date(feed[0].checked_in_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false })
+    ? new Date(feed[0].checked_in_at).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false })
     : '—';
 
   const ids = [...new Set((feed ?? []).map((c) => c.member_id).filter(Boolean) as string[])];
@@ -185,7 +185,7 @@ export default async function AdminCheckin({ searchParams }: { searchParams: Pro
             <div className="feed">
               {(feed ?? []).map((c) => {
                 const nm = c.member_id ? (nameById.get(c.member_id) ?? 'Member') : 'Member';
-                const fmt = (iso: string) => new Date(iso).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const fmt = (iso: string) => new Date(iso).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false });
                 const t = c.checked_in_at ? fmt(c.checked_in_at) : '—';
                 const out = c.checked_out_at ? fmt(c.checked_out_at) : null;
                 return (

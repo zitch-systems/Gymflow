@@ -1,7 +1,6 @@
-import { requireApiMember, json, corsPreflight, readJson, planLocked } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight, readJson, planLocked } from '@/lib/api-app';
 import { gymCanUse } from '@/lib/entitlements';
 import { checkInCore, checkOutCore, generateCodeCore, openVisit } from '@/lib/checkin-core';
-import { watDateISO, watDayStartUtc } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -27,15 +26,17 @@ export async function GET(req: Request) {
   const { supabase, user, gym } = auth.ctx;
 
   try {
-    const { data } = await supabase
+    const [{ data, error }, open] = await Promise.all([supabase
       .from('check_ins').select('id, checked_in_at, checked_out_at, status, check_in_method')
       .eq('member_id', user.id).eq('gym_id', gym.id)
       .order('checked_in_at', { ascending: false })
-      .limit(15);
+      .limit(15),
+      openVisit(supabase, gym.id, user.id),
+    ]);
+
+    if (error) return dataUnavailable();
 
     const history = (data ?? []) as Visit[];
-    const dayStartIso = watDayStartUtc(watDateISO());
-    const open = history.find((c) => c.status === 'active' && !c.checked_out_at && (c.checked_in_at ?? '') >= dayStartIso) ?? null;
 
     return json({
       checked_in: Boolean(open),
@@ -48,8 +49,8 @@ export async function GET(req: Request) {
         method: v.check_in_method,
       })),
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }
 
@@ -87,21 +88,21 @@ export async function POST(req: Request) {
       const res = await checkInCore(supabase, user.id, gym);
       return res.ok
         ? json({ ok: true, checked_in: true, days_left: res.daysLeft })
-        : json({ ok: false, error: res.error }, 422);
+        : json({ ok: false, error: res.error, ...(res.code ? { code: res.code } : {}) }, 422);
     }
 
     if (action === 'out') {
       const res = await checkOutCore(supabase, user.id, gym.id);
       return res.ok
         ? json({ ok: true, checked_in: false })
-        : json({ ok: false, error: res.error }, 422);
+        : json({ ok: false, error: res.error, ...(res.code ? { code: res.code } : {}) }, 422);
     }
 
     if (action === 'code') {
       const res = await generateCodeCore(supabase, user.id, gym);
       return res.ok
         ? json({ ok: true, code: res.code, expires_at: res.expiresAt })
-        : json({ ok: false, error: res.error }, 422);
+        : json({ ok: false, error: res.error, ...(res.code ? { code: res.code } : {}) }, 422);
     }
 
     if (action === 'state') {

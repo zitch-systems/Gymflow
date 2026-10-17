@@ -18,7 +18,7 @@ export function MarketingNav({ cur }: { cur?: 'features' | 'pricing' | 'about' |
         <Link href="/contact" aria-current={cur === 'contact' ? 'page' : undefined} className={cur === 'contact' ? 'cur' : undefined}>Contact</Link>
         <Link href="/login" className="mobile-signin">Sign in</Link>
         <ThemeToggle size={38} />
-        <Link href="/signup" className="gf-btn gf-btn-primary btnlink">Get started</Link>
+        <Link href="/signup" className="gf-btn gf-btn-primary btnlink" style={{ color: '#fff', background: 'linear-gradient(135deg, #0c8659, #06603f)' }}>Get started</Link>
       </div>
     </nav>
   );

@@ -1,3 +1,4 @@
+import { consoleDate } from '@/lib/console-query';
 import { requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
 import { gymHasFeature, upgradeMessage } from '@/lib/entitlements';
@@ -35,8 +36,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const status = url.searchParams.get('status');       // e.g. 'successful'
   const method = url.searchParams.get('method');        // e.g. 'card', 'bank_transfer'
-  const from = url.searchParams.get('from');            // inclusive
-  const to = url.searchParams.get('to');                // inclusive (end of day)
+  const from = consoleDate(url.searchParams.get('from'));            // inclusive
+  const to = consoleDate(url.searchParams.get('to'));                // inclusive (end of day)
 
   const page = await readBoundedPages((pageFrom, pageTo) => {
     let q = supabase.from('payments')
@@ -45,8 +46,8 @@ export async function GET(req: Request) {
       .order('payment_date', { ascending: false }).order('id', { ascending: false });
     if (status) q = q.eq('payment_status', status);
     if (method) q = q.eq('payment_method', method);
-    if (from) q = q.gte('payment_date', `${from}T00:00:00Z`);
-    if (to) q = q.lte('payment_date', `${to}T23:59:59Z`);
+    if (from) q = q.gte('payment_date', `${from}T00:00:00+01:00`);
+    if (to) q = q.lt('payment_date', new Date(Date.parse(`${to}T00:00:00+01:00`) + 86_400_000).toISOString());
     return q.range(pageFrom, pageTo);
   }, EXPORT_LIMIT);
   const payments = page.rows as Payment[];

@@ -14,7 +14,7 @@ export default async function AccountDeletionPage() {
     try { initial = { ok: false, error: null, request: await getAccountDeletionRequest(user.id) }; }
     catch { initial = { ok: false, error: 'We could not load request status. You can retry below.' }; }
   }
-  return <main style={{ maxWidth: 640, margin: '48px auto', padding: 24 }}>
+  return <main id="main-content" style={{ maxWidth: 640, margin: '48px auto', padding: 24 }}>
     <Link href="/">GymFlow</Link>
     <h1>Delete your account</h1>
     <p>{ACCOUNT_DELETION_MESSAGE}</p>

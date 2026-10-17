@@ -12,10 +12,12 @@ export default async function AdminPricing() {
   const { gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
 
-  const [{ data: plans }, { data: activeSubs }] = await Promise.all([
+  const [{ data: plans, error: plansError }, { data: activeSubs, error: activeSubsError }] = await Promise.all([
     supabase.from('membership_plans').select('id, name, price, duration_days, duration_months, description, is_active, features, trainer_addon_enabled, trainer_addon_price').eq('gym_id', gym.id).order('price', { ascending: true }),
     supabase.from('member_subscriptions').select('plan_id').eq('gym_id', gym.id).eq('status', 'active'),
   ]);
+
+  if (plansError || activeSubsError) throw new Error('Could not load this page. Please retry.');
 
   const countByPlan = new Map<string, number>();
   for (const s of activeSubs ?? []) if (s.plan_id) countByPlan.set(s.plan_id, (countByPlan.get(s.plan_id) ?? 0) + 1);
@@ -37,7 +39,7 @@ export default async function AdminPricing() {
         <Link href="/admin/pricing/new" className="gf-btn gf-btn-primary" style={{ textDecoration: 'none' }}><PlusCircle strokeWidth={1.9} size={16} /> Add plan</Link>
       </div>
 
-      <section className="kpis" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+      <section className="kpis k3">
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#c6f24e1f', color: '#a8d92e' }}><Repeat strokeWidth={1.9} /></div></div><div className="kpi-val">{fmtNaira(Math.round(mrrTotal))}</div><div className="kpi-lbl">Monthly recurring</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#11d18b1f', color: '#11d18b' }}><Users strokeWidth={1.9} /></div></div><div className="kpi-val">{subscribers}</div><div className="kpi-lbl">On a paid plan</div></div>
         <div className="kpi"><div className="kpi-top"><div className="kpi-ic" style={{ background: '#4080ff1f', color: '#4080ff' }}><CreditCard strokeWidth={1.9} /></div></div><div className="kpi-val">{fmtNaira(Math.round(arpu))}</div><div className="kpi-lbl">Avg revenue / member</div></div>

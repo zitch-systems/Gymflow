@@ -37,11 +37,13 @@ export default async function AdminClasses({ searchParams }: { searchParams: Pro
   }
 
   const supabase = await createClient();
-  const { data: schedules } = await supabase
+  const { data: schedules, error: loadError } = await supabase
     .from('class_schedules')
     .select('id, day_of_week, start_time, room, class_id, classes(name, instructor, max_capacity)')
     .eq('gym_id', gym.id).eq('is_active', true)
     .order('start_time', { ascending: true });
+
+  if (loadError) throw new Error('Could not load schedules. Please retry.');
 
   const scheduleIds = (schedules ?? []).map((s) => s.id);
   const { data: bookings } = scheduleIds.length

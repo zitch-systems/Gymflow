@@ -23,7 +23,7 @@ export default async function AdminStaff() {
   const { user: me, gym } = await requireStaff(MANAGER_ROLES);
   const supabase = await createClient();
 
-  const [{ data: staff }, { data: openPayouts }] = await Promise.all([
+  const [{ data: staff, error: staffError }, { data: openPayouts, error: openPayoutsError }] = await Promise.all([
     // All staff — active AND deactivated — so managers can reactivate.
     supabase.from('gym_staff_links')
       .select('user_id, role, is_active, joined_at')
@@ -33,6 +33,8 @@ export default async function AdminStaff() {
       .eq('gym_id', gym.id).in('status', ['requested', 'approved'])
       .order('requested_at', { ascending: true }),
   ]);
+
+  if (staffError || openPayoutsError) throw new Error('Could not load this page. Please retry.');
 
   const ids = [...new Set([
     ...(staff ?? []).map((s) => s.user_id),

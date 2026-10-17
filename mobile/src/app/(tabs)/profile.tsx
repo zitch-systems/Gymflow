@@ -7,6 +7,7 @@ import { useResource } from '@/hooks/use-resource';
 import { useAuth } from '@/auth/context';
 import { API_BASE_URL } from '@/api/client';
 import { initial, shortDate } from '@/lib/format';
+import { gymPortalUrl } from '@/lib/gym-links';
 import { space } from '@/theme';
 import type { ProfilePayload } from '@/api/types';
 
@@ -36,6 +37,7 @@ export default function ProfileScreen() {
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <ErrorState message={error} onRetry={refresh} />
       <Button label="Account deletion" variant="secondary" onPress={() => router.push('/account-deletion')} />
+      <Button label="Sign out" variant="ghost" onPress={confirmSignOut} style={{ marginTop: space.md }} />
     </Screen>
   );
   if (!data) return <Screen><EmptyState title="Nothing to show" /></Screen>;
@@ -50,7 +52,7 @@ export default function ProfileScreen() {
     : membership?.display_state;
   const status = statusKey ? STATUS[statusKey] : null;
   const membershipDate = membership?.display_state === 'scheduled' ? membership.start_date : membership?.end_date;
-  const membershipDateLabel = membership?.display_state === 'scheduled' ? 'Starts' : 'Renews';
+  const membershipDateLabel = membership?.display_state === 'scheduled' ? 'Starts' : membership?.auto_renew ? 'Renews' : membership?.display_state === 'expired' ? 'Ended' : 'Ends';
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -119,22 +121,27 @@ export default function ProfileScreen() {
           right={<Ionicons name="chevron-forward" size={18} color={c.textMuted} />}
           onPress={() => router.push('/account-deletion')}
         />
-        {/* Freezes, waivers and documents are staff-mediated or need a signature,
-            and both live on the web portal. Linking out beats a half-flow. */}
+        <Row
+          icon={<Ionicons name="shield-checkmark-outline" size={18} color={c.brand} />}
+          title="Gym waiver"
+          subtitle="Read your gym’s waiver and acceptance status"
+          right={<Ionicons name="chevron-forward" size={18} color={c.textMuted} />}
+          onPress={() => router.push('/waiver')}
+        />
         <Row
           icon={<Ionicons name="document-text-outline" size={18} color={c.brand} />}
-          title="Waiver & documents"
-          subtitle="Opens the member portal"
+          title="Gym documents"
+          subtitle="Opens your gym portal; sign in if asked"
           right={<Ionicons name="open-outline" size={16} color={c.textMuted} />}
-          onPress={() => void Linking.openURL(`${API_BASE_URL}/dashboard/documents`)}
+          onPress={() => void Linking.openURL(gymPortalUrl(API_BASE_URL, gym.slug, '/dashboard/documents')).catch(() => Alert.alert('Could not open the portal', 'Please try again shortly.'))}
         />
         {data.freeze_enabled ? (
           <Row
             icon={<Ionicons name="snow-outline" size={18} color={c.brand} />}
             title="Freeze my membership"
-            subtitle="Request a pause — opens the member portal"
+            subtitle="Request a pause in your gym portal"
             right={<Ionicons name="open-outline" size={16} color={c.textMuted} />}
-            onPress={() => void Linking.openURL(`${API_BASE_URL}/dashboard/profile`)}
+            onPress={() => void Linking.openURL(gymPortalUrl(API_BASE_URL, gym.slug, '/dashboard/profile')).catch(() => Alert.alert('Could not open the portal', 'Please try again shortly.'))}
           />
         ) : null}
         <Row
@@ -142,14 +149,14 @@ export default function ProfileScreen() {
           title="Privacy & terms"
           subtitle="How GymFlow handles your information"
           right={<Ionicons name="open-outline" size={16} color={c.textMuted} />}
-          onPress={() => void Linking.openURL(`${API_BASE_URL}/legal`)}
+          onPress={() => void Linking.openURL(`${API_BASE_URL}/legal`).catch(() => Alert.alert('Could not open privacy and terms', 'Please try again shortly.'))}
         />
         <Row
           icon={<Ionicons name="help-buoy-outline" size={18} color={c.brand} />}
           title="Help & support"
           subtitle="hello@gymflow.ng"
           right={<Ionicons name="open-outline" size={16} color={c.textMuted} />}
-          onPress={() => void Linking.openURL('mailto:hello@gymflow.ng')}
+          onPress={() => void Linking.openURL('mailto:hello@gymflow.ng').catch(() => Alert.alert('Contact support', 'Email hello@gymflow.ng from your email app.'))}
           last
         />
       </Group>

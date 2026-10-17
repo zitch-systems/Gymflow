@@ -21,8 +21,8 @@ export default function EditProfileScreen() {
   const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<ProfilePayload>('/api/app/profile');
 
   if (loading && !data) return <Screen><Loading /></Screen>;
-  if (error && !data) return <Screen><ErrorState message={error} /></Screen>;
-  if (!data) return <Screen><ErrorState message="Could not load your details." /></Screen>;
+  if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;
+  if (!data) return <Screen><ErrorState message="Could not load your details." onRetry={refresh} /></Screen>;
 
   // The form is a separate component seeded from props, so its state is
   // initialised once, on mount, from data that already exists. Filling it from
@@ -75,6 +75,7 @@ function ProfileForm({
   });
 
   const save = async () => {
+    if (busy) return;
     setBusy(true);
     setErrorMessage(null);
     try {
@@ -94,7 +95,7 @@ function ProfileForm({
 
       <Field label="Full name" placeholder="Ada Obi" autoCapitalize="words" {...field('full_name')} />
       <Field label="Phone" placeholder="0803 123 4567" keyboardType="phone-pad" {...field('phone')} />
-      <Field label="Date of birth" placeholder="YYYY-MM-DD" autoCapitalize="none" {...field('date_of_birth')} />
+      <Field label="Date of birth" placeholder="YYYY-MM-DD" hint="Year, month and day, for example 1990-08-24" autoCapitalize="none" autoCorrect={false} maxLength={10} {...field('date_of_birth')} />
       <Field label="Gender" placeholder="Optional" autoCapitalize="words" {...field('gender')} />
       <Field label="Address" placeholder="Optional" multiline {...field('address')} />
 
@@ -105,7 +106,7 @@ function ProfileForm({
       </View>
 
       <Button label="Save changes" onPress={save} loading={busy} />
-      <Button label="Cancel" variant="ghost" onPress={() => router.back()} style={{ marginTop: space.sm }} />
+      <Button label="Cancel" variant="ghost" onPress={() => router.back()} disabled={busy} style={{ marginTop: space.sm }} />
 
       <Body tone="muted" size={11.5} style={{ marginTop: space.xl, textAlign: 'center', lineHeight: 17 }}>
         Your email address is your sign-in — to change it, contact your gym.

@@ -15,7 +15,7 @@ export default async function CoachToday() {
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
   const sixWeeksStartISO = watDateISO(new Date(Date.now() - 6 * 7 * 86_400_000));
 
-  const [{ data: today }, { data: subs }, { data: monthSubs }, { data: weekSubs }] = await Promise.all([
+  const [{ data: today, error: todayError }, { data: subs, error: subsError }, { data: monthSubs, error: monthSubsError }, { data: weekSubs, error: weekSubsError }] = await Promise.all([
     supabase.from('instructor_sessions')
       .select('id, scheduled_at, duration_minutes, status, member_id')
       .eq('instructor_id', user.id).eq('gym_id', gym.id)
@@ -31,6 +31,8 @@ export default async function CoachToday() {
       .select('amount_paid, start_date')
       .eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', sixWeeksStartISO),
   ]);
+
+  if (todayError || subsError || monthSubsError || weekSubsError) throw new Error('Could not load this page. Please retry.');
 
   const sharePct = Number(gym.instructor_revenue_share_pct ?? 70);
   const monthGross = (monthSubs ?? []).reduce((s, m) => s + Number(m.amount_paid ?? 0), 0);
@@ -56,7 +58,7 @@ export default async function CoachToday() {
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? p.email ?? 'Member']));
 
   const coachName = firstName(profile?.full_name ?? profile?.first_name, 'coach');
-  const todayLabel = new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' });
+  const todayLabel = new Date().toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <>
@@ -77,7 +79,7 @@ export default async function CoachToday() {
           ) : (
             <div className="tl">
               {(today ?? []).map((t) => {
-                const time = new Date(t.scheduled_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false });
+                const time = new Date(t.scheduled_at).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false });
                 const done = t.status === 'completed';
                 return (
                   <div className="tl-row" key={t.id}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysLeft, watDateISO, watDayStartUtc, watMonthStartISO } from '@/lib/format';
+import { fmtDate, fmtDateTime, daysLeft, watDateISO, watDayStartUtc, watMonthStartISO } from '@/lib/format';
 
 // Servers run in UTC; gyms run in WAT (UTC+1). The hour after WAT midnight is
 // still the previous UTC day, which is where "today" and "this month" went wrong.
@@ -31,5 +31,13 @@ describe('inclusive paid calendar dates', () => {
   it('handles malformed and impossible dates without displaying NaN', () => {
     expect(daysLeft('not-a-date')).toBe(0);
     expect(daysLeft('2026-02-30')).toBe(0);
+  });
+});
+
+
+describe('consistent Nigerian display timestamps', () => {
+  it('renders the Nigerian calendar date after WAT midnight', () => {
+    expect(fmtDate('2026-09-30T23:30:00Z')).toBe(fmtDate('2026-10-01T12:00:00Z'));
+    expect(fmtDateTime('2026-09-30T23:30:00Z')).toContain('00:30');
   });
 });

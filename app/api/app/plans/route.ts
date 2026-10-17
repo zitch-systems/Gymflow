@@ -1,4 +1,4 @@
-import { requireApiMember, json, corsPreflight } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight } from '@/lib/api-app';
 import { daysLeft, watDateISO } from '@/lib/format';
 import { membershipDisplayState } from '@/lib/membership-display';
 import { offersTrainer, trainerAddonPrice, planTotalPrice } from '@/lib/plan-addon';
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const { supabase, user, gym } = auth.ctx;
 
   try {
-    const [{ data: plans }, { data: sub }] = await Promise.all([
+    const results = await Promise.all([
       supabase.from('membership_plans')
         .select('id, name, price, duration_days, duration_months, description, trainer_addon_enabled, trainer_addon_price')
         .eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
@@ -36,6 +36,8 @@ export async function GET(req: Request) {
         .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due', 'paused', 'pause_requested'])
         .order('end_date', { ascending: false }).limit(1).maybeSingle(),
     ]);
+    if (results.some((result) => result.error)) return dataUnavailable();
+    const [{ data: plans }, { data: sub }] = results;
 
     const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
     const displayState = sub ? membershipDisplayState({
@@ -66,7 +68,7 @@ export async function GET(req: Request) {
           }
         : null,
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }

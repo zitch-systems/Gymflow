@@ -86,7 +86,7 @@ export function WhatsAppConsole({ gyms, env, businessNumber, totals }: {
         <Kpi label="Messages" value={String(totals.messagesAllTime)} sub={`${totals.inbound7d} inbound in 7 days`} />
       </div>
 
-      <div className="two" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="grid2 g-side">
         <div className="panel">
           <div className="panel-title">Rollout</div>
           <div className="panel-desc">

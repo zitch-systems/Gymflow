@@ -1,15 +1,17 @@
+import { useState } from 'react';
 import { Share, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
-import { Body, Button, Card, ErrorState, Group, Loading, Row, c, StaleDataNotice } from '@/components/ui';
+import { Body, Button, Card, ErrorState, Group, Loading, Notice, Row, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
 import { naira, shortDate } from '@/lib/format';
 import { space } from '@/theme';
 import type { Receipt } from '@/api/types';
 
 export default function ReceiptScreen() {
+  const [notice, setNotice] = useState<{ message: string; tone: 'danger' | 'success' } | null>(null);
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const receiptId = typeof id === 'string' ? id.trim() : '';
   const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh } = useResource<{ receipt: Receipt }>(
@@ -32,16 +34,18 @@ export default function ReceiptScreen() {
       message: [
         `${r.gym} — payment receipt`,
         `${naira(r.amount)} net · ${r.plan}`,
+        `Status: ${r.status_label}`,
         ...(refund ? [`${naira(r.refunded_amount)} refunded from ${naira(r.gross_amount)}`] : []),
         `${shortDate(r.date)} · ${r.method}`,
         `Reference: ${r.reference}`,
       ].join('\n'),
-    });
+    }).catch(() => setNotice({ message: 'Could not share this receipt. Please try again.', tone: 'danger' }));
   };
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
       {stale ? <StaleDataNotice lastRefreshedAt={lastRefreshedAt} offline={offline} onRetry={refresh} refreshing={refreshing} /> : null}
+      {notice ? <Notice message={notice.message} tone={notice.tone} /> : null}
       <Card style={styles.hero}>
         <View style={[
           styles.ring,
@@ -72,7 +76,7 @@ export default function ReceiptScreen() {
             title="Reference"
             subtitle="Tap to copy"
             right={<Ionicons name="copy-outline" size={16} color={c.textMuted} />}
-            onPress={() => void Clipboard.setStringAsync(r.reference)}
+            onPress={() => { void Clipboard.setStringAsync(r.reference).then(() => setNotice({ message: 'Payment reference copied.', tone: 'success' })).catch(() => setNotice({ message: 'Could not copy the reference. Please try again.', tone: 'danger' })); }}
             last
           />
         </Group>

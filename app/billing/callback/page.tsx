@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, ArrowRight } from 'lucide-react';
 import { requireAdminStaff } from '@/lib/auth/dal';
 import { verifyTransaction } from '@/lib/paystack';
 import { handlePlatformEvent } from '@/lib/platform-fulfill';
@@ -20,6 +20,7 @@ export default async function BillingCallback({ searchParams }: { searchParams: 
   const reference = sp.reference ?? sp.trxref ?? '';
 
   let ok = false;
+  let charged = false;
   let msg = 'We couldn’t find this payment. If you were charged, it’ll reflect shortly.';
   if (reference) {
     const v = await verifyTransaction(reference);
@@ -28,13 +29,15 @@ export default async function BillingCallback({ searchParams }: { searchParams: 
     if (v.ok && v.status === 'success' && v.metadata?.gym_id !== gym.id) {
       msg = 'This payment reference belongs to a different gym.';
     } else if (v.ok && v.status === 'success') {
+      charged = true;
       const f = await handlePlatformEvent({
         event: 'charge.success',
         data: { reference: v.reference, amount: v.amountKobo, metadata: v.metadata, paid_at: new Date().toISOString() },
       });
       if (!f.ok) console.error(`[billing/callback] activate failed for ${v.reference}: ${f.error}`);
-      ok = true;
-      msg = 'Your GymFlow subscription is active. Thank you!';
+      ok = f.ok;
+      msg = f.ok ? 'Your GymFlow subscription is active. Thank you!'
+        : `Your payment was received, but your subscription has not been activated yet. Please do not pay again. If it has not updated shortly, contact hello@gymflow.ng with reference ${v.reference}.`;
     } else if (v.ok) {
       msg = `Payment status: ${v.status}. No charge was completed.`;
     } else {
@@ -45,10 +48,10 @@ export default async function BillingCallback({ searchParams }: { searchParams: 
   return (
     <div className="ds-admin" style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: '2rem' }}>
       <div className="panel" style={{ maxWidth: 460, textAlign: 'center' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: ok ? 'var(--gf-success, #11d18b)' : 'var(--gf-danger, #ff4560)' }}>
-          {ok ? <CheckCircle2 size={48} strokeWidth={1.7} /> : <XCircle size={48} strokeWidth={1.7} />}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: ok ? 'var(--gf-success, #11d18b)' : charged ? 'var(--gf-warning)' : 'var(--gf-danger, #ff4560)' }}>
+          {ok ? <CheckCircle2 size={48} strokeWidth={1.7} /> : charged ? <Clock size={48} strokeWidth={1.7} /> : <XCircle size={48} strokeWidth={1.7} />}
         </div>
-        <h2 style={{ margin: '0 0 6px' }}>{ok ? 'Subscription active' : 'Payment not completed'}</h2>
+        <h2 style={{ margin: '0 0 6px' }}>{ok ? 'Subscription active' : charged ? 'Payment received — activation pending' : 'Payment not completed'}</h2>
         <p style={{ color: 'var(--gf-text-muted)', margin: '0 0 18px' }}>{msg}</p>
         <Link href="/admin/billing" className="gf-btn gf-btn-primary gf-btn-full" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           Go to billing <ArrowRight size={17} strokeWidth={2} />

@@ -1,7 +1,7 @@
 {
   "name": "gymflow-member",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "scripts": {
     "start": "expo start",
@@ -20,7 +20,8 @@
     "build:native:ios-simulator": "bash scripts/native-build-ios-simulator.sh",
     "build:native:ios-device-unsigned": "bash scripts/native-build-ios-device-unsigned.sh",
     "build:android:preview": "eas build --platform android --profile preview",
-    "build:android:production": "eas build --platform android --profile production"
+    "build:android:production": "eas build --platform android --profile production",
+    "test:member-flows": "node scripts/test-member-flows.mjs && node scripts/test-resource.mjs && node scripts/test-waiver.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",

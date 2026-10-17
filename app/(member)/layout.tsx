@@ -3,7 +3,9 @@ import { MemberTabBar } from '@/components/member/tabbar';
 import { WaiverWall } from '@/components/member/waiver-wall';
 import { SuspendedWall } from '@/components/admin/suspended-wall';
 import { FeatureLockWall } from '@/components/admin/feature-lock-wall';
-import { requireMember, getProfile } from '@/lib/auth/dal';
+import { requireMember } from '@/lib/auth/dal';
+import { createClient } from '@/lib/supabase/server';
+import { getWaiverState } from '@/lib/waiver-core';
 import { isOfflineGym } from '@/lib/gym-status';
 import { gymCanUse } from '@/lib/entitlements';
 
@@ -18,7 +20,7 @@ export const metadata = { robots: { index: false, follow: false } };
 // group and resolves the gym, whose accent colour (if set) re-tints the brand
 // tokens across the member app.
 export default async function MemberLayout({ children }: { children: React.ReactNode }) {
-  const { gym } = await requireMember();
+  const { user, gym } = await requireMember();
 
   // A gym the platform has switched off stops being a place you can book,
   // check into or pay — before the waiver gate, which is a formality by
@@ -35,7 +37,7 @@ export default async function MemberLayout({ children }: { children: React.React
   // presumes the app is even available.
   if (!gymCanUse(gym, 'member_app')) return <FeatureLockWall gymName={gym.name} featureLabel="The member app" audience="member" />;
 
-  const profile = await getProfile();
+  const waiver = await getWaiverState(await createClient(), user.id, gym);
   const brand = (gym as { brand_color?: string | null }).brand_color;
   const style: CSSProperties | undefined = brand
     ? ({
@@ -46,10 +48,10 @@ export default async function MemberLayout({ children }: { children: React.React
       } as CSSProperties)
     : undefined;
 
-  if (!profile?.waiver_signed_at) {
+  if (!waiver.accepted) {
     return (
       <div className="ds-member" style={style}>
-        <main id="main-content"><WaiverWall gymName={gym.name} /></main>
+        <main id="main-content"><WaiverWall gymId={gym.id} gymName={gym.name} document={waiver.document} /></main>
       </div>
     );
   }
@@ -57,7 +59,7 @@ export default async function MemberLayout({ children }: { children: React.React
   return (
     <div className="ds-member" style={style}>
       <main id="main-content">{children}</main>
-      <MemberTabBar whatsappUrl={`https://wa.me/${process.env.WHATSAPP_BUSINESS_NUMBER ?? '2349169582776'}?text=${encodeURIComponent(gym.member_code)}`} />
+      <MemberTabBar />
     </div>
   );
 }

@@ -1,11 +1,14 @@
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { c } from '@/components/ui';
 
 // The five member surfaces, in the order the web PWA's bottom nav uses them:
 // home, check in, classes, wallet, profile.
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 8);
   return (
     <Tabs
       screenOptions={{
@@ -16,9 +19,9 @@ export default function TabsLayout() {
           backgroundColor: c.surface,
           borderTopColor: c.border,
           borderTopWidth: StyleSheet.hairlineWidth,
-          height: 64,
+          height: 56 + bottomInset,
           paddingTop: 6,
-          paddingBottom: 8,
+          paddingBottom: bottomInset,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}

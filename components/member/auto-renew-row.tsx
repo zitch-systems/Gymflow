@@ -36,7 +36,7 @@ export function AutoRenewRow({ subId }: { subId: string | null }) {
         </form>
       </div>
       {state.error && (
-        <p className="act-fb err" style={{ padding: '0 16px 8px' }}>
+        <p className="act-fb err" role="alert" style={{ padding: '0 16px 8px' }}>
           <AlertCircle size={15} strokeWidth={2} /> {state.error}
         </p>
       )}
