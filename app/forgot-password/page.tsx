@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { unstable_rethrow } from 'next/navigation';
 import { Mail, ArrowLeft, ArrowRight, Lock, AlertCircle } from 'lucide-react';
 import { requestPasswordReset } from '@/lib/auth/actions';
 import { LogoMark } from '@/components/ui/logo';
@@ -19,10 +20,14 @@ export default function ForgotPasswordPage() {
   async function handle(formData: FormData) {
     setPending(true);
     setErr(null);
-    const res = await requestPasswordReset({ error: null }, formData);
-    setPending(false);
-    if (res.error) setErr(res.error);
-    else setSent(true);
+    try {
+      const res = await requestPasswordReset({ error: null }, formData);
+      if (res.error) setErr(res.error);
+      else setSent(true);
+    } catch (cause) {
+      unstable_rethrow(cause);
+      setErr('We could not request your reset link. Check your connection and try again.');
+    } finally { setPending(false); }
   }
 
   return (
@@ -68,7 +73,7 @@ export default function ForgotPasswordPage() {
             <div className="auth-done" role="status">
               <div className="ring"><Mail strokeWidth={1.75} /></div>
               <h1>Check your email</h1>
-              <p className="lede">We sent a password reset link to <span className="em">{email || 'your email'}</span>. It expires in 30 minutes.</p>
+              <p className="lede">If <span className="em">{email || 'your email'}</span> has a GymFlow account, a reset link is on its way. Check your inbox and spam folder.</p>
               <p className="resend">
                 Didn&apos;t get it?{' '}
                 <button type="button" className="linkish" onClick={() => setSent(false)}>Resend email</button>

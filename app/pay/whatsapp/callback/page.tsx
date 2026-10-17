@@ -56,7 +56,7 @@ export default async function WhatsAppPayCallback({ searchParams }: { searchPara
       <main id="main-content" className="view on" data-v="whatsapp-pay-callback">
         {/* Best-effort auto-return; the button below is the reliable path on
             browsers (mostly in-app WebViews) that block a scripted redirect. */}
-        <meta httpEquiv="refresh" content={`2;url=${waUrl}`} />
+        {outcome === 'paid' && <meta httpEquiv="refresh" content={`2;url=${waUrl}`} />}
         <div className="pay-result">
           <div className={`pay-ic ${outcome === 'failed' ? 'bad' : 'ok'}`}>
             {outcome === 'paid' ? <CheckCircle2 strokeWidth={1.7} />

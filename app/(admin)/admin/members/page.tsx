@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+import { consolePage } from '@/lib/console-query';
 import Link from 'next/link';
 import { Users, Clock, UserX, UserPlus, Search, Download, ChevronRight, Snowflake } from 'lucide-react';
 import { requireStaff } from '@/lib/auth/dal';
@@ -17,7 +19,7 @@ export default async function AdminMembers({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const filter: FilterKey = (FILTERS.find(([k]) => k === sp.f)?.[0] ?? 'all');
   const q = (sp.q ?? '').trim();
-  const page = Math.max(1, Number(sp.page) || 1);
+  const page = consolePage(sp.page);
   const { gym } = await requireStaff();
   const supabase = await createClient();
 
@@ -37,6 +39,13 @@ export default async function AdminMembers({ searchParams }: { searchParams: Pro
   if (rosterRes.error) throw new Error(`gym_member_roster failed: ${rosterRes.error.message}`);
   const summary = parseGymReportingSummary(summaryRes.data);
   const roster = parseRosterPage(rosterRes.data);
+  const lastPage = Math.max(1, Math.ceil((roster.total) / PAGE_SIZE));
+  if (page > lastPage) {
+    const params = new URLSearchParams({ ...(filter !== 'all' && { f: filter }), ...(q && { q }) });
+    if (lastPage > 1) params.set('page', String(lastPage));
+    redirect(`${'/admin/members'}?${params}`);
+  }
+
   const active = summary.activeAccess;
   const expiring = summary.expiring;
   const fresh = summary.fresh;

@@ -13,13 +13,15 @@ export function GalleryManager({ photos }: { photos: string[] }) {
   const [upState, upAction, upPending] = useActionState(uploadGymPhotos, INIT);
   const [removing, startRemove] = useTransition();
   const [removeErr, setRemoveErr] = useState<string | null>(null);
-  const [busyUrl, setBusyUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function remove(url: string) {
-    setRemoveErr(null); setBusyUrl(url);
+    setRemoveErr(null);
     const fd = new FormData(); fd.set('url', url);
-    startRemove(async () => { const r = await removeGymPhoto(INIT, fd); if (!r.ok) setRemoveErr(r.error); setBusyUrl(null); });
+    startRemove(async () => {
+      try { const r = await removeGymPhoto(INIT, fd); if (!r.ok) setRemoveErr(r.error); }
+      catch { setRemoveErr('Could not remove this photo. Please retry.'); }
+    });
   }
 
   return (
@@ -35,19 +37,19 @@ export function GalleryManager({ photos }: { photos: string[] }) {
                   aspect-ratio:4/3, auto-fill columns), not a fixed pixel box, so
                   `fill` is used instead of static width/height. */}
               <Image src={url} alt="" fill sizes="(max-width: 860px) 45vw, 160px" />
-              <button type="button" className="gallery-del" onClick={() => remove(url)} disabled={removing && busyUrl === url} aria-label="Remove photo">
+              <button type="button" className="gallery-del" onClick={() => remove(url)} disabled={removing || upPending} aria-label="Remove photo">
                 <Trash2 size={14} strokeWidth={2} />
               </button>
             </div>
           ))}
         </div>
       )}
-      {removeErr && <p className="act-fb err" style={{ marginTop: 10 }}><AlertCircle size={15} strokeWidth={2} /> {removeErr}</p>}
+      {removeErr && <p role="alert" className="act-fb err" style={{ marginTop: 10 }}><AlertCircle size={15} strokeWidth={2} /> {removeErr}</p>}
 
       <form action={upAction} style={{ marginTop: 14 }}>
         <label className="gf-btn gf-btn-secondary gf-btn-sm" style={{ cursor: 'pointer' }}>
           <ImagePlus size={15} strokeWidth={2} /> Choose photos
-          <input ref={fileRef} type="file" name="photos" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files?.length) e.currentTarget.form?.requestSubmit(); }} />
+          <input ref={fileRef} type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple hidden disabled={upPending || removing} onChange={(e) => { if (e.target.files?.length) e.currentTarget.form?.requestSubmit(); }} />
         </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
           {upPending && <span style={{ color: 'var(--gf-text-secondary)', fontSize: '0.84rem' }}>Uploading…</span>}

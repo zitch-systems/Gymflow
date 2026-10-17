@@ -36,7 +36,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (isBlocked(state)) {
     const tier = isPlanTier(gym.subscription_plan ?? '') ? gym.subscription_plan as PlanTier : null;
     const cycle = isBillingCycle(gym.subscription_billing_cycle ?? '') ? gym.subscription_billing_cycle as BillingCycle : null;
-    return <BillingWall state={state} gymName={gym.name} currentTier={tier} currentCycle={cycle} />;
+    return <BillingWall state={state} gymName={gym.name} currentTier={tier} currentCycle={cycle} canManageBilling={role === 'gym_owner' || role === 'owner'} />;
   }
 
   const supabase = await createClient();

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
@@ -32,11 +32,14 @@ const STATUS = {
 export default function AccountDeletionScreen() {
   const resource = useResource<AccountDeletionPayload>('/api/app/account-deletion');
   const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh, set } = resource;
+  const actionLock = useRef(false);
   const [confirmation, setConfirmation] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const submit = async () => {
+    if (actionLock.current) return;
+    actionLock.current = true;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -46,11 +49,13 @@ export default function AccountDeletionScreen() {
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Could not submit your deletion request.');
     } finally {
+      actionLock.current = false;
       setSubmitting(false);
     }
   };
 
   const confirmSubmit = () => {
+    if (actionLock.current) return;
     if (confirmation !== 'DELETE') {
       setSubmitError('Type DELETE exactly to continue.');
       return;

@@ -83,11 +83,11 @@ export default function HomeScreen() {
           <Badge label={statusLabel} tone={statusTone} />
           {scheduled && sub?.start_date
             ? <Body tone="secondary" size={12}>Starts {shortDate(sub.start_date)}</Body>
-            : sub?.end_date && active ? <Body tone="secondary" size={12}>Renews {shortDate(sub.end_date)}</Body> : null}
+            : sub?.end_date && active ? <Body tone="secondary" size={12}>Ends {shortDate(sub.end_date)}</Body> : null}
         </View>
         <Heading style={{ marginTop: space.md }}>{sub ? sub.plan_name : 'No membership'}</Heading>
         <View style={styles.bar}>
-          <View style={[styles.barFill, { width: `${sub?.progress_pct ?? 0}%` }]} />
+          <View style={[styles.barFill, { width: `${Math.max(0, Math.min(100, sub?.progress_pct ?? 0))}%` }]} />
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: space.sm }}>
           <Body tone="muted" size={12}>{sub?.start_date ? shortDate(sub.start_date) : '—'}</Body>
@@ -100,6 +100,7 @@ export default function HomeScreen() {
           onPress={() => router.push(active || scheduled || frozen || freezePending ? '/(tabs)/wallet' : '/renew')}
           style={{ marginTop: space.lg }}
         />
+        <Button label="Review gym waiver" variant="ghost" onPress={() => router.push('/waiver')} style={{ marginTop: space.sm }} />
       </Card>
 
       {/* Quick actions */}
@@ -223,7 +224,7 @@ function Stat({ value, label, icon }: { value: string; label: string; icon: keyo
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.lg },
   bell: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: c.surface,
+    width: 44, height: 44, borderRadius: 22, backgroundColor: c.surface,
     borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center',
   },
   nub: {

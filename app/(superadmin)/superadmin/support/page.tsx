@@ -14,11 +14,13 @@ export default async function SuperSupport() {
   await requirePlatformAdmin();
   const supabase = await createClient();
 
-  const { data: tickets } = await supabase
+  const { data: tickets, error: loadError } = await supabase
     .from('support_tickets')
     .select('id, subject, body, status, priority, gym_id, created_at')
     .order('created_at', { ascending: false })
     .limit(50);
+
+  if (loadError) throw new Error('Could not load tickets. Please retry.');
 
   const all = tickets ?? [];
   const open = all.filter((t) => t.status !== 'resolved');

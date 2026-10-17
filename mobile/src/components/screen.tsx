@@ -1,6 +1,8 @@
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HeaderShownContext, HeaderHeightContext } from 'expo-router/react-navigation';
+import { BottomTabBarHeightContext } from 'expo-router/js-tabs';
 import { c } from '@/components/ui';
 import { space } from '@/theme';
 
@@ -24,11 +26,16 @@ export function Screen({
 }) {
   const insets = useSafeAreaInsets();
   const pad = padded ? space.lg : 0;
+  const headerShown = useContext(HeaderShownContext);
+  const headerHeight = useContext(HeaderHeightContext) ?? 0;
+  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
+  const top = headerShown ? 0 : insets.top;
+  const bottom = tabBarHeight > 0 || footer ? 0 : insets.bottom;
 
   const body = scroll ? (
     <ScrollView
       style={styles.fill}
-      contentContainerStyle={{ padding: pad, paddingTop: insets.top + pad, paddingBottom: pad + space.xxl }}
+      contentContainerStyle={{ flexGrow: 1, padding: pad, paddingTop: top + pad, paddingBottom: pad + space.xxl + bottom }}
       keyboardShouldPersistTaps="handled"
       refreshControl={
         onRefresh
@@ -39,13 +46,14 @@ export function Screen({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.fill, { padding: pad, paddingTop: insets.top + pad }]}>{children}</View>
+    <View style={[styles.fill, { padding: pad, paddingTop: top + pad, paddingBottom: pad + bottom }]}>{children}</View>
   );
 
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={headerShown ? headerHeight : 0}
     >
       {body}
       {footer ? (

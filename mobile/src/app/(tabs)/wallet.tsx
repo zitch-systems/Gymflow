@@ -21,7 +21,7 @@ export default function WalletScreen() {
   const membershipSummary = sub?.display_state === 'scheduled' && sub.start_date
     ? `Starts ${shortDate(sub.start_date)}`
     : sub?.display_state === 'active' && sub.end_date
-      ? `Renews ${shortDate(sub.end_date)}`
+      ? `Covered through ${shortDate(sub.end_date)}`
       : sub?.display_state === 'frozen'
         ? 'Membership frozen'
         : sub?.display_state === 'freeze_pending'
@@ -45,7 +45,7 @@ export default function WalletScreen() {
             {membershipSummary}
           </Body>
         </View>
-        <Button label="Renew plan" onPress={() => router.push('/renew')} style={{ marginTop: space.lg }} />
+        <Button label={sub ? "Renew plan" : "Choose a plan"} onPress={() => router.push('/renew')} style={{ marginTop: space.lg }} />
       </Card>
 
       {/* Six-month spend, as bars — the same chart the web wallet draws. */}
@@ -101,7 +101,7 @@ export default function WalletScreen() {
           <Row
             icon={<Ionicons name="card-outline" size={18} color={c.textSecondary} />}
             title="No saved cards"
-            subtitle="A card is saved automatically the first time you pay with Paystack"
+            subtitle="Pay securely with the available payment methods during checkout"
             last
           />
         )}

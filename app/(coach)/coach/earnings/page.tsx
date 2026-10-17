@@ -15,12 +15,14 @@ export default async function CoachEarnings() {
   const sixWeeksISO = watDateISO(new Date(Date.now() - 41 * 86_400_000));
   const sharePct = Number(gym.instructor_revenue_share_pct ?? 70);
 
-  const [{ data: monthSubs }, { count: sessionsPaid }, { data: pendingPayouts }, { data: weekSubs }] = await Promise.all([
+  const [{ data: monthSubs, error: monthSubsError }, { count: sessionsPaid }, { data: pendingPayouts, error: pendingPayoutsError }, { data: weekSubs, error: weekSubsError }] = await Promise.all([
     supabase.from('instructor_subscriptions').select('amount_paid').eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', watMonthStartISO()),
     supabase.from('instructor_sessions').select('id', { count: 'exact', head: true }).eq('instructor_id', user.id).eq('gym_id', gym.id).eq('status', 'completed').gte('scheduled_at', monthStart.toISOString()),
-    supabase.from('instructor_payouts').select('amount').eq('instructor_id', user.id).eq('gym_id', gym.id).neq('status', 'paid'),
+    supabase.from('instructor_payouts').select('amount').eq('instructor_id', user.id).eq('gym_id', gym.id).in('status', ['requested', 'approved']),
     supabase.from('instructor_subscriptions').select('amount_paid, start_date').eq('instructor_id', user.id).eq('gym_id', gym.id).gte('start_date', sixWeeksISO),
   ]);
+
+  if (monthSubsError || pendingPayoutsError || weekSubsError) throw new Error('Could not load this page. Please retry.');
 
   const gross = (monthSubs ?? []).reduce((s, m) => s + Number(m.amount_paid ?? 0), 0);
   const earnings = Math.round((gross * sharePct) / 100);
@@ -38,7 +40,7 @@ export default async function CoachEarnings() {
 
   const KPIS = [
     { icon: Wallet, fg: '#11d18b', bg: '#11d18b1f', val: fmtNaira(earnings), lbl: 'This month' },
-    { icon: CalendarCheck, fg: '#4080ff', bg: '#4080ff1f', val: String(sessionsPaid ?? 0), lbl: 'Sessions paid' },
+    { icon: CalendarCheck, fg: '#4080ff', bg: '#4080ff1f', val: String(sessionsPaid ?? 0), lbl: 'Sessions completed' },
     { icon: Banknote, fg: '#a8d92e', bg: '#c6f24e1f', val: `${sharePct}%`, lbl: 'Revenue share' },
     { icon: Hourglass, fg: '#ffb020', bg: '#ffb0201f', val: fmtNaira(pending), lbl: 'Pending payout' },
   ];

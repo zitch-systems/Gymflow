@@ -1,4 +1,4 @@
-import { requireApiMember, json, corsPreflight, publicGym } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight, publicGym } from '@/lib/api-app';
 import { daysLeft, watNow, watDateISO, watDayStartUtc } from '@/lib/format';
 import { membershipDisplayState } from '@/lib/membership-display';
 
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     const monthStartIso = watDayStartUtc(`${today.slice(0, 7)}-01`);
     const since = new Date(now.getTime() - 70 * 86_400_000).toISOString();
 
-    const [{ data: sub }, { count: unread }, { data: allCheckins }, { count: classesAttended }, { data: nextBooking }, { data: profile }] = await Promise.all([
+    const results = await Promise.all([
       // past_due is included so the app can raise the dunning banner when
       // Paystack failed the last auto-charge; it still counts as access until
       // the grace window closes.
@@ -50,11 +50,15 @@ export async function GET(req: Request) {
         .order('booking_date', { ascending: true }).limit(1).maybeSingle(),
       supabase.from('profiles').select('id, email, full_name, first_name, last_name, phone').eq('id', user.id).maybeSingle(),
     ]);
+    if (results.some((result) => result.error)) return dataUnavailable();
+    const [{ data: sub }, { count: unread }, { data: allCheckins }, { count: classesAttended }, { data: nextBooking }, { data: profile }] = results;
 
-    const [{ data: plan }, { data: nextClass }] = await Promise.all([
-      sub?.plan_id ? supabase.from('membership_plans').select('name').eq('id', sub.plan_id).maybeSingle() : Promise.resolve({ data: null }),
-      nextBooking?.class_id ? supabase.from('classes').select('name, start_time').eq('id', nextBooking.class_id).maybeSingle() : Promise.resolve({ data: null }),
+    const details = await Promise.all([
+      sub?.plan_id ? supabase.from('membership_plans').select('name').eq('id', sub.plan_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      nextBooking?.class_id ? supabase.from('classes').select('name, start_time').eq('id', nextBooking.class_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
+    if (details.some((result) => result.error)) return dataUnavailable();
+    const [{ data: plan }, { data: nextClass }] = details;
 
     const checkins = allCheckins ?? [];
     // Bucket check-ins by WAT calendar day (not the UTC date of the timestamp)
@@ -152,7 +156,7 @@ export async function GET(req: Request) {
       })),
       unread_notifications: unread ?? 0,
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }

@@ -16,7 +16,7 @@ export default async function AdminReminders() {
   const weekAhead = watDateISO(new Date(Date.now() + 7 * 86_400_000));
   const monthStart = new Date(watDayStartUtc(watMonthStartISO()));
 
-  const [{ data: expiring }, { data: sentRows }, { data: log }] = await Promise.all([
+  const [{ data: expiring, error: expiringError }, { data: sentRows, error: sentRowsError }, { data: log, error: logError }] = await Promise.all([
     supabase.from('member_subscriptions')
       .select('id, member_id, end_date, plan_id, membership_plans(name)')
       .eq('gym_id', gym.id).eq('status', 'active').gte('end_date', today).lte('end_date', weekAhead)
@@ -24,6 +24,8 @@ export default async function AdminReminders() {
     supabase.from('reminder_logs').select('sent_count').eq('gym_id', gym.id).gte('created_at', monthStart.toISOString()),
     supabase.from('reminder_logs').select('id, action, channel, sent_count, recipient_count, created_at').eq('gym_id', gym.id).order('created_at', { ascending: false }).limit(6),
   ]);
+
+  if (expiringError || sentRowsError || logError) throw new Error('Could not load this page. Please retry.');
 
   const sent = (sentRows ?? []).reduce((s, r) => s + Number(r.sent_count ?? 0), 0);
   const ids = [...new Set((expiring ?? []).map((e) => e.member_id).filter(Boolean) as string[])];
@@ -72,7 +74,7 @@ export default async function AdminReminders() {
             <div className="empty"><div className="eic"><Mail strokeWidth={1.6} /></div><h3>No reminders sent yet</h3><p>Delivery history will appear here.</p></div>
           ) : (log ?? []).map((l) => {
             const isEmail = (l.channel ?? '').toLowerCase().includes('email');
-            const t = l.created_at ? new Date(l.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' }) : '';
+            const t = l.created_at ? new Date(l.created_at).toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', day: 'numeric', month: 'short' }) : '';
             return (
               <div className="log" key={l.id}>
                 <div className="ic" style={{ background: isEmail ? 'var(--gf-info-soft)' : 'var(--gf-brand-soft)', color: isEmail ? 'var(--gf-info)' : 'var(--gf-brand)' }}>{isEmail ? <Mail strokeWidth={1.9} /> : <MessageCircle strokeWidth={1.9} />}</div>

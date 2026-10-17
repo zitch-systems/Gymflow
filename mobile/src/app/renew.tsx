@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -55,6 +55,12 @@ const wait = (milliseconds: number) => new Promise<void>((resolve) => setTimeout
 
 export default function RenewScreen() {
   const router = useRouter();
+  const actionLock = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh, set } = useResource<Plans>('/api/app/plans');
 
   const [selected, setSelected] = useState<string | null>(null);
@@ -71,7 +77,8 @@ export default function RenewScreen() {
   // and a hand-written dependency list on a value derived from `plans` only
   // gets in its way.
   const pay = async () => {
-    if (!chosen) return;
+    if (!chosen || actionLock.current) return;
+    actionLock.current = true;
     const beforePayment = membershipVersion(data);
     setBusy(true);
     setNotice(null);
@@ -81,7 +88,9 @@ export default function RenewScreen() {
         with_trainer: trainerOn,
       });
 
+      if (!mounted.current) return;
       const result = await WebBrowser.openAuthSessionAsync(res.authorization_url, RETURN_URL);
+      if (!mounted.current) return;
 
       const callback = result.type === 'success' ? checkoutReturn(result.url) : null;
       const returnedReference = callback?.searchParams.get('reference') ?? null;
@@ -100,8 +109,10 @@ export default function RenewScreen() {
         let updated = false;
         for (let attempt = 0; attempt < 4; attempt += 1) {
           if (attempt > 0) await wait(1500);
+          if (!mounted.current) return;
           try {
             const next = await api.get<Plans>('/api/app/plans');
+            if (!mounted.current) return;
             set(() => next);
             if (membershipVersion(next) !== beforePayment) {
               updated = true;
@@ -128,9 +139,11 @@ export default function RenewScreen() {
         refresh();
       }
     } catch (e) {
+      if (!mounted.current) return;
       setNotice({ message: e instanceof Error ? e.message : 'Could not start the payment.', tone: 'danger' });
     } finally {
-      setBusy(false);
+      actionLock.current = false;
+      if (mounted.current) setBusy(false);
     }
   };
 
@@ -198,10 +211,11 @@ export default function RenewScreen() {
           return (
             <Pressable
               key={p.id}
+              disabled={busy}
               onPress={() => { setSelected(p.id); setWithTrainer(false); }}
               accessibilityRole="radio"
               accessibilityLabel={`${p.name}, ${naira(p.price)}, ${planPeriod(p)}`}
-              accessibilityState={{ selected: on }}
+              accessibilityState={{ selected: on, disabled: busy }}
             >
               <Card style={[styles.plan, on && { borderColor: c.brand, borderWidth: 2 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.md }}>
@@ -209,7 +223,7 @@ export default function RenewScreen() {
                     {on ? <View style={styles.radioDot} /> : null}
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.sm }}>
                       <Body weight="700" size={16}>{p.name}</Body>
                       {p.is_current ? <Badge label="Current" tone="brand" /> : p.is_scheduled ? <Badge label="Scheduled" tone="info" /> : null}
                     </View>
@@ -233,6 +247,7 @@ export default function RenewScreen() {
                     </View>
                     <Switch
                       value={withTrainer}
+                      disabled={busy}
                       onValueChange={setWithTrainer}
                       trackColor={{ false: c.elevated, true: c.brandSoft }}
                       thumbColor={withTrainer ? c.brand : c.textMuted}

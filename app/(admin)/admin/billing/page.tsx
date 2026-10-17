@@ -42,7 +42,7 @@ const FINANCE_ROLES = ['gym_owner', 'owner', 'manager', 'accountant'] as const;
 
 function fmtDate(d: string | null): string {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(d).toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 const STATUS_LABEL: Record<string, { text: string; color: string }> = {
@@ -145,7 +145,7 @@ export default async function AdminBilling({ searchParams }: { searchParams: Pro
       {isOwner && (
         <section style={{ marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 12px' }}>{state === 'active' ? 'Change plan' : 'Choose a plan'}</h3>
-          <PlanCards currentTier={currentTier} currentCycle={currentCycle} />
+          <PlanCards currentTier={currentTier} currentCycle={currentCycle} allowCurrentPlan={state !== 'active'} />
         </section>
       )}
 

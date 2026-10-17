@@ -178,6 +178,7 @@
 
 /* Product proof — a lightweight HTML dashboard, not a heavy screenshot. */
 .marketing-home .product-stage {
+  color: var(--gf-text);
   position: relative;
   width: 100%;
   min-width: 0;

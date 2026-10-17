@@ -73,7 +73,7 @@ export default function LegalPage() {
               <p>You&apos;re responsible for keeping your login secure and for everything done under your account. Tell us right away if you suspect unauthorised access.</p>
               <h3>Subscriptions &amp; billing</h3>
               <ul>
-                <li>Plans are billed monthly in Naira and renew automatically until cancelled.</li>
+                <li>GymFlow platform plans are billed in Naira on the monthly, quarterly or annual cycle selected at checkout and renew automatically until cancelled.</li>
                 <li>You can change or cancel a plan at any time; changes take effect at the next cycle.</li>
                 <li>Fees already paid are non-refundable except where required by law.</li>
               </ul>

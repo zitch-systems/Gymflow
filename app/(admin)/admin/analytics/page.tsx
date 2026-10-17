@@ -47,7 +47,7 @@ export default async function AdminAnalytics() {
 
   // Check-ins by WAT day (last 7).
   const byDay = summary.checkinDaily.map((day) => ({
-    label: new Date(`${day.day}T12:00:00Z`).toLocaleDateString('en-NG', { weekday: 'short' }),
+    label: new Date(`${day.day}T12:00:00Z`).toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', weekday: 'short' }),
     n: day.total,
   }));
   const dayMax = Math.max(1, ...byDay.map((d) => d.n));

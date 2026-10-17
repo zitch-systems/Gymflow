@@ -1,3 +1,5 @@
+import { consolePage } from '@/lib/console-query';
+import { parsePlatformGymSummary, type ReportingRpcClient } from '@/lib/reporting';
 import Link from 'next/link';
 import { Building2, Repeat, Hourglass, AlertTriangle, Search, UserPlus } from 'lucide-react';
 import { GymTable } from '@/components/superadmin/gym-table';
@@ -10,18 +12,20 @@ export const metadata = { title: 'Gyms' };
 const FILTERS = [['all', 'All'], ['active', 'Active'], ['trial', 'Trial'], ['past_due', 'Past due']] as const;
 type FilterKey = (typeof FILTERS)[number][0];
 
-export default async function SuperGyms({ searchParams }: { searchParams: Promise<{ f?: string; q?: string }> }) {
+export default async function SuperGyms({ searchParams }: { searchParams: Promise<{ f?: string; q?: string; page?: string }> }) {
   await requirePlatformAdmin();
   const sp = await searchParams;
+  const page = consolePage(sp.page);
   const filter: FilterKey = FILTERS.find(([k]) => k === sp.f)?.[0] ?? 'all';
   const q = (sp.q ?? '').trim();
   const supabase = await createClient();
-  const { data: gyms } = await supabase.from('gyms').select('subscription_status');
-  const subStatus = (g: { subscription_status?: string | null }) => g.subscription_status ?? 'trial';
-  const total = (gyms ?? []).length;
-  const active = (gyms ?? []).filter((g) => subStatus(g) === 'active').length;
-  const trial = (gyms ?? []).filter((g) => subStatus(g) === 'trial').length;
-  const pastDue = (gyms ?? []).filter((g) => subStatus(g) === 'past_due').length;
+  const result = await (supabase as unknown as ReportingRpcClient).rpc('platform_gym_summary');
+  if (result.error) throw new Error('Could not load gym totals. Please retry.');
+  const summary = parsePlatformGymSummary(result.data);
+  const total = summary.gyms;
+  const active = summary.activeGyms;
+  const trial = summary.trialGyms;
+  const pastDue = summary.pastDueGyms;
 
   const KPIS = [
     { icon: Building2, fg: '#11d18b', bg: '#11d18b1f', val: String(total), lbl: 'Total gyms' },
@@ -49,7 +53,7 @@ export default async function SuperGyms({ searchParams }: { searchParams: Promis
             <Link key={k} href={sa(`/gyms?${new URLSearchParams({ ...(k !== 'all' && { f: k }), ...(q && { q }) }).toString()}`)} className={filter === k ? 'gf-chip active' : 'gf-chip'} style={{ textDecoration: 'none' }}>{label}</Link>
           ))}
         </div>
-        <GymTable limit={200} q={q} status={filter} />
+        <GymTable limit={50} q={q} status={filter} page={page} />
       </div>
     </>
   );

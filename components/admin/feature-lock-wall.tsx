@@ -7,19 +7,19 @@ import { signOut } from '@/lib/auth/actions';
 // subscription, fixed by paying again) — this one is a plan choice, fixed by
 // upgrading. See lib/entitlements.ts member_app / instructor_portal.
 //
-// 'staff' can act on it — instructors and owners land in /admin/billing, which
-// only the owner can actually check out from, but any staff role can at least
-// see what upgrading buys. 'member' has no billing relationship with GymFlow
+// Only staff with billing access get a billing link. Instructors cannot enter
+// the admin console and otherwise loop straight back to this wall. 'member' has no billing relationship with GymFlow
 // at all (the gym is the one who chose Starter), so that audience gets a
 // dead-end wall pointing back at the gym, matching SuspendedWall's member copy.
 export type FeatureLockAudience = 'staff' | 'member';
 
 export function FeatureLockWall({
-  gymName, featureLabel, audience = 'staff',
+  gymName, featureLabel, audience = 'staff', canManageBilling = true,
 }: {
   gymName: string;
   featureLabel: string;
   audience?: FeatureLockAudience;
+  canManageBilling?: boolean;
 }) {
   const staff = audience === 'staff';
   return (
@@ -45,7 +45,7 @@ export function FeatureLockWall({
         <p style={{ color: 'var(--gf-text-muted)', margin: '0 auto 22px' }}>
           {staff ? (
             <>
-              The {featureLabel.toLowerCase()} is part of GymFlow’s Growth plan. The gym owner can switch plans
+              {featureLabel} is part of GymFlow’s Growth plan. The gym owner can switch plans
               from Billing → Plans in the admin console — nothing about {gymName}’s existing data changes either way.
             </>
           ) : (
@@ -56,7 +56,7 @@ export function FeatureLockWall({
           )}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {staff && (
+          {staff && canManageBilling && (
             <a className="gf-btn gf-btn-primary" href="/admin/billing">
               Go to Billing
             </a>

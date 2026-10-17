@@ -20,12 +20,10 @@ in the Android keystore instead of a cookie.
 | Wallet | Total spent, six-month spend bars, saved cards, full transaction list, tap through to a receipt |
 | Renew | Pick a plan (+ optional private-trainer add-on), pay via Paystack in the system browser |
 | Notifications | Reminders, receipts and class alerts, grouped Today / This week / Earlier |
-| Profile | Lifetime counts, edit personal + emergency details, links out for waiver/freeze, sign out |
+| Profile | Lifetime counts, edit personal + emergency details, native gym waiver, gym-specific document/freeze portal links, sign out |
+| Gym waiver | Read the exact current gym document, explicitly accept its revision, and review server-confirmed acceptance |
 
-Deliberately **not** in this release: membership freeze requests, waiver
-signing and document viewing. Each needs a staff-mediated or signature flow that
-exists on the web today; the profile screen links out to the portal for them
-rather than shipping half of one.
+Membership freeze requests and document viewing open the selected gym’s web portal. A separate browser sign-in may be required. Waiver review and explicit acceptance now work inside the app and use the same revision as the web portal.
 
 ## Architecture
 
@@ -81,6 +79,10 @@ Checks:
 npm ci
 EXPO_OFFLINE=1 npx expo install --check
 npm run test:router-compat
+npm run test:api-client
+npm run test:auth-routing
+npm run test:native-config
+npm run test:member-flows
 npm run audit:production
 npm run type-check
 npm run lint

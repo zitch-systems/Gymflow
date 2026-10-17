@@ -1,7 +1,8 @@
-import { requireApiMember, json, corsPreflight, readJson, planLocked } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight, readJson, planLocked } from '@/lib/api-app';
 import { gymHasFeature } from '@/lib/entitlements';
 import { bookClassCore, cancelBookingCore } from '@/lib/booking-core';
 import { watDateISO, watNow } from '@/lib/format';
+import { rateLimit } from '@/lib/rate-limit';
 import { nextOccurrenceDate } from '@/lib/class-dates';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
   const { supabase, user, gym } = auth.ctx;
 
   try {
-    const [{ data: classes }, { data: schedules }, { data: bookings }] = await Promise.all([
+    const results = await Promise.all([
       supabase.from('classes').select('id, name, instructor, max_capacity, duration_minutes, description').eq('gym_id', gym.id),
       supabase.from('class_schedules').select('id, day_of_week, start_time, room, class_id')
         .eq('gym_id', gym.id).eq('is_active', true).order('start_time', { ascending: true }),
@@ -37,6 +38,8 @@ export async function GET(req: Request) {
       supabase.from('class_bookings').select('id, booking_date, status, class_schedule_id, class_id')
         .eq('gym_id', gym.id).eq('member_id', user.id).neq('status', 'cancelled').order('booking_date', { ascending: true }),
     ]);
+    if (results.some((result) => result.error)) return dataUnavailable();
+    const [{ data: classes }, { data: schedules }, { data: bookings }] = results;
 
     const classMap = new Map(((classes ?? []) as ClassRow[]).map((c) => [c.id, c]));
     const now = watNow();
@@ -77,8 +80,8 @@ export async function GET(req: Request) {
         };
       }),
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }
 
@@ -92,6 +95,9 @@ export async function POST(req: Request) {
 
   const body = await readJson(req);
   const action = String(body.action ?? '');
+  if ((action === 'book' || action === 'cancel') && !(await rateLimit(`book:user:${user.id}`, 30, 60))) {
+    return json({ error: 'Too many booking changes — give it a minute and try again.' }, 429);
+  }
 
   try {
     if (action === 'book') {
@@ -104,7 +110,7 @@ export async function POST(req: Request) {
       const res = await bookClassCore(supabase, user.id, gym, String(body.schedule_id ?? ''));
       return res.ok
         ? json({ ok: true, waitlisted: Boolean(res.waitlisted), message: res.message ?? null })
-        : json({ ok: false, error: res.error }, 422);
+        : json({ ok: false, error: res.error, ...(res.code ? { code: res.code } : {}) }, 422);
     }
 
     if (action === 'cancel') {
@@ -112,7 +118,7 @@ export async function POST(req: Request) {
       // a member holding a booking made before a plan change must still be able
       // to release it so someone on the waitlist gets it.
       const res = await cancelBookingCore(supabase, user.id, String(body.booking_id ?? ''));
-      return res.ok ? json({ ok: true }) : json({ ok: false, error: res.error }, 422);
+      return res.ok ? json({ ok: true }) : json({ ok: false, error: res.error, ...(res.code ? { code: res.code } : {}) }, 422);
     }
 
     return json({ error: 'Unknown action.' }, 400);

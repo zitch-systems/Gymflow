@@ -12,7 +12,7 @@ function response(status, body) {
   return { status, ok: status >= 200 && status < 300, json: async () => body };
 }
 
-function loadClient(fetch) {
+function loadClient(fetch, timers = {}) {
   const module = { exports: {} };
   const context = vm.createContext({
     module,
@@ -30,6 +30,8 @@ function loadClient(fetch) {
     JSON,
     Math,
     Date,
+    setTimeout: timers.setTimeout ?? setTimeout,
+    clearTimeout: timers.clearTimeout ?? clearTimeout,
   });
   vm.runInContext(compiled, context, { filename: 'src/api/client.ts' });
   return module.exports;
@@ -139,6 +141,64 @@ async function refreshAfterSignOutCannotRestoreSession() {
   assert.equal(current, null);
 }
 
+async function malformedResponsesAreRetryable() {
+  for (const body of [null, [], 'gateway html']) {
+    const client = loadClient(async () => response(200, body));
+    await assert.rejects(client.api.get('/api/app/gym?code=GYM'), (error) => error.code === 'invalid_response');
+  }
+  const client = loadClient(async () => ({ status: 200, ok: true, json: async () => { throw new SyntaxError('HTML gateway response'); } }));
+  await assert.rejects(client.api.get('/api/app/gym?code=GYM'), (error) => error.code === 'invalid_response');
+}
+
+async function invalidRefreshPayloadRetainsCredentials() {
+  const current = session('kept', Math.floor(Date.now() / 1000) - 10);
+  let lost = 0;
+  const client = loadClient(async () => response(200, {}));
+  client.bindAuth({ getSession: () => current, getGymId: () => 'gym', saveSession: async () => assert.fail('invalid session'), onSessionLost: async () => { lost += 1; } });
+  await assert.rejects(client.api.get('/api/app/me'), (error) => error.code === 'session_unavailable');
+  assert.equal(lost, 0);
+}
+
+async function rejectedRetrySignsOutOnce() {
+  let current = session('initial');
+  let refreshes = 0;
+  let lost = 0;
+  const client = loadClient(async (url) => {
+    if (String(url).endsWith('/api/app/session')) { refreshes += 1; return response(200, { session: session('renewed') }); }
+    return response(401, { error: 'Session revoked' });
+  });
+  client.bindAuth({ getSession: () => current, getGymId: () => 'gym', saveSession: async (next) => { current = next; }, onSessionLost: async () => { lost += 1; current = null; } });
+  await assert.rejects(client.api.get('/api/app/me'), (error) => error.code === 'expired');
+  assert.equal(refreshes, 1);
+  assert.equal(lost, 1);
+  assert.equal(current, null);
+}
+
+async function stalledRequestTimesOut() {
+  let expire;
+  const client = loadClient((_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener('abort', () => { const e = new Error('Aborted'); e.name = 'AbortError'; reject(e); });
+  }), { setTimeout: (callback) => { expire = callback; return 1; }, clearTimeout: () => {} });
+  const request = client.api.get('/api/app/gym?code=GYM');
+  expire();
+  await assert.rejects(request, (error) => error.code === 'timeout' && error.status === 408);
+}
+
+async function callerCancellationIsNotShownAsOffline() {
+  const client = loadClient((_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener('abort', () => { const e = new Error('Aborted'); e.name = 'AbortError'; reject(e); });
+  }));
+  const controller = new AbortController();
+  const request = client.api.get('/api/app/gym?code=GYM', controller.signal);
+  controller.abort();
+  await assert.rejects(request, (error) => error.name === 'AbortError');
+}
+
+await malformedResponsesAreRetryable();
+await invalidRefreshPayloadRetainsCredentials();
+await rejectedRetrySignsOutOnce();
+await stalledRequestTimesOut();
+await callerCancellationIsNotShownAsOffline();
 await selectedGymHeader();
 await concurrentRefreshIsSingleFlight();
 await refreshNetworkFailureRetainsSession();

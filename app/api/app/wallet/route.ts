@@ -1,4 +1,4 @@
-import { requireApiMember, json, corsPreflight } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight } from '@/lib/api-app';
 import { daysLeft, watDateISO } from '@/lib/format';
 import { membershipDisplayState } from '@/lib/membership-display';
 import { paymentAmounts, paymentStatusLabel } from '@/lib/payment-display';
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const { supabase, user, gym } = auth.ctx;
 
   try {
-    const [{ data: payments }, { data: sub }, { data: cards }] = await Promise.all([
+    const results = await Promise.all([
       supabase.from('payments')
         .select('id, amount, refunded_amount, payment_status, payment_date, created_at, payment_method, plan_id')
         .eq('member_id', user.id).eq('gym_id', gym.id)
@@ -39,6 +39,8 @@ export async function GET(req: Request) {
         .eq('member_id', user.id).eq('gym_id', gym.id).eq('is_active', true)
         .order('is_default', { ascending: false }),
     ]);
+    if (results.some((result) => result.error)) return dataUnavailable();
+    const [{ data: payments }, { data: sub }, { data: cards }] = results;
 
     const txns = (payments ?? []) as Payment[];
     const eff = (p: Payment) => p.payment_date ?? p.created_at;
@@ -101,7 +103,7 @@ export async function GET(req: Request) {
         };
       }),
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }

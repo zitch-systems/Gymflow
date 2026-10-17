@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { unstable_rethrow } from 'next/navigation';
 import { CreditCard, Lock, AlertCircle, Repeat, CalendarClock, UserRoundCheck } from 'lucide-react';
 import { fmtNaira, fmtDate, daysLeft } from '@/lib/format';
 import { startRenewal } from '@/lib/actions/renew';
@@ -60,11 +61,16 @@ export function RenewPicker({
     if (!sel) return;
     setErr(null);
     start(async () => {
+      try {
       const res = autoRenew
         ? await startAutoRenewal(sel.id, withTrainer)
         : await startRenewal(sel.id, withTrainer);
       if (res.ok) window.location.href = res.url; // → Paystack checkout
       else setErr(res.error);
+      } catch (error) {
+        unstable_rethrow(error);
+        setErr('We could not start checkout. Check your connection and try again.');
+      }
     });
   }
 
@@ -128,7 +134,7 @@ export function RenewPicker({
           <span className="rtotal-sum">Total<b>{fmtNaira(total)}</b></span>
         </div>
       )}
-      {err && <p style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '12px 0 0' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
+      {err && <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--gf-danger)', fontSize: '0.84rem', margin: '12px 0 0' }}><AlertCircle size={15} strokeWidth={2} /> {err}</p>}
       <button className="gf-btn gf-btn-primary gf-btn-full gf-btn-lg" style={{ marginTop: 8 }} onClick={pay} disabled={!sel || pending}>
         <CreditCard strokeWidth={1.9} style={{ width: 18, height: 18 }} /> {pending ? 'Starting checkout…' : `Pay ${sel ? fmtNaira(total) : ''} with Paystack`}
       </button>

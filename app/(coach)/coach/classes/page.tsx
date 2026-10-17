@@ -17,11 +17,13 @@ export default async function CoachClasses() {
   const { user, gym } = await requireInstructor();
   const supabase = await createClient();
 
-  const { data: schedules } = await supabase
+  const { data: schedules, error: loadError } = await supabase
     .from('class_schedules')
     .select('id, day_of_week, start_time, room, class_id, classes(name, max_capacity)')
     .eq('gym_id', gym.id).eq('instructor_id', user.id).eq('is_active', true)
     .order('day_of_week', { ascending: true }).order('start_time', { ascending: true });
+
+  if (loadError) throw new Error('Could not load schedules. Please retry.');
 
   const scheduleIds = (schedules ?? []).map((s) => s.id);
   const now = watNow();
@@ -53,11 +55,11 @@ export default async function CoachClasses() {
               const c = Array.isArray(s.classes) ? s.classes[0] : s.classes;
               const cap = c?.max_capacity ?? 0;
               const booked = bookedBy.get(s.id) ?? 0;
-              const { hm } = splitTime(s.start_time);
+              const { hm, ap } = splitTime(s.start_time);
               const full = cap > 0 && booked >= cap;
               return (
                 <div className="tl-row" key={s.id}>
-                  <div className="tl-time"><b>{hm}</b><span>{DOW[s.day_of_week] ?? ''}</span></div>
+                  <div className="tl-time"><b>{hm}</b><span>{ap} WAT</span><span>{DOW[s.day_of_week] ?? ''}</span></div>
                   <div className="tl-card">
                     <div className="info"><strong>{c?.name ?? 'Class'}</strong><small>{s.room ?? '—'} · {booked}/{cap || '—'} booked</small></div>
                     <span className={`gf-badge ${full ? 'gf-badge-warning' : 'gf-badge-neutral'}`}>{cap > 0 ? (full ? 'Full' : `${cap - booked} left`) : 'Open'}</span>

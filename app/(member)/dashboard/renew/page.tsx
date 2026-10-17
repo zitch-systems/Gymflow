@@ -12,7 +12,7 @@ export default async function RenewPage() {
   const { user, gym } = await requireMember();
   const supabase = await createClient();
 
-  const [{ data: plans }, { data: sub }] = await Promise.all([
+  const [{ data: plans, error: planError }, { data: sub, error: subscriptionError }] = await Promise.all([
     supabase.from('membership_plans')
       .select('id, name, price, duration_days, duration_months, description, trainer_addon_enabled, trainer_addon_price')
       .eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
@@ -21,6 +21,7 @@ export default async function RenewPage() {
       .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due', 'paused', 'pause_requested'])
       .order('end_date', { ascending: false }).limit(1).maybeSingle(),
   ]);
+  if (planError || subscriptionError) throw new Error('Membership options could not be loaded. Please try again.');
 
   const remaining = sub?.end_date ? daysLeft(sub.end_date) : 0;
   const displayState = sub ? membershipDisplayState({

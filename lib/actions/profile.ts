@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
+import { dateOfBirthError } from '@/lib/profile-validation';
 import { splitName } from '@/lib/format';
 
 export type SaveState = { ok: boolean; error: string | null };
@@ -14,11 +15,14 @@ export async function updateMemberProfile(_prev: SaveState, formData: FormData):
   const user = await requireAuth();
   const full_name = String(formData.get('full_name') ?? '').trim().slice(0, 120);
   if (!full_name) return { ok: false, error: 'Your name is required.' };
+  const dateOfBirth = String(formData.get('date_of_birth') ?? '').trim();
+  const birthError = dateOfBirthError(dateOfBirth);
+  if (birthError) return { ok: false, error: birthError };
   // full_name is GENERATED in the live DB — update the split parts instead.
   const patch = {
     ...splitName(full_name),
     phone: String(formData.get('phone') ?? '').trim().slice(0, 32) || null,
-    date_of_birth: String(formData.get('date_of_birth') ?? '') || null,
+    date_of_birth: dateOfBirth || null,
     gender: String(formData.get('gender') ?? '').trim().slice(0, 24) || null,
     address: String(formData.get('address') ?? '').trim().slice(0, 300) || null,
     emergency_contact_name: String(formData.get('emergency_contact_name') ?? '').trim().slice(0, 120) || null,

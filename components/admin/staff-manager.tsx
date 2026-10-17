@@ -113,7 +113,7 @@ export function StaffManager({ rows, currentUserId, roleLabels }: { rows: StaffR
             <thead><tr><th>Member</th><th>Role</th><th style={{ textAlign: 'right' }}>Access</th><th aria-hidden /></tr></thead>
             <tbody>
               {rows.map((r) => {
-                const isOwner = r.role === 'gym_owner';
+                const isOwner = r.role === 'gym_owner' || r.role === 'owner';
                 const isSelf = r.id === currentUserId;
                 const locked = isOwner || isSelf;
                 const rowBusy = pending && busyId === r.id;
@@ -126,7 +126,7 @@ export function StaffManager({ rows, currentUserId, roleLabels }: { rows: StaffR
                       {locked ? (
                         <span className="role-chip" style={{ background: 'var(--gf-elevated)' }}>{isOwner && <ShieldCheck size={12} strokeWidth={2} style={{ verticalAlign: '-2px', marginRight: 4 }} />}{roleLabels[r.role] ?? r.role}</span>
                       ) : (
-                        <select className="gf-input staff-role-sel" value={r.role} disabled={rowBusy} onChange={(e) => changeRole(r.id, e.target.value)} aria-label={`Role for ${r.name}`}>
+                        <select className="gf-input staff-role-sel" value={r.role} disabled={pending} onChange={(e) => changeRole(r.id, e.target.value)} aria-label={`Role for ${r.name}`}>
                           {ASSIGNABLE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </select>
                       )}
@@ -136,10 +136,10 @@ export function StaffManager({ rows, currentUserId, roleLabels }: { rows: StaffR
                         <span className="gf-badge gf-badge-success">{isOwner ? 'Owner' : 'You'}</span>
                       ) : (
                         <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                          <button type="button" className="gf-btn gf-btn-sm gf-btn-secondary" disabled={rowBusy} onClick={() => resetPassword(r.id, r.name)} title="Generate a new temporary password">
+                          <button type="button" className="gf-btn gf-btn-sm gf-btn-secondary" disabled={pending} onClick={() => resetPassword(r.id, r.name)} title="Generate a new temporary password">
                             <KeyRound size={13} strokeWidth={2} /> Reset password
                           </button>
-                          <button type="button" className={`gf-btn gf-btn-sm ${r.isActive ? 'gf-btn-secondary' : 'gf-btn-primary'}`} disabled={rowBusy} onClick={() => toggleActive(r.id, !r.isActive)}>
+                          <button type="button" className={`gf-btn gf-btn-sm ${r.isActive ? 'gf-btn-secondary' : 'gf-btn-primary'}`} disabled={pending} onClick={() => toggleActive(r.id, !r.isActive)}>
                             <Power size={13} strokeWidth={2} /> {rowBusy ? '…' : r.isActive ? 'Suspend' : 'Reactivate'}
                           </button>
                         </div>

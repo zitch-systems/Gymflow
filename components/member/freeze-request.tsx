@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { AlertCircle, Check, Pause, Clock, PauseCircle } from 'lucide-react';
 import { requestFreeze, type ActionState } from '@/lib/actions/freeze';
+import { watDateISO } from '@/lib/format';
 
 const INIT: ActionState = { ok: false, error: null };
 
@@ -47,7 +48,7 @@ export function FreezeRequest({ status, enabled = true, subEndDate = null }: { s
   }
 
   // status === 'active'
-  const today = iso(new Date());
+  const today = watDateISO();
   const daysLeft = subEndDate ? daysBetween(today, subEndDate) : null;
   const tooClose = daysLeft !== null && daysLeft < MIN_DAYS_TO_FREEZE;
 
@@ -106,7 +107,7 @@ export function FreezeRequest({ status, enabled = true, subEndDate = null }: { s
             {pending ? 'Requesting…' : 'Request freeze'}
           </button>
           {(state.error || state.message) && (
-            <p className={`act-fb ${state.error ? 'err' : 'ok'}`}>
+            <p className={`act-fb ${state.error ? 'err' : 'ok'}`} role={state.error ? 'alert' : 'status'}>
               {state.error ? <AlertCircle size={15} strokeWidth={2} /> : <Check size={15} strokeWidth={2.5} />} {state.error ?? state.message}
             </p>
           )}

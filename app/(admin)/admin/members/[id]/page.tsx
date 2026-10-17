@@ -1,3 +1,4 @@
+import { membershipDisplayState } from '@/lib/membership-display';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
@@ -31,7 +32,7 @@ function payBadge(payment: RefundAwarePayment & { status?: string | null }): [st
 
 function timeOf(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return new Date(iso).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 function duration(a: string | null, b: string | null): string | null {
@@ -94,12 +95,19 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
   // WAT, matching dayStartIso above — this file already used watDateISO on
   // one line and UTC on the next, so expiry read differently in one panel.
   const today = watDateISO();
-  const activeSub = subList.find((s) => s.status === 'active' && (s.end_date ?? '') >= today) ?? subList[0] ?? null;
+  const stateOf = (s: typeof subList[number]) => membershipDisplayState({
+    status: s.status, startDate: s.start_date, daysRemaining: daysLeft(s.end_date), today,
+  });
+  const activeSub = subList.find((s) => stateOf(s) === 'active') ?? subList[0] ?? null;
   const remaining = activeSub?.end_date ? daysLeft(activeSub.end_date) : 0;
-  const isActive = Boolean(activeSub && activeSub.status === 'active' && (activeSub.end_date ?? '') >= today);
+  const displayState = activeSub ? stateOf(activeSub) : null;
+  const isActive = displayState === 'active';
   const statusBadge: [string, string] = isActive
-    ? (remaining <= 7 ? ['gf-badge-warning', `Expiring · ${remaining}d`] : ['gf-badge-success', 'Active'])
-    : (activeSub ? ['gf-badge-danger', 'Expired'] : ['gf-badge', 'No plan']);
+    ? (activeSub?.status === 'past_due' ? ['gf-badge-warning', 'Payment due'] : remaining <= 7 ? ['gf-badge-warning', `Expiring · ${remaining}d`] : ['gf-badge-success', 'Active'])
+    : displayState === 'scheduled' ? ['gf-badge-neutral', 'Scheduled']
+    : displayState === 'frozen' ? ['gf-badge-neutral', 'Frozen']
+    : displayState === 'freeze_pending' ? ['gf-badge-warning', 'Freeze pending']
+    : activeSub ? ['gf-badge-danger', 'Expired'] : ['gf-badge', 'No plan'];
 
   // Private-trainer add-on: only members who actually paid for one get the
   // assign panel, so the roster read is skipped entirely for everyone else.
@@ -208,7 +216,7 @@ export default async function MemberDetail({ params }: { params: Promise<{ id: s
             {activeSub ? (
               <div className="md-sub">
                 <div className="md-sub-top">
-                  <div><strong>{activeSub.plan_id ? planById.get(activeSub.plan_id)?.name ?? 'Plan' : 'Plan'}</strong><small>{isActive ? `${remaining} day${remaining === 1 ? '' : 's'} left` : 'Expired'}</small></div>
+                  <div><strong>{activeSub.plan_id ? planById.get(activeSub.plan_id)?.name ?? 'Plan' : 'Plan'}</strong><small>{isActive ? `${remaining} day${remaining === 1 ? '' : 's'} left` : displayState === 'scheduled' ? `Starts ${fmtDate(activeSub.start_date)}` : statusBadge[1]}</small></div>
                   <span className={`gf-badge ${statusBadge[0]}`}>{statusBadge[1]}</span>
                 </div>
                 <div className="md-sub-rows">

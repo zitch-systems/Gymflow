@@ -29,8 +29,11 @@ export type Resource<T> = {
 };
 
 export function useResource<T>(path: string): Resource<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [snapshot, setData] = useState<{ path: string; value: T } | null>(null);
+  const [failure, setError] = useState<{ path: string; message: string } | null>(null);
+  const [settledPath, setSettledPath] = useState<string | null>(null);
+  const data = snapshot?.path === path ? snapshot.value : null;
+  const error = failure?.path === path ? failure.message : null;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
@@ -63,7 +66,7 @@ export function useResource<T>(path: string): Resource<T> {
     try {
       const next = await api.get<T>(path, nextController.signal);
       if (!alive.current || id !== requestId.current) return;
-      setData(next);
+      setData({ path, value: next });
       setLastRefreshedAt(Date.now());
       setOffline(false);
       setError(null);
@@ -74,11 +77,12 @@ export function useResource<T>(path: string): Resource<T> {
       // would just flash red on the way out.
       if (!(e instanceof ApiError && e.code === 'expired')) {
         setOffline(e instanceof ApiError && e.code === 'offline');
-        setError(e instanceof Error ? e.message : 'Something went wrong.');
+        setError({ path, message: e instanceof Error ? e.message : 'Something went wrong.' });
       }
     } finally {
       if (alive.current && id === requestId.current) {
         loadedOnce.current = true;
+        setSettledPath(path);
         setLoading(false);
         setRefreshing(false);
         controller.current = null;
@@ -89,24 +93,29 @@ export function useResource<T>(path: string): Resource<T> {
   useFocusEffect(
     useCallback(() => {
       void load(loadedOnce.current ? 'refresh' : 'initial');
-      return () => controller.current?.abort();
+      return () => {
+        // Some transports finish parsing after cancellation. Invalidate that
+        // response as well, including when the same route gets a different id.
+        requestId.current += 1;
+        controller.current?.abort();
+      };
     }, [load]),
   );
 
   const refresh = useCallback(() => { void load('refresh'); }, [load]);
 
   const set = useCallback((updater: (current: T) => T) => {
-    setData((cur) => (cur === null ? cur : updater(cur)));
-  }, []);
+    setData((cur) => (cur === null || cur.path !== path ? cur : { path, value: updater(cur.value) }));
+  }, [path]);
 
   return {
     data,
     error,
-    loading,
+    loading: Boolean(path) && (loading || settledPath !== path),
     refreshing,
-    lastRefreshedAt,
+    lastRefreshedAt: data === null ? null : lastRefreshedAt,
     stale: data !== null && error !== null,
-    offline,
+    offline: error !== null && offline,
     refresh,
     set,
   };

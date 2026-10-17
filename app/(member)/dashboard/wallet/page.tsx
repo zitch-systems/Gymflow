@@ -12,7 +12,7 @@ export default async function WalletPage() {
   const { user, gym } = await requireMember();
   const supabase = await createClient();
 
-  const [{ data: payments }, { data: sub }, { data: cards }, { count: unread }] = await Promise.all([
+  const [{ data: payments, error: paymentError }, { data: sub, error: subscriptionError }, { data: cards, error: cardError }, { count: unread }] = await Promise.all([
     supabase.from('payments')
       .select('id, amount, refunded_amount, payment_status, payment_date, created_at, payment_method, plan_id')
       .eq('member_id', user.id).eq('gym_id', gym.id)
@@ -27,6 +27,7 @@ export default async function WalletPage() {
       .order('is_default', { ascending: false }),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
   ]);
+  if (paymentError || subscriptionError) throw new Error('Your membership and payments could not be loaded. Please try again.');
 
   const eff = (p: { payment_date: string | null; created_at: string | null }) => p.payment_date ?? p.created_at;
   const txns = payments ?? [];
@@ -72,7 +73,7 @@ export default async function WalletPage() {
       </div>
 
       <div className="wcard">
-        <div className="wlabel"><Wallet strokeWidth={1.9} /> Net spent</div>
+        <div className="wlabel"><Wallet strokeWidth={1.9} /> Net spent · recent payments</div>
         <div className="wbal">{fmtNaira(totalSpent)}</div>
         <div className="wnext"><Repeat strokeWidth={1.9} /> {membershipSummary}</div>
         <div className="wbtns">
@@ -113,7 +114,7 @@ export default async function WalletPage() {
         )) : (
           <div className="row" style={{ padding: '14px 0' }}>
             <span className="ic" style={{ background: 'var(--gf-elevated)', color: 'var(--gf-text-secondary)' }}><CreditCard strokeWidth={1.9} /></span>
-            <div className="m"><strong>No saved cards</strong><small>A card is saved automatically the first time you pay with Paystack</small></div>
+            <div className="m"><strong>{cardError ? 'Saved cards unavailable' : 'No saved cards'}</strong><small>Choose your payment method securely at Paystack checkout.</small></div>
           </div>
         )}
       </div>

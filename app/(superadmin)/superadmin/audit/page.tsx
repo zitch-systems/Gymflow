@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation';
+import { sanitizeSearchTerm } from '@/lib/admin-search';
+import { consolePage } from '@/lib/console-query';
 import { ScrollText, Search } from 'lucide-react';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
@@ -13,7 +16,7 @@ export default async function SuperAudit({ searchParams }: { searchParams: Promi
   await requirePlatformAdmin();
   const sp = await searchParams;
   const q = (sp.q ?? '').trim();
-  const page = Math.max(1, Number(sp.page) || 1);
+  const page = consolePage(sp.page);
   const supabase = await createClient();
 
   // Server-side search (over the text columns) + true pagination, so the log
@@ -23,14 +26,23 @@ export default async function SuperAudit({ searchParams }: { searchParams: Promi
     .from('audit_logs')
     .select('id, action, table_name, actor_id, created_at, record_id', { count: 'exact' });
   if (q) {
-    const safe = q.replace(/[%,()*\\]/g, ' ').trim();
+    const safe = sanitizeSearchTerm(q);
     if (safe) query = query.or(`action.ilike.%${safe}%,table_name.ilike.%${safe}%`);
   }
   const from = (page - 1) * PAGE_SIZE;
-  const { data: logs, count } = await query
+  const { data: logs, count, error: loadError } = await query
     .order('created_at', { ascending: false })
     .range(from, from + PAGE_SIZE - 1);
+  if (loadError) throw new Error('Could not load logs. Please retry.');
+
   const total = count ?? 0;
+
+  const lastPage = Math.max(1, Math.ceil((total) / PAGE_SIZE));
+  if (page > lastPage) {
+    const params = new URLSearchParams({ ...(q && { q }) });
+    if (lastPage > 1) params.set('page', String(lastPage));
+    redirect(`${sa('/audit')}?${params}`);
+  }
 
   return (
     <>
@@ -50,7 +62,7 @@ export default async function SuperAudit({ searchParams }: { searchParams: Promi
                 <span className="t">{fmtDateTime(l.created_at)}</span>
               </div>
             ))}
-            <Pagination basePath="/superadmin/audit" params={{ q: q || undefined }} page={page} pageSize={PAGE_SIZE} total={total} />
+            <Pagination basePath={sa('/audit')} params={{ q: q || undefined }} page={page} pageSize={PAGE_SIZE} total={total} />
           </>
         )}
       </div>

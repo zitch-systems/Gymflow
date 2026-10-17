@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { requireWaiverAcceptance } from '@/lib/waiver-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { Database } from '@/lib/database.types';
 import { watNow, firstName, fmtDate, fmt12Hr } from '@/lib/format';
@@ -17,7 +18,7 @@ import { MEMBER_TEMPLATES, classBooked, classPromoted, classWaitlisted } from '@
 // See lib/checkin-core.ts for why the client type is loose here.
 type Sb = SupabaseClient<any, any, any>;
 
-export type BookState = { ok: boolean; error: string | null; message?: string; waitlisted?: boolean };
+export type BookState = { ok: boolean; error: string | null; message?: string; waitlisted?: boolean; code?: 'waiver_required' };
 
 // The whole gym row, not a narrowed {id, name}: the confirmation mail is dressed
 // in the gym's branding and respects its notification switches, and both live on
@@ -49,56 +50,48 @@ function nextDateForDow(dow: number, startTime?: string | null): string {
 export async function bookClassCore(supabase: Sb, memberId: string, gym: GymRow, scheduleId: string): Promise<BookState> {
   if (!scheduleId) return { ok: false, error: 'Missing class.' };
   try {
+    await requireWaiverAcceptance(supabase, memberId, gym);
     // room + the class name/instructor ride along for the confirmation email:
     // "you're booked in" without saying what, when or where is a notification
     // the member has to open the app to act on.
-    const { data: sched } = await supabase
-      .from('class_schedules').select('id, class_id, day_of_week, start_time, room, classes(name, instructor, max_capacity)')
-      .eq('id', scheduleId).eq('gym_id', gym.id).maybeSingle();
+    const { data: sched, error: scheduleError } = await supabase
+      .from('class_schedules').select('id, class_id, day_of_week, start_time, room, classes(name, instructor)')
+      .eq('id', scheduleId).eq('gym_id', gym.id).eq('is_active', true).maybeSingle();
+    if (scheduleError) return { ok: false, error: 'Classes could not be loaded. Please try again.' };
     if (!sched) return { ok: false, error: 'Class not found.' };
-    const cls = one(sched.classes) as { name?: string | null; instructor?: string | null; max_capacity?: number | null } | null;
-    const capacity = Number(cls?.max_capacity ?? 0);
+    const cls = one(sched.classes) as { name?: string | null; instructor?: string | null } | null;
 
     const bookingDate = nextDateForDow(sched.day_of_week, sched.start_time);
-    // A unique constraint covers (gym_id, class_schedule_id, member_id) regardless
-    // of date/status, so a prior (possibly cancelled) row already exists for repeat
-    // bookings. Look it up by that key and re-activate it rather than inserting a dup.
-    const { data: existing } = await supabase
-      .from('class_bookings').select('id, status, booking_date')
+    // Historical and cancelled rows remain immutable. The active-occurrence
+    // index makes retries idempotent without rewriting attendance history.
+    const activeBooking = () => supabase.from('class_bookings')
+      .select('id, status, booking_date')
       .eq('gym_id', gym.id).eq('class_schedule_id', scheduleId).eq('member_id', memberId)
-      .maybeSingle();
-    // Already holding a spot (or a waitlist place) for this upcoming occurrence?
-    // A terminal historical row — attended / no_show / cancelled, or a row for a
-    // past date — falls through and gets re-activated for the next date.
-    if (existing && (existing.booking_date ?? '') >= bookingDate) {
-      if (existing.status === 'booked') return { ok: true, error: null, message: 'You’re already booked in.' };
-      if (existing.status === 'waitlisted') return { ok: true, error: null, waitlisted: true, message: 'You’re already on the waitlist.' };
-    }
+      .eq('booking_date', bookingDate).in('status', ['booked', 'waitlisted']).maybeSingle();
+    const alreadyBooked = (status: string): BookState => ({
+      ok: true, error: null, waitlisted: status === 'waitlisted',
+      message: status === 'waitlisted' ? 'You’re already on the waitlist.' : 'You’re already booked in.',
+    });
+    const { data: existing, error: existingError } = await activeBooking();
+    if (existingError) return { ok: false, error: 'Your bookings could not be loaded. Please try again.' };
+    if (existing) return alreadyBooked(existing.status);
 
-    // Occupancy: count seats taken by OTHER members for this occurrence (admin
-    // client bypasses the booking member's RLS). When full, the member joins the
-    // waitlist instead of being rejected. (max_capacity 0/null means "no cap".)
-    let waitlisted = false;
-    if (capacity > 0) {
-      const counter = (adminOrNull() ?? supabase) as Sb;
-      const { count } = await counter
-        .from('class_bookings').select('id', { count: 'exact', head: true })
-        .eq('gym_id', gym.id).eq('class_schedule_id', scheduleId)
-        .eq('booking_date', bookingDate).eq('status', 'booked')
-        .neq('member_id', memberId);
-      waitlisted = (count ?? 0) >= capacity;
+    // The database's locked capacity trigger is authoritative. Two members
+    // racing for the last seat can both request booked, but one is persisted
+    // as waitlisted. Read the returned status before displaying or emailing it.
+    const { data: committed, error } = await supabase.from('class_bookings').insert({
+      gym_id: gym.id, class_schedule_id: scheduleId, class_id: sched.class_id, member_id: memberId,
+      status: 'booked', booking_date: bookingDate, booked_at: new Date().toISOString(),
+    }).select('id, status').single();
+    if (error) {
+      if (error.code === '23505') {
+        const { data: concurrent } = await activeBooking();
+        if (concurrent) return alreadyBooked(concurrent.status);
+      }
+      return { ok: false, error: error.message };
     }
-    const status = waitlisted ? 'waitlisted' : 'booked';
-
-    const { error } = existing
-      ? await supabase.from('class_bookings')
-          .update({ status, booking_date: bookingDate, booked_at: new Date().toISOString(), cancelled_at: null })
-          .eq('id', existing.id)
-      : await supabase.from('class_bookings').insert({
-          gym_id: gym.id, class_schedule_id: scheduleId, class_id: sched.class_id, member_id: memberId,
-          status, booking_date: bookingDate, booked_at: new Date().toISOString(),
-        });
-    if (error) return { ok: false, error: error.message };
+    if (!committed) return { ok: false, error: 'Your booking could not be confirmed. Please try again.' };
+    const waitlisted = committed.status === 'waitlisted';
 
     const body = waitlisted
       ? `This class is full — you’re on the waitlist for ${bookingDate}. We’ll let you know if a spot opens.`
@@ -155,7 +148,7 @@ export async function bookClassCore(supabase: Sb, memberId: string, gym: GymRow,
 
     return { ok: true, error: null, waitlisted, message: waitlisted ? 'Added to the waitlist.' : 'You’re booked in.' };
   } catch (e) {
-    return { ok: false, error: (e as Error).message };
+    return { ok: false, error: (e as Error).message, ...((e as { code?: string }).code === 'waiver_required' ? { code: 'waiver_required' as const } : {}) };
   }
 }
 
@@ -167,15 +160,20 @@ export async function cancelBookingCore(supabase: Sb, memberId: string, bookingI
     // email needs — the gym's branding and the class facts. Freeing this seat is
     // the only chance to load them: cancelling doesn't tell us who gets promoted,
     // and the promoted member's own gym row is outside this member's RLS.
-    const { data: row } = await supabase.from('class_bookings')
+    const { data: row, error: readError } = await supabase.from('class_bookings')
       .select(`id, status, gym_id, class_schedule_id, booking_date, gyms(${GYM_EMAIL_COLUMNS}), class_schedules(start_time, room, classes(name, instructor))`)
       .eq('id', bookingId).eq('member_id', memberId).maybeSingle();
+    if (readError) return { ok: false, error: 'Your booking could not be loaded. Please try again.' };
     if (!row) return { ok: false, error: 'Booking not found.' };
 
-    const { error } = await supabase.from('class_bookings')
+    if (row.status === 'cancelled') return { ok: true, error: null };
+    if (row.status !== 'booked' && row.status !== 'waitlisted') return { ok: false, error: 'This booking can no longer be cancelled.' };
+    const { data: cancelled, error } = await supabase.from('class_bookings')
       .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-      .eq('id', bookingId).eq('member_id', memberId);
+      .eq('id', bookingId).eq('member_id', memberId).eq('status', row.status)
+      .select('id').maybeSingle();
     if (error) return { ok: false, error: error.message };
+    if (!cancelled) return { ok: false, error: 'This booking has changed. Refresh your classes and try again.' };
 
     // Freeing a confirmed seat promotes the longest-waiting member off the
     // waitlist for the same occurrence (service role: other members' rows are
@@ -185,21 +183,26 @@ export async function cancelBookingCore(supabase: Sb, memberId: string, bookingI
       if (admin) {
         // profiles rides along so the promotion email has an address without a
         // second service-role round-trip.
-        const { data: next } = await admin.from('class_bookings')
-          .select('id, member_id, profiles(email, full_name, notification_email)')
-          .eq('gym_id', row.gym_id).eq('class_schedule_id', row.class_schedule_id)
-          .eq('booking_date', row.booking_date).eq('status', 'waitlisted')
-          .order('booked_at', { ascending: true }).limit(1).maybeSingle();
-        // Compare-and-swap: two concurrent cancels of two separate booked
-        // seats could each SELECT the same longest-waiting waitlisted row and
-        // both try to promote it — one wins, the other silently drops a
-        // waitlisted member on the floor. Guard the UPDATE on the row still
-        // being waitlisted; if 0 rows update, this cancel's promotion is a
-        // no-op and the other cancel already handled it.
+        // Retry a lost compare-and-swap: a second cancellation may promote
+        // the same oldest row while this seat still needs its own replacement.
+        // Bounded retries avoid keeping a request open under sustained churn.
+        let next: any = null;
+        let casRow: any = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: candidate, error: candidateError } = await admin.from('class_bookings')
+            .select('id, member_id, profiles(email, full_name, notification_email)')
+            .eq('gym_id', row.gym_id).eq('class_schedule_id', row.class_schedule_id)
+            .eq('booking_date', row.booking_date).eq('status', 'waitlisted')
+            .order('booked_at', { ascending: true }).order('id', { ascending: true }).limit(1).maybeSingle();
+          if (candidateError || !candidate) break;
+          const { data: promoted, error: promotionError } = await admin.from('class_bookings')
+            .update({ status: 'booked' }).eq('id', candidate.id).eq('status', 'waitlisted')
+            .select('id, status').maybeSingle();
+          if (promotionError) break;
+          if (promoted) { next = candidate; casRow = promoted; break; }
+        }
         if (next) {
-          const { data: casRow } = await admin.from('class_bookings')
-            .update({ status: 'booked' }).eq('id', next.id).eq('status', 'waitlisted').select('id').maybeSingle();
-          if (casRow && next.member_id) {
+          if (casRow?.status === 'booked' && next.member_id) {
             await admin.from('notifications').insert({
               gym_id: row.gym_id, user_id: next.member_id, type: 'class', channel: 'in_app',
               title: 'A spot opened up', body: `Good news — a spot opened and you’re now booked in for ${row.booking_date}.`,

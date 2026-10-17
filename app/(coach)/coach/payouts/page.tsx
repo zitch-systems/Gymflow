@@ -22,7 +22,7 @@ export default async function CoachPayouts() {
   const payoutsAvailable = Boolean(process.env.PAYSTACK_SECRET_KEY);
 
   const sharePct = Number((gym as { instructor_revenue_share_pct?: number }).instructor_revenue_share_pct ?? 70);
-  const [{ data: payouts }, { data: bank }, available] = await Promise.all([
+  const [{ data: payouts, error: payoutsError }, { data: bank, error: bankError }, available] = await Promise.all([
     supabase.from('instructor_payouts')
       .select('id, amount, status, requested_at, processed_at, notes')
       .eq('instructor_id', user.id).eq('gym_id', gym.id)
@@ -30,6 +30,8 @@ export default async function CoachPayouts() {
     supabase.from('instructor_bank_details').select('bank_name, bank_code, account_number, account_name').eq('instructor_id', user.id).maybeSingle(),
     availableBalance(supabase, gym.id, user.id, Number.isFinite(sharePct) ? sharePct : 70),
   ]);
+
+  if (payoutsError || bankError) throw new Error('Could not load this page. Please retry.');
 
   const inFlight = (payouts ?? []).filter((p) => p.status === 'requested' || p.status === 'approved');
   const pending = inFlight.reduce((s, p) => s + Number(p.amount ?? 0), 0);

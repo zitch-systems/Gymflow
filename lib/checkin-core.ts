@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isOfflineGym } from '@/lib/gym-status';
+import { requireWaiverAcceptance } from '@/lib/waiver-core';
 import { daysLeft, watDateISO } from '@/lib/format';
 
 // Door logic for a member: are they allowed in, are they already inside, and
@@ -24,37 +25,39 @@ import { daysLeft, watDateISO } from '@/lib/format';
 // mobile API's token client. A loose client type here keeps one implementation.
 type Sb = SupabaseClient<any, any, any>;
 
-export type CheckinResult = { ok: true; daysLeft: number | null } | { ok: false; error: string };
-export type CheckoutResult = { ok: true } | { ok: false; error: string };
-export type CodeResult = { ok: true; code: string; expiresAt: string } | { ok: false; error: string };
+export type CheckinResult = { ok: true; daysLeft: number | null } | { ok: false; error: string; code?: 'waiver_required' };
+export type CheckoutResult = { ok: true } | { ok: false; error: string; code?: 'waiver_required' };
+export type CodeResult = { ok: true; code: string; expiresAt: string } | { ok: false; error: string; code?: 'waiver_required' };
 
-type GymRef = { id: string; status?: string | null };
+type GymRef = { id: string; name?: string; status?: string | null };
 
 // How long a front-desk code stays redeemable. Long enough to survive a short
 // reception queue, short enough that a shouted code doesn't linger.
 export const CODE_TTL_MS = 10 * 60 * 1000;
 
 /**
- * The member's open visit today (WAT): checked in, not yet checked out. This is
+ * The member's open visit, including an overnight visit: checked in, not yet checked out. This is
  * the row check-out closes, and its presence is what flips the UI to "check out".
  */
 export async function openVisit(supabase: Sb, gymId: string, memberId: string) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('check_ins').select('id, checked_in_at')
     .eq('member_id', memberId).eq('gym_id', gymId)
     .eq('status', 'active').is('checked_out_at', null)
     .order('checked_in_at', { ascending: false })
     .limit(1).maybeSingle();
+  if (error) throw new Error('Your check-in status could not be loaded. Please try again.');
   return data as { id: string; checked_in_at: string | null } | null;
 }
 
 // Is this member's link at the gym suspended? Staff can switch a member off
 // without deleting them; that member doesn't get through the door.
 async function linkSuspended(supabase: Sb, gymId: string, memberId: string): Promise<boolean> {
-  const { data: link } = await supabase
+  const { data: link, error } = await supabase
     .from('gym_member_links').select('is_active')
     .eq('gym_id', gymId).or(`member_id.eq.${memberId},user_id.eq.${memberId}`)
     .maybeSingle();
+  if (error) throw new Error('Your membership could not be loaded. Please try again.');
   return !link || (link as { is_active: boolean | null }).is_active !== true;
 }
 
@@ -68,12 +71,13 @@ async function linkSuspended(supabase: Sb, gymId: string, memberId: string): Pro
  */
 async function currentEntitlement(supabase: Sb, gymId: string, memberId: string): Promise<{ endDate: string | null } | null> {
   const todayStr = watDateISO();
-  const { data: sub } = await supabase
+  const { data: sub, error } = await supabase
     .from('member_subscriptions')
     .select('end_date')
     .eq('member_id', memberId).eq('gym_id', gymId).in('status', ['active', 'past_due'])
     .lte('start_date', todayStr)
     .order('end_date', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error('Your membership could not be loaded. Please try again.');
   const row = sub as { end_date: string | null } | null;
   if (!row || (row.end_date ?? '') < todayStr) return null;
   return { endDate: row.end_date };
@@ -81,6 +85,18 @@ async function currentEntitlement(supabase: Sb, gymId: string, memberId: string)
 
 function daysLeftOf(endDate: string | null): number | null {
   return endDate ? daysLeft(endDate) : null;
+}
+
+async function waiverFailure(supabase: Sb, memberId: string, gym: GymRef) {
+  try {
+    await requireWaiverAcceptance(supabase, memberId, { id: gym.id, name: gym.name ?? 'Your gym' });
+    return null;
+  } catch (error) {
+    if ((error as { code?: string }).code === 'waiver_required') {
+      return { ok: false as const, error: (error as Error).message, code: 'waiver_required' as const };
+    }
+    throw error;
+  }
 }
 
 /**
@@ -110,6 +126,8 @@ export async function checkInCore(supabase: Sb, memberId: string, gym: GymRef): 
   // Already inside? Treat a repeat as success without a dup row.
   const existing = await openVisit(supabase, gym.id, memberId);
   if (existing) return { ok: true, daysLeft };
+  const waiver = await waiverFailure(supabase, memberId, gym);
+  if (waiver) return waiver;
 
   const { error } = await supabase.from('check_ins').insert({
     member_id: memberId,
@@ -169,11 +187,17 @@ export async function generateCodeCore(supabase: Sb, memberId: string, gym: GymR
     return { ok: false, error: 'Your membership isn’t active. Renew to check in.' };
   }
 
+  if (!openToday) {
+    const waiver = await waiverFailure(supabase, memberId, gym);
+    if (waiver) return waiver;
+  }
+
   // One live code per member — void previous ones so reception can never be
   // holding two working codes for the same person.
-  await supabase.from('checkin_codes')
+  const { error: invalidateError } = await supabase.from('checkin_codes')
     .update({ used_at: new Date().toISOString() })
     .eq('member_id', memberId).eq('gym_id', gym.id).is('used_at', null);
+  if (invalidateError) return { ok: false, error: 'Your previous check-in code could not be replaced. Please try again.' };
 
   const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
   // Random 6 digits. The partial unique index on (gym_id, code) where unused

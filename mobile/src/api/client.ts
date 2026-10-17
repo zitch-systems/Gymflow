@@ -40,6 +40,45 @@ export class ApiError extends Error {
   }
 }
 
+// Bound both connection and response-body time. A stalled mobile connection
+// must lead to a retryable state instead of leaving every screen spinning.
+const REQUEST_TIMEOUT_MS = 60_000;
+
+async function fetchJson(url: string, init: RequestInit): Promise<{ res: Response; payload: Record<string, unknown> }> {
+  const controller = new AbortController();
+  const callerSignal = init.signal;
+  const abort = () => controller.abort();
+  let timedOut = false;
+  if (callerSignal?.aborted) controller.abort();
+  else callerSignal?.addEventListener('abort', abort, { once: true });
+  const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    let payload: unknown;
+    try {
+      payload = await res.json();
+    } catch (error) {
+      if (controller.signal.aborted) throw error;
+      if (res.ok) throw new ApiError('GymFlow returned an unreadable response. Please try again.', res.status, 'invalid_response');
+      payload = {};
+    }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      if (res.ok) throw new ApiError('GymFlow returned an unreadable response. Please try again.', res.status, 'invalid_response');
+      payload = {};
+    }
+    return { res, payload: payload as Record<string, unknown> };
+  } catch (error) {
+    if (timedOut && !callerSignal?.aborted) {
+      throw new ApiError('GymFlow took too long to respond. Please try again.', 408, 'timeout');
+    }
+    if (error instanceof ApiError || (error as Error).name === 'AbortError') throw error;
+    throw new ApiError('Can’t reach GymFlow. Check your connection and try again.', 0, 'offline');
+  } finally {
+    clearTimeout(timeout);
+    callerSignal?.removeEventListener('abort', abort);
+  }
+}
+
 // How the client reaches the session the AuthProvider owns. The provider binds
 // this at mount; without it the client simply sends unauthenticated requests
 // (which is right for the sign-in endpoints).
@@ -77,7 +116,7 @@ async function refreshSession(auth: AuthBridge, current: Session): Promise<Sessi
   const flight = { auth, refreshToken: current.refresh_token } as RefreshFlight;
   const promise = (async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/app/session`, {
+      const { res, payload } = await fetchJson(`${API_BASE_URL}/api/app/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,12 +124,14 @@ async function refreshSession(auth: AuthBridge, current: Session): Promise<Sessi
         },
         body: JSON.stringify({ refresh_token: current.refresh_token }),
       });
-      const body = (await res.json().catch(() => ({}))) as { session?: Session | null };
+      const body = payload as { session?: Session | null };
       if (res.status === 400 || res.status === 401 || res.status === 403) return null;
       if (!res.ok) {
         throw new ApiError('GymFlow couldn’t refresh your session. Please try again.', res.status, 'session_unavailable');
       }
-      if (!body.session) return null;
+      if (!body.session?.access_token || !body.session.refresh_token) {
+        throw new ApiError('GymFlow couldn’t refresh your session. Please try again.', 502, 'session_unavailable');
+      }
       // A sign-out can happen while the refresh request is in flight. Never
       // let that old response write a new bearer token back into storage.
       if (bridge !== auth || auth.getSession()?.refresh_token !== current.refresh_token) return null;
@@ -161,38 +202,28 @@ async function request<T>(path: string, opts: RequestOptions = {}, isRetry = fal
     }
   };
 
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(auth && gymId ? { 'X-Gym-Id': gymId } : {}),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal,
-    });
-  } catch (e) {
-    if ((e as Error).name === 'AbortError') throw e;
-    throw new ApiError('Can’t reach GymFlow. Check your connection and try again.', 0, 'offline');
-  }
+  const { res, payload } = await fetchJson(`${API_BASE_URL}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(auth && gymId ? { 'X-Gym-Id': gymId } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
+  });
 
+  // Include JSON parsing in the session fence: account switching can happen
+  // while a response body is still being read on a slow mobile connection.
   assertRequestIsCurrent();
 
-  const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  // JSON parsing is asynchronous and can be arbitrarily slow for a large
-  // response. Recheck after it so an account switch during parsing cannot
-  // return the old member's payload or error into the new session.
-  assertRequestIsCurrent();
-
-  if (res.status === 401 && auth && !isRetry) {
+  if (res.status === 401 && auth) {
     // The token was rejected. One refresh, one retry — then give up and let the
     // provider send the member back to sign-in.
     if (!requestAuth || !session || bridge !== requestAuth || requestAuth.getSession()?.access_token !== token || requestAuth.getGymId() !== gymId) {
       throw sessionChanged();
     }
-    const refreshed = await refreshSession(requestAuth, session);
+    const refreshed = isRetry ? null : await refreshSession(requestAuth, session);
     if (refreshed) {
       if (bridge !== requestAuth || requestAuth.getSession()?.access_token !== refreshed.access_token || requestAuth.getGymId() !== gymId) throw sessionChanged();
       return request<T>(path, opts, true);

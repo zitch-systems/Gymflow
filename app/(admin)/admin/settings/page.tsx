@@ -21,7 +21,7 @@ async function safeListBanks(): Promise<Bank[]> {
 
 // The onboarding banner links here with ?onboarding=<section> — open that
 // settings tab directly instead of always landing on the profile tab.
-const SETTINGS_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'backups', 'integ', 'team']);
+const SETTINGS_SECTIONS = new Set(['profile', 'branding', 'hours', 'membership', 'payouts', 'notif', 'backups', 'security', 'integ', 'team']);
 
 export default async function AdminSettings({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;

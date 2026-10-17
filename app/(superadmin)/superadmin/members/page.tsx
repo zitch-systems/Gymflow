@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation';
+import { sanitizeSearchTerm } from '@/lib/admin-search';
+import { consolePage } from '@/lib/console-query';
 import { Users, UserPlus, Activity, Building2, Search } from 'lucide-react';
 import { requirePlatformAdmin } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
@@ -12,7 +15,7 @@ export default async function SuperMembers({ searchParams }: { searchParams: Pro
   await requirePlatformAdmin();
   const sp = await searchParams;
   const q = (sp.q ?? '').trim();
-  const page = Math.max(1, Number(sp.page) || 1);
+  const page = consolePage(sp.page);
   const supabase = await createClient();
   const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
 
@@ -29,7 +32,7 @@ export default async function SuperMembers({ searchParams }: { searchParams: Pro
   // paginated. Either way we get an exact count for the pager.
   let matchIds: string[] | null = null;
   if (q) {
-    const safe = q.replace(/[%,()*\\]/g, ' ').trim();
+    const safe = sanitizeSearchTerm(q);
     const { data: hits } = await supabase
       .from('profiles').select('id').or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`).limit(1000);
     matchIds = (hits ?? []).map((h) => h.id);
@@ -41,9 +44,18 @@ export default async function SuperMembers({ searchParams }: { searchParams: Pro
     .select('member_id, gym_id, joined_at, status', { count: 'exact' })
     .eq('is_active', true);
   if (matchIds) linkQuery = linkQuery.in('member_id', matchIds.length ? matchIds : ['00000000-0000-0000-0000-000000000000']);
-  const { data: links, count: listCount } = await linkQuery
+  const { data: links, count: listCount, error: listError } = await linkQuery
     .order('joined_at', { ascending: false })
     .range(from, from + PAGE_SIZE - 1);
+
+  if (listError) throw new Error('Could not load members. Please retry.');
+
+  const lastPage = Math.max(1, Math.ceil((listCount ?? 0) / PAGE_SIZE));
+  if (page > lastPage) {
+    const params = new URLSearchParams({ ...(q && { q }) });
+    if (lastPage > 1) params.set('page', String(lastPage));
+    redirect(`${sa('/members')}?${params}`);
+  }
 
   const memberIds = [...new Set((links ?? []).map((r) => r.member_id).filter(Boolean) as string[])];
   const gymIds = [...new Set((links ?? []).map((r) => r.gym_id).filter(Boolean) as string[])];
@@ -91,7 +103,7 @@ export default async function SuperMembers({ searchParams }: { searchParams: Pro
                 })}</tbody>
               </table>
             </div>
-            <Pagination basePath="/superadmin/members" params={{ q: q || undefined }} page={page} pageSize={PAGE_SIZE} total={listCount ?? 0} />
+            <Pagination basePath={sa('/members')} params={{ q: q || undefined }} page={page} pageSize={PAGE_SIZE} total={listCount ?? 0} />
           </>
         )}
       </div>

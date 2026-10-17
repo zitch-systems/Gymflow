@@ -52,7 +52,7 @@ export function SuperShell({ children, base, userName, userEmail, userInitial }:
   const link = (n: typeof NAV[number]) => {
     const Icon = n.icon;
     return (
-      <Link key={n.sub} href={href(n.sub)} className={`gf-nav-item${isActive(n.sub) ? ' active' : ''}`}>
+      <Link key={n.sub} href={href(n.sub)} aria-current={isActive(n.sub) ? 'page' : undefined} className={`gf-nav-item${isActive(n.sub) ? ' active' : ''}`}>
         <Icon size={17} strokeWidth={1.75} /><span>{n.label}</span>
       </Link>
     );

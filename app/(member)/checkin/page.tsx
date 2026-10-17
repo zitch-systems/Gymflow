@@ -14,11 +14,12 @@ export default async function CheckinPage() {
   const { user, gym } = await requireMember();
   const supabase = await createClient();
 
-  const { data: recent } = await supabase
+  const { data: recent, error } = await supabase
     .from('check_ins').select('id, checked_in_at, checked_out_at, status, check_in_method')
     .eq('member_id', user.id).eq('gym_id', gym.id)
     .order('checked_in_at', { ascending: false })
     .limit(15);
+  if (error) throw new Error('Your check-in status could not be loaded. Please try again.');
 
   const history = (recent ?? []) as VisitRow[];
   const dayStartIso = watDayStartUtc(watDateISO());

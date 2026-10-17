@@ -56,7 +56,7 @@ export default async function SuperSettings() {
   return (
     <>
       <div className="hdr"><div><span className="pill-plat">Operations</span><h1>Platform settings</h1><p>Global configuration for all tenants</p></div></div>
-      <div className="two" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="grid2">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <PlatformDefaultsForm commissionPct={defaults.defaultCommissionPct} trialDays={defaults.defaultTrialDays} />
 

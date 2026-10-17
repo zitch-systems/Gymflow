@@ -1,5 +1,6 @@
-import { requireApiMember, json, corsPreflight, readJson, publicGym } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight, readJson, publicGym } from '@/lib/api-app';
 import { daysLeft, normalizeNgPhone, splitName, watDateISO } from '@/lib/format';
+import { dateOfBirthError } from '@/lib/profile-validation';
 import { membershipDisplayState } from '@/lib/membership-display';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   const { supabase, user, gym, link } = auth.ctx;
 
   try {
-    const [{ data: profile }, { count: visits }, { count: classes }, { data: sub }] = await Promise.all([
+    const results = await Promise.all([
       supabase.from('profiles')
         .select('id, email, full_name, first_name, last_name, phone, date_of_birth, gender, address, emergency_contact_name, emergency_contact_phone, notification_email')
         .eq('id', user.id).maybeSingle(),
@@ -29,6 +30,8 @@ export async function GET(req: Request) {
         .in('status', ['active', 'pause_requested', 'paused', 'past_due'])
         .order('end_date', { ascending: false }).limit(1).maybeSingle(),
     ]);
+    if (results.some((result) => result.error)) return dataUnavailable();
+    const [{ data: profile }, { count: visits }, { count: classes }, { data: sub }] = results;
 
     return json({
       gym: publicGym(gym),
@@ -64,8 +67,8 @@ export async function GET(req: Request) {
       // the app hides the row rather than offering a button that always fails.
       freeze_enabled: (gym as { member_freeze_enabled?: boolean }).member_freeze_enabled !== false,
     });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }
 
@@ -94,13 +97,17 @@ export async function PATCH(req: Request) {
   const phone = rawPhone ? normalizeNgPhone(rawPhone) : null;
   if (rawPhone && !phone) return json({ error: 'Enter a valid Nigerian phone number, e.g. 0803 123 4567.' }, 400);
 
+  const dateOfBirth = String(body.date_of_birth ?? '').trim();
+  const birthError = dateOfBirthError(dateOfBirth);
+  if (birthError) return json({ error: birthError }, 400);
+
   try {
     // full_name is GENERATED in the live DB — write the split parts, never the
     // generated column.
     const { error } = await supabase.from('profiles').update({
       ...splitName(fullName),
       phone,
-      date_of_birth: str(body.date_of_birth, 10),
+      date_of_birth: dateOfBirth || null,
       gender: str(body.gender, 24),
       address: str(body.address, 300),
       emergency_contact_name: str(body.emergency_contact_name, 120),

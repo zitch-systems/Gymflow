@@ -1,7 +1,7 @@
 'use client';
 
 import type { Route } from 'next';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CheckCircle2, X } from 'lucide-react';
@@ -34,6 +34,8 @@ export function PaymentSuccess({ receipt }: { receipt: PaidReceipt }) {
   const router = useRouter();
   const pathname = usePathname();
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mount closed, then open — the CSS transition needs a frame with .gfui-bg
   // present but not yet .open, or the modal appears without animating.
@@ -42,26 +44,43 @@ export function PaymentSuccess({ receipt }: { receipt: PaidReceipt }) {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  useEffect(() => {
-    if (open) closeRef.current?.focus();
-  }, [open]);
-
-  function dismiss() {
+  const dismiss = useCallback(() => {
     setOpen(false);
     // Let the close transition finish before dropping ?paid= from the URL.
     // pathname is the route we are already on, so it is a valid Route.
-    setTimeout(() => router.replace(pathname as Route), 220);
-  }
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    dismissTimer.current = setTimeout(() => router.replace(pathname as Route), 220);
+  }, [pathname, router]);
+
+  useEffect(() => () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); }, []);
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') dismiss(); }
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { e.preventDefault(); dismiss(); return; }
+      if (e.key !== 'Tab') return;
+      const root = dialogRef.current;
+      const items = root?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]');
+      if (!items?.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !root?.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !root?.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    }
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- dismiss is stable for this modal's lifetime
-  }, []);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [dismiss, open]);
 
   return (
     <div
+      ref={dialogRef}
       className={`gfui-bg${open ? ' open' : ''}`}
       role="dialog"
       aria-modal="true"

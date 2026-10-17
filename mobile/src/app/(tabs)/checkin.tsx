@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useIsFocused } from 'expo-router/react-navigation';
+import { useAuth } from '@/auth/context';
+import { isGymCheckinCode } from '@/lib/gym-links';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Screen } from '@/components/screen';
 import { Body, Button, Card, ErrorState, Group, Loading, Notice, Row, SectionTitle, Title, c, StaleDataNotice } from '@/components/ui';
 import { useResource } from '@/hooks/use-resource';
-import { api } from '@/api/client';
+import { api, API_BASE_URL, ApiError } from '@/api/client';
 import { clockTime, dayMonth, duration, plural } from '@/lib/format';
 import { radius, space } from '@/theme';
 import type { CheckinState } from '@/api/types';
@@ -26,13 +30,18 @@ const METHOD_LABEL: Record<string, string> = {
 const CODE_POLL_MS = 4000;
 
 export default function CheckinScreen() {
+  const router = useRouter();
+  const [waiverRequired, setWaiverRequired] = useState(false);
+  const { gym } = useAuth();
+  const focused = useIsFocused();
+  const actionLock = useRef(false);
   const { data, error, loading, refreshing, lastRefreshedAt, stale, offline, refresh, set } = useResource<CheckinState>('/api/app/checkin');
 
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [done, setDone] = useState<null | { direction: 'in' | 'out'; note: string | null }>(null);
   const [scanning, setScanning] = useState(false);
-  const [code, setCode] = useState<{ value: string; expiresAt: number } | null>(null);
+  const [code, setCode] = useState<{ value: string; expiresAt: number; wasCheckedIn: boolean } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -43,8 +52,11 @@ export default function CheckinScreen() {
   const checkedIn = data?.checked_in ?? false;
 
   const run = useCallback(async (action: 'in' | 'out') => {
+    if (actionLock.current) return;
+    actionLock.current = true;
     setBusy(true);
     setActionError(null);
+    setWaiverRequired(false);
     try {
       const res = await api.post<{ ok: boolean; checked_in: boolean; days_left?: number | null }>('/api/app/checkin', { action });
       setCode(null);
@@ -57,39 +69,51 @@ export default function CheckinScreen() {
       set((cur) => ({ ...cur, checked_in: res.checked_in }));
       refresh();
     } catch (e) {
+      setWaiverRequired(e instanceof ApiError && e.code === 'waiver_required');
       setActionError(e instanceof Error ? e.message : 'Could not complete that.');
       // "You're not checked in right now" means the server and this screen
       // disagree — auto-checkout ran, or reception closed the visit. Believe the
       // server rather than insisting the member is still inside.
       if (e instanceof Error && /not checked in/i.test(e.message)) refresh();
     } finally {
+      actionLock.current = false;
       setBusy(false);
     }
   }, [refresh, set]);
 
   const getCode = useCallback(async () => {
+    if (actionLock.current) return;
+    actionLock.current = true;
     setBusy(true);
     setActionError(null);
+    setWaiverRequired(false);
     try {
       const res = await api.post<{ ok: boolean; code: string; expires_at: string }>('/api/app/checkin', { action: 'code' });
       setNow(Date.now());
-      setCode({ value: res.code, expiresAt: new Date(res.expires_at).getTime() });
+      setCode({ value: res.code, expiresAt: new Date(res.expires_at).getTime(), wasCheckedIn: checkedIn });
     } catch (e) {
+      setWaiverRequired(e instanceof ApiError && e.code === 'waiver_required');
       setActionError(e instanceof Error ? e.message : 'Could not get a code.');
     } finally {
+      actionLock.current = false;
       setBusy(false);
     }
-  }, []);
+  }, [checkedIn]);
 
   // Tick the countdown, and watch for reception redeeming the code so the phone
   // flips to the success panel without the member having to do anything.
   useEffect(() => {
-    if (!code) return;
+    if (!code || !focused) return;
+    let cancelled = false;
+    let polling = false;
     const tick = setInterval(() => setNow(Date.now()), 1000);
     const poll = setInterval(async () => {
+      if (polling || Date.now() >= code.expiresAt) return;
+      polling = true;
       try {
         const res = await api.post<{ checked_in: boolean }>('/api/app/checkin', { action: 'state' });
-        if (res.checked_in !== checkedIn) {
+        if (cancelled) return;
+        if (res.checked_in !== code.wasCheckedIn) {
           setCode(null);
           setDone({ direction: res.checked_in ? 'in' : 'out', note: null });
           set((cur) => ({ ...cur, checked_in: res.checked_in }));
@@ -98,6 +122,8 @@ export default function CheckinScreen() {
       } catch {
         // A dropped poll is not worth a message — the countdown keeps running
         // and the next tick tries again.
+      } finally {
+        polling = false;
       }
     }, CODE_POLL_MS);
     const expire = setTimeout(() => {
@@ -105,15 +131,28 @@ export default function CheckinScreen() {
       clearInterval(tick);
       clearInterval(poll);
     }, Math.max(0, code.expiresAt - Date.now()));
-    return () => { clearInterval(tick); clearInterval(poll); clearTimeout(expire); };
-  }, [code, checkedIn, refresh, set]);
+    return () => { cancelled = true; clearInterval(tick); clearInterval(poll); clearTimeout(expire); };
+  }, [code, focused, refresh, set]);
 
   const openScanner = useCallback(async () => {
+    if (actionLock.current) return;
     setActionError(null);
+    if (permission && !permission.granted && !permission.canAskAgain) {
+      Alert.alert('Camera access is off', 'Enable camera access in your phone settings to scan your gym’s QR code. You can also use self check-in.', [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open settings', onPress: () => { void Linking.openSettings().catch(() => setActionError('Open your phone settings and enable camera access for GymFlow.')); } },
+      ]);
+      return;
+    }
     if (!permission?.granted) {
-      const res = await requestPermission();
-      if (!res.granted) {
-        setActionError('Camera access is needed to scan the door QR. You can still tap to check in below.');
+      try {
+        const res = await requestPermission();
+        if (!res.granted) {
+          setActionError('Camera access is needed to scan the door QR. You can still tap to check in below.');
+          return;
+        }
+      } catch {
+        setActionError('Camera access could not be requested. Try again or use self check-in.');
         return;
       }
     }
@@ -128,12 +167,12 @@ export default function CheckinScreen() {
     // The door QR encodes the gym's /checkin?via=qr URL. Anything else is
     // somebody's Wi-Fi code or a poster — say so rather than silently doing
     // nothing.
-    if (/\/checkin/i.test(value) || /[?&]via=qr/i.test(value)) {
+    if (isGymCheckinCode(value, API_BASE_URL, gym?.slug)) {
       void run(checkedIn ? 'out' : 'in');
     } else {
       setActionError('That isn’t this gym’s check-in code. Scan the QR at the entrance.');
     }
-  }, [checkedIn, run]);
+  }, [checkedIn, gym?.slug, run]);
 
   if (loading && !data) return <Screen><Loading label="Checking your status…" /></Screen>;
   if (error && !data) return <Screen refreshing={refreshing} onRefresh={refresh}><ErrorState message={error} onRetry={refresh} /></Screen>;
@@ -162,7 +201,7 @@ export default function CheckinScreen() {
       <Screen>
         <Title style={{ textAlign: 'center' }}>Show this at the desk</Title>
         <Body tone="secondary" style={{ textAlign: 'center', marginTop: space.sm }}>
-          Reception enters this code to check you {checkedIn ? 'out' : 'in'}.
+          Reception enters this code to check you {code.wasCheckedIn ? 'out' : 'in'}.
         </Body>
 
         <Card style={styles.codeCard}>
@@ -205,8 +244,9 @@ export default function CheckinScreen() {
         </Body>
 
         {actionError ? <View style={{ marginTop: space.lg }}><Notice message={actionError} /></View> : null}
+        {waiverRequired ? <Button label="Review gym waiver" onPress={() => router.push('/waiver')} /> : null}
 
-        <Pressable onPress={openScanner} style={styles.scanTarget} accessibilityRole="button" accessibilityLabel="Open the camera to scan the door QR">
+        <Pressable onPress={openScanner} disabled={busy} style={styles.scanTarget} accessibilityRole="button" accessibilityLabel="Open the camera to scan the door QR">
           <Ionicons name="qr-code-outline" size={64} color={c.brand} />
           <Body tone="secondary" size={13} style={{ marginTop: space.md }}>Tap to scan the door QR</Body>
         </Pressable>
@@ -262,14 +302,15 @@ export default function CheckinScreen() {
         ) : null}
       </Screen>
 
-      <Modal visible={scanning} animationType="slide" onRequestClose={() => setScanning(false)} statusBarTranslucent>
+      <Modal visible={scanning && focused} animationType="slide" onRequestClose={() => setScanning(false)} statusBarTranslucent>
         <View style={styles.cameraRoot}>
-          <CameraView
+          {scanning && focused ? <CameraView
             style={StyleSheet.absoluteFill}
             facing="back"
             barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
             onBarcodeScanned={({ data: value }) => onScanned(value)}
-          />
+            onMountError={() => { setScanning(false); setActionError('The camera could not start. Try again or use self check-in.'); }}
+          /> : null}
           <View style={styles.cameraOverlay} pointerEvents="box-none">
             <View style={styles.reticle} />
             <Body size={14} style={{ color: '#fff', marginTop: space.xl, textAlign: 'center' }}>

@@ -39,7 +39,7 @@ export function PayoutApprovalRow({ r }: { r: Row }) {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: '0.86rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, fontSize: '0.86rem' }}>
         <div>
           <div style={{ color: 'var(--gf-text-muted)', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Currently on file</div>
           {r.gyms?.bank_name
@@ -52,26 +52,29 @@ export function PayoutApprovalRow({ r }: { r: Row }) {
         </div>
       </div>
 
+      <div role="group" aria-label="Review decision" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" className="gf-btn gf-btn-secondary gf-btn-sm" aria-pressed={decision === 'approve'} disabled={pending} onClick={() => setDecision('approve')}>Approve account</button>
+        <button type="button" className="gf-btn gf-btn-secondary gf-btn-sm" aria-pressed={decision === 'reject'} disabled={pending} onClick={() => setDecision('reject')}>Reject account</button>
+      </div>
+
       {!r.name_matches && decision === 'approve' && (
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.84rem' }}>
-          <input type="checkbox" name="allow_name_mismatch" style={{ accentColor: 'var(--gf-brand)' }} />
+          <input type="checkbox" name="allow_name_mismatch" required style={{ accentColor: 'var(--gf-brand)' }} />
           Allow name mismatch — the account holder&rsquo;s name doesn&rsquo;t match the gym&rsquo;s business name. Approving anyway also disables the check for future submissions from this gym.
         </label>
       )}
 
       {decision === 'reject' && (
-        <input className="gf-input" name="reject_reason" placeholder="Reason (shown to gym owner)" style={{ maxWidth: 480 }} />
+        <label>Reason shown to gym owner<textarea className="gf-input" name="reject_reason" required minLength={3} maxLength={1000} rows={3} style={{ maxWidth: 480, display: 'block', marginTop: 6 }} /></label>
       )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button type="submit" className="gf-btn gf-btn-primary gf-btn-sm" onClick={() => setDecision('approve')} disabled={pending}>
-          <Check size={14} strokeWidth={2.4} /> {pending && decision === 'approve' ? 'Approving…' : 'Approve'}
+        <button type="submit" className={`gf-btn gf-btn-sm ${decision === 'approve' ? 'gf-btn-primary' : 'gf-btn-danger'}`} disabled={pending || state.ok}>
+          {decision === 'approve' ? <Check size={14} strokeWidth={2.4} /> : <X size={14} strokeWidth={2.4} />}
+          {pending ? 'Saving decision…' : decision === 'approve' ? 'Confirm approval' : 'Confirm rejection'}
         </button>
-        <button type="submit" className="gf-btn gf-btn-secondary gf-btn-sm" onClick={() => setDecision('reject')} disabled={pending}>
-          <X size={14} strokeWidth={2.4} /> {pending && decision === 'reject' ? 'Rejecting…' : 'Reject'}
-        </button>
-        {state.error && <span style={{ color: 'var(--gf-danger)', fontSize: '0.84rem' }}>{state.error}</span>}
-        {state.ok && <span style={{ color: 'var(--gf-success)', fontSize: '0.84rem' }}>Done ✓</span>}
+        {state.error && <span role="alert" style={{ color: 'var(--gf-danger)', fontSize: '0.84rem' }}>{state.error}</span>}
+        {state.ok && <span role="status" style={{ color: 'var(--gf-success)', fontSize: '0.84rem' }}>Done ✓</span>}
       </div>
     </form>
   );

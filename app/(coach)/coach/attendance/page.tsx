@@ -11,12 +11,14 @@ export default async function CoachAttendance() {
 
   const dayStart = new Date(watDayStartUtc(watDateISO()));
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
-  const { data: sessions } = await supabase
+  const { data: sessions, error: loadError } = await supabase
     .from('instructor_sessions')
     .select('id, scheduled_at, status, member_id')
     .eq('instructor_id', user.id).eq('gym_id', gym.id)
     .gte('scheduled_at', dayStart.toISOString()).lt('scheduled_at', dayEnd.toISOString())
     .order('scheduled_at', { ascending: true });
+
+  if (loadError) throw new Error('Could not load sessions. Please retry.');
 
   const ids = [...new Set((sessions ?? []).map((s) => s.member_id).filter(Boolean) as string[])];
   const { data: profiles } = ids.length
@@ -26,12 +28,12 @@ export default async function CoachAttendance() {
 
   const rows: Session[] = (sessions ?? []).map((s) => {
     const nm = s.member_id ? (nameById.get(s.member_id) ?? 'Member') : 'Member';
-    return { id: s.id, name: nm, initial: nm.charAt(0).toUpperCase(), status: s.status, time: new Date(s.scheduled_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false }) };
+    return { id: s.id, name: nm, initial: nm.charAt(0).toUpperCase(), status: s.status, time: new Date(s.scheduled_at).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false }) };
   });
 
   return (
     <>
-      <div className="hdr"><h1>Attendance</h1><p>{new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })} · mark who showed up</p></div>
+      <div className="hdr"><h1>Attendance</h1><p>{new Date().toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', weekday: 'long', day: 'numeric', month: 'long' })} · mark who showed up</p></div>
       <AttendanceClient sessions={rows} />
     </>
   );
