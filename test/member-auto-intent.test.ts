@@ -397,10 +397,10 @@ describe('startAutoRenewal reservation ordering', () => {
     expect(action.initCalls).toHaveLength(1);
 
     release({ ok: true, authorization_url: CHECKOUT_URL });
-    await expect(first).resolves.toEqual({ ok: true, url: CHECKOUT_URL });
+    await expect(first).resolves.toEqual({ ok: true, url: CHECKOUT_URL, reference: 'action-auto-ref' });
     expect(action.finishCalls).toHaveLength(1);
 
-    await expect(startAutoRenewal(IDS.planA)).resolves.toEqual({ ok: true, url: CHECKOUT_URL });
+    await expect(startAutoRenewal(IDS.planA)).resolves.toEqual({ ok: true, url: CHECKOUT_URL, reference: 'action-auto-ref' });
     expect(action.initCalls).toHaveLength(1);
   });
 
