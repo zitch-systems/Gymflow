@@ -575,6 +575,7 @@ export async function verifyTransaction(reference: string): Promise<VerifyResult
     const res = await fetch(`${PAYSTACK_BASE}/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: { Authorization: `Bearer ${secret()}` },
       cache: 'no-store',
+      signal: AbortSignal.timeout(15_000),
     });
     const json = await res.json();
     if (!res.ok || !json.status || !json.data) return { ok: false, error: json.message ?? 'Verify failed' };

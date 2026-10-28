@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   httpSnapshot: vi.fn(), validateHttpSnapshot: vi.fn(), validateProductionEnvironment: vi.fn(),
+  paymentIncidentSnapshot: vi.fn(),
 }));
+vi.mock('@/lib/payment-incident-diagnostics', () => ({ paymentIncidentSnapshot: mocks.paymentIncidentSnapshot }));
 vi.mock('../scripts/release-audit.mjs', () => ({
   ...mocks,
   validateProductionUrl: (url: string) => new URL(url),
@@ -30,6 +32,7 @@ beforeEach(() => {
   mocks.validateProductionEnvironment.mockReturnValue({ checks, errors: [] });
   mocks.validateHttpSnapshot.mockReturnValue([]);
   mocks.httpSnapshot.mockResolvedValue({ publicPage: { status: 200 }, crons: [], serviceSettings: { available: true } });
+  mocks.paymentIncidentSnapshot.mockResolvedValue({ read_only: true, checked: 0, results: [] });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -41,6 +44,7 @@ describe('expiring production release audit', () => {
     }
     expect(mocks.validateProductionEnvironment).not.toHaveBeenCalled();
     expect(mocks.httpSnapshot).not.toHaveBeenCalled();
+    expect(mocks.paymentIncidentSnapshot).not.toHaveBeenCalled();
   });
 
   it('rejects expired, unbounded, and non-production probes', async () => {

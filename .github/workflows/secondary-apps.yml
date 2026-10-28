@@ -44,7 +44,7 @@ jobs:
         run: npm run test:auth-routing
       - name: Verify booking dates, gym QR validation, and screen data recovery
         run: npm run test:member-flows
-      - name: Audit production graph against reviewed residual advisories
+      - name: Require zero production registry findings
         run: npm run audit:production
       - run: npm run type-check
       - run: npm run lint

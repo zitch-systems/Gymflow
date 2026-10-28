@@ -1,7 +1,7 @@
 {
   "name": "gymflow-member",
   "main": "expo-router/entry",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "scripts": {
     "start": "expo start",
@@ -10,7 +10,7 @@
     "audit:production": "node scripts/audit-production.mjs",
     "audit:android-bundle": "node scripts/audit-android-bundle.mjs dist-ci",
     "test:router-compat": "node scripts/test-router-compat.mjs",
-    "test:native-config": "node scripts/test-native-config.mjs && node scripts/test-build-schemas.mjs",
+    "test:native-config": "node scripts/test-native-config.mjs && node scripts/test-build-schemas.mjs && npm run test:build-security",
     "test:api-client": "node scripts/test-api-client.mjs",
     "test:auth-routing": "node scripts/test-auth-routing.mjs",
     "type-check": "tsc --noEmit",
@@ -21,7 +21,8 @@
     "build:native:ios-device-unsigned": "bash scripts/native-build-ios-device-unsigned.sh",
     "build:android:preview": "eas build --platform android --profile preview",
     "build:android:production": "eas build --platform android --profile production",
-    "test:member-flows": "node scripts/test-member-flows.mjs && node scripts/test-resource.mjs && node scripts/test-waiver.mjs && node scripts/test-screens.mjs"
+    "test:member-flows": "node scripts/test-member-flows.mjs && node scripts/test-resource.mjs && node scripts/test-waiver.mjs && node scripts/test-screens.mjs",
+    "test:build-security": "node scripts/test-build-security.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -42,7 +43,8 @@
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0"
+    "react-native-screens": "~4.26.0",
+    "deepmerge": "file:vendor/deepmerge-secure"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -56,6 +58,8 @@
     "query-string": "$query-string",
     "@expo/cli": {
       "zod": "4.6.7"
-    }
+    },
+    "deepmerge": "$deepmerge",
+    "node-forge": "1.4.2"
   }
 }

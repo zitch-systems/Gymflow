@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { httpSnapshot, validateHttpSnapshot, validateProductionEnvironment, validateProductionUrl } from '@/scripts/release-audit.mjs';
+import { paymentIncidentSnapshot } from '@/lib/payment-incident-diagnostics';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -45,7 +46,8 @@ export async function POST(req: Request) {
   try {
     const http = await httpSnapshot(validateProductionUrl(env.NEXT_PUBLIC_SITE_URL), env.CRON_SECRET!);
     const errors = validateHttpSnapshot(http);
-    return Response.json({ releaseCommit, environment: environment.checks, http, errors }, {
+    const payments = await paymentIncidentSnapshot();
+    return Response.json({ releaseCommit, environment: environment.checks, http, payments, errors }, {
       status: errors.length ? 503 : 200, headers: { 'cache-control': 'no-store' },
     });
   } catch {

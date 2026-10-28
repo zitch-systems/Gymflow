@@ -107,22 +107,24 @@ unaltered official `query-string` 9.5.1 named API and uses the patched official
 hashes are recorded in the vendor directory. A real Router deep-link
 parse/stringify test guards the small export adapter.
 
-The reviewed residual production graph on 2026-10-28 has 1 high and 7 low
-package-chain findings, with no critical or moderate findings:
+The production registry audit on 2026-10-28 reports zero known findings:
 
-- `node-forge` 1.4.0 (`GHSA-86w9-cpqp-85rv`), used by Expo Node build tooling,
-  has no patched release. Its high finding is confined to that build dependency.
-- `deepmerge` 4.3.1 (`GHSA-gcqx-w48m-w2h4`) has no patched release. Its seven low
-  findings roll up through Expo configuration/build tooling. Only repository-controlled
-  app configuration should be supplied to builds.
+- `node-forge` is pinned to 1.4.2. A regression exercises Expo's actual resolved
+  copy, accepting a valid RSA signature and rejecting the malformed nested
+  DigestAlgorithmIdentifier involved in `GHSA-86w9-cpqp-85rv`.
+- `deepmerge` 4.3.1 has no upstream patched release for `GHSA-gcqx-w48m-w2h4`.
+  `vendor/deepmerge-secure` is an explicitly named local fork with a narrow
+  prototype-key guard in both copy loops and own-property writes. Its provenance,
+  upstream license and patch rationale are recorded alongside the source.
+  Registry audits cannot assess this fork; exploit regressions and actual Expo
+  configuration compatibility are mandatory in `test:build-security`.
 - Expo CLI's Zod dependency is pinned to 4.6.7, with its actual plugin schemas
   exercised for compatibility. The app does not use Zod. ESLint's independent
   development-only Zod 3 dependency is outside the production graph.
 
-`audit:production` permits only those exact reviewed chains and advisories.
-`audit:android-bundle` checks source maps to reject node-forge, deepmerge and
-Zod from the shipped bundle. Neither script claims that the build environment
-has no risk. New findings fail CI; do not force-downgrade Expo to hide them.
+`audit:production` permits no known findings or advisory exceptions.
+`audit:android-bundle` checks source maps to reject node-forge, deepmerge,
+the local fork and Zod from the shipped bundle. New findings fail CI.
 
 ## Release notes
 
