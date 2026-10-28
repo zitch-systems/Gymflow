@@ -86,6 +86,12 @@ export default function WaiverScreen() {
           <Button label="Accept waiver" onPress={accept} loading={busy} disabled={!checked || stale} />
         </>
       ) : null}
+      <Card style={{ marginTop: space.lg }}>
+        <Body weight="700">Your data</Body>
+        <Body tone="secondary" style={{ marginTop: space.sm, lineHeight: 22 }}>
+          Your information is scoped to {data.gym.name}. GymFlow uses encrypted connections and never stores raw card numbers. Payment details are handled by the payment provider.
+        </Body>
+      </Card>
       <Button label={data.accepted ? 'Done' : 'Cancel'} variant="secondary" onPress={leave} disabled={busy} style={{ marginTop: space.md }} />
       <Button
         label="Privacy & terms"

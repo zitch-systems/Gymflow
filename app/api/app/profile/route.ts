@@ -35,6 +35,7 @@ export async function GET(req: Request) {
 
     return json({
       gym: publicGym(gym),
+      whatsapp_url: `https://wa.me/${(process.env.WHATSAPP_BUSINESS_NUMBER ?? '2349169582776').replace(/\D/g, '')}?text=${encodeURIComponent(gym.member_code ?? '')}`,
       profile: {
         id: user.id,
         email: profile?.email ?? user.email ?? null,
@@ -60,7 +61,7 @@ export async function GET(req: Request) {
             }),
             start_date: sub.start_date,
             end_date: sub.end_date,
-            auto_renew: Boolean(sub.auto_debit_enabled && sub.paystack_subscription_code),
+            auto_renew: sub.auto_debit_enabled === true,
           }
         : null,
       // Whether the member may ask for a freeze at all is the gym's setting, so
@@ -104,7 +105,7 @@ export async function PATCH(req: Request) {
   try {
     // full_name is GENERATED in the live DB — write the split parts, never the
     // generated column.
-    const { error } = await supabase.from('profiles').update({
+    const { data: saved, error } = await supabase.from('profiles').update({
       ...splitName(fullName),
       phone,
       date_of_birth: dateOfBirth || null,
@@ -113,10 +114,11 @@ export async function PATCH(req: Request) {
       emergency_contact_name: str(body.emergency_contact_name, 120),
       emergency_contact_phone: str(body.emergency_contact_phone, 32),
       updated_at: new Date().toISOString(),
-    }).eq('id', user.id);
-    if (error) return json({ ok: false, error: error.message }, 422);
+    }).eq('id', user.id).select('id').maybeSingle();
+    if (error) return dataUnavailable();
+    if (!saved) return json({ error: 'Your profile could not be updated. Refresh and try again.', code: 'profile_changed' }, 409);
     return json({ ok: true });
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }

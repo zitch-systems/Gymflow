@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
@@ -66,6 +66,7 @@ function ProfileForm({
   const router = useRouter();
   const [form, setForm] = useState<Form>(initial);
   const [busy, setBusy] = useState(false);
+  const actionLock = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const field = (key: keyof Form) => ({
@@ -75,7 +76,8 @@ function ProfileForm({
   });
 
   const save = async () => {
-    if (busy) return;
+    if (actionLock.current) return;
+    actionLock.current = true;
     setBusy(true);
     setErrorMessage(null);
     try {
@@ -84,6 +86,7 @@ function ProfileForm({
       router.back();
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : 'Could not save your details.');
+      actionLock.current = false;
       setBusy(false);
     }
   };

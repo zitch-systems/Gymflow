@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ fail: '', write: vi.fn(), open: vi.fn(async () => null as { id: string; checked_in_at: string } | null), rate: vi.fn(async () => true) }));
+const mocks = vi.hoisted(() => ({ fail: '', saved: false, write: vi.fn(), open: vi.fn(async () => null as { id: string; checked_in_at: string } | null), rate: vi.fn(async () => true) }));
 vi.mock('@/lib/api-app', async (original) => {
   const actual = await original<typeof import('@/lib/api-app')>();
   return { ...actual, requireApiMember: async () => ({ ok: true, ctx: {
     user: { id: 'member' }, gym: { id: 'gym', name: 'Gym', subscription_plan: 'growth' }, link: {},
     supabase: { from: (table: string) => {
-      let single = false;
+      let single = false, writing = false;
       const query = {
         select: () => query, eq: () => query, neq: () => query, in: () => query,
         gte: () => query, order: () => query, limit: () => query,
         maybeSingle: () => { single = true; return query; },
-        update: (patch: unknown) => { mocks.write(patch); return query; },
+        update: (patch: unknown) => { writing = true; mocks.write(patch); return query; },
         then: (resolve: (result: unknown) => unknown) => resolve({
-          data: table === mocks.fail ? null : single ? null : [], count: 0,
+          data: table === mocks.fail ? null : writing && mocks.saved ? { id: 'member' } : single ? null : [], count: 0,
           error: table === mocks.fail ? { message: 'private DB hostname and query' } : null,
         }),
       };
@@ -32,7 +32,7 @@ import { GET as notifications } from '@/app/api/app/notifications/route';
 import { GET as home } from '@/app/api/app/me/route';
 import { GET as receipt } from '@/app/api/app/wallet/[id]/route';
 
-beforeEach(() => { mocks.fail = ''; mocks.write.mockClear(); mocks.rate.mockResolvedValue(true); mocks.open.mockResolvedValue(null); });
+beforeEach(() => { mocks.fail = ''; mocks.saved = false; mocks.write.mockClear(); mocks.rate.mockResolvedValue(true); mocks.open.mockResolvedValue(null); });
 const req = () => new Request('https://gymflow.ng/api/app/test');
 const cases = [
   { name: 'classes', get: classes, table: 'class_schedules' },
@@ -71,6 +71,17 @@ describe('native API data failures', () => {
       expect(response.status).toBe(400);
     }
     expect(mocks.write).not.toHaveBeenCalled();
+  });
+  it('confirms a profile update only when the member row was actually saved', async () => {
+    const request = () => new Request('https://gymflow.ng/api/app/profile', { method: 'PATCH', body: JSON.stringify({ full_name: 'Test Member' }) });
+    expect((await patch(request())).status).toBe(409);
+    mocks.fail = 'profiles';
+    const failed = await patch(request());
+    expect(failed.status).toBe(503);
+    expect(JSON.stringify(await failed.json())).not.toContain('private');
+    mocks.fail = ''; mocks.saved = true;
+    expect(await (await patch(request())).json()).toEqual({ ok: true });
+    expect(mocks.write).toHaveBeenLastCalledWith(expect.objectContaining({ first_name: 'Test', last_name: 'Member' }));
   });
   it('enforces the same booking/email amplification limit as the web entry point', async () => {
     mocks.rate.mockResolvedValue(false);

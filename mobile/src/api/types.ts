@@ -142,6 +142,7 @@ export type Plan = {
   description: string | null;
   duration_days: number | null;
   duration_months: number | null;
+  auto_renew_available?: boolean;
   trainer_addon: { available: boolean; price: number; total_with_trainer: number };
   is_current: boolean;
   is_scheduled: boolean;
@@ -155,11 +156,13 @@ export type Plans = {
     end_date: string | null;
     days_left: number;
     display_state: Subscription['display_state'];
+    auto_renew?: boolean;
   } | null;
 };
 
 export type ProfilePayload = {
   gym: Gym;
+  whatsapp_url?: string;
   profile: {
     id: string;
     email: string | null;
@@ -189,4 +192,15 @@ export type WaiverPayload = {
   document: { id: string | null; title: string; content: string; version: string | null; revision: string };
   accepted: boolean;
   signedAt: string | null;
+};
+
+export type MembershipSettings = {
+  today: string;
+  gym: { id: string; name: string };
+  subscription: {
+    id: string; status: string | null; start_date: string | null; end_date: string | null;
+    pause_start: string | null; pause_end: string | null; pause_reason: string | null;
+    auto_renew: boolean;
+  } | null;
+  freeze: { enabled: boolean; can_request: boolean; unavailable_reason: string | null };
 };

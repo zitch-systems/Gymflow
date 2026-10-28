@@ -221,7 +221,7 @@ describe('a mandate Paystack has already dropped', () => {
   it('clears the local flag instead of dead-ending the member', () => {
     // Source lock, same reason as the describe below: disableSub is behind
     // requireMember/requireStaff and a live Paystack call.
-    const src = readFileSync(resolve(__dirname, '..', 'lib/actions/member-billing.ts'), 'utf8');
+    const src = readFileSync(resolve(__dirname, '..', 'lib/member-billing-core.ts'), 'utf8');
     // Both failure paths — the email_token refetch and the disable call itself.
     expect(src.match(/mandateGoneAtPaystack\(/g)?.length).toBe(2);
     expect(src).toContain("update({ auto_debit_enabled: false }).eq('id', sub.id)");
@@ -234,7 +234,7 @@ describe('the auto-renew opt-in refuses a second mandate', () => {
   // Source lock: startAutoRenewal is a 'use server' action behind
   // requireMember() and a live Paystack call, so what is pinned here is that
   // the guard exists, reads the right rows, and runs BEFORE the money path.
-  const src = readFileSync(resolve(__dirname, '..', 'lib/actions/member-billing.ts'), 'utf8');
+  const src = readFileSync(resolve(__dirname, '..', 'lib/member-auto-renew-core.ts'), 'utf8');
 
   it('checks for an existing mandate before it asks Paystack for a new one', () => {
     // Order is the whole property: both the existing-mandate check and the

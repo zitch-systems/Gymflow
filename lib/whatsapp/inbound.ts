@@ -41,7 +41,7 @@ export type DeliveryStatus = {
  */
 export function verifyMetaSignature(raw: string, header: string | null, appSecret: string | undefined): boolean {
   if (!appSecret) return false;
-  if (!header?.startsWith('sha256=')) return false;
+  if (!header || header.length !== 71 || !/^sha256=[a-f0-9]{64}$/i.test(header)) return false;
   const expected = createHmac('sha256', appSecret).update(raw).digest('hex');
   const a = Buffer.from(header.slice('sha256='.length), 'hex');
   const b = Buffer.from(expected, 'hex');
@@ -121,7 +121,7 @@ function parseMessage(msg: Json): Pick<IncomingWhatsAppMessage, 'kind' | 'text' 
       if (rawJson) {
         try {
           const parsed = JSON.parse(rawJson) as unknown;
-          if (parsed && typeof parsed === 'object') decoded = parsed as Record<string, unknown>;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) decoded = parsed as Record<string, unknown>;
         } catch {
           // A Flow reply we cannot parse is still a signal that the member
           // finished; treat it as a bare completion rather than dropping it.
@@ -175,7 +175,7 @@ export function extractStatuses(payload: Json): DeliveryStatus[] {
 }
 
 function arr(v: unknown): unknown[] {
-  return Array.isArray(v) ? v : [];
+  return Array.isArray(v) ? v.filter((entry) => entry !== null && typeof entry === 'object' && !Array.isArray(entry)) : [];
 }
 
 function str(v: unknown): string | null {

@@ -20,10 +20,11 @@ in the Android keystore instead of a cookie.
 | Wallet | Total spent, six-month spend bars, saved cards, full transaction list, tap through to a receipt |
 | Renew | Pick a plan (+ optional private-trainer add-on), pay via Paystack in the system browser |
 | Notifications | Reminders, receipts and class alerts, grouped Today / This week / Earlier |
-| Profile | Lifetime counts, edit personal + emergency details, native gym waiver, gym-specific document/freeze portal links, sign out |
-| Gym waiver | Read the exact current gym document, explicitly accept its revision, and review server-confirmed acceptance |
+| Profile | Lifetime counts, edit personal + emergency details, native membership controls and documents, gym WhatsApp link, sign out |
+| Manage membership | Request a freeze for staff approval and explicitly confirm stopping automatic renewal, using the same server rules as the web |
+| Waiver & documents | Read the exact current gym document, explicitly accept its revision, review server-confirmed acceptance, and see data-retention information |
 
-Membership freeze requests and document viewing open the selected gym’s web portal. A separate browser sign-in may be required. Waiver review and explicit acceptance now work inside the app and use the same revision as the web portal.
+Membership freeze requests, automatic-renewal opt-in and cancellation, and waiver review work inside the app. They use the same membership rules and document revision as the web portal. Recurring billing defaults off, shows the recurring amount and period, and requires explicit consent; the server prevents a second live mandate.
 
 ## Architecture
 
@@ -106,22 +107,22 @@ unaltered official `query-string` 9.5.1 named API and uses the patched official
 hashes are recorded in the vendor directory. A real Router deep-link
 parse/stringify test guards the small export adapter.
 
-The residual `npm audit --omit=dev` result is 4 high and no moderate or critical
-findings:
+The reviewed residual production graph on 2026-10-28 has 1 high and 7 low
+package-chain findings, with no critical or moderate findings:
 
-- The four high entries (`node-forge`, `@expo/code-signing-certificates`,
-  `@expo/cli`, and `expo`) all roll up to node-forge advisory
-  `GHSA-86w9-cpqp-85rv`. Version 1.4.0 is both the newest published node-forge
-  release and still affected. Expo uses it for Node-side certificate creation,
-  verification, and local iOS code-signing discovery. Android CI exports source
-  maps and rejects a bundle containing `node-forge`, the certificate helper, or
-  the other reviewed Node-only build packages. Expo's Metro require bootstrap is
-  the only `@expo/cli` source present and does not import the affected chain.
+- `node-forge` 1.4.0 (`GHSA-86w9-cpqp-85rv`), used by Expo Node build tooling,
+  has no patched release. Its high finding is confined to that build dependency.
+- `deepmerge` 4.3.1 (`GHSA-gcqx-w48m-w2h4`) has no patched release. Its seven low
+  findings roll up through Expo configuration/build tooling. Only repository-controlled
+  app configuration should be supplied to builds.
+- Expo CLI's Zod dependency is pinned to 4.6.7, with its actual plugin schemas
+  exercised for compatibility. The app does not use Zod. ESLint's independent
+  development-only Zod 3 dependency is outside the production graph.
 
-`npm run audit:production` fails on any critical finding, new advisory URL,
-unexpected package chain, or changed severity. Upgrade the reviewed node-forge
-root when Expo publishes compatible dependencies; do not use npm's force
-downgrade.
+`audit:production` permits only those exact reviewed chains and advisories.
+`audit:android-bundle` checks source maps to reject node-forge, deepmerge and
+Zod from the shipped bundle. Neither script claims that the build environment
+has no risk. New findings fail CI; do not force-downgrade Expo to hide them.
 
 ## Release notes
 

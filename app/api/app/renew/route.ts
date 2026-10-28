@@ -1,6 +1,8 @@
-import { requireApiMember, json, corsPreflight, readJson } from '@/lib/api-app';
+import { dataUnavailable, requireApiMember, json, corsPreflight, readJson } from '@/lib/api-app';
 import { requestOrigin } from '@/lib/request-origin';
 import { startRenewalCore } from '@/lib/renew-core';
+import { startAutoRenewalCore } from '@/lib/member-auto-renew-core';
+import { rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -27,18 +29,22 @@ export async function POST(req: Request) {
   const body = await readJson(req);
   const planId = String(body.plan_id ?? '').trim();
   const withTrainer = body.with_trainer === true;
+  const autoRenew = body.auto_renew === true;
   if (!planId) return json({ error: 'Choose a plan.' }, 400);
+  if (autoRenew && body.auto_renew_confirmed !== true) return json({ error: 'Confirm that you want automatic charges each period.' }, 400);
 
   try {
+    if (!(await rateLimit(`renew:user:${user.id}`, 10, 60))) return json({ error: 'Too many checkout attempts. Please wait a moment.' }, 429);
     const origin = await requestOrigin();
-    const res = await startRenewalCore(
+    const callback = origin ? `${origin}/api/app/pay/callback` : undefined;
+    const res = autoRenew ? await startAutoRenewalCore(user, gym, planId, withTrainer, callback) : await startRenewalCore(
       supabase, user, gym, planId, withTrainer,
-      origin ? `${origin}/api/app/pay/callback` : undefined,
+      callback,
     );
     return res.ok
       ? json({ ok: true, authorization_url: res.url, reference: res.reference ?? null })
       : json({ ok: false, error: res.error }, 422);
-  } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+  } catch {
+    return dataUnavailable();
   }
 }

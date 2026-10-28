@@ -60,8 +60,8 @@ const CATS: Cat[] = [
     img: 'gym-bikes',
     items: [
       { icon: <CalendarDays strokeWidth={1.75} />, title: 'Recurring schedule', body: 'Set a class once; it repeats weekly with per-session capacity.' },
-      { icon: <Hourglass strokeWidth={1.75} />, title: 'Waitlists', body: 'When a class fills, the next member is promoted automatically.' },
-      { icon: <MessageCircle strokeWidth={1.75} />, title: 'RSVP reminders', body: 'A push and WhatsApp nudge an hour before each booked class.' },
+      { icon: <Hourglass strokeWidth={1.75} />, title: 'Waitlists', body: 'When a booked spot opens, the next waitlisted member is promoted automatically.' },
+      { icon: <MessageCircle strokeWidth={1.75} />, title: 'Class reminders', body: 'A morning email digest helps members keep track of the classes they have booked that day.' },
     ],
   },
   {

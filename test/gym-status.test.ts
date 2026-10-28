@@ -94,7 +94,7 @@ const GUARDS = [
   'app/(coach)/layout.tsx',
   'app/join/[slug]/page.tsx',
   'app/api/cron/backups/route.ts',
-  'lib/actions/member-billing.ts',
+  'lib/member-auto-renew-core.ts',
   // The door and the checkout are reached from two runtimes — the web Server
   // Actions and the Android app's /api/app/* endpoints — so the guard lives in
   // the shared core each of them calls, not in the action wrapper. That is the

@@ -3,14 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { requireMember, requireStaff, ADMIN_ROLES } from '@/lib/auth/dal';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { requestMemberFreeze } from '@/lib/member-freeze-core';
 import { logAudit } from '@/lib/audit';
 import { firstName, fmtDate, watDateISO } from '@/lib/format';
 import type { EmailContent } from '@/lib/email/layout';
-import { adminOrNull, getContact, getGymStaffEmails } from '@/lib/email/recipients';
-import { memberAppUrl, platformAppUrl, sendGymEmail, sendPlatformEmail, type EmailCategory } from '@/lib/email/send';
+import { memberAppUrl, sendGymEmail, type EmailCategory } from '@/lib/email/send';
 import { MEMBER_TEMPLATES, freezeApproved, freezeDenied, freezeResumed, freezeStarted } from '@/lib/email/templates/member';
-import { freezeRequested } from '@/lib/email/templates/platform';
 
 // Membership freeze — staff-approved flow with an explicit date window.
 //
@@ -46,12 +44,6 @@ function parseDate(value: FormDataEntryValue | null): string | null {
 const todayIso = () => watDateISO();
 const daysBetween = (a: string, b: string) =>
   Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000);
-
-// Minimum days that must remain on the membership to accept a freeze request.
-// A freeze doesn't buy new days — resume just credits back the pause window —
-// so freezing right before expiry gives the member nothing back. Mirrors the
-// admin "Expiring" cutoff used on /admin/members.
-const MIN_DAYS_TO_FREEZE = 7;
 
 type Sb = Awaited<ReturnType<typeof createClient>>;
 type StaffGym = Awaited<ReturnType<typeof requireStaff>>['gym'];
@@ -93,100 +85,20 @@ async function mailMember(
   } catch { /* bonus channel */ }
 }
 
-async function currentMemberSub(userId: string, gymId: string) {
-  // Prefer an active/pause_requested/paused sub; ignore expired history.
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from('member_subscriptions')
-    .select('id, status, end_date, paused_at, pause_reason')
-    .eq('gym_id', gymId).eq('member_id', userId)
-    .in('status', ['active', 'pause_requested', 'paused'])
-    .order('end_date', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data;
-}
-
-// Member requests a freeze. Only allowed when the gym permits member freezes and
-// the member has an active sub with meaningful time left. The requested window
-// is stored on the sub so the admin's approval form pre-fills the same dates.
+// Web and native requests use the same scoped, concurrency-checked write.
 export async function requestFreeze(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const reason = String(formData.get('reason') ?? '').slice(0, 500);
-  const win = readWindow(formData);
-  if ('error' in win) return { ok: false, error: win.error };
   try {
     const { user, gym } = await requireMember();
-    if ((gym as { member_freeze_enabled?: boolean }).member_freeze_enabled === false) {
-      return { ok: false, error: 'Your gym doesn’t offer self-service freezes. Ask staff to freeze your membership.' };
-    }
-    const sub = await currentMemberSub(user.id, gym.id);
-    if (!sub) return { ok: false, error: 'No active membership to freeze.' };
-    if (sub.status !== 'active') {
-      return { ok: false, error: sub.status === 'pause_requested'
-        ? 'Freeze already requested — waiting for staff approval.'
-        : 'Membership is already paused.' };
-    }
-    // Reject freezes on lapsed or nearly-lapsed memberships — a freeze that
-    // starts after expiry credits nothing back, and one with <7 days left
-    // usually means the member should renew instead.
-    if (!sub.end_date || daysBetween(todayIso(), sub.end_date) < MIN_DAYS_TO_FREEZE) {
-      return { ok: false, error: 'Your membership has too little time left to freeze. Renew first.' };
-    }
-    // The freeze can't start after the membership ends — the days you'd get
-    // back would land on an expired plan.
-    if (daysBetween(todayIso(), win.start) > daysBetween(todayIso(), sub.end_date)) {
-      return { ok: false, error: 'Freeze start date is after your membership ends. Pick an earlier date.' };
-    }
-
-    const admin = createAdminClient();
-    const { error } = await admin
-      .from('member_subscriptions')
-      .update({ status: 'pause_requested', pause_reason: reason || null, pause_start: win.start, pause_end: win.end })
-      .eq('id', sub.id);
-    if (error) return { ok: false, error: error.message };
-
-    void logAudit({
-      action: 'membership_freeze_requested',
-      table: 'member_subscriptions',
-      actorId: user.id, gymId: gym.id, recordId: sub.id,
-      values: { reason: reason || null, pause_start: win.start, pause_end: win.end },
+    const result = await requestMemberFreeze(await createClient(), user.id, gym, {
+      start: formData.get('pauseStart'), end: formData.get('pauseEnd'), reason: formData.get('reason'),
     });
-
-    // The request now sits in 'pause_requested' until a human decides, and
-    // nothing on the staff side polls for that. Service role is not incidental:
-    // a member cannot read gym_staff_links or another profile's email under RLS.
-    // GymFlow-branded, not gym-branded — this goes to the people who RUN the gym.
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const emailAdmin = adminOrNull();
-        if (emailAdmin) {
-          const [staff, me] = await Promise.all([
-            getGymStaffEmails(emailAdmin, gym.id),
-            getContact(emailAdmin, user.id),
-          ]);
-          if (staff.length) {
-            await sendPlatformEmail({
-              to: staff,
-              template: 'gym_freeze_requested',
-              ...freezeRequested({
-                gymName: gym.name,
-                memberName: (me?.fullName ?? '').trim() || me?.email || 'A member',
-                startDate: fmtDate(win.start),
-                endDate: fmtDate(win.end),
-                reason: reason || null,
-                reviewUrl: platformAppUrl(`/admin/members/${user.id}`),
-              }),
-            });
-          }
-        }
-      } catch { /* bonus channel — the request is already recorded */ }
+    if (result.ok) {
+      revalidatePath('/dashboard');
+      revalidatePath('/dashboard/profile');
     }
-
-    revalidatePath('/dashboard');
-    revalidatePath('/dashboard/profile');
-    return { ok: true, error: null, message: 'Freeze requested. Staff will review shortly.' };
-  } catch (e) {
-    return { ok: false, error: (e as Error).message };
+    return result;
+  } catch {
+    return { ok: false, error: 'Your freeze request could not be saved. Please try again.' };
   }
 }
 
