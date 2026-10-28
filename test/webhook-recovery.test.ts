@@ -64,6 +64,16 @@ describe('durable webhook recovery', () => {
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
   });
 
+  it('retries a provider-verified charge when the gym lookup is temporarily unavailable', async () => {
+    calls.verify.mockResolvedValue({ ok: true, status: 'success', channel: 'card', memberEventData: { reference: 'ref_verified' } });
+    calls.dispatch.mockRejectedValue(new Error('Platform gym mapping lookup failed'));
+    const { admin, update } = harness();
+    expect(await processClaimedPaystackEvent(admin as never, job({ event: 'charge.success', data: {} })))
+      .toEqual({ outcome: 'retry', status: 500, error: 'Platform gym mapping lookup failed' });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: 'retry' }));
+    expect(calls.capture).not.toHaveBeenCalled();
+  });
+
   it('dead-letters a charge the provider says is not successful', async () => {
     calls.verify.mockResolvedValue({ ok: true, status: 'failed', channel: null, memberEventData: {} });
     const { admin, update } = harness();

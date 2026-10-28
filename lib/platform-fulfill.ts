@@ -53,7 +53,8 @@ export function isPlatformEvent(event: Json): boolean {
   // (one-off) charges never carry one. Keying on its presence — not on the
   // plan code matching an env var — means recurring charges are still classified
   // correctly even if PAYSTACK_PLAN_* drifts or our metadata isn't echoed back.
-  // (resolveGymId then no-ops harmlessly for any unrelated account-level plan.)
+  // Charges without a unique gym mapping remain in the repair queue; they
+  // must never be silently acknowledged as fulfilled.
   return str((data.plan as Json)?.plan_code) !== null;
 }
 
@@ -61,14 +62,15 @@ async function gymIdByColumn(admin: Admin, column: 'paystack_subscription_code' 
   // subscription_code should be unique. customer_code is explicitly NOT: a
   // multi-gym owner may reuse one Paystack customer. Never choose the first row
   // in an ambiguous set and apply money/state to the wrong tenant.
-  const { data } = await admin.from('gyms').select('id').eq(column, value).limit(2);
+  const { data, error } = await admin.from('gyms').select('id').eq(column, value).limit(2);
+  // PostgREST returns failures in-band. Treating a failed lookup as "no gym"
+  // would dead-letter a valid charge or allow an unverified metadata fallback.
+  if (error) throw new Error('Platform gym mapping lookup failed');
   return data?.length === 1 ? data[0].id : null;
 }
 
-// Resolve the gym a Paystack event refers to: prefer the gym_id we stamped into
-// the init metadata, then the UNIQUE subscription code, and only as a last resort
-// the (possibly shared) customer code. Recurring charges and subscription.* events
-// don't carry our metadata, so the codes are the fallback.
+// Resolve the gym using unique provider mappings, checking any metadata for
+// conflicts. Metadata is a fallback only after successful mapping reads.
 async function resolveGymId(admin: Admin, hints: { metaGymId?: string | null; subscriptionCode?: string | null; customerCode?: string | null }): Promise<string | null> {
   let subscriptionGym: string | null = null;
   if (hints.subscriptionCode) {
@@ -85,7 +87,8 @@ async function resolveGymId(admin: Admin, hints: { metaGymId?: string | null; su
   if (subscriptionGym && customerGym && subscriptionGym !== customerGym) return null;
   if (mapped) return mapped;
   if (!hints.metaGymId) return null;
-  const { data } = await admin.from('gyms').select('id').eq('id', hints.metaGymId).limit(1);
+  const { data, error } = await admin.from('gyms').select('id').eq('id', hints.metaGymId).limit(1);
+  if (error) throw new Error('Platform gym mapping lookup failed');
   return data?.length === 1 ? data[0].id : null;
 }
 
@@ -319,7 +322,8 @@ async function onSubscriptionCreate(admin: Admin, data: Json): Promise<PlatformR
   // setStatusBySubscription. The new code takes the column in fulfillCharge,
   // where a settled charge proves it.
   if (subscriptionCode) {
-    const { data: gym } = await admin.from('gyms').select('paystack_subscription_code').eq('id', gymId).maybeSingle();
+    const { data: gym, error } = await admin.from('gyms').select('paystack_subscription_code').eq('id', gymId).maybeSingle();
+    if (error || !gym) return { ok: false, handled: true, error: 'Platform subscription state unavailable' };
     if (!gym?.paystack_subscription_code) patch.paystack_subscription_code = subscriptionCode;
   }
   if (customerCode) patch.paystack_customer_code = customerCode;
@@ -340,7 +344,8 @@ async function setStatusBySubscription(admin: Admin, data: Json, status: 'past_d
   // subscription (a delayed retry or a replayed capture) and must not demote
   // the gym's current, paid state. Events without a code (rare) pass through.
   if (subscriptionCode) {
-    const { data: gym } = await admin.from('gyms').select('paystack_subscription_code').eq('id', gymId).maybeSingle();
+    const { data: gym, error } = await admin.from('gyms').select('paystack_subscription_code').eq('id', gymId).maybeSingle();
+    if (error || !gym) return { ok: false, handled: true, error: 'Platform subscription state unavailable' };
     const current = gym?.paystack_subscription_code ?? null;
     if (current && current !== subscriptionCode) return { ok: true, handled: true };
   }
