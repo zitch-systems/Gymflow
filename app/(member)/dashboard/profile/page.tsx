@@ -16,13 +16,15 @@ export default async function ProfilePage() {
   const [{ user, gym, link }, profile] = await Promise.all([requireMember(), getProfile()]);
   const supabase = await createClient();
 
-  const [{ count: visits }, { count: classes }, { data: sub }, { count: unread }] = await Promise.all([
+  const results = await Promise.all([
     supabase.from('check_ins').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id),
     supabase.from('class_bookings').select('id', { count: 'exact', head: true }).eq('member_id', user.id).eq('gym_id', gym.id).eq('status', 'attended'),
     supabase.from('member_subscriptions').select('id, status, end_date, auto_debit_enabled, paystack_subscription_code').eq('member_id', user.id).eq('gym_id', gym.id)
       .in('status', ['active', 'pause_requested', 'paused', 'past_due']).order('end_date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_read', false),
   ]);
+  if (results.some((result) => result.error)) throw new Error('Your profile could not be loaded. Please try again.');
+  const [{ count: visits }, { count: classes }, { data: sub }, { count: unread }] = results;
   const freezeStatus = sub?.status === 'active' || sub?.status === 'pause_requested' || sub?.status === 'paused' ? sub.status : null;
   const freezeEnabled = (gym as { member_freeze_enabled?: boolean }).member_freeze_enabled !== false;
   const subEndDate = sub?.end_date ?? null;

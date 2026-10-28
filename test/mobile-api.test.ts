@@ -173,7 +173,7 @@ const MEMBER_ACTIONS = [
   'lib/actions/checkin.ts',
   'lib/actions/renew.ts',
   'lib/actions/booking.ts',
-  'lib/actions/member-billing.ts',
+  'lib/member-auto-renew-core.ts',
 ];
 
 describe('member surfaces are gated on the gym plan', () => {

@@ -2,6 +2,7 @@ import { dataUnavailable, requireApiMember, json, corsPreflight } from '@/lib/ap
 import { daysLeft, watDateISO } from '@/lib/format';
 import { membershipDisplayState } from '@/lib/membership-display';
 import { offersTrainer, trainerAddonPrice, planTotalPrice } from '@/lib/plan-addon';
+import { planIntervalFor } from '@/lib/paystack';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
         .select('id, name, price, duration_days, duration_months, description, trainer_addon_enabled, trainer_addon_price')
         .eq('gym_id', gym.id).eq('is_active', true).order('price', { ascending: true }),
       supabase.from('member_subscriptions')
-        .select('start_date, end_date, plan_id, status, membership_plans(name)')
+        .select('start_date, end_date, plan_id, status, auto_debit_enabled, membership_plans(name)')
         .eq('member_id', user.id).eq('gym_id', gym.id).in('status', ['active', 'past_due', 'paused', 'pause_requested'])
         .order('end_date', { ascending: false }).limit(1).maybeSingle(),
     ]);
@@ -52,6 +53,7 @@ export async function GET(req: Request) {
         description: p.description,
         duration_days: p.duration_days,
         duration_months: p.duration_months,
+        auto_renew_available: Boolean(planIntervalFor(p.duration_days, p.duration_months)),
         trainer_addon: offersTrainer(p)
           ? { available: true, price: trainerAddonPrice(p), total_with_trainer: planTotalPrice(p, true) }
           : { available: false, price: 0, total_with_trainer: Number(p.price ?? 0) },
@@ -65,6 +67,7 @@ export async function GET(req: Request) {
             end_date: sub.end_date,
             days_left: remaining,
             display_state: displayState,
+            auto_renew: sub.auto_debit_enabled === true,
           }
         : null,
     });

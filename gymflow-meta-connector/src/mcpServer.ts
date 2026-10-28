@@ -19,6 +19,8 @@ export function buildMcpServer(config: Config, requestMeta: RequestMeta): McpSer
     { name: 'gymflow-meta-connector', version: '1.0.0' },
     {
       capabilities: { tools: {} },
+      // Bound validation work independently of the 256 KB HTTP body cap.
+      maxToolInputElements: 10_000,
       instructions:
         'Configuration, messaging, and analytics tools for the GymFlow WhatsApp Cloud API and ' +
         'Meta Business API. No customer data (PINs, biometrics, balances, transactions, ' +

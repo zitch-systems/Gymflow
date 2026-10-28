@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { extractMessages, extractStatuses, verifyMetaSignature } from '@/lib/whatsapp/inbound';
 import { handleInboundMessage } from '@/lib/whatsapp/router';
 import { captureServerEvent } from '@/lib/server-error';
+import { applyDeliveryStatus } from '@/lib/whatsapp/delivery-status';
 
 // Meta's inbound webhook for the WhatsApp Cloud API.
 // Rebuild this route after changing webhook or Supabase environment variables.
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(raw) as Record<string, unknown>;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Invalid envelope');
   } catch {
     return NextResponse.json({ error: 'Malformed payload.' }, { status: 400 });
   }
@@ -75,11 +77,7 @@ export async function POST(req: NextRequest) {
   // "delivered" is not worth a retry storm.
   for (const status of statuses) {
     try {
-      await admin
-        .from('whatsapp_messages')
-        .update({ status: status.status, ...(status.errorTitle ? { error: status.errorTitle } : {}) })
-        .eq('wa_message_id', status.messageId)
-        .eq('direction', 'outbound');
+      await applyDeliveryStatus(admin, status);
     } catch (e) {
       // Still best-effort — a delivery receipt is not worth failing the
       // webhook over — but no longer invisible. A tenant-wide auth or schema

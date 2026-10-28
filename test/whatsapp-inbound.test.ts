@@ -22,6 +22,11 @@ describe('verifyMetaSignature', () => {
   it('rejects a signature of the right shape but the wrong length', () => {
     expect(verifyMetaSignature('{}', 'sha256=aabb', SECRET)).toBe(false);
   });
+  it('rejects valid digest prefixes followed by extra or non-hex data', () => {
+    for (const suffix of ['gg', '00', ' ', '\n']) {
+      expect(verifyMetaSignature('{}', `${sign('{}')}${suffix}`, SECRET)).toBe(false);
+    }
+  });
   it('rejects every request when no app secret is configured', () => {
     expect(verifyMetaSignature('{}', null, undefined)).toBe(false);
     expect(verifyMetaSignature('{}', 'sha256=aabb', undefined)).toBe(false);
@@ -43,6 +48,18 @@ function envelope(message: Record<string, unknown>, contacts?: unknown) {
 }
 
 describe('extractMessages', () => {
+  it('ignores malformed nested records without dropping a valid neighbour', () => {
+    const payload = envelope({ id: 'valid', from: '234', type: 'text', text: { body: 'menu' } });
+    const value = payload.entry[0].changes[0].value;
+    const malformed = { entry: [null, 42, [], { changes: [null, 'bad', { value: null }, { value: { ...value, contacts: [null, []], messages: [null, [], 7, ...value.messages] } }] }] };
+    expect(extractMessages(malformed)).toHaveLength(1);
+    expect(extractMessages(malformed)[0].messageId).toBe('valid');
+    expect(extractStatuses({ entry: [null, { changes: [null, { value: { statuses: [null, [], { id: 'valid', status: 'sent', errors: [null] }] } }] }] })).toEqual([{ messageId: 'valid', status: 'sent', recipientId: null, errorTitle: null }]);
+  });
+  it('does not treat arrays as Flow response objects', () => {
+    const [msg] = extractMessages(envelope({ from: '234', type: 'interactive', interactive: { type: 'nfm_reply', nfm_reply: { response_json: '[]' } } }));
+    expect(msg.flowResponse).toBeNull();
+  });
   it('reads a plain text message and the sender profile name', () => {
     const [msg] = extractMessages(envelope(
       { id: 'wamid.1', from: '2348031234567', type: 'text', text: { body: 'menu' } },

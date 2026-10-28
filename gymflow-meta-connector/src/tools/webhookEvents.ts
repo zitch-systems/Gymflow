@@ -31,7 +31,7 @@ interface SubscribedAppsResponse {
 export interface WebhookEventsResult {
   wabaId: string;
   configuredEventTypes: string[];
-  perApp: Array<{ appName: string | undefined; fields: string[] }>;
+  perApp: Array<{ appName: string | undefined; fields: string[]; fieldsReported: boolean }>;
   note: string;
 }
 
@@ -53,10 +53,11 @@ export async function inspectWebhookEvents(
     perApp: apps.map((app) => ({
       appName: app.whatsapp_business_api_data?.name,
       fields: app.subscribed_fields ?? [],
+      fieldsReported: Array.isArray(app.subscribed_fields),
     })),
     note:
-      'This reflects current webhook SUBSCRIPTION CONFIGURATION (which event types are ' +
-      'enabled), not a historical log of past webhook deliveries — Meta\'s Graph API does not ' +
-      'expose the latter.',
+      'These are only event fields reported by the WABA subscribed_apps endpoint. ' +
+      'When fieldsReported is false, event configuration is unknown, not disabled. ' +
+      'Verify app-level subscriptions separately. This is not a historical log of webhook deliveries.',
   };
 }

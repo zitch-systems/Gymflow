@@ -8,6 +8,8 @@ const probes = [
   { path: '/account/delete', method: 'GET', status: 200, html: true },
   { path: '/api/app/account-deletion', method: 'GET', status: 401 },
   { path: '/api/app/profile', method: 'GET', status: 401 },
+  { path: '/api/app/membership', method: 'GET', status: 401 },
+  { path: '/api/app/membership', method: 'POST', status: 401, body: '{}' },
   { path: '/api/app/waiver', method: 'GET', status: 401 },
   { path: '/api/app/waiver', method: 'POST', status: 401, body: '{}' },
   { path: '/api/app/session', method: 'POST', status: 400, body: '{}' },

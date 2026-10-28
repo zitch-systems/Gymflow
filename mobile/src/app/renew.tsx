@@ -65,6 +65,7 @@ export default function RenewScreen() {
 
   const [selected, setSelected] = useState<string | null>(null);
   const [withTrainer, setWithTrainer] = useState(false);
+  const [autoRenew, setAutoRenew] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone: 'danger' | 'success' | 'warning' } | null>(null);
 
@@ -72,12 +73,13 @@ export default function RenewScreen() {
   const chosen = plans.find((p) => p.id === selected) ?? null;
   const trainerOn = withTrainer && Boolean(chosen?.trainer_addon.available);
   const total = chosen ? (trainerOn ? chosen.trainer_addon.total_with_trainer : chosen.price) : 0;
+  const recurring = autoRenew && chosen?.auto_renew_available === true && data?.current?.auto_renew !== true;
 
   // Plain function, not useCallback: the React Compiler memoizes this itself,
   // and a hand-written dependency list on a value derived from `plans` only
   // gets in its way.
   const pay = async () => {
-    if (!chosen || actionLock.current) return;
+    if (!chosen || stale || actionLock.current) return;
     actionLock.current = true;
     const beforePayment = membershipVersion(data);
     setBusy(true);
@@ -86,6 +88,8 @@ export default function RenewScreen() {
       const res = await api.post<{ ok: boolean; authorization_url: string; reference: string | null }>('/api/app/renew', {
         plan_id: chosen.id,
         with_trainer: trainerOn,
+        auto_renew: recurring,
+        auto_renew_confirmed: recurring,
       });
 
       if (!mounted.current) return;
@@ -105,7 +109,7 @@ export default function RenewScreen() {
         // The callback verifies the charge, but fulfilment may still be queued.
         // Poll the authoritative plans payload and only claim an update once it
         // actually changes. The webhook remains the fallback after this window.
-        setNotice({ message: 'Payment verified. Confirming your membership update…', tone: 'warning' });
+        setNotice({ message: 'Checkout returned. Checking your membership update…', tone: 'warning' });
         let updated = false;
         for (let attempt = 0; attempt < 4; attempt += 1) {
           if (attempt > 0) await wait(1500);
@@ -124,8 +128,8 @@ export default function RenewScreen() {
           }
         }
         setNotice(updated
-          ? { message: 'Your payment is confirmed and your membership is updated.', tone: 'success' }
-          : { message: 'Payment confirmed. Your membership update is still processing; refresh again shortly.', tone: 'warning' });
+          ? { message: 'Your membership is updated.', tone: 'success' }
+          : { message: 'Your membership update has not been confirmed yet. Refresh shortly before trying another payment.', tone: 'warning' });
       } else if (result.type === 'success') {
         // Treat malformed or mismatched callbacks as unverified. A webhook can
         // still settle a real charge, so don't tell the member to pay twice.
@@ -178,10 +182,10 @@ export default function RenewScreen() {
             </View>
           ) : null}
           <Button
-            label={chosen ? `Pay ${naira(total)}` : 'Choose a plan'}
+            label={chosen ? recurring ? `Start auto-renew · ${naira(total)}` : `Pay ${naira(total)}` : 'Choose a plan'}
             onPress={pay}
             loading={busy}
-            disabled={!chosen}
+            disabled={!chosen || stale}
           />
           <Body tone="muted" size={11} style={{ textAlign: 'center', marginTop: space.sm }}>
             Secured by Paystack. Your card details never touch this app.
@@ -211,8 +215,8 @@ export default function RenewScreen() {
           return (
             <Pressable
               key={p.id}
-              disabled={busy}
-              onPress={() => { setSelected(p.id); setWithTrainer(false); }}
+              disabled={busy || stale}
+              onPress={() => { setSelected(p.id); setWithTrainer(false); setAutoRenew(false); }}
               accessibilityRole="radio"
               accessibilityLabel={`${p.name}, ${naira(p.price)}, ${planPeriod(p)}`}
               accessibilityState={{ selected: on, disabled: busy }}
@@ -247,8 +251,8 @@ export default function RenewScreen() {
                     </View>
                     <Switch
                       value={withTrainer}
-                      disabled={busy}
-                      onValueChange={setWithTrainer}
+                      disabled={busy || stale}
+                      onValueChange={(value) => { setWithTrainer(value); setAutoRenew(false); }}
                       trackColor={{ false: c.elevated, true: c.brandSoft }}
                       thumbColor={withTrainer ? c.brand : c.textMuted}
                       accessibilityLabel="Add a private trainer"
@@ -261,6 +265,27 @@ export default function RenewScreen() {
           );
         })}
       </View>
+
+      {chosen?.auto_renew_available && !current?.auto_renew ? (
+        <Card style={{ marginTop: space.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+            <View style={{ flex: 1 }}>
+              <Body weight="700">Automatic renewal (optional)</Body>
+              <Body tone="secondary" size={12} style={{ marginTop: space.sm, lineHeight: 19 }}>
+                I agree to pay {naira(total)} now and automatically every {planPeriod(chosen)} until I turn it off in Manage membership. Leave this off for a one-time payment.
+              </Body>
+            </View>
+            <Switch value={recurring} disabled={busy || stale} onValueChange={setAutoRenew}
+              accessibilityLabel="Agree to automatic renewal" accessibilityState={{ checked: recurring }}
+              trackColor={{ false: c.elevated, true: c.brandSoft }} thumbColor={recurring ? c.brand : c.textMuted} />
+          </View>
+        </Card>
+      ) : current?.auto_renew ? (
+        <View style={{ marginTop: space.lg }}>
+          <Body tone="secondary">Automatic renewal is already on. Turn it off before starting a new mandate.</Body>
+          <Button label="Manage automatic renewal" variant="secondary" onPress={() => router.push('/membership')} disabled={busy} style={{ marginTop: space.sm }} />
+        </View>
+      ) : null}
 
       <View style={styles.reassurance}>
         <Ionicons name="lock-closed-outline" size={14} color={c.textMuted} />

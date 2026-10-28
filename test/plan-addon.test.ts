@@ -176,7 +176,7 @@ describe('a price edit invalidates the cached Paystack Plan', () => {
     // If a second place started caching a code it would need this invalidation
     // too — and would not have it. lib/database.types.ts is the generated
     // column list, not a writer.
-    const writers = new Set(['lib/actions/admin-class.ts', 'lib/actions/member-billing.ts', 'lib/database.types.ts']);
+    const writers = new Set(['lib/actions/admin-class.ts', 'lib/member-auto-renew-core.ts', 'lib/database.types.ts']);
     for (const file of sourceFiles('lib').concat(sourceFiles('app'), sourceFiles('components'))) {
       if (writers.has(file)) continue;
       expect(readFileSync(resolve(__dirname, '..', file), 'utf8'), `${file} writes a cached plan code`)

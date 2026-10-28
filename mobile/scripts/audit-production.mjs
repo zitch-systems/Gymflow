@@ -1,37 +1,23 @@
 import { spawnSync } from 'node:child_process';
 
-// These are the only advisories left in Expo SDK 57 / React Native 0.86's
-// locked production graph. Both affected leaf packages are reached through
-// Expo/Metro build tooling and have no patched npm release yet (braces 3.0.3
-// and node-forge 1.4.0). The Android bundle audit separately proves they are
-// absent from the shipped JavaScript bundle.
-// Keep this narrow: a new advisory, package chain, or critical severity must
-// fail CI even though npm exits non-zero for the explicitly reviewed findings.
+// Reviewed on 2026-10-28: node-forge and deepmerge have no patched release.
+// They run in Expo's Node build tooling, never in the app. The bundle audit
+// rejects either package (and Zod) in shipped source maps. New advisories,
+// package chains, or severity changes still fail this check.
 const reviewedPackages = new Map([
-  ['@expo/cli', 'high'],
-  ['@expo/code-signing-certificates', 'high'],
-  ['@expo/metro', 'high'],
-  ['@expo/metro-config', 'high'],
-  ['@expo/metro-file-map', 'high'],
-  ['@react-native/community-cli-plugin', 'high'],
-  ['@react-native/metro-config', 'high'],
-  ['@react-native/virtualized-lists', 'high'],
-  ['braces', 'high'],
-  ['expo', 'high'],
-  ['metro', 'high'],
-  ['metro-config', 'high'],
-  ['metro-file-map', 'high'],
-  ['metro-transform-worker', 'high'],
-  ['micromatch', 'high'],
+  ['@expo/cli', 'low'],
+  ['expo', 'low'],
   ['node-forge', 'high'],
-  ['react-native', 'high'],
-  ['react-native-reanimated', 'high'],
-  ['react-native-worklets', 'high'],
+  ['@expo/config', 'low'],
+  ['@expo/local-build-cache-provider', 'low'],
+  ['@expo/metro-config', 'low'],
+  ['@expo/prebuild-config', 'low'],
+  ['deepmerge', 'low'],
 ]);
 
 const reviewedDirectAdvisories = new Set([
   'https://github.com/advisories/GHSA-86w9-cpqp-85rv',
-  'https://github.com/advisories/GHSA-vfj7-8cjw-p6xm',
+  'https://github.com/advisories/GHSA-gcqx-w48m-w2h4',
 ]);
 
 const result = spawnSync('npm', ['audit', '--omit=dev', '--json'], {
@@ -83,6 +69,6 @@ if (unexpected.length > 0) {
 
 console.log(
   `UNRESOLVED reviewed production audit: ${vulnerabilities.high ?? 0} high, ` +
-    `${vulnerabilities.moderate ?? 0} moderate, 0 critical across ` +
+    `${vulnerabilities.moderate ?? 0} moderate, ${vulnerabilities.low ?? 0} low, 0 critical across ` +
     `${Object.keys(findings).length} package-chain findings.`,
 );
