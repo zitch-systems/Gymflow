@@ -22,6 +22,7 @@ const excludedBuildPackages = [
   '/node_modules/@expo/code-signing-certificates/',
   '/node_modules/braces/',
   '/node_modules/deepmerge/',
+  '/vendor/deepmerge-secure/',
   '/node_modules/zod/',
   '/node_modules/image-size/',
   '/node_modules/node-forge/',
